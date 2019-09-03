@@ -71,6 +71,8 @@ private:
     bool completeLoading(KoStore *store);
 
     void setProgress(int progress);
+    void setProgress(QPointer<KoUpdater> updater, int progress);
+    bool progressReporting();
 
     KisDocument *m_doc {0};
     KisImageSP m_image;

@@ -116,7 +116,32 @@ QList<KisPaintingAssistantSP> KraConverter::assistants()
 
 KisImportExportErrorCode KraConverter::buildFile(QIODevice *io, const QString &filename)
 {
-    setProgress(0);
+
+    ENTER_FUNCTION() << ppVar(m_updater.isNull()? "(null)" : m_updater->objectName());
+    setProgress(10);
+
+    QPointer<KoProgressUpdater> progressUpdater;
+    QPointer<KoUpdater> metadataUpdater;
+    QPointer<KoUpdater> framesUpdater;
+    QPointer<KoUpdater> binaryUpdater;
+    QPointer<KoUpdater> originalUpdater = m_updater;
+
+    if (progressReporting()) {
+        progressUpdater = new KoProgressUpdater(dynamic_cast<KoProgressProxy*>(m_updater.data()), KoProgressUpdater::Threaded);
+        progressUpdater->start(100, i18n("Saving .kra in Progress Updater"));
+        progressUpdater->setUpdateInterval(10);
+
+        metadataUpdater = progressUpdater->startSubtask(10, i18n("Saving metadata.."));
+        metadataUpdater->setObjectName("metadataUpdater");
+        framesUpdater = progressUpdater->startSubtask(40, i18n("Saving frames..."));
+        framesUpdater->setObjectName("framesUpdater");
+        binaryUpdater = progressUpdater->startSubtask(40, i18n("Saving binary..."));
+        binaryUpdater->setObjectName("binaryUpdater");
+    }
+
+    metadataUpdater->setProgress(100);
+    binaryUpdater->setProgress(100);
+
     m_store = KoStore::createStore(io, KoStore::Write, m_doc->nativeFormatMimeType(), KoStore::Zip);
     //m_doc->importExportManager->
 
@@ -125,7 +150,7 @@ KisImportExportErrorCode KraConverter::buildFile(QIODevice *io, const QString &f
         return ImportExportCodes::CannotCreateFile;
     }
 
-    setProgress(10);
+    setProgress(metadataUpdater, 10);
 
     m_kraSaver = new KisKraSaver(m_doc, filename);
 
@@ -135,25 +160,36 @@ KisImportExportErrorCode KraConverter::buildFile(QIODevice *io, const QString &f
         return resultCode;
     }
 
-    setProgress(40);
+    setProgress(metadataUpdater, 40);
     bool result;
 
+    setProgress(framesUpdater, 0);
     result = m_kraSaver->saveKeyframes(m_store, m_doc->url().toLocalFile(), true);
     if (!result) {
         qWarning() << "saving key frames failed";
     }
-    setProgress(60);
+    setProgress(framesUpdater, 100);
+    //setProgress(60);
+
+
+    setProgress(binaryUpdater, 0);
     result = m_kraSaver->saveBinaryData(m_store, m_image, m_doc->url().toLocalFile(), true, m_doc->isAutosaving());
     if (!result) {
         qWarning() << "saving binary data failed";
     }
-    setProgress(70);
+
+    //setProgress(20);
+
+    setProgress(binaryUpdater, 100);
+
+
     result = m_kraSaver->savePalettes(m_store, m_image, m_doc->url().toLocalFile());
     if (!result) {
         qWarning() << "saving palettes data failed";
     }
 
-    setProgress(80);
+    setProgress(metadataUpdater, 80);
+
     if (!m_store->finalize()) {
         return ImportExportCodes::Failure;
     }
@@ -162,7 +198,8 @@ KisImportExportErrorCode KraConverter::buildFile(QIODevice *io, const QString &f
         m_doc->setErrorMessage(m_kraSaver->errorMessages().join(".\n"));
         return ImportExportCodes::Failure;
     }
-    setProgress(90);
+
+    setProgress(metadataUpdater, 100);
     return ImportExportCodes::OK;
 }
 
@@ -404,5 +441,19 @@ void KraConverter::setProgress(int progress)
     if (m_updater) {
         m_updater->setProgress(progress);
     }
+}
+
+void KraConverter::setProgress(QPointer<KoUpdater> updater, int progress)
+{
+    if (updater) {
+        ENTER_FUNCTION() << ppVar(updater->objectName())<< ppVar(progress);
+        updater->setProgress(progress);
+    }
+}
+
+bool KraConverter::progressReporting()
+{
+    //return false;
+    return !m_updater.isNull();
 }
 
