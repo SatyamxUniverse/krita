@@ -46,6 +46,13 @@ KraConverter::KraConverter(KisDocument *doc)
 {
 }
 
+KraConverter::KraConverter(KisDocument *doc, QPointer<KoUpdater> updater)
+    : m_doc(doc),
+      m_image(doc->savingImage()),
+      m_updater(updater)
+{
+}
+
 KraConverter::~KraConverter()
 {
     delete m_store;
@@ -109,13 +116,16 @@ QList<KisPaintingAssistantSP> KraConverter::assistants()
 
 KisImportExportErrorCode KraConverter::buildFile(QIODevice *io, const QString &filename)
 {
+    setProgress(0);
     m_store = KoStore::createStore(io, KoStore::Write, m_doc->nativeFormatMimeType(), KoStore::Zip);
+    //m_doc->importExportManager->
 
     if (m_store->bad()) {
         m_doc->setErrorMessage(i18n("Could not create the file for saving"));
         return ImportExportCodes::CannotCreateFile;
     }
 
+    setProgress(10);
 
     m_kraSaver = new KisKraSaver(m_doc, filename);
 
@@ -125,21 +135,25 @@ KisImportExportErrorCode KraConverter::buildFile(QIODevice *io, const QString &f
         return resultCode;
     }
 
+    setProgress(40);
     bool result;
 
     result = m_kraSaver->saveKeyframes(m_store, m_doc->url().toLocalFile(), true);
     if (!result) {
         qWarning() << "saving key frames failed";
     }
+    setProgress(60);
     result = m_kraSaver->saveBinaryData(m_store, m_image, m_doc->url().toLocalFile(), true, m_doc->isAutosaving());
     if (!result) {
         qWarning() << "saving binary data failed";
     }
+    setProgress(70);
     result = m_kraSaver->savePalettes(m_store, m_image, m_doc->url().toLocalFile());
     if (!result) {
         qWarning() << "saving palettes data failed";
     }
 
+    setProgress(80);
     if (!m_store->finalize()) {
         return ImportExportCodes::Failure;
     }
@@ -148,6 +162,7 @@ KisImportExportErrorCode KraConverter::buildFile(QIODevice *io, const QString &f
         m_doc->setErrorMessage(m_kraSaver->errorMessages().join(".\n"));
         return ImportExportCodes::Failure;
     }
+    setProgress(90);
     return ImportExportCodes::OK;
 }
 
@@ -384,4 +399,10 @@ void KraConverter::cancel()
     m_stop = true;
 }
 
+void KraConverter::setProgress(int progress)
+{
+    if (m_updater) {
+        m_updater->setProgress(progress);
+    }
+}
 

@@ -234,6 +234,7 @@ KisImportExportFilter *KisImportExportManager::filterForMimeType(const QString &
                 f->setObjectName(loader->fileName());
                 weight = w;
             }
+
         }
     }
     qDeleteAll(list);
