@@ -282,6 +282,8 @@ set(kritaui_LIB_SRCS
     utils/KisSpinBoxSplineUnitConverter.cpp
     utils/KisClipboardUtil.cpp
     utils/KisDitherUtil.cpp
+    utils/KisUpdaterWrapper.cpp
+    utils/KisUpdaterWrapperSubtask.cpp
 
     input/kis_input_manager.cpp
     input/kis_input_manager_p.cpp
