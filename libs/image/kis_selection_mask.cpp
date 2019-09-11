@@ -180,6 +180,11 @@ bool KisSelectionMask::accept(KisNodeVisitor &v)
     return v.visit(this);
 }
 
+bool KisSelectionMask::isPropertiesEditable() const
+{
+  return false;
+}
+
 void KisSelectionMask::accept(KisProcessingVisitor &visitor, KisUndoAdapter *undoAdapter)
 {
     return visitor.visit(this, undoAdapter);

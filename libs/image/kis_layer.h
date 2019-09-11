@@ -102,6 +102,11 @@ public:
     virtual bool needProjection() const;
 
     /**
+     * Return true if the current layer style can be edited
+     */
+    virtual bool isLayerStyleEditable() const;
+
+    /**
      * Return the fully rendered representation of this layer: its
      * data and its effect masks
      */

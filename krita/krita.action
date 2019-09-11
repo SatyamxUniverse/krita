@@ -3551,7 +3551,7 @@
       <toolTip>Layer Style</toolTip>
       <iconText>Layer Style</iconText>
       <activationFlags>100000</activationFlags>
-      <activationConditions>1</activationConditions>
+      <activationConditions>100001</activationConditions>
       <shortcut></shortcut>
       <isCheckable>false</isCheckable>
       <statusTip></statusTip>
@@ -3631,7 +3631,7 @@
       <toolTip>Properties</toolTip>
       <iconText>Properties</iconText>
       <activationFlags>1000</activationFlags>
-      <activationConditions>1</activationConditions>
+      <activationConditions>10001</activationConditions>
       <shortcut>F3</shortcut>
       <isCheckable>false</isCheckable>
       <statusTip></statusTip>

@@ -56,6 +56,8 @@ public:
     bool accept(KisNodeVisitor &v) override;
     void accept(KisProcessingVisitor &visitor, KisUndoAdapter *undoAdapter) override;
 
+    bool isPropertiesEditable() const override;
+
     KisBaseNode::PropertyList sectionModelProperties() const override;
     void setSectionModelProperties(const KisBaseNode::PropertyList &properties) override;
 

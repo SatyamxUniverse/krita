@@ -257,13 +257,20 @@ void KisActionManager::updateGUI()
             flags |= KisAction::ACTIVE_TRANSPARENCY_MASK;
         }
 
-
         if (layer && layer->inherits("KisShapeLayer")) {
             flags |= KisAction::ACTIVE_SHAPE_LAYER;
         }
 
         if (KisClipboard::instance()->hasLayers()) {
             flags |= KisAction::LAYERS_IN_CLIPBOARD;
+        }
+
+        if (node->isPropertiesEditable()) {
+            conditions|= KisAction::PROPERTIES_EDITABLE;
+        }
+
+        if (layer && layer->isLayerStyleEditable()) {
+            conditions |= KisAction::LAYER_STYLE_EDITABLE;
         }
 
         if (selectionManager) {

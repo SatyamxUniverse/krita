@@ -136,7 +136,12 @@ KisPaintDeviceSP KisCloneLayer::original() const
 
 bool KisCloneLayer::needProjection() const
 {
-return m_d->offset.x() || m_d->offset.y();
+  return m_d->offset.x() || m_d->offset.y();
+}
+
+bool KisCloneLayer::isLayerStyleEditable() const
+{
+  return false;
 }
 
 void KisCloneLayer::copyOriginalToProjection(const KisPaintDeviceSP original,

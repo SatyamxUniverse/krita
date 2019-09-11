@@ -70,6 +70,7 @@ public:
     KisPaintDeviceSP original() const override;
     KisPaintDeviceSP paintDevice() const override;
     bool needProjection() const override;
+    bool isLayerStyleEditable() const override;
 
     QIcon icon() const override;
     KisBaseNode::PropertyList sectionModelProperties() const override;

@@ -95,6 +95,12 @@ public:
     void accept(KisProcessingVisitor &visitor, KisUndoAdapter *undoAdapter) override;
 
     /**
+     * Return true if the node properties are editable
+     */
+    virtual bool isPropertiesEditable() const;
+
+
+    /**
      * Re-implement this method to add constraints for the
      * subclasses that can be added as children to this node
      *

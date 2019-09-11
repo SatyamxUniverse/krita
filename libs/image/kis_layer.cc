@@ -80,6 +80,15 @@ public:
         }
     }
 
+    void setLayerStyle(KisPSDLayerStyleSP layerStyle)
+    {
+        Q_FOREACH (KisCloneLayerSP clone, m_clonesList) {
+            if (clone) {
+                clone->setLayerStyle(layerStyle);
+            }
+        }
+    }
+
     const QList<KisCloneLayerWSP> registeredClones() const {
         return m_clonesList;
     }
@@ -280,6 +289,9 @@ void KisLayer::setLayerStyle(KisPSDLayerStyleSP layerStyle)
         m_d->layerStyleProjectionPlane.clear();
         m_d->layerStyle.clear();
     }
+
+    // Update clones
+    m_d->clonesList.setLayerStyle(layerStyle);
 }
 
 KisBaseNode::PropertyList KisLayer::sectionModelProperties() const
@@ -781,6 +793,11 @@ void KisLayer::buildProjectionUpToNode(KisPaintDeviceSP projection, KisNodeSP la
 bool KisLayer::needProjection() const
 {
     return false;
+}
+
+bool KisLayer::isLayerStyleEditable() const
+{
+  return true;
 }
 
 void KisLayer::copyOriginalToProjection(const KisPaintDeviceSP original,

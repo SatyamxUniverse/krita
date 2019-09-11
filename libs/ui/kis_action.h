@@ -51,34 +51,36 @@ public:
      * krita.action and kritamenu.action!
      */
     enum ActivationFlag {
-        NONE                        = 0x0000, ///< Always activate
-        ACTIVE_IMAGE                = 0x0001, ///< Activate if there is at least one image
-        MULTIPLE_IMAGES             = 0x0002, ///< Activate if there is more than one image open
-        CURRENT_IMAGE_MODIFIED      = 0x0004, ///< Activate if the current image is modified
-        ACTIVE_NODE                 = 0x0008, ///< Activate if there's an active node (layer or mask)
-        ACTIVE_DEVICE               = 0x0010, ///< Activate if the active node has a paint device, i.e. there are pixels to be modified
-        ACTIVE_LAYER                = 0x0020, ///< Activate if the current node is a layer (vector or pixel)
-        ACTIVE_TRANSPARENCY_MASK    = 0x0040, ///< Activate if the current node is a transparency mask
-        ACTIVE_SHAPE_LAYER          = 0x0080, ///< Activate if the current node is a vector layer
-        PIXELS_SELECTED             = 0x0100, ///< Activate if any pixels are selected (with any kind of selection)
-        SHAPES_SELECTED             = 0x0200, ///< Activate if any vector shape is selected
-        ANY_SELECTION_WITH_PIXELS   = 0x0400, ///< ???
-        PIXELS_IN_CLIPBOARD         = 0x0800, ///< Activate if the clipboard contains pixels
-        SHAPES_IN_CLIPBOARD         = 0x1000, ///< Activate if the clipboard contains vector data
-        NEVER_ACTIVATE              = 0x2000, ///< ???
-        LAYERS_IN_CLIPBOARD         = 0x4000, ///< ???
-        IMAGE_HAS_ANIMATION         = 0x8000, ///< Activate if the image has an animation
+        NONE                        = 0x0000,  ///< Always activate
+        ACTIVE_IMAGE                = 0x0001,  ///< Activate if there is at least one image
+        MULTIPLE_IMAGES             = 0x0002,  ///< Activate if there is more than one image open
+        CURRENT_IMAGE_MODIFIED      = 0x0004,  ///< Activate if the current image is modified
+        ACTIVE_NODE                 = 0x0008,  ///< Activate if there's an active node (layer or mask)
+        ACTIVE_DEVICE               = 0x0010,  ///< Activate if the active node has a paint device, i.e. there are pixels to be modified
+        ACTIVE_LAYER                = 0x0020,  ///< Activate if the current node is a layer (vector or pixel)
+        ACTIVE_TRANSPARENCY_MASK    = 0x0040,  ///< Activate if the current node is a transparency mask
+        ACTIVE_SHAPE_LAYER          = 0x0080,  ///< Activate if the current node is a vector layer
+        PIXELS_SELECTED             = 0x0100,  ///< Activate if any pixels are selected (with any kind of selection)
+        SHAPES_SELECTED             = 0x0200,  ///< Activate if any vector shape is selected
+        ANY_SELECTION_WITH_PIXELS   = 0x0400,  ///< ???
+        PIXELS_IN_CLIPBOARD         = 0x0800,  ///< Activate if the clipboard contains pixels
+        SHAPES_IN_CLIPBOARD         = 0x1000,  ///< Activate if the clipboard contains vector data
+        NEVER_ACTIVATE              = 0x2000,  ///< ???
+        LAYERS_IN_CLIPBOARD         = 0x4000,  ///< ???
+        IMAGE_HAS_ANIMATION         = 0x8000,  ///< Activate if the image has an animation
         SHAPE_SELECTION_WITH_SHAPES = 0x10000, ///< Activate there is a vector selection active
         PIXEL_SELECTION_WITH_PIXELS = 0x20000, ///< Activate there is a raster selection active
     };
     Q_DECLARE_FLAGS(ActivationFlags, ActivationFlag)
 
     enum ActivationCondition {
-        NO_CONDITION = 0,
-        ACTIVE_NODE_EDITABLE = 0x1,
+        NO_CONDITION                      = 0,
+        ACTIVE_NODE_EDITABLE              = 0x1,
         ACTIVE_NODE_EDITABLE_PAINT_DEVICE = 0x2,
-        SELECTION_EDITABLE = 0x4,
-        OPENGL_ENABLED = 0x8,
+        SELECTION_EDITABLE                = 0x4,
+        OPENGL_ENABLED                    = 0x8,
+        PROPERTIES_EDITABLE               = 0x10, // If properties are enabled
+        LAYER_STYLE_EDITABLE              = 0x20, // If layer style is editable
     };
     Q_DECLARE_FLAGS(ActivationConditions, ActivationCondition)
 

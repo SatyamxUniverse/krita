@@ -597,6 +597,11 @@ void KisNode::createNodeProgressProxy()
     }
 }
 
+bool KisNode::isPropertiesEditable() const
+{
+  return true;
+}
+
 void KisNode::setDirty()
 {
     setDirty(extent());
