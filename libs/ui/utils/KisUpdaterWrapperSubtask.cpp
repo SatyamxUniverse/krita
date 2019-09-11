@@ -20,6 +20,8 @@
 
 KisUpdaterWrapperSubtask::KisUpdaterWrapperSubtask(QPointer<KisUpdaterWrapper> wrapper, int weight)
     : m_wrapper(wrapper)
+    , m_stepsNumberMax(100)
+    , m_stepsNumberCurrent(0)
 {
     m_id = wrapper->registerSubtask(weight);
 }
@@ -28,4 +30,15 @@ KisUpdaterWrapperSubtask::KisUpdaterWrapperSubtask(QPointer<KisUpdaterWrapper> w
 void KisUpdaterWrapperSubtask::setProgress(int progress)
 {
     m_wrapper->setProgress(m_id, progress);
+}
+
+void KisUpdaterWrapperSubtask::setStepsNumber(int stepsNumber)
+{
+    m_stepsNumberMax = stepsNumber;
+}
+
+void KisUpdaterWrapperSubtask::nextStep()
+{
+    m_stepsNumberCurrent += 1;
+    setProgress((100*m_stepsNumberCurrent)/m_stepsNumberMax);
 }

@@ -54,7 +54,7 @@ void KisUpdaterWrapper::setProgress(int id, int progress)
         sum += info.currentProgress*info.weight;
     }
     sum /= m_weightsSum;
-    if (m_lastProgress != sum) {
+    if (m_lastProgress != sum && !m_mainUpdater.isNull()) {
         m_mainUpdater->setProgress(m_lastProgress);
     }
     m_lastProgress = sum;

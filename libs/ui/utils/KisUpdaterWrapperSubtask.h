@@ -19,6 +19,7 @@
 #define KISUPDATERWRAPPERSUBTASK_H
 
 #include <QPointer>
+#include <QObject>
 #include <kritaui_export.h>
 
 
@@ -30,7 +31,7 @@ class KisUpdaterWrapper;
  * This class represents one subtask. When the subtask progresses, setProgress()
  *    function should be called to inform the wrapper about new progress.
  */
-class KRITAUI_EXPORT KisUpdaterWrapperSubtask
+class KRITAUI_EXPORT KisUpdaterWrapperSubtask : public QObject
 {
 public:
     /**
@@ -46,6 +47,9 @@ public:
      */
     void setProgress(int progress);
 
+    void setStepsNumber(int stepsNumber);
+    void nextStep();
+
     /**
      * @brief m_wrapper pointer to the wrapper with all subtasks
      */
@@ -54,6 +58,9 @@ public:
      * @brief m_id id of the subtask in the wrapper
      */
     int m_id;
+
+    int m_stepsNumberMax;
+    int m_stepsNumberCurrent;
 };
 
 #endif // KISUPDATERWRAPPERSUBTASK_H
