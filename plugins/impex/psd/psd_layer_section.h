@@ -21,6 +21,7 @@
 #include <QString>
 
 class QIODevice;
+class KisUpdaterWrapperSubtask;
 
 #include <kis_types.h>
 
@@ -36,7 +37,7 @@ public:
     ~PSDLayerMaskSection();
 
     bool read(QIODevice* io);
-    bool write(QIODevice* io, KisNodeSP rootLayer);
+    bool write(QIODevice* io, KisNodeSP rootLayer, QPointer<KisUpdaterWrapperSubtask> updater);
 
     QString error;
 
@@ -62,7 +63,7 @@ public:
 private:
     bool readLayerInfoImpl(QIODevice* io);
     bool readImpl(QIODevice* io);
-    void writeImpl(QIODevice* io, KisNodeSP rootLayer);
+    void writeImpl(QIODevice* io, KisNodeSP rootLayer, QPointer<KisUpdaterWrapperSubtask> updater);
 private:
 
     const PSDHeader m_header;

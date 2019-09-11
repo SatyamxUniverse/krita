@@ -29,12 +29,14 @@
 #include <ImageSizeCheck.h>
 #include <KoColorSpaceRegistry.h>
 #include <KoColorSpaceConstants.h>
+#include <KoUpdater.h>
 
 #include <KisDocument.h>
 #include <kis_image.h>
 #include <kis_group_layer.h>
 #include <kis_paint_layer.h>
 #include <kis_paint_device.h>
+
 
 #include "psd_saver.h"
 
@@ -52,7 +54,7 @@ psdExport::~psdExport()
 
 KisImportExportErrorCode psdExport::convert(KisDocument *document, QIODevice *io,  KisPropertiesConfigurationSP /*configuration*/)
 {
-    PSDSaver psdSaver(document);
+    PSDSaver psdSaver(document, updater());
     return psdSaver.buildFile(io);
 }
 

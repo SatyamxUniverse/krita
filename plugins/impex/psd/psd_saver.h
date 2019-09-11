@@ -21,7 +21,7 @@
 #include <stdio.h>
 
 #include <QObject>
-
+#include <QPointer>
 #include <QFileInfo>
 
 #include "kis_types.h"
@@ -33,6 +33,7 @@ extern const int MAX_PSD_SIZE;
 
 
 class KisDocument;
+class KoUpdater;
 
 class PSDSaver : public QObject {
 
@@ -41,6 +42,7 @@ class PSDSaver : public QObject {
 public:
 
     PSDSaver(KisDocument *doc);
+    PSDSaver(KisDocument *doc, QPointer<KoUpdater> updater);
     ~PSDSaver() override;
 
 public:
@@ -54,8 +56,12 @@ public Q_SLOTS:
     virtual void cancel();
 
 private:
+    void setProgress(int progress);
+
+private:
     KisImageSP m_image;
     KisDocument *m_doc;
+    QPointer<KoUpdater> m_updater;
     bool m_stop;
 };
 

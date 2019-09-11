@@ -22,6 +22,7 @@
 #include <KoColorProfile.h>
 #include <KoCompositeOp.h>
 #include <KoUnit.h>
+#include <KoUpdater.h>
 
 #include <QFileInfo>
 
@@ -35,6 +36,9 @@
 #include <kis_paint_device.h>
 #include <kis_transaction.h>
 #include <kis_debug.h>
+#include <KisUpdaterWrapper.h>
+#include <KisUpdaterWrapperSubtask.h>
+
 
 #include "psd.h"
 #include "psd_header.h"
@@ -44,6 +48,7 @@
 #include "psd_layer_section.h"
 #include "psd_resource_block.h"
 #include "psd_image_data.h"
+
 
 
 
@@ -93,6 +98,14 @@ PSDSaver::PSDSaver(KisDocument *doc)
 {
 }
 
+PSDSaver::PSDSaver(KisDocument *doc, QPointer<KoUpdater> updater)
+    : m_image(doc->savingImage())
+    , m_doc(doc)
+    , m_updater(updater)
+    , m_stop(false)
+{
+}
+
 PSDSaver::~PSDSaver()
 {
 }
@@ -102,9 +115,21 @@ KisImageSP PSDSaver::image()
     return m_image;
 }
 
+void PSDSaver::setProgress(int progress)
+{
+    if (m_updater) {
+        m_updater->setProgress(progress);
+    }
+}
+
 KisImportExportErrorCode PSDSaver::buildFile(QIODevice *io)
 {
+    KisUpdaterWrapper wrapper(m_updater);
+    KisUpdaterWrapperSubtask layersUpdater(&wrapper, 9);
+    KisUpdaterWrapperSubtask othersUpdater(&wrapper, 1);
+
     KIS_ASSERT_RECOVER_RETURN_VALUE(m_image, ImportExportCodes::InternalError);
+    othersUpdater.setProgress(5);
 
     if (m_image->width() > MAX_PSD_SIZE || m_image->height() > MAX_PSD_SIZE) {
         return ImportExportCodes::Failure;
@@ -160,6 +185,8 @@ KisImportExportErrorCode PSDSaver::buildFile(QIODevice *io)
     // IMAGE RESOURCES SECTION
     PSDImageResourceSection resourceSection;
 
+    othersUpdater.setProgress(50);
+
     vKisAnnotationSP_it it = m_image->beginAnnotations();
     vKisAnnotationSP_it endIt = m_image->endAnnotations();
     while (it != endIt) {
@@ -182,6 +209,7 @@ KisImportExportErrorCode PSDSaver::buildFile(QIODevice *io)
 
         it++;
     }
+    othersUpdater.setProgress(60);
 
     // Add resolution block
     {
@@ -193,6 +221,7 @@ KisImportExportErrorCode PSDSaver::buildFile(QIODevice *io)
         block->resource = resInfo;
         resourceSection.resources[PSDImageResourceSection::RESN_INFO] = block;
     }
+    othersUpdater.setProgress(70);
 
     // Add icc block
     {
@@ -204,6 +233,8 @@ KisImportExportErrorCode PSDSaver::buildFile(QIODevice *io)
         resourceSection.resources[PSDImageResourceSection::ICC_PROFILE] = block;
 
     }
+    othersUpdater.setProgress(75);
+
 
 
     dbgFile << "resource section" << io->pos();
@@ -216,12 +247,14 @@ KisImportExportErrorCode PSDSaver::buildFile(QIODevice *io)
     // Only save layers and masks if there is more than one layer
     dbgFile << "m_image->rootLayer->childCount" << m_image->rootLayer()->childCount() << io->pos();
 
+    othersUpdater.setProgress(80);
+
     if (haveLayers) {
 
         PSDLayerMaskSection layerSection(header);
         layerSection.hasTransparency = true;
 
-        if (!layerSection.write(io, m_image->rootLayer())) {
+        if (!layerSection.write(io, m_image->rootLayer(), &layersUpdater)) {
             dbgFile << "failed to write layer section. Error:" << layerSection.error << io->pos();
             return ImportExportCodes::ErrorWhileWriting;
         }
@@ -232,6 +265,8 @@ KisImportExportErrorCode PSDSaver::buildFile(QIODevice *io)
         psdwrite(io, (quint32)0);
     }
 
+    othersUpdater.setProgress(85);
+
     // IMAGE DATA
     dbgFile << "Saving composited image" << io->pos();
     PSDImageData imagedata(&header);
@@ -239,7 +274,7 @@ KisImportExportErrorCode PSDSaver::buildFile(QIODevice *io)
         dbgFile << "Failed to write image data. Error:"  << imagedata.error;
         return ImportExportCodes::ErrorWhileWriting;
     }
-
+    othersUpdater.setProgress(100);
     return ImportExportCodes::OK;
 }
 

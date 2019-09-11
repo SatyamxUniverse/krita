@@ -42,6 +42,7 @@
 #include <asl/kis_asl_reader_utils.h>
 #include <kis_asl_layer_style_serializer.h>
 #include <asl/kis_asl_writer_utils.h>
+#include <KisUpdaterWrapperSubtask.h>
 
 
 PSDLayerMaskSection::PSDLayerMaskSection(const PSDHeader& header)
@@ -416,12 +417,12 @@ void mergePatternsXMLSection(const QDomDocument &src, QDomDocument &dst)
 
 }
 
-bool PSDLayerMaskSection::write(QIODevice* io, KisNodeSP rootLayer)
+bool PSDLayerMaskSection::write(QIODevice* io, KisNodeSP rootLayer, QPointer<KisUpdaterWrapperSubtask> updater)
 {
     bool retval = true;
 
     try {
-        writeImpl(io, rootLayer);
+        writeImpl(io, rootLayer, updater);
     } catch (KisAslWriterUtils::ASLWriteException &e) {
         error = PREPEND_METHOD(e.what());
         retval = false;
@@ -430,7 +431,7 @@ bool PSDLayerMaskSection::write(QIODevice* io, KisNodeSP rootLayer)
     return retval;
 }
 
-void PSDLayerMaskSection::writeImpl(QIODevice* io, KisNodeSP rootLayer)
+void PSDLayerMaskSection::writeImpl(QIODevice* io, KisNodeSP rootLayer, QPointer<KisUpdaterWrapperSubtask> updater)
 {
     dbgFile << "Writing layer layer section";
 
@@ -459,6 +460,8 @@ void PSDLayerMaskSection::writeImpl(QIODevice* io, KisNodeSP rootLayer)
             }
 
             // Layer records section
+            updater->setStepsNumber(nodes.count() + layers.count());
+
             Q_FOREACH (const FlattenedNode &item, nodes) {
                 KisNodeSP node = item.node;
 
@@ -563,6 +566,7 @@ void PSDLayerMaskSection::writeImpl(QIODevice* io, KisNodeSP rootLayer)
                                    sectionType,
                                    stylesXmlDoc,
                                    node->inherits("KisGroupLayer"));
+                updater->nextStep();
             }
 
             dbgFile << "start writing layer pixel data" << io->pos();
@@ -570,6 +574,7 @@ void PSDLayerMaskSection::writeImpl(QIODevice* io, KisNodeSP rootLayer)
             // Now save the pixel data
             Q_FOREACH (PSDLayerRecord *layerRecord, layers) {
                 layerRecord->writePixelData(io);
+                updater->nextStep();
             }
 
         }
@@ -581,5 +586,6 @@ void PSDLayerMaskSection::writeImpl(QIODevice* io, KisNodeSP rootLayer)
         }
 
         globalInfoSection.writePattBlockEx(io, mergedPatternsXmlDoc);
+        updater->setProgress(100); // shouldn't be needed
     }
 }
