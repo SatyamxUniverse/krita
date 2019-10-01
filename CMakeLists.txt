@@ -687,6 +687,14 @@ set_package_properties(SIP PROPERTIES
     PURPOSE "Required by the Krita PyQt plugin")
 macro_bool_to_01(SIP_FOUND HAVE_SIP)
 
+find_package(PILLOW "6.1.0")
+set_package_properties(PILLOW PROPERTIES
+  DESCRIPTION "Fast Python image processing library"
+  URL "https://pypi.org/project/Pillow/#files"
+  TYPE OPTIONAL
+  PURPOSE "Required by the batch exporter python add-on")
+macro_bool_to_01(PILLOW_FOUND HAVE_PIL)
+
 find_package(PyQt5 "5.6.0")
 set_package_properties(PyQt5 PROPERTIES
     DESCRIPTION "Python bindings for Qt5."

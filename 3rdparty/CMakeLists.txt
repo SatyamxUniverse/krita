@@ -204,6 +204,7 @@ add_subdirectory( ext_libraw )
 add_subdirectory( ext_frameworks )
 if (ENABLE_PYTHON_DEPS OR NOT MINGW)
 	add_subdirectory( ext_sip )
+	add_subdirectory( ext_pil )
 	add_subdirectory( ext_pyqt )
 endif ()
 
