@@ -3,7 +3,7 @@ class ManagedColor : QObject
 %TypeHeaderCode
 #include "ManagedColor.h"
 %End
-    ManagedColor(const Palette & __0);
+    ManagedColor(const ManagedColor & __0);
 public:
     ManagedColor(const QString &colorModel, const QString &colorDepth, const QString &colorProfile, QObject *parent = 0);
     bool operator==(const ManagedColor &other) const;
@@ -14,6 +14,7 @@ public:
     bool setColorProfile(const QString &colorProfile);
     bool setColorSpace(const QString &colorModel, const QString &colorDepth, const QString &colorProfile);
     QVector<float> components() const;
+    QVector<float> componentsOrdered() const;
     void setComponents(const QVector<float> &values);
     QString toXML() const;
     void fromXML(const QString &xml);

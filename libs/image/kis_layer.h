@@ -41,6 +41,8 @@ class QBitArray;
 class KisCloneLayer;
 class KisPSDLayerStyle;
 class KisAbstractProjectionPlane;
+class KisLayerProjectionPlane;
+typedef QSharedPointer<KisLayerProjectionPlane> KisLayerProjectionPlaneSP;
 
 
 namespace KisMetaData
@@ -94,7 +96,7 @@ public:
      * styles or anything else. It is used by the layer styles projection
      * plane to stack up the planes.
      */
-    virtual KisAbstractProjectionPlaneSP internalProjectionPlane() const;
+    virtual KisLayerProjectionPlaneSP internalProjectionPlane() const;
 
     QRect partialChangeRect(KisNodeSP lastNode, const QRect& rect);
     void buildProjectionUpToNode(KisPaintDeviceSP projection, KisNodeSP lastNode, const QRect& rect);
@@ -169,9 +171,6 @@ public:
      */
     void setTemporary(bool t);
 
-    /// returns the image this layer belongs to, or null if there is no image
-    KisImageWSP image() const;
-
     /**
      * Set the image this layer belongs to.
      */
@@ -186,7 +185,7 @@ public:
      * Decendands override this to create specific merged types when possible.
      * The KisLayer one creates a KisPaintLayerSP via a bitBlt, and can work on all layer types.
      *
-     * Decendants that perform there own version do NOT call KisLayer::createMergedLayer
+     * Descendants that perform their own version do NOT call KisLayer::createMergedLayer
      */
     virtual KisLayerSP createMergedLayerTemplate(KisLayerSP prevLayer);
     virtual void fillMergedLayerTemplate(KisLayerSP dstLayer, KisLayerSP prevLayer);
@@ -224,6 +223,11 @@ public:
      */
     void updateClones(const QRect &rect);
 
+    /**
+     * Informs this layers that its masks might have changed.
+     */
+    void notifyChildMaskChanged();
+
 public:
     qint32 x() const override;
     qint32 y() const override;
@@ -247,6 +251,14 @@ public:
 
     QImage createThumbnailForFrame(qint32 w, qint32 h, int time) override;
 
+    /**
+     * Return a tight rectange, where the contents of the layer
+     * is placed from user's point of view. This rectangle includes
+     * all the masks and effects the layer has (excluding layer
+     * styles, they report their bounds via projection plane).
+     */
+    QRect tightUserVisibleBounds() const;
+
 public:
     /**
      * Returns true if there are any effect masks present
@@ -256,7 +268,12 @@ public:
     /**
      * @return the list of effect masks
      */
-    QList<KisEffectMaskSP> effectMasks(KisNodeSP lastNode = KisNodeSP()) const;
+    QList<KisEffectMaskSP> effectMasks() const;
+
+    /**
+     * @return the list of effect masks up to a certain node
+     */
+    QList<KisEffectMaskSP> effectMasks(KisNodeSP lastNode) const;
 
     /**
      * Get the group layer that contains this layer.
@@ -271,6 +288,8 @@ public:
 protected:
     // override from KisNode
     QRect changeRect(const QRect &rect, PositionToFilthy pos = N_FILTHY) const override;
+
+    void childNodeChanged(KisNodeSP changedChildNode) override;
 
 protected:
 
@@ -339,6 +358,21 @@ protected:
     virtual QRect outgoingChangeRect(const QRect &rect) const;
 
     /**
+     * Return need rect that should be prepared on original()
+     * device of the layer to get \p rect on its projection.
+     *
+     * This method is used either for layers that can have other
+     * layers as children (yes, KisGroupLayer, I'm looking at you!),
+     * or for layers that depend on the lower nodes (it's you,
+     * KisAdjustmentLayer!).
+     *
+     * These layers may have some filter masks that need a bit
+     * more pixels than requested, therefore child nodes should do
+     * a bit more work to prepare them.
+     */
+    QRect needRectForOriginal(const QRect &rect) const;
+
+    /**
      * @param rectVariesFlag (out param) a flag, showing whether
      *        a rect varies from mask to mask
      * @return an area that should be updated because of
@@ -371,7 +405,11 @@ protected:
                      KisNodeSP filthyNode, KisNodeSP lastNode) const;
 
     bool canMergeAndKeepBlendOptions(KisLayerSP otherLayer);
+
+    QList<KisEffectMaskSP> searchEffectMasks(KisNodeSP lastNode) const;
+
 private:
+    friend class KisLayerMasksCache;
     friend class KisLayerProjectionPlane;
     friend class KisTransformMask;
     friend class KisLayerTest;

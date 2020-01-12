@@ -36,8 +36,9 @@
 #include "filter/kis_filter_registry.h"
 #include "kis_filter_mask.h"
 #include "kis_transparency_mask.h"
+#include <sdk/tests/kistest.h>
 
-#define DEBUG_VISITORS
+//#define DEBUG_VISITORS
 
 QString nodeTypeString(KisMergeWalker::NodePosition position);
 QString nodeTypePostfix(KisMergeWalker::NodePosition position);
@@ -62,6 +63,8 @@ public:
 protected:
 
     void registerChangeRect(KisProjectionLeafSP node, NodePosition position) override {
+        Q_UNUSED(position);
+
         QString postfix;
 
         if(!node->isLayer()) {
@@ -69,7 +72,7 @@ protected:
         }
 
 #ifdef DEBUG_VISITORS
-        dbgKrita<< "FW:"<< node->node()->name() <<'\t'<< nodeTypeString(position) << postfix;
+        qDebug()<< "FW:"<< node->node()->name() <<'\t'<< nodeTypeString(position) << postfix;
 #endif
 
         if(postfix.isEmpty()) {
@@ -85,7 +88,7 @@ protected:
         }
 
 #ifdef DEBUG_VISITORS
-        dbgKrita<< "BW:"<< node->node()->name() <<'\t'<< nodeTypeString(position) << postfix;
+        qDebug()<< "BW:"<< node->node()->name() <<'\t'<< nodeTypeString(position) << postfix;
 #endif
         if(postfix.isEmpty()) {
             m_order.append(node->node()->name() + nodeTypePostfix(position));
@@ -111,11 +114,11 @@ struct UpdateTestJob {
 
 void reportStartWith(QString nodeName, QRect rect = QRect())
 {
-    dbgKrita;
+    qDebug();
     if(!rect.isEmpty())
-        dbgKrita << "Start with:" << nodeName << rect;
+        qDebug() << "Start with:" << nodeName << rect;
     else
-        dbgKrita << "Start with:" << nodeName;
+        qDebug() << "Start with:" << nodeName;
 }
 
 QString nodeTypeString(KisMergeWalker::NodePosition position)
@@ -195,14 +198,14 @@ void KisWalkersTest::verifyResult(KisBaseRectsWalker &walker, QStringList refere
     QStringList::const_iterator iter = reference.constBegin();
 
     if(reference.size() != list.size()) {
-        dbgKrita << "*** Seems like the walker returned stack of wrong size"
+        qDebug() << "*** Seems like the walker returned stack of wrong size"
                  << "( ref:" << reference.size() << "act:" << list.size() << ")";
-        dbgKrita << "*** We are going to crash soon... just wait...";
+        qDebug() << "*** We are going to crash soon... just wait...";
     }
 
     Q_FOREACH (const KisMergeWalker::JobItem &item, list) {
 #ifdef DEBUG_VISITORS
-        dbgKrita << item.m_leaf->node()->name() << '\t'
+        qDebug() << item.m_leaf->node()->name() << '\t'
                  << item.m_applyRect << '\t'
                  << nodeTypeString(item.m_position);
 #endif
@@ -213,7 +216,7 @@ void KisWalkersTest::verifyResult(KisBaseRectsWalker &walker, QStringList refere
     }
 
 #ifdef DEBUG_VISITORS
-    dbgKrita << "Result AR:\t" << walker.accessRect();
+    qDebug() << "Result AR:\t" << walker.accessRect();
 #endif
 
     QCOMPARE(walker.accessRect(), accessRect);
@@ -328,7 +331,7 @@ void KisWalkersTest::testVisitingWithTopmostMask()
     KisFilterMaskSP filterMask1 = new KisFilterMask();
     filterMask1->initSelection(groupLayer);
     KisFilterSP filter = KisFilterRegistry::instance()->value("blur");
-    Q_ASSERT(filter);
+    KIS_ASSERT(filter);
     KisFilterConfigurationSP configuration1 = filter->defaultConfiguration();
     filterMask1->setFilter(configuration1);
 
@@ -496,6 +499,71 @@ void KisWalkersTest::testMergeVisiting()
     }
 
 }
+
+#include "kis_psd_layer_style.h"
+
+/*
+  +----------+
+  |root      |
+  | group ls |
+  |  paint 3 |
+  |  paint 2 |
+  | paint 1  |
+  +----------+
+ */
+
+void KisWalkersTest::testComplexGroupVisiting()
+{
+    const KoColorSpace * colorSpace = KoColorSpaceRegistry::instance()->rgb8();
+    KisImageSP image = new KisImage(0, 512, 512, colorSpace, "walker test");
+
+
+    KisPSDLayerStyleSP style(new KisPSDLayerStyle());
+
+    {
+        style->context()->keep_original = true;
+
+        style->dropShadow()->setEffectEnabled(true);
+        style->dropShadow()->setDistance(3);
+        style->dropShadow()->setSpread(1);
+        style->dropShadow()->setSize(7);
+        style->dropShadow()->setNoise(0);
+        style->dropShadow()->setKnocksOut(false);
+        style->dropShadow()->setOpacity(50);
+        style->dropShadow()->setAngle(0);
+    }
+
+    KisLayerSP paintLayer1 = new KisPaintLayer(image, "paint1", OPACITY_OPAQUE_U8);
+    KisLayerSP paintLayer2 = new KisPaintLayer(image, "paint2", OPACITY_OPAQUE_U8);
+    KisLayerSP paintLayer3 = new KisPaintLayer(image, "paint3", OPACITY_OPAQUE_U8);
+
+    KisLayerSP groupLayer = new KisGroupLayer(image, "groupls", OPACITY_OPAQUE_U8);
+
+    image->addNode(paintLayer1, image->rootLayer());
+    image->addNode(groupLayer, image->rootLayer());
+    image->addNode(paintLayer2, groupLayer);
+    image->addNode(paintLayer3, groupLayer);
+
+    groupLayer->setLayerStyle(style);
+
+    QRect testRect(10,10,10,10);
+    // Empty rect to show we don't need any cropping
+    QRect cropRect;
+
+    KisMergeWalker walker(cropRect);
+
+    {
+        QString order("root,groupls,paint1,"
+                      "paint3,paint2");
+        QStringList orderList = order.split(',');
+        QRect accessRect(-8,-8,46,46);
+
+        reportStartWith("paint3");
+        walker.collectRects(paintLayer3, testRect);
+        verifyResult(walker, orderList, accessRect, true, true);
+    }
+}
+
 
     /*
       +------------+
@@ -685,11 +753,11 @@ void KisWalkersTest::testRefreshSubtreeVisiting()
         QString order("root,paint5,cplx2,group,paint1,"
                       "paint4,paint3,cplx1,paint2");
         QStringList orderList = order.split(',');
-        QRect accessRect(-10,-10,50,50);
+        QRect accessRect(-4,-4,38,38);
 
         reportStartWith("root");
         walker.collectRects(image->rootLayer(), testRect);
-        verifyResult(walker, orderList, accessRect, true, true);
+        verifyResult(walker, orderList, accessRect, false, true);
     }
 }
 
@@ -746,7 +814,7 @@ void KisWalkersTest::testFullRefreshVisiting()
 
         reportStartWith("root");
         walker.collectRects(groupLayer, testRect);
-        verifyResult(walker, orderList, accessRect, true, true);
+        verifyResult(walker, orderList, accessRect, false, true);
     }
 }
 
@@ -1113,7 +1181,7 @@ void KisWalkersTest::testMasksOverlapping()
     Q_FOREACH (UpdateTestJob job, updateList) {
         KisMergeWalker walker(cropRect);
         reportStartWith(job.startNode->name(), job.updateRect);
-        dbgKrita << "Area:" << job.updateAreaName;
+        qDebug() << "Area:" << job.updateAreaName;
         walker.collectRects(job.startNode, job.updateRect);
         verifyResult(walker, job);
     }
@@ -1222,5 +1290,5 @@ void KisWalkersTest::testGraphStructureChecksum()
     QCOMPARE(walker.checksumValid(), true);
 }
 
-QTEST_MAIN(KisWalkersTest)
+KISTEST_MAIN(KisWalkersTest)
 

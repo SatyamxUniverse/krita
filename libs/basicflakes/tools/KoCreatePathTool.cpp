@@ -34,6 +34,7 @@
 #include <KoColor.h>
 #include "kis_canvas_resource_provider.h"
 #include <KisHandlePainterHelper.h>
+#include "KoPathPointTypeCommand.h"
 
 #include <klocalizedstring.h>
 
@@ -128,8 +129,12 @@ void KoCreatePathTool::mousePressEvent(KoPointerEvent *event)
     }
 
     const bool isOverFirstPoint = d->shape &&
-                                  handleGrabRect(d->firstPoint->point()).contains(event->point);
-    bool haveCloseModifier = (listeningToModifiers() && (event->modifiers() & Qt::ShiftModifier));
+            handleGrabRect(d->firstPoint->point()).contains(event->point);
+
+    const bool haveCloseModifier = d->enableClosePathShortcut
+            && d->shape
+            && d->shape->pointCount() > 2
+            && (event->modifiers() & Qt::ShiftModifier);
 
     if ((event->button() == Qt::LeftButton) && haveCloseModifier && !isOverFirstPoint) {
         endPathWithoutLastPoint();
@@ -138,7 +143,7 @@ void KoCreatePathTool::mousePressEvent(KoPointerEvent *event)
 
     d->finishAfterThisPoint = false;
 
-    if (pathStarted()) {
+    if (d->shape && pathStarted()) {
         if (isOverFirstPoint) {
             d->activePoint->setPoint(d->firstPoint->point());
             canvas()->updateCanvas(d->shape->boundingRect());
@@ -206,20 +211,27 @@ void KoCreatePathTool::mousePressEvent(KoPointerEvent *event)
         canvas()->snapGuide()->addCustomSnapStrategy(d->angleSnapStrategy);
     }
 
+    d->dragStartPoint = event->point;
+
     if (d->angleSnapStrategy)
         d->angleSnapStrategy->setStartPoint(d->activePoint->point());
-}
-
-bool KoCreatePathTool::listeningToModifiers()
-{
-    Q_D(KoCreatePathTool);
-    return d->listeningToModifiers;
 }
 
 bool KoCreatePathTool::pathStarted()
 {
     Q_D(KoCreatePathTool);
     return ((bool) d->shape);
+}
+
+bool KoCreatePathTool::tryMergeInPathShape(KoPathShape *pathShape)
+{
+    return addPathShapeImpl(pathShape, true);
+}
+
+void KoCreatePathTool::setEnableClosePathShortcut(bool value)
+{
+    Q_D(KoCreatePathTool);
+    d->enableClosePathShortcut = value;
 }
 
 void KoCreatePathTool::mouseDoubleClickEvent(KoPointerEvent *event)
@@ -269,17 +281,52 @@ void KoCreatePathTool::mouseMoveEvent(KoPointerEvent *event)
     d->repaintActivePoint();
 
     if (event->buttons() & Qt::LeftButton) {
+        if (d->pointIsDragged ||
+            !handleGrabRect(d->dragStartPoint).contains(event->point)) {
 
-        d->pointIsDragged = true;
-        QPointF offset = snappedPosition - d->activePoint->point();
-        d->activePoint->setControlPoint2(d->activePoint->point() + offset);
-        // pressing <alt> stops controls points moving symmetrically
-        if ((event->modifiers() & Qt::AltModifier) == 0) {
-            d->activePoint->setControlPoint1(d->activePoint->point() - offset);
+            d->pointIsDragged = true;
+            QPointF offset = snappedPosition - d->activePoint->point();
+            d->activePoint->setControlPoint2(d->activePoint->point() + offset);
+            // pressing <alt> stops controls points moving symmetrically
+            if ((event->modifiers() & Qt::AltModifier) == 0) {
+                d->activePoint->setControlPoint1(d->activePoint->point() - offset);
+            }
+            d->repaintActivePoint();
         }
-        d->repaintActivePoint();
     } else {
         d->activePoint->setPoint(snappedPosition);
+
+        if (!d->prevPointWasDragged && d->autoSmoothCurves) {
+            KoPathPointIndex index = d->shape->pathPointIndex(d->activePoint);
+            if (index.second > 0) {
+
+                KoPathPointIndex prevIndex(index.first, index.second - 1);
+                KoPathPoint *prevPoint = d->shape->pointByIndex(prevIndex);
+
+                if (prevPoint) {
+                    KoPathPoint *prevPrevPoint = 0;
+
+                    if (index.second > 1) {
+                        KoPathPointIndex prevPrevIndex(index.first, index.second - 2);
+                        prevPrevPoint = d->shape->pointByIndex(prevPrevIndex);
+                    }
+
+                    if (prevPrevPoint) {
+                        const QPointF control1 = prevPoint->point() + 0.3 * (prevPrevPoint->point() - prevPoint->point());
+                        prevPoint->setControlPoint1(control1);
+                    }
+
+                    const QPointF control2 = prevPoint->point() + 0.3 * (d->activePoint->point() - prevPoint->point());
+                    prevPoint->setControlPoint2(control2);
+
+                    const QPointF activeControl = d->activePoint->point() + 0.3 * (prevPoint->point() - d->activePoint->point());
+                    d->activePoint->setControlPoint1(activeControl);
+
+                    KoPathPointTypeCommand::makeCubicPointSmooth(prevPoint);
+                }
+            }
+        }
+
     }
 
     canvas()->updateCanvas(d->shape->boundingRect());
@@ -292,8 +339,8 @@ void KoCreatePathTool::mouseReleaseEvent(KoPointerEvent *event)
 
     if (! d->shape || (event->buttons() & Qt::RightButton)) return;
 
-    d->listeningToModifiers = true; // After the first press-and-release
     d->repaintActivePoint();
+    d->prevPointWasDragged  = d->pointIsDragged;
     d->pointIsDragged = false;
     KoPathPoint *lastActivePoint = d->activePoint;
 
@@ -315,6 +362,11 @@ void KoCreatePathTool::mouseReleaseEvent(KoPointerEvent *event)
         d->firstPoint->setControlPoint1(d->activePoint->controlPoint1());
         delete d->shape->removePoint(d->shape->pathPointIndex(d->activePoint));
         d->activePoint = d->firstPoint;
+
+        if (!d->prevPointWasDragged && d->autoSmoothCurves) {
+            KoPathPointTypeCommand::makeCubicPointSmooth(d->activePoint);
+        }
+
         d->shape->closeMerge();
 
         // we are closing the path, so reset the existing start path point
@@ -398,6 +450,7 @@ void KoCreatePathTool::activate(ToolActivation activation, const QSet<KoShape*> 
 
     // retrieve the actual global handle radius
     d->handleRadius = handleRadius();
+    d->loadAutoSmoothValueFromConfig();
 
     // reset snap guide
     canvas()->updateCanvas(canvas()->snapGuide()->boundingRect());
@@ -424,7 +477,7 @@ void KoCreatePathTool::documentResourceChanged(int key, const QVariant & res)
     }
 }
 
-void KoCreatePathTool::addPathShape(KoPathShape *pathShape)
+bool KoCreatePathTool::addPathShapeImpl(KoPathShape *pathShape, bool tryMergeOnly)
 {
     Q_D(KoCreatePathTool);
 
@@ -445,22 +498,45 @@ void KoCreatePathTool::addPathShape(KoPathShape *pathShape)
         }
     }
 
-    KUndo2Command *cmd = canvas()->shapeController()->addShape(pathShape);
-    if (cmd) {
-        KoSelection *selection = canvas()->shapeManager()->selection();
-        selection->deselectAll();
-        selection->select(pathShape);
-        if (startShape) {
-            canvas()->shapeController()->removeShape(startShape, cmd);
-        }
-        if (endShape && startShape != endShape) {
-            canvas()->shapeController()->removeShape(endShape, cmd);
-        }
-        canvas()->addCommand(cmd);
-    } else {
+    if (tryMergeOnly && !startShape && !endShape) {
+        return false;
+    }
+
+    KUndo2Command *cmd = canvas()->shapeController()->addShape(pathShape, 0);
+    KIS_SAFE_ASSERT_RECOVER(cmd) {
         canvas()->updateCanvas(pathShape->boundingRect());
         delete pathShape;
+        return true;
     }
+
+    KoSelection *selection = canvas()->shapeManager()->selection();
+    selection->deselectAll();
+    selection->select(pathShape);
+
+    if (startShape) {
+        pathShape->setBackground(startShape->background());
+        pathShape->setStroke(startShape->stroke());
+    } else if (endShape) {
+        pathShape->setBackground(endShape->background());
+        pathShape->setStroke(endShape->stroke());
+    }
+
+
+    if (startShape) {
+        canvas()->shapeController()->removeShape(startShape, cmd);
+    }
+    if (endShape && startShape != endShape) {
+        canvas()->shapeController()->removeShape(endShape, cmd);
+    }
+    canvas()->addCommand(cmd);
+
+    return true;
+}
+
+
+void KoCreatePathTool::addPathShape(KoPathShape *pathShape)
+{
+    addPathShapeImpl(pathShape, false);
 }
 
 QList<QPointer<QWidget> > KoCreatePathTool::createOptionWidgets()
@@ -468,6 +544,14 @@ QList<QPointer<QWidget> > KoCreatePathTool::createOptionWidgets()
     Q_D(KoCreatePathTool);
 
     QList<QPointer<QWidget> > list;
+
+    QCheckBox *smoothCurves = new QCheckBox(i18n("Autosmooth curve"));
+    smoothCurves->setObjectName("smooth-curves-widget");
+    smoothCurves->setChecked(d->autoSmoothCurves);
+    connect(smoothCurves, SIGNAL(toggled(bool)), this, SLOT(autoSmoothCurvesChanged(bool)));
+    connect(this, SIGNAL(sigUpdateAutoSmoothCurvesGUI(bool)), smoothCurves, SLOT(setChecked(bool)));
+
+    list.append(smoothCurves);
 
     QWidget *angleWidget = new QWidget();
     angleWidget->setObjectName("Angle Constraints");

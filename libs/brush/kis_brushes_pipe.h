@@ -57,7 +57,8 @@ public:
     }
 
     BrushType* currentBrush(const KisPaintInformation& info) {
-        return !m_brushes.isEmpty() ? m_brushes.at(chooseNextBrush(info)) : 0;
+        Q_UNUSED(info);
+        return !m_brushes.isEmpty() ? m_brushes.at(currentBrushIndex()) : 0;
     }
 
     int brushIndex(const KisPaintInformation& info) {
@@ -100,7 +101,11 @@ public:
     }
 
     void notifyCachedDabPainted(const KisPaintInformation& info) {
-        updateBrushIndexes(info);
+        updateBrushIndexes(info, -1);
+    }
+
+    void prepareForSeqNo(const KisPaintInformation& info, int seqNo) {
+        updateBrushIndexes(info, seqNo);
     }
 
     void generateMaskAndApplyMaskOrCreateDab(KisFixedPaintDeviceSP dst, KisBrush::ColoringInformation* coloringInformation,
@@ -114,7 +119,7 @@ public:
 
 
         brush->generateMaskAndApplyMaskOrCreateDab(dst, coloringInformation, shape, info, subPixelX, subPixelY, softnessFactor);
-        updateBrushIndexes(info);
+        notifyCachedDabPainted(info);
     }
 
     KisFixedPaintDeviceSP paintDevice(const KoColorSpace * colorSpace,
@@ -126,7 +131,7 @@ public:
         if (!brush) return 0;
 
         KisFixedPaintDeviceSP device = brush->paintDevice(colorSpace, shape, info, subPixelX, subPixelY);
-        updateBrushIndexes(info);
+        notifyCachedDabPainted(info);
         return device;
     }
 
@@ -136,7 +141,7 @@ public:
 
     void testingSelectNextBrush(const KisPaintInformation& info) {
         (void) chooseNextBrush(info);
-        updateBrushIndexes(info);
+        notifyCachedDabPainted(info);
     }
 
     /**
@@ -151,22 +156,37 @@ protected:
         m_brushes.append(brush);
     }
 
+    int sizeBrush() {
+        return m_brushes.size();
+    }
+
     /**
-     * Returns the index of the brush that corresponds to the current
+     * Returns the index of the next brush that corresponds to the current
      * values of \p info. This method is called *before* the dab is
+     * actually painted.
+     *
+     */
+    virtual int chooseNextBrush(const KisPaintInformation& info) = 0;
+
+    /**
+     * Returns the current index of the brush
+     * This method is called *before* the dab is
      * actually painted.
      *
      * The method is const, so no internal counters of the brush should
      * change during its execution
      */
-    virtual int chooseNextBrush(const KisPaintInformation& info) = 0;
+    virtual int currentBrushIndex() = 0;
 
     /**
      * Updates internal counters of the brush *after* a dab has been
      * painted on the canvas. Some incremental switching of the brushes
      * may me implemented in this method.
+     *
+     * If \p seqNo is equal or greater than zero, then incremental iteration is
+     * overridden by this seqNo value
      */
-    virtual void updateBrushIndexes(const KisPaintInformation& info) = 0;
+    virtual void updateBrushIndexes(const KisPaintInformation& info, int seqNo) = 0;
 
 protected:
     QVector<BrushType*> m_brushes;

@@ -42,9 +42,11 @@
 
 void KisPainterTest::allCsApplicator(void (KisPainterTest::* funcPtr)(const KoColorSpace*cs))
 {
-    QList<const KoColorSpace*> colorsapces = KoColorSpaceRegistry::instance()->allColorSpaces(KoColorSpaceRegistry::AllColorSpaces, KoColorSpaceRegistry::OnlyDefaultProfile);
+    qDebug() << qAppName();
 
-    Q_FOREACH (const KoColorSpace* cs, colorsapces) {
+    QList<const KoColorSpace*> colorspaces = KoColorSpaceRegistry::instance()->allColorSpaces(KoColorSpaceRegistry::AllColorSpaces, KoColorSpaceRegistry::OnlyDefaultProfile);
+
+    Q_FOREACH (const KoColorSpace* cs, colorspaces) {
 
         QString csId = cs->id();
         // ALL THESE COLORSPACES ARE BROKEN: WE NEED UNITTESTS FOR COLORSPACES!
@@ -267,11 +269,11 @@ void KisPainterTest::testSelectionBltSelection()
     QCOMPARE(dst->selectedExactRect(), QRect(10, 10, 10, 10));
 
     KisSequentialConstIterator it(dst, QRect(10, 10, 10, 10));
-    do {
+    while (it.nextPixel()) {
         // These are selections, so only one channel and it should
         // be totally selected
         QCOMPARE(it.oldRawData()[0], MAX_SELECTED);
-    } while (it.nextPixel());
+    }
 }
 
 /*
@@ -400,11 +402,11 @@ void KisPainterTest::testSelectionBitBltEraseCompositeOp()
 
     QRect erasedRect(50, 50, 50, 50);
     KisSequentialConstIterator it(dst, QRect(0, 0, 150, 150));
-    do {
+    while (it.nextPixel()) {
         if(!erasedRect.contains(it.x(), it.y())) {
              QVERIFY(memcmp(it.oldRawData(), c.data(), cs->pixelSize()) == 0);
         }
-    } while (it.nextPixel());
+    }
 
 }
 
@@ -479,44 +481,208 @@ void KisPainterTest::testBitBltOldData()
     srcGc.deleteTransaction();
 }
 
-void KisPainterTest::benchmarkBitBlt()
-{
-    quint8 p = 128;
-    const KoColorSpace *cs = KoColorSpaceRegistry::instance()->alpha8();
+#include "kis_paint_device_debug_utils.h"
+#include "KisRenderedDab.h"
 
-    KisPaintDeviceSP src = new KisPaintDevice(cs);
+void testMassiveBltFixedImpl(int numRects, bool varyOpacity = false, bool useSelection = false)
+{
+    const KoColorSpace* cs = KoColorSpaceRegistry::instance()->rgb8();
     KisPaintDeviceSP dst = new KisPaintDevice(cs);
 
-    KoColor color(&p, cs);
-    QRect fillRect(0,0,5000,5000);
+    QList<QColor> colors;
+    colors << Qt::red;
+    colors << Qt::green;
+    colors << Qt::blue;
 
-    src->fill(fillRect, color);
+    QRect devicesRect;
+    QList<KisRenderedDab> devices;
 
-    QBENCHMARK {
-        KisPainter gc(dst);
-        gc.bitBlt(QPoint(), src, fillRect);
+    for (int i = 0; i < numRects; i++) {
+        const QRect rc(10 + i * 10, 10 + i * 10, 30, 30);
+        KisFixedPaintDeviceSP dev = new KisFixedPaintDevice(cs);
+        dev->setRect(rc);
+        dev->initialize();
+        dev->fill(rc, KoColor(colors[i % 3], cs));
+        dev->fill(kisGrowRect(rc, -5), KoColor(Qt::white, cs));
+
+        KisRenderedDab dab;
+        dab.device = dev;
+        dab.offset = dev->bounds().topLeft();
+        dab.opacity = varyOpacity ? qreal(1 + i) / numRects : 1.0;
+        dab.flow = 1.0;
+
+        devices << dab;
+        devicesRect |= rc;
+    }
+
+    KisSelectionSP selection;
+
+    if (useSelection) {
+        selection = new KisSelection();
+        selection->pixelSelection()->select(kisGrowRect(devicesRect, -7));
+    }
+
+    const QString opacityPostfix = varyOpacity ? "_varyop" : "";
+    const QString selectionPostfix = useSelection ? "_sel" : "";
+
+    const QRect fullRect = kisGrowRect(devicesRect, 10);
+
+    {
+        KisPainter painter(dst);
+        painter.setSelection(selection);
+        painter.bltFixed(fullRect, devices);
+        painter.end();
+        QVERIFY(TestUtil::checkQImage(dst->convertToQImage(0, fullRect),
+                                      "kispainter_test",
+                                      "massive_bitblt",
+                                      QString("full_update_%1%2%3")
+                                          .arg(numRects)
+                                          .arg(opacityPostfix)
+                                          .arg(selectionPostfix), 1, 1));
+    }
+
+    dst->clear();
+
+    {
+        KisPainter painter(dst);
+        painter.setSelection(selection);
+
+        for (int i = fullRect.x(); i <= fullRect.center().x(); i += 10) {
+            const QRect rc(i, fullRect.y(), 10, fullRect.height());
+            painter.bltFixed(rc, devices);
+        }
+
+        painter.end();
+
+        QVERIFY(TestUtil::checkQImage(dst->convertToQImage(0, fullRect),
+                                      "kispainter_test",
+                                      "massive_bitblt",
+                                      QString("partial_update_%1%2%3")
+                                          .arg(numRects)
+                                          .arg(opacityPostfix)
+                                          .arg(selectionPostfix), 1, 1));
+
     }
 }
 
-void KisPainterTest::benchmarkBitBltOldData()
+void KisPainterTest::testMassiveBltFixedSingleTile()
 {
-    quint8 p = 128;
-    const KoColorSpace *cs = KoColorSpaceRegistry::instance()->alpha8();
+    testMassiveBltFixedImpl(3);
+}
 
+void KisPainterTest::testMassiveBltFixedMultiTile()
+{
+    testMassiveBltFixedImpl(6);
+}
+
+void KisPainterTest::testMassiveBltFixedMultiTileWithOpacity()
+{
+    testMassiveBltFixedImpl(6, true);
+}
+
+void KisPainterTest::testMassiveBltFixedMultiTileWithSelection()
+{
+    testMassiveBltFixedImpl(6, false, true);
+}
+
+void KisPainterTest::testMassiveBltFixedCornerCases()
+{
+    const KoColorSpace* cs = KoColorSpaceRegistry::instance()->rgb8();
+    KisPaintDeviceSP dst = new KisPaintDevice(cs);
+
+    QList<KisRenderedDab> devices;
+
+    QVERIFY(dst->extent().isEmpty());
+
+    {
+        // empty devices, shouldn't crash
+        KisPainter painter(dst);
+        painter.bltFixed(QRect(60,60,20,20), devices);
+        painter.end();
+    }
+
+    QVERIFY(dst->extent().isEmpty());
+
+    const QRect rc(10,10,20,20);
+    KisFixedPaintDeviceSP dev = new KisFixedPaintDevice(cs);
+    dev->setRect(rc);
+    dev->initialize();
+    dev->fill(rc, KoColor(Qt::white, cs));
+
+    devices.append(KisRenderedDab(dev));
+
+    {
+        // rect outside the devices bounds, shouldn't crash
+        KisPainter painter(dst);
+        painter.bltFixed(QRect(60,60,20,20), devices);
+        painter.end();
+    }
+
+    QVERIFY(dst->extent().isEmpty());
+}
+
+
+#include "kis_lod_transform.h"
+
+inline QRect extentifyRect(const QRect &rc)
+{
+    return KisLodTransform::alignedRect(rc, 6);
+}
+
+void testOptimizedCopyingImpl(const QRect &srcRect,
+                              const QRect &dstRect,
+                              const QRect &srcCopyRect,
+                              const QPoint &dstPt,
+                              const QRect &expectedDstBounds)
+{
+    const QRect expectedDstExtent = extentifyRect(expectedDstBounds);
+
+    const KoColorSpace* cs = KoColorSpaceRegistry::instance()->rgb8();
     KisPaintDeviceSP src = new KisPaintDevice(cs);
     KisPaintDeviceSP dst = new KisPaintDevice(cs);
 
-    KoColor color(&p, cs);
-    QRect fillRect(0,0,5000,5000);
+    const KoColor color1(Qt::red, cs);
+    const KoColor color2(Qt::blue, cs);
 
-    src->fill(fillRect, color);
+    src->fill(srcRect, color1);
+    dst->fill(dstRect, color2);
 
-    QBENCHMARK {
-        KisPainter gc(dst);
-        gc.bitBltOldData(QPoint(), src, fillRect);
-    }
+    KisPainter::copyAreaOptimized(dstPt, src, dst, srcCopyRect);
+
+    //KIS_DUMP_DEVICE_2(dst, QRect(0,0,5000,5000), "dst", "dd");
+
+    QCOMPARE(dst->exactBounds(), expectedDstBounds);
+    QCOMPARE(dst->extent(), expectedDstExtent);
 }
 
-QTEST_MAIN(KisPainterTest)
+void KisPainterTest::testOptimizedCopying()
+{
+    const QRect srcRect(1000, 1000, 1000, 1000);
+    const QRect srcCopyRect(0, 0, 5000, 5000);
+
+
+    testOptimizedCopyingImpl(srcRect, QRect(6000, 500, 1000,1000),
+                             srcCopyRect, srcCopyRect.topLeft(),
+                             QRect(1000, 500, 6000, 1500));
+
+    testOptimizedCopyingImpl(srcRect, QRect(4500, 1500, 1000, 1000),
+                             srcCopyRect, srcCopyRect.topLeft(),
+                             QRect(1000, 1000, 4500, 1500));
+
+    testOptimizedCopyingImpl(srcRect, QRect(2500, 2500, 1000, 1000),
+                             srcCopyRect, srcCopyRect.topLeft(),
+                             srcRect);
+
+    testOptimizedCopyingImpl(srcRect, QRect(1200, 1200, 600, 1600),
+                             srcCopyRect, srcCopyRect.topLeft(),
+                             srcRect);
+
+    testOptimizedCopyingImpl(srcRect, QRect(1200, 1200, 600, 600),
+                             srcCopyRect, srcCopyRect.topLeft(),
+                             srcRect);
+
+}
+
+KISTEST_MAIN(KisPainterTest)
 
 

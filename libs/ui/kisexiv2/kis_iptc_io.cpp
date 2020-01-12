@@ -23,11 +23,11 @@
 
 #include "kis_exiv2.h"
 
-#include <metadata/kis_meta_data_store.h>
-#include <metadata/kis_meta_data_entry.h>
-#include <metadata/kis_meta_data_value.h>
-#include <metadata/kis_meta_data_schema.h>
-#include <metadata/kis_meta_data_schema_registry.h>
+#include <kis_meta_data_store.h>
+#include <kis_meta_data_entry.h>
+#include <kis_meta_data_value.h>
+#include <kis_meta_data_schema.h>
+#include <kis_meta_data_schema_registry.h>
 
 const char photoshopMarker[] = "Photoshop 3.0\0";
 const char photoshopBimId_[] = "8BIM";
@@ -45,7 +45,7 @@ static const IPTCToKMD mappings[] = {
     { "Iptc.Application2.Copyright", KisMetaData::Schema::DublinCoreSchemaUri, "rights" },
     { "Iptc.Application2.CountryName", KisMetaData::Schema::PhotoshopSchemaUri, "Country" },
     { "Iptc.Application2.CountryCode", KisMetaData::Schema::IPTCSchemaUri, "CountryCode" },
-    { "Iptc.Application2.Byline", KisMetaData::Schema::DublinCoreSchemaUri, "Creator" },
+    { "Iptc.Application2.Byline", KisMetaData::Schema::DublinCoreSchemaUri, "creator" },
     { "Iptc.Application2.BylineTitle", KisMetaData::Schema::PhotoshopSchemaUri, "AuthorsPosition" },
     { "Iptc.Application2.DateCreated", KisMetaData::Schema::PhotoshopSchemaUri, "DateCreated" },
     { "Iptc.Application2.Caption", KisMetaData::Schema::DublinCoreSchemaUri, "description" },
@@ -60,7 +60,7 @@ static const IPTCToKMD mappings[] = {
     { "Iptc.Application2.ProvinceState", KisMetaData::Schema::PhotoshopSchemaUri, "State" },
     { "Iptc.Application2.Source", KisMetaData::Schema::PhotoshopSchemaUri, "Source" },
     { "Iptc.Application2.Subject", KisMetaData::Schema::IPTCSchemaUri, "SubjectCode" },
-    { "Iptc.Application2.ObjectName", KisMetaData::Schema::DublinCoreSchemaUri, "Title" },
+    { "Iptc.Application2.ObjectName", KisMetaData::Schema::DublinCoreSchemaUri, "title" },
     { "Iptc.Application2.Urgency", KisMetaData::Schema::PhotoshopSchemaUri, "Urgency" },
     { "Iptc.Application2.Category", KisMetaData::Schema::PhotoshopSchemaUri, "Category" },
     { "Iptc.Application2.SuppCategory", KisMetaData::Schema::PhotoshopSchemaUri, "SupplementalCategory" },
@@ -122,11 +122,11 @@ bool KisIptcIO::saveTo(KisMetaData::Store* store, QIODevice* ioDevice, HeaderTyp
                     iptcData.add(iptcKey, v);
                 }
             } catch (Exiv2::AnyError& e) {
-                dbgFile << "exiv error " << e.what();
+                dbgMetaData << "exiv error " << e.what();
             }
         }
     }
-#if EXIV2_MAJOR_VERSION == 0 && EXIV2_MINOR_VERSION <= 17
+#if !EXIV2_TEST_VERSION(0,18,0)
     Exiv2::DataBuf rawData = iptcData.copy();
 #else
     Exiv2::DataBuf rawData = Exiv2::IptcParser::encode(iptcData);
@@ -163,19 +163,19 @@ bool KisIptcIO::canSaveAllEntries(KisMetaData::Store* store) const
 bool KisIptcIO::loadFrom(KisMetaData::Store* store, QIODevice* ioDevice) const
 {
     initMappingsTable();
-    dbgFile << "Loading IPTC Tags";
+    dbgMetaData << "Loading IPTC Tags";
     ioDevice->open(QIODevice::ReadOnly);
     QByteArray arr = ioDevice->readAll();
     Exiv2::IptcData iptcData;
-#if EXIV2_MAJOR_VERSION == 0 && EXIV2_MINOR_VERSION <= 17
+#if !EXIV2_TEST_VERSION(0,18,0)
     iptcData.load((const Exiv2::byte*)arr.data(), arr.size());
 #else
     Exiv2::IptcParser::decode(iptcData, (const Exiv2::byte*)arr.data(), arr.size());
 #endif
-    dbgFile << "There are" << iptcData.count() << " entries in the IPTC section";
+    dbgMetaData << "There are" << iptcData.count() << " entries in the IPTC section";
     for (Exiv2::IptcMetadata::const_iterator it = iptcData.begin();
             it != iptcData.end(); ++it) {
-        dbgFile << "Reading info for key" << it->key().c_str();
+        dbgMetaData << "Reading info for key" << it->key().c_str();
         if (d->iptcToKMD.contains(it->key().c_str())) {
             const IPTCToKMD& iptcToKMd = d->iptcToKMD[it->key().c_str()];
             const KisMetaData::Schema* schema = KisMetaData::SchemaRegistry::instance()->schemaFromUri(iptcToKMd.namespaceUri);

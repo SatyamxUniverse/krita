@@ -100,7 +100,7 @@ public:
      * the bookmarkmanager if it is a bookmark. This is not done smart: you might end up
      * with dangling start or end bookmarks.
      * Should really only be called by KoTextEditor's delete commands
-     * @param the object to be removed
+     * @param object the object to be removed
      */
     void removeInlineObject(KoInlineObject *object);
 
@@ -113,7 +113,7 @@ public:
      */
     void setProperty(KoInlineObject::Property key, const QVariant &value);
 
-    /// retrieve a propery
+    /// retrieve a property
     QVariant property(KoInlineObject::Property key) const;
 
     /// retrieve an int property
@@ -142,7 +142,7 @@ public:
      * This method internally uses KoInlineObjectRegistry::createInsertVariableActions() but extends
      * the list with all registered variable-names.
      * Each of these actions, when executed, will insert the relevant variable in the current text-position.
-     * The actions assume that the text tool is selected, if thats not the case then they will silently fail.
+     * The actions assume that the text tool is selected, if that's not the case then they will silently fail.
      * @param host the canvas for which these actions are created.  Note that the actions will get these
      *  actions as a parent (for memory management purposes) as well.
      * @see KoVariableManager
@@ -166,7 +166,7 @@ public Q_SLOTS:
 
 Q_SIGNALS:
     /**
-     * Emitted whenever a propery is set and it turns out to be changed.
+     * Emitted whenever a property is set and it turns out to be changed.
      */
     void propertyChanged(int, const QVariant &variant);
 

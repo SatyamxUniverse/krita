@@ -26,6 +26,7 @@
 #include <kis_external_layer_iface.h>
 #include <kritaui_export.h>
 #include <KisDelayedUpdateNodeInterface.h>
+#include <KisCroppedOriginalLayerInterface.h>
 
 class QRect;
 class QIcon;
@@ -34,8 +35,9 @@ class QString;
 class KoShapeManager;
 class KoStore;
 class KoViewConverter;
-class KoShapeBasedDocumentBase;
+class KoShapeControllerBase;
 class KoDocumentResourceManager;
+class KisShapeLayerCanvasBase;
 
 const QString KIS_SHAPE_LAYER_ID = "KisShapeLayer";
 /**
@@ -49,15 +51,19 @@ const QString KIS_SHAPE_LAYER_ID = "KisShapeLayer";
 
    XXX: what about removing shapes?
 */
-class KRITAUI_EXPORT KisShapeLayer : public KisExternalLayer, public KoShapeLayer, public KisDelayedUpdateNodeInterface
+class KRITAUI_EXPORT KisShapeLayer
+        : public KisExternalLayer,
+        public KoShapeLayer,
+        public KisDelayedUpdateNodeInterface,
+        public KisCroppedOriginalLayerInterface
 {
     Q_OBJECT
 
 public:
 
-    KisShapeLayer(KoShapeBasedDocumentBase* shapeController, KisImageWSP image, const QString &name, quint8 opacity);
+    KisShapeLayer(KoShapeControllerBase* shapeController, KisImageWSP image, const QString &name, quint8 opacity);
     KisShapeLayer(const KisShapeLayer& _rhs);
-    KisShapeLayer(const KisShapeLayer& _rhs, KoShapeBasedDocumentBase* controller);
+    KisShapeLayer(const KisShapeLayer& _rhs, KoShapeControllerBase* controller, KisShapeLayerCanvasBase *canvas = 0);
     /**
      * Merge constructor.
      *
@@ -67,8 +73,10 @@ public:
      */
     KisShapeLayer(const KisShapeLayer& _merge, const KisShapeLayer &_addShapes);
     ~KisShapeLayer() override;
+protected:
+    KisShapeLayer(KoShapeControllerBase* shapeController, KisImageWSP image, const QString &name, quint8 opacity, KisShapeLayerCanvasBase *canvas);
 private:
-    void initShapeLayer(KoShapeBasedDocumentBase* controller);
+    void initShapeLayer(KoShapeControllerBase* controller, KisPaintDeviceSP copyFromProjection = 0, KisShapeLayerCanvasBase *canvas = 0);
 public:
     KisNodeSP clone() const override {
         return new KisShapeLayer(*this);
@@ -122,9 +130,18 @@ public:
 
     KUndo2Command* crop(const QRect & rect) override;
     KUndo2Command* transform(const QTransform &transform) override;
+    KUndo2Command* setProfile(const KoColorProfile *profile) override;
+    KUndo2Command* convertTo(const KoColorSpace * dstColorSpace,
+                                 KoColorConversionTransformation::Intent renderingIntent = KoColorConversionTransformation::internalRenderingIntent(),
+                                 KoColorConversionTransformation::ConversionFlags conversionFlags = KoColorConversionTransformation::internalConversionFlags()) override;
+
 
     bool visible(bool recursive = false) const override;
     void setVisible(bool visible, bool isLoading = false) override;
+
+    void setUserLocked(bool value) override;
+
+    bool isShapeEditable(bool recursive) const override;
 
     /**
      * Forces a repaint of a shape layer without waiting for an event loop
@@ -139,6 +156,13 @@ public:
      */
     void forceUpdateTimedNode() override;
 
+    /**
+     * \return true if there are any pending updates in the delayed queue
+     */
+    bool hasPendingTimedUpdates() const override;
+
+    void forceUpdateHiddenAreaOnOriginal() override;
+
 protected:
     using KoShape::isVisible;
 
@@ -146,6 +170,8 @@ protected:
 
     friend class ShapeLayerContainerModel;
     KoViewConverter* converter() const;
+
+    KoShapeControllerBase *shapeController() const;
 
 Q_SIGNALS:
     /**
@@ -163,7 +189,7 @@ Q_SIGNALS:
     /**
      * A signal + slot to synchronize UI and image
      * threads. Image thread emits the signal, UI
-     * thread performes the action
+     * thread performs the action
      */
     void sigMoveShapes(const QPointF &diff);
 

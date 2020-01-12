@@ -29,6 +29,7 @@
 #include <QSlider>
 #include <QPoint>
 #include <QColor>
+#include <QButtonGroup>
 
 #include <klocalizedstring.h>
 
@@ -38,6 +39,7 @@
 #include "KoBasicHistogramProducers.h"
 #include <KoColorSpace.h>
 #include <KoColorTransformation.h>
+#include <filter/kis_filter_category_ids.h>
 #include <filter/kis_color_transformation_configuration.h>
 #include <kis_paint_device.h>
 #include <kis_processing_information.h>
@@ -54,7 +56,7 @@
 #include <kis_iterator_ng.h>
 
 KisDesaturateFilter::KisDesaturateFilter()
-   : KisColorTransformationFilter(id(), categoryAdjust(), i18n("&Desaturate..."))
+   : KisColorTransformationFilter(id(), FiltersCategoryAdjustId, i18n("&Desaturate..."))
 {
     setShortcut(QKeySequence(Qt::CTRL + Qt::SHIFT + Qt::Key_U));
     setSupportsPainting(true);
@@ -64,7 +66,7 @@ KisDesaturateFilter::~KisDesaturateFilter()
 {
 }
 
-KisConfigWidget *KisDesaturateFilter::createConfigurationWidget(QWidget *parent, const KisPaintDeviceSP dev) const
+KisConfigWidget *KisDesaturateFilter::createConfigurationWidget(QWidget *parent, const KisPaintDeviceSP dev, bool) const
 {
     Q_UNUSED(dev);
     return new KisDesaturateConfigWidget(parent);
@@ -80,14 +82,14 @@ KoColorTransformation* KisDesaturateFilter::createTransformation(const KoColorSp
     return  cs->createColorTransformation("desaturate_adjustment", params);
 }
 
-KisFilterConfigurationSP KisDesaturateFilter::factoryConfiguration() const
+KisFilterConfigurationSP KisDesaturateFilter::defaultConfiguration() const
 {
-    KisColorTransformationConfigurationSP config = new KisColorTransformationConfiguration(id().id(), 1);
+    KisFilterConfigurationSP config = factoryConfiguration();
     config->setProperty("type", 0);
     return config;
 }
 
-KisDesaturateConfigWidget::KisDesaturateConfigWidget(QWidget * parent, Qt::WFlags f) : KisConfigWidget(parent, f)
+KisDesaturateConfigWidget::KisDesaturateConfigWidget(QWidget * parent, Qt::WindowFlags f) : KisConfigWidget(parent, f)
 {
     m_page = new Ui_WdgDesaturate();
     m_page->setupUi(this);

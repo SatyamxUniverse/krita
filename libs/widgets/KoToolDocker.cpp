@@ -21,8 +21,6 @@
  */
 #include "KoToolDocker.h"
 
-#include <KoDockWidgetTitleBarButton.h>
-#include <KoDockWidgetTitleBar.h>
 #include <KoIcon.h>
 
 #include <klocalizedstring.h>
@@ -35,12 +33,13 @@
 #include <QGridLayout>
 #include <QScrollArea>
 #include <QScrollBar>
+#include <QScroller>
 #include <QLabel>
 #include <QSet>
 #include <QAction>
 #include <QStyleOptionFrame>
 #include <QToolButton>
-#include <QTabWidget>
+#include <KisKineticScroller.h>
 
 #include <WidgetsDebug.h>
 #include <kis_debug.h>
@@ -50,9 +49,6 @@ class Q_DECL_HIDDEN KoToolDocker::Private
 public:
     Private(KoToolDocker *dock)
         : q(dock)
-        , tabbed(false)
-        , tabIcon(koIcon("tab-new"))
-        , unTabIcon(koIcon("tab-close"))
     {
     }
 
@@ -64,11 +60,6 @@ public:
     QGridLayout *housekeeperLayout;
     KoToolDocker *q;
     Qt::DockWidgetArea dockingArea;
-    bool tabbed;
-    QIcon tabIcon;
-    QIcon unTabIcon;
-    QToolButton *tabButton;
-
 
     void resetWidgets()
     {
@@ -92,19 +83,6 @@ public:
         // need to unstretch row that have previously been stretched
         housekeeperLayout->setRowStretch(housekeeperLayout->rowCount()-1, 0);
 
-        if (tabbed && currentWidgetList.size() > 1) {
-            QTabWidget *t;
-            housekeeperLayout->addWidget(t = new QTabWidget(), 0, 0);
-            t->setDocumentMode(true);
-            currentAuxWidgets.insert(t);
-            Q_FOREACH (QPointer<QWidget> widget, currentWidgetList) {
-                if (widget.isNull() || widget->objectName().isEmpty()) {
-                    Q_ASSERT(!(widget->objectName().isEmpty()));
-                    continue; // skip this docker in release build when assert don't crash
-                }
-                t->addTab(widget, widget->windowTitle());
-            }
-        } else {
             int cnt = 0;
             QFrame *s;
             QLabel *l;
@@ -115,7 +93,7 @@ public:
                 housekeeperLayout->setVerticalSpacing(0);
                 Q_FOREACH (QPointer<QWidget> widget, currentWidgetList) {
                     if (widget.isNull() || widget->objectName().isEmpty()) {
-                        KIS_SAFE_ASSERT_RECOVER(!(widget->objectName().isEmpty())) { continue; }
+                        continue;
                     }
                     if (!widget->windowTitle().isEmpty()) {
                         housekeeperLayout->addWidget(l = new QLabel(widget->windowTitle()), 0, 2*cnt);
@@ -131,6 +109,7 @@ public:
                     cnt++;
                 }
                 break;
+            case Qt::NoDockWidgetArea:
             case Qt::LeftDockWidgetArea:
             case Qt::RightDockWidgetArea: {
                 housekeeperLayout->setHorizontalSpacing(0);
@@ -138,7 +117,7 @@ public:
                 int specialCount = 0;
                 Q_FOREACH (QPointer<QWidget> widget, currentWidgetList) {
                     if (widget.isNull() || widget->objectName().isEmpty()) {
-                        KIS_SAFE_ASSERT_RECOVER(!(widget->objectName().isEmpty())) { continue; }
+                        continue;
                     }
                     if (!widget->windowTitle().isEmpty()) {
                         housekeeperLayout->addWidget(l = new QLabel(widget->windowTitle()), cnt++, 0);
@@ -169,7 +148,7 @@ public:
             default:
                 break;
             }
-        }
+
         housekeeperLayout->setSizeConstraint(QLayout::SetMinAndMaxSize);
         housekeeperLayout->invalidate();
     }
@@ -180,30 +159,15 @@ public:
         recreateLayout(currentWidgetList);
     }
 
-    void toggleTab()
-    {
-        if (!tabbed) {
-            tabbed = true;
-            tabButton->setIcon(unTabIcon);
-        } else {
-            tabbed = false;
-            tabButton->setIcon(tabIcon);
-        }
-        recreateLayout(currentWidgetList);
-    }
 };
 
 KoToolDocker::KoToolDocker(QWidget *parent)
     : QDockWidget(i18n("Tool Options"), parent),
       d(new Private(this))
 {
-    KConfigGroup cfg =  KSharedConfig::openConfig()->group("DockWidget sharedtooldocker");
-    d->tabbed = cfg.readEntry("TabbedMode", false);
-
     setFeatures(DockWidgetMovable|DockWidgetFloatable);
-    setTitleBarWidget(new KoDockWidgetTitleBar(this));
 
-    connect(this, SIGNAL(dockLocationChanged(Qt::DockWidgetArea )), this, SLOT(locationChanged(Qt::DockWidgetArea)));
+    connect(this, SIGNAL(dockLocationChanged(Qt::DockWidgetArea)), this, SLOT(locationChanged(Qt::DockWidgetArea)));
 
     d->housekeeperWidget = new QWidget();
     d->housekeeperLayout = new QGridLayout();
@@ -221,22 +185,16 @@ KoToolDocker::KoToolDocker(QWidget *parent)
     d->scrollArea->setWidgetResizable(true);
     d->scrollArea->setFocusPolicy(Qt::NoFocus);
 
-    setWidget(d->scrollArea);
+    QScroller *scroller = KisKineticScroller::createPreconfiguredScroller(d->scrollArea);
+    if( scroller ) {
+        connect(scroller, SIGNAL(stateChanged(QScroller::State)), this, SLOT(slotScrollerStateChange(QScroller::State)));
+    }
 
-    d->tabButton = new QToolButton(this); // parent hack in toggleLock to keep it clickable
-    d->tabButton->setIcon(d->tabIcon);
-    d->tabButton->setToolTip(i18n("Toggles organizing the options in tabs or not"));
-    d->tabButton->setAutoRaise(true);
-    connect(d->tabButton, SIGNAL(clicked()), SLOT(toggleTab()));
-    d->tabButton->resize(d->tabButton->sizeHint());
+    setWidget(d->scrollArea);
 }
 
 KoToolDocker::~KoToolDocker()
 {
-    KConfigGroup cfg =  KSharedConfig::openConfig()->group("DockWidget sharedtooldocker");
-    cfg.writeEntry("TabbedMode", d->tabbed);
-    cfg.sync();
-
     delete d;
 }
 
@@ -245,20 +203,14 @@ bool KoToolDocker::hasOptionWidget()
     return !d->currentWidgetList.isEmpty();
 }
 
-void KoToolDocker::setTabEnabled(bool enabled)
-{
-    d->tabButton->setVisible(enabled);
-}
-
 void KoToolDocker::setOptionWidgets(const QList<QPointer<QWidget> > &optionWidgetList)
 {
     d->recreateLayout(optionWidgetList);
 }
 
-void KoToolDocker::resizeEvent(QResizeEvent*)
+void KoToolDocker::slotScrollerStateChange(QScroller::State state)
 {
-    int fw = isFloating() ? style()->pixelMetric(QStyle::PM_DockWidgetFrameWidth, 0, this) : 0;
-    d->tabButton->move(width() - d->tabButton->width() - d->scrollArea->verticalScrollBar()->sizeHint().width(), fw);
+    KisKineticScroller::updateCursor(d->scrollArea, state);
 }
 
 void KoToolDocker::resetWidgets()

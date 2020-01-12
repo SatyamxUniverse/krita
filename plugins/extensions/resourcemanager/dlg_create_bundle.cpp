@@ -23,7 +23,7 @@
 #include <QProcessEnvironment>
 #include <QFileInfo>
 #include <QMessageBox>
-#include <QDesktopServices>
+#include <QStandardPaths>
 #include <QGridLayout>
 #include <QTableWidget>
 #include <QPainter>
@@ -36,7 +36,7 @@
 #include <KoResourceServer.h>
 #include <KoResourceServerProvider.h>
 
-#include <kis_resource_server_provider.h>
+#include <KisResourceServerProvider.h>
 #include <kis_workspace_resource.h>
 #include <brushengine/kis_paintop_preset.h>
 #include <kis_brush_server.h>
@@ -126,19 +126,26 @@ DlgCreateBundle::DlgCreateBundle(KisResourceBundle *bundle, QWidget *parent)
                     }
                 }
             }
+            else if (resType  == "gamutmasks") {
+                Q_FOREACH (const KoResource *res, bundle->resources(resType)) {
+                    if (res) {
+                        m_selectedGamutMasks << res->shortFilename();
+                    }
+                }
+            }
         }
     }
     else {
 
         setCaption(i18n("Create Resource Bundle"));
 
-        KisConfig cfg;
+        KisConfig cfg(true);
 
         m_ui->editAuthor->setText(cfg.readEntry<QString>("BundleAuthorName", info.authorInfo("creator")));
         m_ui->editEmail->setText(cfg.readEntry<QString>("BundleAuthorEmail", info.authorInfo("email")));
         m_ui->editWebsite->setText(cfg.readEntry<QString>("BundleWebsite", "http://"));
         m_ui->editLicense->setText(cfg.readEntry<QString>("BundleLicense", "CC-BY-SA"));
-        m_ui->lblSaveLocation->setText(cfg.readEntry<QString>("BundleExportLocation", QDesktopServices::storageLocation(QDesktopServices::DocumentsLocation)));
+        m_ui->lblSaveLocation->setText(cfg.readEntry<QString>("BundleExportLocation", QStandardPaths::writableLocation(QStandardPaths::DocumentsLocation)));
     }
 
     m_ui->bnAdd->setIcon(KisIconUtils::loadIcon("arrow-right"));
@@ -150,6 +157,7 @@ DlgCreateBundle::DlgCreateBundle(KisResourceBundle *bundle, QWidget *parent)
     m_ui->cmbResourceTypes->addItem(i18n("Brushes"), QString("brushes"));
     m_ui->cmbResourceTypes->addItem(i18n("Brush Presets"), QString("presets"));
     m_ui->cmbResourceTypes->addItem(i18n("Gradients"), QString("gradients"));
+    m_ui->cmbResourceTypes->addItem(i18n("Gamut Masks"), QString("gamutmasks"));
     m_ui->cmbResourceTypes->addItem(i18n("Patterns"), QString("patterns"));
     m_ui->cmbResourceTypes->addItem(i18n("Palettes"), QString("palettes"));
     m_ui->cmbResourceTypes->addItem(i18n("Workspaces"), QString("workspaces"));
@@ -230,7 +238,7 @@ void DlgCreateBundle::accept()
         }
         else {
             if (!m_bundle) {
-                KisConfig cfg;
+                KisConfig cfg(false);
                 cfg.writeEntry<QString>("BunleExportLocation", m_ui->lblSaveLocation->text());
                 cfg.writeEntry<QString>("BundleAuthorName", m_ui->editAuthor->text());
                 cfg.writeEntry<QString>("BundleAuthorEmail", m_ui->editEmail->text());
@@ -277,6 +285,9 @@ void DlgCreateBundle::addSelected()
         else if (resourceType == "workspaces") {
             m_selectedWorkspaces.append(item->data(Qt::UserRole).toString());
         }
+        else if (resourceType == "gamutmasks") {
+            m_selectedGamutMasks.append(item->data(Qt::UserRole).toString());
+        }
     }
 
     m_ui->tableAvailable->setCurrentRow(row);
@@ -307,6 +318,9 @@ void DlgCreateBundle::removeSelected()
         }
         else if (resourceType == "workspaces") {
             m_selectedWorkspaces.removeAll(item->data(Qt::UserRole).toString());
+        }
+        else if (resourceType == "gamutmasks") {
+            m_selectedGamutMasks.removeAll(item->data(Qt::UserRole).toString());
         }
     }
 
@@ -420,14 +434,29 @@ void DlgCreateBundle::resourceTypeSelected(int idx)
             }
         }
     }
+    else if (resourceType == "gamutmasks") {
+        KoResourceServer<KoGamutMask>* server = KoResourceServerProvider::instance()->gamutMaskServer();
+        Q_FOREACH (KoResource *res, server->resources()) {
+            QListWidgetItem *item = new QListWidgetItem(imageToIcon(res->image()), res->name());
+            item->setData(Qt::UserRole, res->shortFilename());
+
+            if (m_selectedGamutMasks.contains(res->shortFilename())) {
+                m_ui->tableSelected->addItem(item);
+            }
+            else {
+                m_ui->tableAvailable->addItem(item);
+            }
+        }
+    }
+
 }
 
 void DlgCreateBundle::getPreviewImage()
 {
     KoFileDialog dialog(this, KoFileDialog::OpenFile, "BundlePreviewImage");
     dialog.setCaption(i18n("Select file to use as bundle icon"));
-    dialog.setDefaultDir(QDesktopServices::storageLocation(QDesktopServices::PicturesLocation));
-    dialog.setMimeTypeFilters(KisImportExportManager::mimeFilter(KisImportExportManager::Import));
+    dialog.setDefaultDir(QStandardPaths::writableLocation(QStandardPaths::PicturesLocation));
+    dialog.setMimeTypeFilters(KisImportExportManager::supportedMimeTypes(KisImportExportManager::Import));
     m_previewImage = dialog.filename();
     QImage img(m_previewImage);
     img = img.scaled(256, 256, Qt::KeepAspectRatio, Qt::SmoothTransformation);

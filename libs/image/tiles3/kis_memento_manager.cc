@@ -117,7 +117,7 @@ KisMementoManager::~KisMementoManager()
  * 4) Then we called clear() and getMemento() [==commit()]
  * 5) The tile will be registered as deleted and successfully
  *    committed to a revision. That means the states of the memento
- *    manager at stages 1 and 5 do not coinside.
+ *    manager at stages 1 and 5 do not coincide.
  * This will not lead to any memory leaks or bugs seen, it just
  * not good from a theoretical perspective.
  */
@@ -128,7 +128,7 @@ void KisMementoManager::registerTileChange(KisTile *tile)
 
     DEBUG_LOG_TILE_ACTION("reg. [C]", tile, tile->col(), tile->row());
 
-    KisMementoItemSP mi = m_index.getExistedTile(tile->col(), tile->row());
+    KisMementoItemSP mi = m_index.getExistingTile(tile->col(), tile->row());
 
     if(!mi) {
         mi = new KisMementoItem();
@@ -150,7 +150,7 @@ void KisMementoManager::registerTileDeleted(KisTile *tile)
 
     DEBUG_LOG_TILE_ACTION("reg. [D]", tile, tile->col(), tile->row());
 
-    KisMementoItemSP mi = m_index.getExistedTile(tile->col(), tile->row());
+    KisMementoItemSP mi = m_index.getExistingTile(tile->col(), tile->row());
 
     if(!mi) {
         mi = new KisMementoItem();
@@ -198,7 +198,7 @@ void KisMementoManager::commit()
         m_headsHashTable.deleteTile(mi->col(), mi->row());
 
         iter.moveCurrentToHashTable(&m_headsHashTable);
-        //++iter; // previous line does this for us
+        //iter.next(); // previous line does this for us
     }
 
     KisHistoryItem hItem;
@@ -215,7 +215,7 @@ void KisMementoManager::commit()
     KisTileDataStore::instance()->kickPooler();
 }
 
-KisTileSP KisMementoManager::getCommitedTile(qint32 col, qint32 row)
+KisTileSP KisMementoManager::getCommitedTile(qint32 col, qint32 row, bool &existingTile)
 {
     /**
      * Our getOldTile mechanism is supposed to return current
@@ -225,7 +225,7 @@ KisTileSP KisMementoManager::getCommitedTile(qint32 col, qint32 row)
     if(!namedTransactionInProgress())
         return KisTileSP();
 
-    KisMementoItemSP mi = m_headsHashTable.getReadOnlyTileLazy(col, row);
+    KisMementoItemSP mi = m_headsHashTable.getReadOnlyTileLazy(col, row, existingTile);
     Q_ASSERT(mi);
     return mi->tile(0);
 }
@@ -395,11 +395,11 @@ void KisMementoManager::debugPrintInfo()
     printf("KisMementoManager stats:\n");
     printf("Index list\n");
     KisMementoItemSP mi;
-    KisMementoItemHashTableIterator iter(&m_index);
+    KisMementoItemHashTableIteratorConst iter(&m_index);
 
     while ((mi = iter.tile())) {
         mi->debugPrintInfo();
-        ++iter;
+        iter.next();
     }
 
     printf("Revisions list:\n");

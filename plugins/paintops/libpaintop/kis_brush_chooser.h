@@ -20,6 +20,7 @@
 
 #include <QLabel>
 #include <kis_brush.h>
+#include <QScroller>
 
 #include "kritapaintop_export.h"
 #include "ui_wdgpredefinedbrushchooser.h"
@@ -38,7 +39,8 @@ class KisClipboardBrushWidget;
 class KoResourceItemChooser;
 class KoResource;
 
-class PAINTOP_EXPORT KisPredefinedBrushChooser : public QWidget, Ui::WdgPredefinedBrushChooser
+
+class PAINTOP_EXPORT KisPredefinedBrushChooser : public QWidget, public Ui::WdgPredefinedBrushChooser
 {
 
     Q_OBJECT
@@ -51,7 +53,7 @@ public:
         return m_brush;
     };
 
-    void setBrush(KisBrushSP _brush);
+    void setBrush(KisBrushSP brush);
     void setBrushSize(qreal xPixels, qreal yPixels);
     void setImage(KisImageWSP image);
 
@@ -62,15 +64,12 @@ private Q_SLOTS:
     void slotSetItemRotation(qreal);
     void slotSpacingChanged();
     void slotSetItemUseColorAsMask(bool);
-    void slotActivatedBrush(KoResource *);
     void slotOpenStampBrush();
     void slotOpenClipboardBrush();
     void slotImportNewBrushResource();
     void slotDeleteBrushResource();
     void slotNewPredefinedBrush(KoResource *);
-    void update(KoResource *);
-
-
+    void updateBrushTip(KoResource *, bool isChangingBrushPresets = false);
 
 Q_SIGNALS:
 
@@ -82,7 +81,6 @@ private:
     KisImageWSP m_image;
     KisCustomBrushWidget* m_stampBrushWidget;
     KisClipboardBrushWidget* m_clipboardBrushWidget;
-
 };
 
 #endif // KIS_PREDEFINED_BRUSH_CHOOSER_H_

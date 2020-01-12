@@ -11,9 +11,6 @@ endif ()
 include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}/resources
     ${CMAKE_CURRENT_SOURCE_DIR}/compositeops)
-include_directories(SYSTEM
-    ${Boost_INCLUDE_DIRS}
-)
 
 set(FILE_OPENEXR_SOURCES)
 set(LINK_OPENEXR_LIB)
@@ -31,7 +28,7 @@ if(HAVE_VC)
     ko_compile_for_all_implementations_no_scalar(__per_arch_factory_objs compositeops/KoOptimizedCompositeOpFactoryPerArch.cpp)
 
     message("Following objects are generated from the per-arch lib")
-    message(${__per_arch_factory_objs})
+    message("${__per_arch_factory_objs}")
 endif()
 
 add_subdirectory(tests)
@@ -77,10 +74,13 @@ set(kritapigment_SRCS
     colorspaces/KoSimpleColorSpaceEngine.cpp
     compositeops/KoOptimizedCompositeOpFactory.cpp
     compositeops/KoOptimizedCompositeOpFactoryPerArch_Scalar.cpp
+    compositeops/KoAlphaDarkenParamsWrapper.cpp
     ${__per_arch_factory_objs}
     colorprofiles/KoDummyColorProfile.cpp
     resources/KoAbstractGradient.cpp
     resources/KoColorSet.cpp
+    resources/KisSwatch.cpp
+    resources/KisSwatchGroup.cpp
     resources/KoPattern.cpp
     resources/KoResource.cpp
     resources/KoMD5Generator.cpp

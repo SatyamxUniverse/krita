@@ -119,16 +119,16 @@ void KoOdfGraphicStyles::saveOdfStrokeStyle(KoGenStyle &styleStroke, KoGenStyles
         break;
     default: { // must be a dashed line
         styleStroke.addProperty("draw:stroke", "dash", KoGenStyle::GraphicType);
-        // save stroke dash (14.14.7) which is severly limited, but still
+        // save stroke dash (14.14.7) which is severely limited, but still
         KoGenStyle dashStyle(KoGenStyle::StrokeDashStyle);
         dashStyle.addAttribute("draw:style", "rect");
         QVector<qreal> dashes = pen.dashPattern();
         dashStyle.addAttribute("draw:dots1", static_cast<int>(1));
-        dashStyle.addAttributePt("draw:dots1-length", dashes[0]*pen.widthF());
-        dashStyle.addAttributePt("draw:distance", dashes[1]*pen.widthF());
+        dashStyle.addAttribute("draw:dots1-length", dashes[0]*pen.widthF());
+        dashStyle.addAttribute("draw:distance", dashes[1]*pen.widthF());
         if (dashes.size() > 2) {
             dashStyle.addAttribute("draw:dots2", static_cast<int>(1));
-            dashStyle.addAttributePt("draw:dots2-length", dashes[2]*pen.widthF());
+            dashStyle.addAttribute("draw:dots2-length", dashes[2]*pen.widthF());
         }
         QString dashStyleName = mainStyles.insert(dashStyle, "dash");
         styleStroke.addProperty("draw:stroke-dash", dashStyleName, KoGenStyle::GraphicType);
@@ -338,7 +338,7 @@ QBrush KoOdfGraphicStyles::loadOdfGradientStyleByName(const KoOdfStylesReader &s
         qreal border = 0.01 * e->attributeNS(KoXmlNS::draw, "border", "0").remove('%').toDouble();
         QGradientStops stops;
         if (type != "axial") {
-            // In case of radial gradients the colors are reversed, because OOo saves them as the oppsite of the SVG direction
+            // In case of radial gradients the colors are reversed, because OOo saves them as the opposite of the SVG direction
             // see bug 137639
             QGradientStop start;
             start.first = (type != "radial") ? border : 1.0 - border;
@@ -526,13 +526,13 @@ QBrush KoOdfGraphicStyles::loadOdfFillStyle(const KoStyleStack &styleStack, cons
                 tmpBrush.setColor(draw->attributeNS(KoXmlNS::draw, "color", QString()));
             }
             if (draw->hasAttributeNS(KoXmlNS::draw, "distance")) {
-                //todo implemente it into kpresenter
+                //todo implement it into kpresenter
             }
             if (draw->hasAttributeNS(KoXmlNS::draw, "display-name")) {
                 //todo implement it into kpresenter
             }
             if (draw->hasAttributeNS(KoXmlNS::draw, "style")) {
-                //todo implemente it into kpresenter
+                //todo implement it into kpresenter
                 QString styleHash = draw->attributeNS(KoXmlNS::draw, "style", QString());
                 if (styleHash == "single") {
                     switch (angle) {
@@ -723,7 +723,7 @@ QTransform KoOdfGraphicStyles::loadTransformation(const QString &transformation)
             subtransform[0] = subtransform[0].right(subtransform[0].length() - 1);
 
         if (subtransform[0] == "rotate") {
-            // TODO find out what oo2 really does when rotating, it seems severly broken
+            // TODO find out what oo2 really does when rotating, it seems severely broken
             if (params.count() == 3) {
                 qreal x = KoUnit::parseValue(params[1]);
                 qreal y = KoUnit::parseValue(params[2]);

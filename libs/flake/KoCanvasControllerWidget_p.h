@@ -28,6 +28,7 @@
 #include <FlakeDebug.h>
 
 #include <KoConfig.h>
+#include "KoCanvasSupervisor.h"
 
 class KoCanvasControllerWidget;
 class Viewport;
@@ -37,8 +38,9 @@ class Q_DECL_HIDDEN KoCanvasControllerWidget::Private
 {
 public:
 
-    Private(KoCanvasControllerWidget *qq)
+    Private(KoCanvasControllerWidget *qq, KoCanvasSupervisor *observerProvider)
         : q(qq)
+        , observerProvider(observerProvider)
         , canvas(0)
         , ignoreScrollSignals(false)
         , zoomWithWheel(false)
@@ -55,9 +57,10 @@ public:
     void emitPointerPositionChangedSignals(QEvent *event);
 
     void activate();
-    void unsetCanvas(KoCanvasBase *canvas);
+    void unsetCanvas();
 
     KoCanvasControllerWidget *q;
+    KoCanvasSupervisor *observerProvider;
     QPointer<KoCanvasBase> canvas;
     Viewport *viewportWidget;
     bool ignoreScrollSignals;

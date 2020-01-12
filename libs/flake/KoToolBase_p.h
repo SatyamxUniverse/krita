@@ -1,6 +1,6 @@
 /* This file is part of the KDE project
  * Copyright (C) 2006-2010 Thomas Zander <zander@kde.org>
- * Copyright (C) 2010 KO GmbH <boud@kogmbh.com>
+ * Copyright (C) 2010 KO GmbH <boud@valdyas.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -22,7 +22,7 @@
 #define KOTOOLBASE_P_H
 
 #include "KoDocumentResourceManager.h"
-#include "KoCanvasResourceManager.h"
+#include "KoCanvasResourceProvider.h"
 #include "KoCanvasBase.h"
 #include "KoShapeController.h"
 #include <QHash>
@@ -60,7 +60,7 @@ public:
     void connectSignals()
     {
         if (canvas) { // in the case of KoToolManagers dummytool it can be zero :(
-            KoCanvasResourceManager * crp = canvas->resourceManager();
+            KoCanvasResourceProvider * crp = canvas->resourceManager();
             Q_ASSERT_X(crp, "KoToolBase::KoToolBase", "No Canvas KoResourceManager");
             if (crp)
                 q->connect(crp, SIGNAL(canvasResourceChanged(int, const QVariant &)),
@@ -76,8 +76,8 @@ public:
     }
 
     QList<QPointer<QWidget> > optionWidgets; ///< the optionwidgets associated with this tool
+    bool optionWidgetsCreated {false};
     QCursor currentCursor;
-    QHash<QString, QAction *> actions;
     QString toolId;
     KoToolBase *q;
     KoCanvasBase *canvas; ///< the canvas interface this tool will work for.

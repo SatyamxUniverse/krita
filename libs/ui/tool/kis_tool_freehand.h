@@ -33,11 +33,8 @@
 class KoPointerEvent;
 class KoCanvasBase;
 
-
-
 class KisPaintingInformationBuilder;
 class KisToolFreehandHelper;
-class KisRecordingAdapter;
 
 
 class KRITAUI_EXPORT KisToolFreehand : public KisToolPaint
@@ -83,7 +80,6 @@ protected:
 
 
     KisPaintingInformationBuilder* paintingInformationBuilder() const;
-    KisRecordingAdapter* recordingAdapter() const;
     void resetHelper(KisToolFreehandHelper *helper);
 
 protected Q_SLOTS:
@@ -112,7 +108,6 @@ private:
 protected:
     friend class KisViewManager;
     friend class KisView;
-    friend class KisSketchView;
     KisSmoothingOptionsSP smoothingOptions() const;
     bool m_assistant;
     double m_magnetism;
@@ -121,7 +116,6 @@ protected:
 private:
     KisPaintingInformationBuilder *m_infoBuilder;
     KisToolFreehandHelper *m_helper;
-    KisRecordingAdapter *m_recordingAdapter;
 
     QPointF m_initialGestureDocPoint;
     QPointF m_lastDocumentPoint;

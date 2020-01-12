@@ -37,17 +37,18 @@
 
 #include <kis_debug.h>
 
-ShapeResizeStrategy::ShapeResizeStrategy(KoToolBase *tool, const QPointF &clicked, KoFlake::SelectionHandle direction)
-    : KoInteractionStrategy(tool)
+ShapeResizeStrategy::ShapeResizeStrategy(KoToolBase *tool, KoSelection *selection, const QPointF &clicked, KoFlake::SelectionHandle direction, bool forceUniformScalingMode)
+    : KoInteractionStrategy(tool),
+      m_forceUniformScalingMode(forceUniformScalingMode)
 {
-    Q_ASSERT(tool->canvas()->shapeManager()->selection());
-    Q_ASSERT(tool->canvas()->shapeManager()->selection()->count() > 0);
-    m_selectedShapes = tool->canvas()->shapeManager()->selection()->selectedEditableShapes();
+    KIS_SAFE_ASSERT_RECOVER_RETURN(selection && selection->count() > 0);
+
+    m_selectedShapes = selection->selectedEditableShapes();
     m_start = clicked;
 
     KoShape *shape = 0;
     if (m_selectedShapes.size() > 1) {
-        shape = tool->canvas()->shapeManager()->selection();
+        shape = selection;
     } else if (m_selectedShapes.size() == 1) {
         shape = m_selectedShapes.first();
     }
@@ -193,10 +194,18 @@ void ShapeResizeStrategy::handleMouseMove(const QPointF &point, Qt::KeyboardModi
 
     if (keepAspect) {
         const bool cornerUsed = ((m_bottom ? 1 : 0) + (m_top ? 1 : 0) + (m_left ? 1 : 0) + (m_right ? 1 : 0)) == 2;
-        if ((cornerUsed && startWidth < startHeight) || m_left || m_right) {
-            zoomY = zoomX;
+        if (cornerUsed) {
+            if (startWidth < startHeight) {
+                zoomY = zoomX;
+            } else {
+                zoomX = zoomY;
+            }
         } else {
-            zoomX = zoomY;
+            if (m_left || m_right) {
+               zoomY = qAbs(zoomX);
+            } else {
+               zoomX = qAbs(zoomY);
+            }
         }
     }
 
@@ -205,20 +214,19 @@ void ShapeResizeStrategy::handleMouseMove(const QPointF &point, Qt::KeyboardModi
 
 void ShapeResizeStrategy::resizeBy(const QPointF &stillPoint, qreal zoomX, qreal zoomY)
 {
-    if (m_executedCommand) {
-        m_executedCommand->undo();
-        m_executedCommand.reset();
+    if (!m_executedCommand) {
+        const bool usePostScaling = m_selectedShapes.size() > 1 || m_forceUniformScalingMode;
+
+        m_executedCommand.reset(
+                    new KoShapeResizeCommand(
+                        m_selectedShapes,
+                        zoomX, zoomY,
+                        stillPoint,
+                        false, usePostScaling, m_postScalingCoveringTransform));
+        m_executedCommand->redo();
+    } else {
+        m_executedCommand->replaceResizeAction(zoomX, zoomY, stillPoint);
     }
-
-    const bool usePostScaling = m_selectedShapes.size() > 1;
-
-    m_executedCommand.reset(
-         new KoShapeResizeCommand(
-                    m_selectedShapes,
-                    zoomX, zoomY,
-                    stillPoint,
-                    false, usePostScaling, m_postScalingCoveringTransform));
-    m_executedCommand->redo();
 }
 
 KUndo2Command *ShapeResizeStrategy::createCommand()

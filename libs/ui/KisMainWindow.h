@@ -25,19 +25,19 @@
 
 #include <QPointer>
 #include <QPrinter>
+#include <QUuid>
+#include <QUrl>
 
 #include <xmlgui/kxmlguiwindow.h>
-#include <QUrl>
 #include <KoCanvasObserverBase.h>
 #include <KoCanvasSupervisor.h>
-
 #include "KisView.h"
 
 class QCloseEvent;
 class QMoveEvent;
 
 struct KoPageLayout;
-class KoCanvasResourceManager;
+class KoCanvasResourceProvider;
 
 class KisDocument;
 class KisPrintJob;
@@ -46,7 +46,7 @@ class QDockWidget;
 class KisView;
 class KisViewManager;
 class KoCanvasController;
-
+class KisWorkspaceResource;
 
 /**
  * @brief Main window for Krita
@@ -61,36 +61,35 @@ class KRITAUI_EXPORT KisMainWindow : public KXmlGuiWindow, public KoCanvasSuperv
     Q_OBJECT
 
 public:
+    enum OpenFlag {
+        None = 0,
+        Import = 0x1,
+        BatchMode = 0x2,
+        RecoveryFile = 0x4
+    };
+    Q_DECLARE_FLAGS(OpenFlags, OpenFlag)
+
+public:
 
     /**
      *  Constructor.
      *
      *  Initializes a Calligra main window (with its basic GUI etc.).
      */
-    explicit KisMainWindow();
+    explicit KisMainWindow(QUuid id = QUuid());
 
     /**
      *  Destructor.
      */
     ~KisMainWindow() override;
 
-    /**
-     * Update caption from document info - call when document info
-     * (title in the about page) changes.
-     */
-    void updateCaption();
-
-
-    // If noCleanup is set, KisMainWindow will not delete the root document
-    // or part manager on destruction.
-    void setNoCleanup(bool noCleanup);
+    QUuid id() const;
 
     /**
-     * @brief showView shows the given view. Override this if you want to show
-     * the view in a different way than by making it the central widget, for instance
-     * as an QMdiSubWindow
+     * @brief showView shows the given view, in @p subWindow if not
+     * null, in a new tab otherwise.
      */
-    virtual void showView(KisView *view);
+    virtual void showView(KisView *view, QMdiSubWindow *subWindow = 0);
 
     /**
      * @returns the currently active view
@@ -108,15 +107,52 @@ public:
     void addRecentURL(const QUrl &url);
 
     /**
+     * get list of URL strings for recent files
+     */
+    QList<QUrl> recentFilesUrls();
+    /**
+     * removes the given url from the list of recent files
+     */
+    void removeRecentUrl(const QUrl &url);
+
+
+    /**
      * Load the desired document and show it.
      * @param url the URL to open
      *
      * @return TRUE on success.
      */
-    bool openDocument(const QUrl &url);
+    bool openDocument(const QUrl &url, OpenFlags flags);
+
+    /**
+     * Activate a view containing the document in this window, creating one if needed.
+     */
+    void showDocument(KisDocument *document);
+
+
+    /**
+     * Toggles between showing the welcome screen and the MDI area
+     *
+     *  hack: There seems to be a bug that prevents events happening to the MDI area if it
+     *  isn't actively displayed (set in the widgetStack). This can cause things like the title bar
+     *  not to update correctly Before doing any actions related to opening or creating documents,
+     *  make sure to switch this first to make sure everything can communicate to the MDI area correctly
+     */
+    void showWelcomeScreen(bool show);
+
+    /**
+     * Saves the document, asking for a filename if necessary.
+     *
+     * @param saveas if set to TRUE the user is always prompted for a filename
+     * @param silent if set to TRUE rootDocument()->setTitleModified will not be called.
+     *
+     * @return TRUE on success, false on error or cancel
+     *         (don't display anything in this case, the error dialog box is also implemented here
+     *         but restore the original URL in slotFileSaveAs)
+     */
+    bool saveDocument(KisDocument *document, bool saveas, bool isExporting);
 
     void setReadWrite(bool readwrite);
-
 
     /// Return the list of dock widgets belonging to this main window.
     QList<QDockWidget*> dockWidgets() const;
@@ -125,22 +161,36 @@ public:
 
     QList<KoCanvasObserverBase*> canvasObservers() const override;
 
-    KoCanvasResourceManager *resourceManager() const;
+    KoCanvasResourceProvider *resourceManager() const;
 
     int viewCount() const;
+
+    void saveWindowState(bool restoreNormalState =false);
+
+    const KConfigGroup &windowStateConfig() const;
 
     /**
      * A wrapper around restoreState
      * @param state the saved state
      * @return TRUE on success
      */
-    bool restoreWorkspace(const QByteArray &state);
+    bool restoreWorkspace(KisWorkspaceResource *workspace);
+    bool restoreWorkspaceState(const QByteArray &state);
+
+    static void swapWorkspaces(KisMainWindow *a, KisMainWindow *b);
 
     KisViewManager *viewManager() const;
 
-    void addViewAndNotifyLoadingCompleted(KisDocument *document);
+    KisView *addViewAndNotifyLoadingCompleted(KisDocument *document,
+                                              QMdiSubWindow *subWindow = 0);
 
-    QStringList showOpenFileDialog();
+    QStringList showOpenFileDialog(bool isImporting);
+
+    /**
+     * The top-level window used for a detached canvas.
+     */
+    QWidget *canvasWindow() const;
+    bool canvasDetached() const;
 
     /**
      * Shows if the main window is saving anything right now. If the
@@ -152,6 +202,9 @@ public:
      * Don't use it unless you have no option.
      */
     bool hackIsSaving() const;
+
+    /// Copy the given file into the bundle directory.
+    bool installBundle(const QString &fileName) const;
 
 Q_SIGNALS:
 
@@ -177,10 +230,17 @@ Q_SIGNALS:
 
     void guiLoadingFinished();
 
-    /// This signal is emitted when the user clicked on the progressbar cancel
-    void sigProgressCanceled();
+    /// emitted when the window is migrated among different screens
+    void screenChanged();
 
 public Q_SLOTS:
+
+
+    /**
+     * clears the list of the recent files
+     */
+    void clearRecentFiles();
+
 
     /**
      *  Slot for opening a new document.
@@ -196,7 +256,7 @@ public Q_SLOTS:
      *  If the current document is empty, the opened document replaces it.
      *  If not a new mainwindow will be opened for showing the opened file.
      */
-    void slotFileOpen();
+    void slotFileOpen(bool isImporting = false);
 
     /**
      *  Slot for opening a file among the recently opened files.
@@ -212,32 +272,55 @@ public Q_SLOTS:
     void slotPreferences();
 
     /**
+     * Update caption from document info - call when document info
+     * (title in the about page) changes.
+     */
+    void updateCaption();
+
+    /**
      *  Saves the current document with the current name.
      */
     void slotFileSave();
 
+
+    void slotShowSessionManager();
+
     // XXX: disabled
     KisPrintJob* exportToPdf(QString pdfFileName = QString());
-
-    void slotProgress(int value);
-
-    /**
-     * Saves the document, asking for a filename if necessary.
-     *
-     * @param saveas if set to TRUE the user is always prompted for a filename
-     * @param silent if set to TRUE rootDocument()->setTitleModified will not be called.
-     *
-     * @return TRUE on success, false on error or cancel
-     *         (don't display anything in this case, the error dialog box is also implemented here
-     *         but restore the original URL in slotFileSaveAs)
-     */
-    bool saveDocument(KisDocument *document, bool saveas = false);
 
     /**
      * Update the option widgets to the argument ones, removing the currently set widgets.
      */
     void newOptionWidgets(KoCanvasController *controller, const QList<QPointer<QWidget> > & optionWidgetList);
 
+    KisView *newView(QObject *document, QMdiSubWindow *subWindow = 0);
+
+    void notifyChildViewDestroyed(KisView *view);
+
+    /// Set the active view, this will update the undo/redo actions
+    void setActiveView(KisView *view);
+
+    void subWindowActivated();
+
+    void windowFocused();
+
+    /**
+     * Reloads the recent documents list.
+     */
+    void reloadRecentFileList();
+
+    /**
+     * Detach canvas onto a separate window, or restore it back to to main window.
+     */
+    void setCanvasDetached(bool detached);
+
+    void slotFileSelected(QString path);
+    void slotEmptyFilePath();
+
+    /**
+     * Toggle full screen on/off.
+     */
+    void viewFullscreen(bool fullScreen);
 
 private Q_SLOTS:
     /**
@@ -251,12 +334,10 @@ private Q_SLOTS:
     void slotSaveCanceled(const QString &);
     void forceDockTabFonts();
 
-    void slotProgressCanceled();
-
     /**
      * @internal
      */
-    void slotDocumentTitleModified(const QString &caption, bool mod);
+    void slotDocumentTitleModified();
 
     /**
      *  Prints the actual document.
@@ -309,19 +390,10 @@ private Q_SLOTS:
     void slotToolbarToggled(bool toggle);
 
     /**
-     * Toggle full screen on/off.
-     */
-    void viewFullscreen(bool fullScreen);
-
-    /**
-     * Toggle docker titlebars on/off.
-     */
-    void showDockerTitleBars(bool show);
-
-    /**
      * Reload file
      */
     void slotReloadFile();
+
 
     /**
      * File --> Import
@@ -352,12 +424,21 @@ private Q_SLOTS:
     void updateWindowMenu();
     void setActiveSubWindow(QWidget *window);
     void configChanged();
-    void newView(QObject *document);
+
     void newWindow();
     void closeCurrentWindow();
     void checkSanity();
+
     /// Quits Krita with error message from m_errorMessage.
     void showErrorAndDie();
+
+    void initializeGeometry();
+    void showManual();
+    void switchTab(int index);
+
+    void windowScreenChanged(QScreen *screen);
+
+    void slotXmlGuiMakingChanges(bool finished);
 
 protected:
 
@@ -365,32 +446,23 @@ protected:
     void resizeEvent(QResizeEvent * e) override;
 
     // QWidget overrides
-    void dragEnterEvent(QDragEnterEvent * event) override;
-    void dropEvent(QDropEvent * event) override;
-    void dragMoveEvent(QDragMoveEvent * event) override;
-    void dragLeaveEvent(QDragLeaveEvent * event) override;
 
-    void setToolbarList(QList<QAction*> toolbarList);
+private:
 
+    friend class KisWelcomePageWidget;
+    void dragMove(QDragMoveEvent *event);
+    void dragLeave();
 
-public Q_SLOTS:
+private:
 
     /**
      * Add a the given view to the list of views of this mainwindow.
      * This is a private implementation. For public usage please use
      * newView() and addViewAndNotifyLoadingCompleted().
      */
-    void addView(KisView *view);
+    void addView(KisView *view, QMdiSubWindow *subWindow = 0);
 
-    /// Set the active view, this will update the undo/redo actions
-    void setActiveView(KisView *view);
-
-    void subWindowActivated();
-
-
-private:
-
-    friend class KisApplication;
+    friend class KisPart;
 
 
     /**
@@ -401,22 +473,18 @@ private:
      */
     QDockWidget* createDockWidget(KoDockFactoryBase* factory);
 
-    bool openDocumentInternal(const QUrl &url, KisDocument *newdoc = 0);
+    bool openDocumentInternal(const QUrl &url, KisMainWindow::OpenFlags flags = 0);
 
-    /**
-     * Reloads the recent documents list.
-     */
-    void reloadRecentFileList();
 
     /**
      * Updates the window caption based on the document info and path.
      */
-    void updateCaption(const QString & caption, bool mod);
+    void updateCaption(const QString & caption, bool modified);
     void updateReloadFileAction(KisDocument *doc);
 
     void saveWindowSettings();
 
-    QPointer<KisView>activeKisView();
+    QPointer<KisView> activeKisView();
 
     void applyDefaultSettings(QPrinter &printer);
 
@@ -424,17 +492,10 @@ private:
 
     void applyToolBarLayout();
 
-protected:
+    QByteArray borrowWorkspace(KisMainWindow *borrower);
 
-    void moveEvent(QMoveEvent *e) override;
-
-private Q_SLOTS:
-    void initializeGeometry();
-    void showManual();
-    void switchTab(int index);
 
 private:
-
 
     /**
      * Struct used in the list created by createCustomDocumentWidgets()
@@ -453,7 +514,8 @@ private:
 
     QString m_errorMessage;
     bool m_dieOnError;
-
 };
+
+Q_DECLARE_OPERATORS_FOR_FLAGS(KisMainWindow::OpenFlags)
 
 #endif

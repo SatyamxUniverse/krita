@@ -31,6 +31,7 @@
 
 class KoCanvasController;
 class KoShapeLayer;
+class KoToolBoxLayout;
 
 /**
  * KoToolBox is a dock widget that can order tools according to type and
@@ -67,7 +68,6 @@ public Q_SLOTS:
      * The toolbox allows buttons to be optionally registered with a visibilityCode. This code
      * can be passed here and all buttons that have that code are shown. All buttons that
      * have another visibility code registered are hidden.
-     * @param canvas the currently active canvas.
      * @param codes a list of all the codes to show.
      */
     void setButtonsVisible(const QList<QString> &codes);
@@ -77,6 +77,8 @@ public Q_SLOTS:
     void setOrientation(Qt::Orientation orientation);
 
     void setFloating(bool v);
+
+    KoToolBoxLayout *toolBoxLayout() const;
 
 private:
     /**
@@ -95,18 +97,11 @@ private Q_SLOTS:
     /// add a tool post-initialization. The tool will also be activated.
     void toolAdded(KoToolAction *toolAction, KoCanvasController *canvas);
 
-    /// resize the toolbox to show the icons without any gap at the edge
-    void adjustToFit();
-
-    /// unlocks the with after adjustToFit
-    void resizeUnlock();
-
     /// set the icon size for all the buttons
     void slotContextIconSize();
 
 protected:
     void paintEvent(QPaintEvent *event) override;
-    void resizeEvent(QResizeEvent* event) override;
     void contextMenuEvent(QContextMenuEvent *event) override;
 
 private:

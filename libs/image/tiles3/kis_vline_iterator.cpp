@@ -62,7 +62,7 @@ KisVLineIterator2::KisVLineIterator2(KisDataManager *dataManager, qint32 x, qint
 
     m_tileSize = m_lineStride * KisTileData::HEIGHT;
 
-    // let's prealocate first row
+    // let's preallocate first row
     for (int i = 0; i < m_tilesCacheSize; i++){
         fetchTileDataForCache(m_tilesCache[i], m_column, m_topRow + i);
     }
@@ -165,7 +165,7 @@ KisVLineIterator2::~KisVLineIterator2()
 {
     for (int i = 0; i < m_tilesCacheSize; i++) {
         unlockTile(m_tilesCache[i].tile);
-        unlockTile(m_tilesCache[i].oldtile);
+        unlockOldTile(m_tilesCache[i].oldtile);
     }
 }
 
@@ -205,12 +205,11 @@ void KisVLineIterator2::switchToTile(qint32 yInTile)
 
 void KisVLineIterator2::fetchTileDataForCache(KisTileInfo& kti, qint32 col, qint32 row)
 {
-    kti.tile = m_dataManager->getTile(col, row, m_writable);
+    m_dataManager->getTilesPair(col, row, m_writable, &kti.tile, &kti.oldtile);
+
     lockTile(kti.tile);
     kti.data = kti.tile->data();
 
-    // set old data
-    kti.oldtile = m_dataManager->getOldTile(col, row);
     lockOldTile(kti.oldtile);
     kti.oldData = kti.oldtile->data();
 }
@@ -219,7 +218,7 @@ void KisVLineIterator2::preallocateTiles()
 {
     for (int i = 0; i < m_tilesCacheSize; ++i){
         unlockTile(m_tilesCache[i].tile);
-        unlockTile(m_tilesCache[i].oldtile);
+        unlockOldTile(m_tilesCache[i].oldtile);
         fetchTileDataForCache(m_tilesCache[i], m_column, m_topRow + i );
     }
 }

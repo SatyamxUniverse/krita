@@ -1,6 +1,7 @@
 ########### install files ###############
 
 install(FILES
+Abstract_lines.png
 01_canvas.png
 02_rough-canvas.png
 02b_WoofTissue.png
@@ -8,7 +9,6 @@ install(FILES
 04_paper-C-grain.png
 05_paper-torchon.png
 06_hard-grain.png
-07_big-grain.png
 08_bump-relief.png
 09_drawed_crosshatched.png
 09b_drawed-CrossedLines.png
@@ -29,10 +29,7 @@ install(FILES
 23-dynamic-screentone-A.png
 24-dynamic-screentone-B.png
 25-dynamic-screentone-C.png
-Canvas_Hard.pat
-Canvas_covered.pat
-Canvas_small_01.pat
-Canvas_small_02.pat
+26_brush-marks.png
 Cross01.pat
 Cross02.pat
 Cross03.pat
@@ -48,12 +45,17 @@ Grid04.pat
 Grid05.pat
 HR_PastelPaper_02.pat
 HR_Wall_Paper.pat
+Maze_lines.png
 Pattern01.pat
 Pattern02.pat
 Pattern03.pat
 Pattern04.pat
 Pattern05.pat
 Pattern06.pat
+Rough_Paper.png
+Rough_Wall_With_Impasto.png
+Sand_fine.png
+Stars_Sized.png
 Squares01.pat
 Squares02.pat
 Squares03.pat
@@ -79,7 +81,37 @@ Zigzag04.pat
 fractal_pattern.pat
 generic_paper1.pat
 generic_paper2.pat
-granite.pat
 hexacolBW__2.pat
+DITH_0202_CLUS.pat
+DITH_0202_GEN_.pat
+DITH_0202_HORZ.pat
+DITH_0202_VERT.pat
+DITH_0404_ALT_.pat
+DITH_0404_BL22.pat
+DITH_0404_CLUS.pat
+DITH_0404_CURL.pat
+DITH_0404_DIAG.pat
+DITH_0404_ELL2.pat
+DITH_0404_ELL3.pat
+DITH_0404_ELLS.pat
+DITH_0404_GEN_.pat
+DITH_0404_HORZ.pat
+DITH_0404_SHUR.pat
+DITH_0404_SLIC.pat
+DITH_0404_VERT.pat
+DITH_0404_WAV2.pat
+DITH_0404_WAVE.pat
+DITH_0404_ZORO.pat
+DITH_0808_BL22.pat
+DITH_0808_BL22_v.pat
+DITH_0808_BUBL.pat
+DITH_0808_CIRC.pat
+DITH_0808_CLUS.pat
+DITH_0808_DIAM.pat
+DITH_0808_PANL.pat
+DITH_0808_SPOT.pat
+DITH_0808_SWRL.pat
+DITH_0808_WAVE.pat
+DITH_3232_CSTR.pat
     DESTINATION ${DATA_INSTALL_DIR}/krita/patterns)
 

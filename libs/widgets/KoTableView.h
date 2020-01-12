@@ -20,8 +20,10 @@
 #define KOTABLEVIEW_H
 
 #include <QTableView>
+#include <QScroller>
 
 #include "kritawidgets_export.h"
+#include <KisKineticScroller.h>
 
 class QEvent;
 class QModelIndex;
@@ -43,15 +45,17 @@ public:
     ~KoTableView() override {}
 
     /** reimplemented
-    * This will draw a number of rows based on the number of columns if m_viewMode is FIXED_COLUMS
+    * This will draw a number of rows based on the number of columns if m_viewMode is FIXED_COLUMNS
     * And it will draw a number of columns based on the number of rows if m_viewMode is FIXED_ROWS
     */
     void resizeEvent(QResizeEvent *event) override;
 
-
     void setViewMode(ViewMode mode);
 
     void updateView();
+
+public Q_SLOTS:
+    void slotScrollerStateChange(QScroller::State state){ KisKineticScroller::updateCursor(this, state); }
 
 Q_SIGNALS:
 

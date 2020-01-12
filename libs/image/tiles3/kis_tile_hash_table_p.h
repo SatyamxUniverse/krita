@@ -87,9 +87,43 @@ quint32 KisTileHashTableTraits<T>::calculateHash(qint32 col, qint32 row)
 
 template<class T>
 typename KisTileHashTableTraits<T>::TileTypeSP
-KisTileHashTableTraits<T>::getTile(qint32 col, qint32 row)
+KisTileHashTableTraits<T>::getTileMinefieldWalk(qint32 col, qint32 row, qint32 idx)
 {
-    qint32 idx = calculateHash(col, row);
+    // WARNING: this function is here only for educational purposes! Don't
+    //          use it! It causes race condition in a shared pointer copy-ctor
+    //          when accessing m_hashTable!
+
+    /**
+     * This is a special method for dangerous and unsafe access to
+     * the tiles table. Thanks to the fact that our shared pointers
+     * are thread safe, we can iterate through the linked list without
+     * having any locks help. In the worst case, we will miss the needed
+     * tile. In that case, the higher level code will do the proper
+     * locking and do the second try with all the needed locks held.
+     */
+
+    TileTypeSP headTile = m_hashTable[idx];
+    TileTypeSP tile = headTile;
+
+    for (; tile; tile = tile->next()) {
+        if (tile->col() == col &&
+            tile->row() == row) {
+
+            if (m_hashTable[idx] != headTile) {
+                tile.clear();
+            }
+
+            break;
+        }
+    }
+
+    return tile;
+}
+
+template<class T>
+typename KisTileHashTableTraits<T>::TileTypeSP
+KisTileHashTableTraits<T>::getTile(qint32 col, qint32 row, qint32 idx)
+{
     TileTypeSP tile = m_hashTable[idx];
 
     for (; tile; tile = tile->next()) {
@@ -104,9 +138,8 @@ KisTileHashTableTraits<T>::getTile(qint32 col, qint32 row)
 }
 
 template<class T>
-void KisTileHashTableTraits<T>::linkTile(TileTypeSP tile)
+void KisTileHashTableTraits<T>::linkTile(TileTypeSP tile, qint32 idx)
 {
-    qint32 idx = calculateHash(tile->col(), tile->row());
     TileTypeSP firstTile = m_hashTable[idx];
 
 #ifdef SHARED_TILES_SANITY_CHECK
@@ -120,10 +153,8 @@ void KisTileHashTableTraits<T>::linkTile(TileTypeSP tile)
 }
 
 template<class T>
-typename KisTileHashTableTraits<T>::TileTypeSP
-KisTileHashTableTraits<T>::unlinkTile(qint32 col, qint32 row)
+bool KisTileHashTableTraits<T>::unlinkTile(qint32 col, qint32 row, qint32 idx)
 {
-    qint32 idx = calculateHash(col, row);
     TileTypeSP tile = m_hashTable[idx];
     TileTypeSP prevTile;
 
@@ -143,16 +174,16 @@ KisTileHashTableTraits<T>::unlinkTile(qint32 col, qint32 row)
              * explicitly
              */
             tile->setNext(TileTypeSP());
-            tile->notifyDead();
-            tile = TileTypeSP();
+            tile->notifyDetachedFromDataManager();
+            tile.clear();
 
             m_numTiles--;
-            return tile;
+            return true;
         }
         prevTile = tile;
     }
 
-    return TileTypeSP();
+    return false;
 }
 
 template<class T>
@@ -179,16 +210,20 @@ inline KisTileData* KisTileHashTableTraits<T>::defaultTileDataImp() const
 template<class T>
 bool KisTileHashTableTraits<T>::tileExists(qint32 col, qint32 row)
 {
-    QReadLocker locker(&m_lock);
-    return getTile(col, row);
+    return this->getExisitngTile(col, row);
 }
 
 template<class T>
 typename KisTileHashTableTraits<T>::TileTypeSP
-KisTileHashTableTraits<T>::getExistedTile(qint32 col, qint32 row)
+KisTileHashTableTraits<T>::getExistingTile(qint32 col, qint32 row)
 {
+    const qint32 idx = calculateHash(col, row);
+
+    // NOTE: minefield walk is disabled due to supposed unsafety,
+    //       see bug 391270
+
     QReadLocker locker(&m_lock);
-    return getTile(col, row);
+    return getTile(col, row, idx);
 }
 
 template<class T>
@@ -196,16 +231,23 @@ typename KisTileHashTableTraits<T>::TileTypeSP
 KisTileHashTableTraits<T>::getTileLazy(qint32 col, qint32 row,
                                        bool& newTile)
 {
-    /**
-     * FIXME: Read access is better
-     */
-    QWriteLocker locker(&m_lock);
+    const qint32 idx = calculateHash(col, row);
+
+    // NOTE: minefield walk is disabled due to supposed unsafety,
+    //       see bug 391270
 
     newTile = false;
-    TileTypeSP tile = getTile(col, row);
+    TileTypeSP tile;
+
+    {
+        QReadLocker locker(&m_lock);
+        tile = getTile(col, row, idx);
+    }
+
     if (!tile) {
+        QWriteLocker locker(&m_lock);
         tile = new TileType(col, row, m_defaultTileData, m_mementoManager);
-        linkTile(tile);
+        linkTile(tile, idx);
         newTile = true;
     }
 
@@ -214,13 +256,21 @@ KisTileHashTableTraits<T>::getTileLazy(qint32 col, qint32 row,
 
 template<class T>
 typename KisTileHashTableTraits<T>::TileTypeSP
-KisTileHashTableTraits<T>::getReadOnlyTileLazy(qint32 col, qint32 row)
+KisTileHashTableTraits<T>::getReadOnlyTileLazy(qint32 col, qint32 row, bool &existingTile)
 {
+    const qint32 idx = calculateHash(col, row);
+
+    // NOTE: minefield walk is disabled due to supposed unsafety,
+    //       see bug 391270
+
     QReadLocker locker(&m_lock);
 
-    TileTypeSP tile = getTile(col, row);
-    if (!tile)
+    TileTypeSP tile = getTile(col, row, idx);
+    existingTile = tile;
+
+    if (!existingTile) {
         tile = new TileType(col, row, m_defaultTileData, 0);
+    }
 
     return tile;
 }
@@ -228,27 +278,25 @@ KisTileHashTableTraits<T>::getReadOnlyTileLazy(qint32 col, qint32 row)
 template<class T>
 void KisTileHashTableTraits<T>::addTile(TileTypeSP tile)
 {
+    const qint32 idx = calculateHash(tile->col(), tile->row());
+
     QWriteLocker locker(&m_lock);
-    linkTile(tile);
+    linkTile(tile, idx);
 }
 
 template<class T>
-void KisTileHashTableTraits<T>::deleteTile(qint32 col, qint32 row)
+bool KisTileHashTableTraits<T>::deleteTile(qint32 col, qint32 row)
 {
+    const qint32 idx = calculateHash(col, row);
+
     QWriteLocker locker(&m_lock);
-
-    TileTypeSP tile = unlinkTile(col, row);
-
-    /* Done by KisSharedPtr */
-    //if(tile)
-    //    delete tile;
-
+    return unlinkTile(col, row, idx);
 }
 
 template<class T>
-void KisTileHashTableTraits<T>::deleteTile(TileTypeSP tile)
+bool KisTileHashTableTraits<T>::deleteTile(TileTypeSP tile)
 {
-    deleteTile(tile->col(), tile->row());
+    return deleteTile(tile->col(), tile->row());
 }
 
 template<class T>
@@ -270,7 +318,7 @@ void KisTileHashTableTraits<T>::clear()
              */
 
             tmp->setNext(TileTypeSP());
-            tmp->notifyDead();
+            tmp->notifyDetachedFromDataManager();
             tmp = 0;
 
             m_numTiles--;
@@ -302,12 +350,14 @@ KisTileData* KisTileHashTableTraits<T>::defaultTileData() const
 template<class T>
 void KisTileHashTableTraits<T>::debugPrintInfo()
 {
-    dbgTiles << "==========================\n"
+    if (!m_numTiles) return;
+
+    qInfo() << "==========================\n"
              << "TileHashTable:"
              << "\n   def. data:\t\t" << m_defaultTileData
              << "\n   numTiles:\t\t" << m_numTiles;
     debugListLengthDistibution();
-    dbgTiles << "==========================\n";
+    qInfo() << "==========================\n";
 }
 
 template<class T>
@@ -356,12 +406,12 @@ void KisTileHashTableTraits<T>::debugListLengthDistibution()
         array[tmp-min]++;
     }
 
-    dbgTiles << QString("   minChain:\t\t%d\n"
-                        "   maxChain:\t\t%d").arg(min, max);
+    qInfo() << QString("   minChain: %1\n").arg(min);
+    qInfo() << QString("   maxChain: %1\n").arg(max);
 
-    dbgTiles << "   Chain size distribution:";
+    qInfo() << "   Chain size distribution:";
     for (qint32 i = 0; i < arraySize; i++)
-        dbgTiles << QString("      %1:\t%2\n").arg(i + min, array[i]);
+        qInfo() << QString("      %1: %2").arg(i + min).arg(array[i]);
 
     delete[] array;
 }

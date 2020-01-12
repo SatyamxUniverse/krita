@@ -1,6 +1,5 @@
-<!DOCTYPE RCC>
-<RCC version="1.0">
-    <qresource>
+<RCC>
+    <qresource prefix="/">
         <file>dark_calligraphy.svg</file>
         <file>dark_draw-text.svg</file>
         <file>dark_format-fill-color.svg</file>
@@ -19,7 +18,6 @@
         <file>dark_krita_tool_multihand.svg</file>
         <file>dark_krita_tool_polygon.svg</file>
         <file>dark_krita_tool_rectangle.svg</file>
-        <file>dark_krita_tool_ruler_assistant.svg</file>
         <file>dark_krita_tool_transform.svg</file>
         <file>dark_pattern.svg</file>
         <file>dark_polyline.svg</file>
@@ -27,6 +25,7 @@
         <file>dark_tool_contiguous_selection.svg</file>
         <file>dark_tool_crop.svg</file>
         <file>dark_tool_elliptical_selection.svg</file>
+        <file>dark_tool_magnetic_selection.svg</file>
         <file>dark_tool_outline_selection.svg</file>
         <file>dark_tool_pan.svg</file>
         <file>dark_tool_path_selection.svg</file>
@@ -53,7 +52,6 @@
         <file>light_krita_tool_multihand.svg</file>
         <file>light_krita_tool_polygon.svg</file>
         <file>light_krita_tool_rectangle.svg</file>
-        <file>light_krita_tool_ruler_assistant.svg</file>
         <file>light_krita_tool_transform.svg</file>
         <file>light_pattern.svg</file>
         <file>light_polyline.svg</file>
@@ -62,6 +60,7 @@
         <file>light_tool_crop.svg</file>
         <file>light_tool_elliptical_selection.svg</file>
         <file>light_tool_outline_selection.svg</file>
+        <file>light_tool_magnetic_selection.svg</file>
         <file>light_tool_pan.svg</file>
         <file>light_tool_path_selection.svg</file>
         <file>light_tool_perspectivegrid.svg</file>
@@ -77,5 +76,9 @@
         <file>light_krita_tool_lazybrush.svg</file>
         <file>dark_krita_tool_smart_patch.svg</file>
         <file>light_krita_tool_smart_patch.svg</file>
+        <file>light_krita_tool_assistant.svg</file>
+        <file>dark_krita_tool_assistant.svg</file>
+        <file>dark_krita_tool_reference_images.svg</file>
+        <file>light_krita_tool_reference_images.svg</file>
     </qresource>
 </RCC>

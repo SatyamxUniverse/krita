@@ -19,6 +19,7 @@
 #define LIBKIS_KRITA_H
 
 #include <QObject>
+#include <QAction>
 
 #include "kritalibkis_export.h"
 #include "libkis.h"
@@ -27,10 +28,8 @@
 #include "Document.h"
 #include "Window.h"
 #include "View.h"
-#include "Action.h"
 #include "Notifier.h"
 
-class QAction;
 
 /**
  * Krita is a singleton class that offers the root access to the Krita object hierarchy.
@@ -71,7 +70,7 @@ public Q_SLOTS:
     bool batchmode() const;
 
     /**
-     * @brief setBatchmode sets the the batchmode to @param value; if true, scripts should
+     * @brief setBatchmode sets the batchmode to @param value; if true, scripts should
      * not show dialogs or messageboxes.
      */
     void setBatchmode(bool value);
@@ -79,12 +78,12 @@ public Q_SLOTS:
     /**
      * @return return a list of all actions for the currently active mainWindow.
      */
-    QList<Action*> actions() const;
+    QList<QAction*> actions() const;
 
     /**
      * @return the action that has been registered under the given name, or 0 if no such action exists.
      */
-    Action *action(const QString &name) const;
+    QAction *action(const QString &name) const;
 
     /**
      * @return a list of all open Documents
@@ -105,6 +104,21 @@ public Q_SLOTS:
      * @return the filter or None if there is no such filter.
      */
     Filter *filter(const QString &name) const;
+
+    /**
+     * @brief colorModels creates a list with all color models id's registered.
+     * @return a list of all color models or a empty list if there is no such color models.
+     */
+    QStringList colorModels() const;
+
+    /**
+     * @brief colorDepths creates a list with the names of all color depths
+     * compatible with the given color model.
+     * @param colorModel the id of a color model.
+     * @return a list of all color depths or a empty list if there is no such
+     * color depths.
+     */
+    QStringList colorDepths(const QString &colorModel) const;
 
     /**
      * @brief filterStrategies Retrieves all installed filter strategies. A filter
@@ -191,10 +205,33 @@ public Q_SLOTS:
      */
     QMap<QString, Resource*> resources(const QString &type) const;
 
+
     /**
-     * @brief createDocument creates a new document and image and registers the document with the Krita application.
+     * @brief return all recent documents registered in the RecentFiles group of the kritarc
+     */
+    QStringList recentDocuments() const;
+
+
+    /**
+     * @brief createDocument creates a new document and image and registers
+     * the document with the Krita application.
+     *
+     * Unless you explicitly call Document::close() the document will remain
+     * known to the Krita document registry. The document and its image will
+     * only be deleted when Krita exits.
      *
      * The document will have one transparent layer.
+     *
+     * To create a new document and show it, do something like:
+@code
+from Krita import *
+
+def add_document_to_window():
+    d = Application.createDocument(100, 100, "Test", "RGBA", "U8", "", 120.0)
+    Application.activeWindow().addView(d)
+
+add_document_to_window()
+@endcode
      *
      * @param width the width in pixels
      * @param height the height in pixels
@@ -218,9 +255,10 @@ public Q_SLOTS:
      * </ul>
      * @param profile The name of an icc profile that is known to Krita. If an empty string is passed, the default is
      * taken.
+     * @param resolution the resolution in points per inch.
      * @return the created document.
      */
-    Document *createDocument(int width, int height, const QString &name, const QString &colorModel, const QString &colorDepth, const QString &profile);
+    Document *createDocument(int width, int height, const QString &name, const QString &colorModel, const QString &colorDepth, const QString &profile, double resolution);
 
     /**
      * @brief openDocument creates a new Document, registers it with the Krita application and loads the given file.
@@ -233,16 +271,6 @@ public Q_SLOTS:
      * @brief openWindow create a new main window. The window is not shown by default.
      */
     Window *openWindow();
-
-    /**
-     * @brief createAction creates an action with the given text and passes it to Krita. Every newly created
-     *     mainwindow will create an instance of this action. This means that actions need to be created in the
-     *     setup phase of the plugin, not on the fly.
-     * @param id the unique id for this action
-     * @param text the user-visible text
-     * @return the Action you can connect a slot to.
-     */
-    Action *createAction(const QString &name, const QString &text);
 
     /**
      * @brief addExtension add the given plugin to Krita. There will be a single instance of each Extension in the Krita process.
@@ -284,12 +312,26 @@ public Q_SLOTS:
     QString readSetting(const QString &group, const QString &name, const QString &defaultValue);
 
     /**
+     * @brief icon
+     * This allows you to get icons from Krita's internal icons.
+     * @param iconName name of the icon.
+     * @return the icon related to this name.
+     */
+    QIcon icon(QString &iconName) const;
+
+    /**
      * @brief instance retrieve the singleton instance of the Application object.
      */
     static Krita* instance();
 
     // Internal only: for use with mikro.py
     static QObject *fromVariant(const QVariant& v);
+
+    static QString krita_i18n(const QString &text);
+
+private Q_SLOTS:
+
+    void mainWindowAdded(KisMainWindow *window);
 
 private:
     struct Private;

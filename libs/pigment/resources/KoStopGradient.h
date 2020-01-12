@@ -25,18 +25,28 @@
 #include <resources/KoAbstractGradient.h>
 #include <resources/KoResource.h>
 #include <kritapigment_export.h>
+#include <boost/operators.hpp>
 
 typedef QPair<qreal, KoColor> KoGradientStop;
 
+struct KoGradientStopValueSort
+{
+    inline bool operator() (const KoGradientStop& a, const KoGradientStop& b) {
+        return (a.second.toQColor().valueF() < b.second.toQColor().valueF());
+    }
+};
+
 /**
- * Resource for colorstop based gradients like Karbon gradients and SVG gradients
+ * Resource for colorstop based gradients like SVG gradients
  */
-class KRITAPIGMENT_EXPORT KoStopGradient : public KoAbstractGradient
+class KRITAPIGMENT_EXPORT KoStopGradient : public KoAbstractGradient, public boost::equality_comparable<KoStopGradient>
 {
 
 public:
     explicit KoStopGradient(const QString &filename = QString());
     ~KoStopGradient() override;
+
+    bool operator==(const KoStopGradient &rhs) const;
 
     KoAbstractGradient* clone() const override;
 
@@ -47,6 +57,9 @@ public:
 
     /// reimplemented
     QGradient* toQGradient() const override;
+
+    /// Find stops surrounding position, returns false if position outside gradient
+    bool stopsAt(KoGradientStop& leftStop, KoGradientStop& rightStop, qreal t) const;
 
     /// reimplemented
     void colorAt(KoColor&, qreal t) const override;
@@ -61,6 +74,18 @@ public:
     /// reimplemented
     QString defaultFileExtension() const override;
 
+    /**
+     * @brief toXML
+     * Convert the gradient to an XML string.
+     */
+    void toXML(QDomDocument& doc, QDomElement& gradientElt) const;
+    /**
+     * @brief fromXML
+     * convert a gradient from xml.
+     * @return a gradient.
+     */
+    static KoStopGradient fromXML(const QDomElement& elt);
+
 protected:
 
     QList<KoGradientStop> m_stops;
@@ -69,9 +94,6 @@ protected:
     QPointF m_focalPoint;
 
 private:
-
-    void loadKarbonGradient(QIODevice *file);
-    void parseKarbonGradient(const QDomElement& element);
 
     void loadSvgGradient(QIODevice *file);
     void parseSvgGradient(const QDomElement& element);

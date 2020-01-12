@@ -29,57 +29,7 @@
 #include "kis_selection.h"
 #include "kis_types.h"
 #include <kis_painter.h>
-
-KoID KisFilter::categoryAdjust()
-{
-    return KoID("adjust_filters", i18n("Adjust"));
-}
-
-KoID KisFilter::categoryArtistic()
-{
-    return KoID("artistic_filters", i18n("Artistic"));
-}
-
-KoID KisFilter::categoryBlur()
-{
-    return KoID("blur_filters", i18n("Blur"));
-}
-
-KoID KisFilter::categoryColors()
-{
-    return KoID("color_filters", i18n("Colors"));
-}
-
-KoID KisFilter::categoryEdgeDetection()
-{
-    return KoID("edge_filters", i18n("Edge Detection"));
-}
-
-KoID KisFilter::categoryEmboss()
-{
-    return KoID("emboss_filters", i18n("Emboss"));
-}
-
-KoID KisFilter::categoryEnhance()
-{
-    return KoID("enhance_filters", i18n("Enhance"));
-}
-
-KoID KisFilter::categoryMap()
-{
-    return KoID("map_filters", i18n("Map"));
-}
-
-KoID KisFilter::categoryNonPhotorealistic()
-{
-    return KoID("nonphotorealistic_filters", i18n("Non-photorealistic"));
-}
-
-KoID KisFilter::categoryOther()
-{
-    return KoID("other_filters", i18n("Other"));
-}
-
+#include <KoUpdater.h>
 
 KisFilter::KisFilter(const KoID& _id, const KoID & category, const QString & entry)
     : KisBaseProcessor(_id, category, entry),
@@ -126,9 +76,18 @@ void KisFilter::process(const KisPaintDeviceSP src,
     }
 
     try {
+        QScopedPointer<KoUpdater> fakeUpdater;
+
+        if (!progressUpdater) {
+            // TODO: remove dependency on KoUpdater, depend on KoProgressProxy,
+            //       it is more lightweight
+            fakeUpdater.reset(new KoDummyUpdater());
+            progressUpdater = fakeUpdater.data();
+        }
+
         processImpl(temporary, applyRect, config, progressUpdater);
     }
-    catch (std::bad_alloc) {
+    catch (const std::bad_alloc&) {
         warnKrita << "Filter" << name() << "failed to allocate enough memory to run.";
     }
 
@@ -171,4 +130,15 @@ bool KisFilter::needsTransparentPixels(const KisFilterConfigurationSP config, co
     Q_UNUSED(cs);
 
     return false;
+}
+
+bool KisFilter::configurationAllowedForMask(KisFilterConfigurationSP config) const
+{
+    Q_UNUSED(config);
+    return supportsAdjustmentLayers();
+}
+
+void KisFilter::fixLoadedFilterConfigurationForMasks(KisFilterConfigurationSP config) const
+{
+    Q_UNUSED(config);
 }

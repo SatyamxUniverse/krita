@@ -23,20 +23,25 @@
 
 #include "KoUpdaterPrivate_p.h"
 
-KoUpdater::KoUpdater(KoUpdaterPrivate *p)
-    : QObject(p),
-      m_progressPercent(0)
+KoUpdater::KoUpdater(KoUpdaterPrivate *_d)
+    : m_progressPercent(0)
 {
-    d = p;
-    Q_ASSERT(p);
+    d = _d;
     Q_ASSERT(!d.isNull());
 
     connect(this, SIGNAL(sigCancel()), d, SLOT(cancel()));
     connect(this, SIGNAL(sigProgress(int)), d, SLOT(setProgress(int)));
-    connect(d, SIGNAL(sigInterrupted()), this, SLOT(interrupt()));
+    connect(this, SIGNAL(sigNestedNameChanged(QString)), d, SLOT(setAutoNestedName(QString)));
+    connect(this, SIGNAL(sigHasValidRangeChanged(bool)), d, SLOT(setHasValidRange(bool)));
+    connect(d, SIGNAL(sigInterrupted(bool)), this, SLOT(setInterrupted(bool)));
+
 
     setRange(0, 100);
     m_interrupted = false;
+}
+
+KoUpdater::~KoUpdater()
+{
 }
 
 void KoUpdater::cancel()
@@ -46,12 +51,12 @@ void KoUpdater::cancel()
 
 void KoUpdater::setProgress(int percent)
 {
-    if (m_progressPercent >= percent) {
-        return;
-    }
-    m_progressPercent = percent;
+    const bool percentChanged = m_progressPercent != percent;
 
-    emit sigProgress( percent );
+    if (percentChanged || percent == 0 || percent == 100) {
+        m_progressPercent = percent;
+        emit sigProgress( percent );
+    }
 }
 
 int KoUpdater::progress() const
@@ -67,35 +72,45 @@ bool KoUpdater::interrupted() const
 
 int KoUpdater::maximum() const
 {
-    return 100;
+    return max;
 }
 
 void KoUpdater::setValue( int value )
 {
+    value = qBound(min, value, max);
 
-    if ( value < min ) value = min;
-    if ( value > max ) value = max;
     // Go from range to percent
-    if (range == 0) return;
-    setProgress( ((100 * value ) / range) + 1 );
+    const int range = max - min;
+
+    if (range == 0) {
+        m_progressPercent = max;
+        emit sigProgress(max);
+    } else {
+        setProgress((100 * (value - min)) / range);
+    }
 }
 
 void KoUpdater::setRange( int minimum, int maximum )
 {
-    min = minimum - 1;
+    min = minimum;
     max = maximum;
     range = max - min;
+    emit sigHasValidRangeChanged(range != 0);
 }
 
 void KoUpdater::setFormat( const QString & format )
 {
-    Q_UNUSED(format);
-    // XXX: Do nothing
+    emit sigNestedNameChanged(format);
 }
 
-void KoUpdater::interrupt()
+void KoUpdater::setAutoNestedName(const QString &name)
 {
-    m_interrupted = true;
+    emit sigNestedNameChanged(name);
+}
+
+void KoUpdater::setInterrupted(bool value)
+{
+    m_interrupted = value;
 }
 
 KoDummyUpdater::KoDummyUpdater()

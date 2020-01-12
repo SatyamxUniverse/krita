@@ -25,6 +25,7 @@
 #include <KoShapeStroke.h>
 #include <QFont>
 #include <QTransform>
+#include <text/KoSvgTextProperties.h>
 
 class KRITAFLAKE_EXPORT SvgGraphicsContext
 {
@@ -37,46 +38,51 @@ public:
     };
 
     SvgGraphicsContext();
+    SvgGraphicsContext(const SvgGraphicsContext &gc);
+
     void workaroundClearInheritedFillProperties();
 
-    StyleType     fillType;  ///< the current fill type
-    Qt::FillRule  fillRule;  ///< the current fill rule
-    QColor        fillColor; ///< the current fill color
+    StyleType     fillType  {Solid};  ///< the current fill type
+    Qt::FillRule  fillRule  {Qt::WindingFill};  ///< the current fill rule
+    QColor        fillColor {QColor(Qt::black)}; ///< the current fill color. Default is black fill as per svg spec
     QString       fillId;    ///< the current fill id (used for gradient/pattern fills)
 
-    StyleType     strokeType;///< the current stroke type
+    StyleType     strokeType {None};///< the current stroke type
     QString       strokeId;  ///< the current stroke id (used for gradient strokes)
     KoShapeStrokeSP stroke;    ///< the current stroke
 
     QString filterId;       ///< the current filter id
     QString clipPathId;     ///< the current clip path id
     QString clipMaskId;     ///< the current clip mask id
-    Qt::FillRule clipRule;  ///< the current clip rule
-    qreal opacity;          ///< the shapes opacity
+    Qt::FillRule clipRule {Qt::WindingFill};  ///< the current clip rule
+    qreal opacity {1.0};    ///< the shapes opacity
 
     QTransform matrix;      ///< the current transformation matrix
     QFont   font;           ///< the current font
-    QColor  currentColor;   ///< the current color
+    QStringList fontFamiliesList; ///< the full list of all the families to search glyphs in
+    QColor  currentColor {Qt::black};   ///< the current color
     QString xmlBaseDir;     ///< the current base directory (used for loading external content)
-    bool preserveWhitespace;///< preserve whitespace in element text
+    bool preserveWhitespace {false}; ///< preserve whitespace in element text
 
     QRectF currentBoundingBox; ///< the current bound box used for bounding box units
-    bool   forcePercentage; ///< force parsing coordinates/length as percentages of currentBoundbox
+    bool   forcePercentage {false}; ///< force parsing coordinates/length as percentages of currentBoundbox
     QTransform viewboxTransform; ///< view box transformation
 
-    qreal letterSpacing;    ///< additional spacing between characters of text elements
-    qreal wordSpacing;      ///< additional spacing between words of text elements
-    QString baselineShift;  ///< basline shift mode for text elements
-
-    bool display;           ///< controls display of shape
-    bool visible;           ///< controls visibility of the shape (inherited)
-    qreal pixelsPerInch;    ///< controls the resolution of the image raster
+    bool display {true};           ///< controls display of shape
+    bool visible {true};           ///< controls visibility of the shape (inherited)
+    bool isResolutionFrame {false};
+    qreal pixelsPerInch {72.0};    ///< controls the resolution of the image raster
+    qreal forcedFontSizeCoeff {1.0}; ///< workaround for a Krita 3.3 odf-based files that use different resolution for font size. No workaround by default
 
     QString markerStartId;
     QString markerMidId;
     QString markerEndId;
 
-    bool autoFillMarkers;
+    bool autoFillMarkers {false};
+
+    KoSvgTextProperties textProperties;
+private:
+    SvgGraphicsContext& operator=(const SvgGraphicsContext &gc) = default; ///< used by copy constructor, shouldn't be public
 };
 
 #endif // SVGGRAPHICCONTEXT_H

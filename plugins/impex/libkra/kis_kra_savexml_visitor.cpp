@@ -47,7 +47,10 @@
 #include <lazybrush/kis_colorize_mask.h>
 #include <kis_file_layer.h>
 #include <kis_psd_layer_style.h>
+#include <KisReferenceImage.h>
+#include <KisReferenceImagesLayer.h>
 #include "kis_keyframe_channel.h"
+#include "kis_dom_utils.h"
 
 using namespace KRA;
 
@@ -74,7 +77,9 @@ QStringList KisSaveXmlVisitor::errorMessages() const
 
 bool KisSaveXmlVisitor::visit(KisExternalLayer * layer)
 {
-    if (layer->inherits("KisShapeLayer")) {
+    if (layer->inherits("KisReferenceImagesLayer")) {
+        return saveReferenceImagesLayer(layer);
+    } else if (layer->inherits("KisShapeLayer")) {
         QDomElement layerElement = m_doc.createElement(LAYER);
         saveLayer(layerElement, SHAPE_LAYER, layer);
         m_elem.appendChild(layerElement);
@@ -285,7 +290,10 @@ void KisSaveXmlVisitor::loadLayerAttributes(const QDomElement &el, KisLayer *lay
 {
     if (el.hasAttribute(NAME)) {
         QString layerName = el.attribute(NAME);
-        KIS_ASSERT_RECOVER_RETURN(layerName == layer->name());
+        if (layerName != layer->name()) {
+            // Make the EXR layername leading in case of conflicts
+            layer->setName(layerName);
+        }
     }
 
     if (el.hasAttribute(CHANNEL_FLAGS)) {
@@ -328,6 +336,10 @@ void KisSaveXmlVisitor::loadLayerAttributes(const QDomElement &el, KisLayer *lay
         layer->setColorLabelIndex(el.attribute(COLOR_LABEL).toInt());
     }
 
+    if (el.hasAttribute(VISIBLE_IN_TIMELINE)) {
+        layer->setUseInTimeline(el.attribute(VISIBLE_IN_TIMELINE).toInt());
+    }
+
     if (el.hasAttribute(LAYER_STYLE_UUID)) {
         QString uuidString = el.attribute(LAYER_STYLE_UUID);
         QUuid uuid(uuidString);
@@ -367,6 +379,7 @@ void KisSaveXmlVisitor::saveLayer(QDomElement & el, const QString & layerType, c
     el.setAttribute(UUID, layer->uuid().toString());
     el.setAttribute(COLLAPSED, layer->collapsed());
     el.setAttribute(COLOR_LABEL, layer->colorLabelIndex());
+    el.setAttribute(VISIBLE_IN_TIMELINE, layer->useInTimeline());
 
     if (layer->layerStyle()) {
         el.setAttribute(LAYER_STYLE_UUID, layer->layerStyle()->uuid().toString());
@@ -409,6 +422,17 @@ void KisSaveXmlVisitor::saveMask(QDomElement & el, const QString & maskType, con
         el.setAttribute(COMPOSITE_OP, mask->compositeOpId());
         el.setAttribute(COLORIZE_EDIT_KEYSTROKES, KisLayerPropertiesIcons::nodeProperty(mask, KisLayerPropertiesIcons::colorizeEditKeyStrokes, true).toBool());
         el.setAttribute(COLORIZE_SHOW_COLORING, KisLayerPropertiesIcons::nodeProperty(mask, KisLayerPropertiesIcons::colorizeShowColoring, true).toBool());
+
+        const KisColorizeMask *colorizeMask = dynamic_cast<const KisColorizeMask*>(mask.data());
+        KIS_SAFE_ASSERT_RECOVER_NOOP(colorizeMask);
+
+        if (colorizeMask) {
+            el.setAttribute(COLORIZE_USE_EDGE_DETECTION, colorizeMask->useEdgeDetection());
+            el.setAttribute(COLORIZE_EDGE_DETECTION_SIZE, KisDomUtils::toString(colorizeMask->edgeDetectionSize()));
+            el.setAttribute(COLORIZE_FUZZY_RADIUS, KisDomUtils::toString(colorizeMask->fuzzyRadius()));
+            el.setAttribute(COLORIZE_CLEANUP, int(100 * colorizeMask->cleanUpAmount()));
+            el.setAttribute(COLORIZE_LIMIT_TO_DEVICE, colorizeMask->limitToDeviceBounds());
+        }
     }
 
     saveNodeKeyframes(mask, filename, el);
@@ -449,6 +473,27 @@ bool KisSaveXmlVisitor::saveMasks(KisNode * node, QDomElement & layerElement)
 
         return success;
     }
+    return true;
+}
+
+bool KisSaveXmlVisitor::saveReferenceImagesLayer(KisExternalLayer *layer)
+{
+    auto *referencesLayer = dynamic_cast<KisReferenceImagesLayer*>(layer);
+    KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(referencesLayer, false);
+
+    QDomElement layerElement = m_doc.createElement(LAYER);
+    layerElement.setAttribute(NODE_TYPE, REFERENCE_IMAGES_LAYER);
+
+    int nextId = 0;
+    Q_FOREACH(KoShape *shape, referencesLayer->shapes()) {
+        auto *reference = dynamic_cast<KisReferenceImage*>(shape);
+        KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(reference, false);
+        reference->saveXml(m_doc, layerElement, nextId);
+        nextId++;
+    }
+
+    m_elem.appendChild(layerElement);
+    m_count++;
     return true;
 }
 

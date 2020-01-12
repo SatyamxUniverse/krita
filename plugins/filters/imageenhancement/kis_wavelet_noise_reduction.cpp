@@ -29,11 +29,13 @@
 #include <widgets/kis_multi_double_filter_widget.h>
 #include <widgets/kis_multi_integer_filter_widget.h>
 #include <kis_paint_device.h>
+#include <filter/kis_filter_category_ids.h>
 #include <filter/kis_filter_configuration.h>
 #include <kis_processing_information.h>
+#include "kis_global.h"
 
 KisWaveletNoiseReduction::KisWaveletNoiseReduction()
-    : KisFilter(id(), categoryEnhance(), i18n("&Wavelet Noise Reducer..."))
+    : KisFilter(id(), FiltersCategoryEnhanceId, i18n("&Wavelet Noise Reducer..."))
 {
     setSupportsPainting(false);
     setSupportsThreading(false);
@@ -44,16 +46,16 @@ KisWaveletNoiseReduction::~KisWaveletNoiseReduction()
 {
 }
 
-KisConfigWidget * KisWaveletNoiseReduction::createConfigurationWidget(QWidget* parent, const KisPaintDeviceSP) const
+KisConfigWidget * KisWaveletNoiseReduction::createConfigurationWidget(QWidget* parent, const KisPaintDeviceSP, bool) const
 {
     vKisDoubleWidgetParam param;
     param.push_back(KisDoubleWidgetParam(0.0, 256.0, BEST_WAVELET_THRESHOLD_VALUE, i18n("Threshold"), "threshold"));
     return new KisMultiDoubleFilterWidget(id().id(), parent, id().id(), param);
 }
 
-KisFilterConfigurationSP KisWaveletNoiseReduction::factoryConfiguration() const
+KisFilterConfigurationSP KisWaveletNoiseReduction::defaultConfiguration() const
 {
-    KisFilterConfigurationSP config = new KisFilterConfiguration(id().id(), 0);
+    KisFilterConfigurationSP config = factoryConfiguration();
     config->setProperty("threshold", BEST_WAVELET_THRESHOLD_VALUE);
     return config;
 }
@@ -65,25 +67,11 @@ void KisWaveletNoiseReduction::processImpl(KisPaintDeviceSP device,
                                            ) const
 {
     Q_ASSERT(device);
-    // TODO take selections into account
-    float threshold;
 
     KisFilterConfigurationSP config = _config ? _config : defaultConfiguration();
-
-    threshold = config->getDouble("threshold", BEST_WAVELET_THRESHOLD_VALUE);
-
-    qint32 depth = device->colorSpace()->colorChannelCount();
-
-    int size;
-    int maxrectsize = qMax(applyRect.width(), applyRect.height());
-    for (size = 2; size < maxrectsize; size *= 2) ;
+    const float threshold = config->getDouble("threshold", BEST_WAVELET_THRESHOLD_VALUE);
 
     KisMathToolbox mathToolbox;
-
-    if (progressUpdater) {
-        progressUpdater->setRange(0, mathToolbox.fastWaveletTotalSteps(applyRect) * 2 + size*size*depth);
-    }
-    int count = 0;
 
     //     dbgFilters << size <<"" << maxrectsize <<"" << srcTopLeft.x() <<"" << srcTopLeft.y();
 
@@ -93,21 +81,29 @@ void KisWaveletNoiseReduction::processImpl(KisPaintDeviceSP device,
 
     try {
         buff = mathToolbox.initWavelet(device, applyRect);
-    } catch (std::bad_alloc) {
+    } catch (const std::bad_alloc&) {
         if (buff) delete buff;
         return;
     }
     try {
         wav = mathToolbox.fastWaveletTransformation(device, applyRect, buff);
-    } catch (std::bad_alloc) {
+    } catch (const std::bad_alloc&) {
         if (wav) delete wav;
         return;
     }
 
-    //     dbgFilters <<"Thresholding...";
-    float* fin = wav->coeffs + wav->depth * wav->size * wav->size;
+    float* const fin = wav->coeffs + wav->depth * pow2(wav->size);
+    float* const begin = wav->coeffs + wav->depth;
 
-    for (float* it = wav->coeffs + wav->depth; it < fin; it++) {
+    const int size = fin - begin;
+    const int progressOffset = int(std::ceil(std::log2(size / 100)));
+    const int progressMask = (1 << progressOffset) - 1;
+    const int numProgressSteps = size >> progressOffset;
+    int pointsProcessed = 0;
+
+    progressUpdater->setRange(0, numProgressSteps);
+
+    for (float* it = begin; it < fin; it++) {
         if (*it > threshold) {
             *it -= threshold;
         } else if (*it < -threshold) {
@@ -115,10 +111,12 @@ void KisWaveletNoiseReduction::processImpl(KisPaintDeviceSP device,
         } else {
             *it = 0.;
         }
-        if (progressUpdater) progressUpdater->setValue(++count);
-    }
 
-    //     dbgFilters <<"Untransforming...";
+        if (!(pointsProcessed & progressMask)) {
+            progressUpdater->setValue(pointsProcessed >> progressOffset);
+        }
+        pointsProcessed++;
+    }
 
     mathToolbox.fastWaveletUntransformation(device, applyRect, wav, buff);
 

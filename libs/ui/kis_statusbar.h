@@ -33,6 +33,8 @@ class QPushButton;
 class KSqueezedTextLabel;
 class KisViewManager;
 class KisProgressWidget;
+class KoProgressUpdater;
+class KisMemoryReportButton;
 
 #include "kritaui_export.h"
 
@@ -41,7 +43,7 @@ class KRITAUI_EXPORT KisStatusBar : public QObject
     class StatusBarItem
     {
     public:
-        StatusBarItem() // for QValueList
+        StatusBarItem()
             : m_widget(0) {}
 
         StatusBarItem(QWidget * widget)
@@ -75,17 +77,15 @@ class KRITAUI_EXPORT KisStatusBar : public QObject
 
 public:
 
-    KisStatusBar(KisViewManager *view);
+    explicit KisStatusBar(KisViewManager *view);
     ~KisStatusBar() override;
 
     void setup();
     void setView(QPointer<KisView> imageView);
-    void addStatusBarItem(QWidget *widget, int stretch = 0, bool permanent = false);
-    void removeStatusBarItem(QWidget *widget);
     void hideAllStatusBarItems();
     void showAllStatusBarItems();
 
-    KisProgressWidget *progress();
+    KoProgressUpdater *progressUpdater();
 
 public Q_SLOTS:
 
@@ -101,29 +101,42 @@ private Q_SLOTS:
     void updateSelectionIcon();
     void showMemoryInfoToolTip();
 
-private:
-   void updateMemoryStatus();
+Q_SIGNALS:
+    void sigCancellationRequested();
+
+    /// tell the listener that the memory usage has changed
+    /// and it needs to update its stats
+    void memoryStatusUpdated();
 
 private:
 
-    QPointer<KisViewManager> m_view;
+    void removeStatusBarItem(QWidget *widget);
+    void addStatusBarItem(QWidget *widget, int stretch = 0, bool permanent = false);
+    void updateMemoryStatus();
+
+private:
+
+    QPointer<KisViewManager> m_viewManager;
     QPointer<KisView> m_imageView;
     QPointer<QStatusBar> m_statusBar;
-    KisProgressWidget * m_progress;
+    KisProgressWidget *m_progress;
+    QScopedPointer<KoProgressUpdater> m_progressUpdater;
 
     QToolButton *m_selectionStatus;
-    QPushButton *m_memoryReportBox;
+    KisMemoryReportButton *m_memoryReportBox;
     QLabel *m_pointerPositionLabel;
+    QToolButton *m_resetAngleButton;
 
     KSqueezedTextLabel *m_statusBarStatusLabel;
     KSqueezedTextLabel *m_statusBarProfileLabel;
-
 
     QString m_shortMemoryTag;
     QString m_longMemoryTag;
     QIcon m_memoryStatusIcon;
 
     QVector<StatusBarItem> m_statusBarItems;
+
+    bool m_memoryWarningLogged {false};
 };
 
 #endif

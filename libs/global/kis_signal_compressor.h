@@ -19,8 +19,10 @@
 #ifndef __KIS_SIGNAL_COMPRESSOR_H
 #define __KIS_SIGNAL_COMPRESSOR_H
 
-#include <QTimer>
+#include <QObject>
 #include "kritaglobal_export.h"
+
+#include <QElapsedTimer>
 
 class QTimer;
 
@@ -29,14 +31,14 @@ class QTimer;
  * where this is used is to limit the amount of expensive redraw activity on the
  * canvas.
  *
- * There are three behaviors to choose from.
+ * There are four behaviors to choose from.
  *
  * POSTPONE resets the timer after each call. Therefore if the calls are made
  * quickly enough, the timer will never be activated.
  *
  * FIRST_ACTIVE_POSTPONE_NEXT emits the first signal and postpones all
- * the other actions the other action like in POSTPONE. This mode is
- * used e.g.  in move/remove layer functionality. If you remove a
+ * the other actions like in POSTPONE. This mode is
+ * used e.g. in move/remove layer functionality. If you remove a
  * single layer, you'll see the result immediately. But if you want to
  * remove multiple layers, you should wait until all the actions are
  * finished.
@@ -51,6 +53,8 @@ class QTimer;
  * delay ms. The compressor becomes inactive and all events are ignored until
  * the timer has elapsed.
  *
+ * The current implementation allows the timeout() to be delayed by up to 2 times
+ * \p delay in certain situations (for details see cpp file).
  */
 class KRITAGLOBAL_EXPORT KisSignalCompressor : public QObject
 {
@@ -70,9 +74,10 @@ public:
     KisSignalCompressor(int delay, Mode mode, QObject *parent = 0);
     bool isActive() const;
     void setMode(Mode mode);
-    void setDelay(int delay);
+
 
 public Q_SLOTS:
+    void setDelay(int delay);
     void start();
     void stop();
 
@@ -83,9 +88,15 @@ Q_SIGNALS:
     void timeout();
 
 private:
-    QTimer *m_timer;
-    Mode m_mode;
-    bool m_gotSignals;
+    bool tryEmitOnTick(bool isFromTimer);
+    bool tryEmitSignalSafely();
+
+private:
+    QTimer *m_timer = 0;
+    Mode m_mode = UNDEFINED;
+    bool m_signalsPending = false;
+    QElapsedTimer m_lastEmittedTimer;
+    int m_isEmitting = 0;
 };
 
 #endif /* __KIS_SIGNAL_COMPRESSOR_H */

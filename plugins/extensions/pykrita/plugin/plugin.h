@@ -24,18 +24,17 @@
 
 #include <QObject>
 
-#include <kis_view_plugin.h>
-#include "engine.h"
+#include <KisActionPlugin.h>
+#include "PythonPluginManager.h"
 
-class KritaPyQtPlugin : public KisViewPlugin
+class KritaPyQtPlugin : public QObject
 {
     Q_OBJECT
 public:
     KritaPyQtPlugin(QObject *parent, const QVariantList &);
     virtual ~KritaPyQtPlugin();
 private:
-    PyKrita::Engine m_engine;
-    QString m_engineFailureReason;
+    PythonPluginManager *pluginManager;
     bool m_autoReload;
 };
 

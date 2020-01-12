@@ -23,18 +23,22 @@
 #include <kis_paintop_preset.h>
 #include <KisView.h>
 #include <KisViewManager.h>
+#include <kis_node_manager.h>
 #include <kis_selection_manager.h>
 #include <kis_canvas_resource_provider.h>
 #include <kis_paintop_box.h>
-#include <KisViewManager.h>
 #include <KisMainWindow.h>
 #include <KoCanvasBase.h>
 #include <kis_canvas2.h>
+#include <KisDocument.h>
+
 #include "Document.h"
 #include "Canvas.h"
 #include "Window.h"
 #include "Resource.h"
 #include "ManagedColor.h"
+
+#include "LibKisUtils.h"
 
 struct View::Private {
     Private() {}
@@ -77,6 +81,12 @@ Document* View::document() const
     if (!d->view) return 0;
     Document *doc = new Document(d->view->document());
     return doc;
+}
+
+void View::setDocument(Document *document)
+{
+    if (!d->view || !document || !document->document()) return;
+    d->view = d->view->replaceBy(document->document());
 }
 
 bool View::visible() const
@@ -129,7 +139,7 @@ void View::activateResource(Resource *resource)
 
 }
 
-ManagedColor *View::foreGroundColor() const
+ManagedColor *View::foregroundColor() const
 {
     if (!d->view) return 0;
     return new ManagedColor(d->view->resourceProvider()->fgColor());
@@ -141,7 +151,7 @@ void View::setForeGroundColor(ManagedColor *color)
     d->view->resourceProvider()->setFGColor(color->color());
 }
 
-ManagedColor *View::backGroundColor() const
+ManagedColor *View::backgroundColor() const
 {
     if (!d->view) return 0;
     return new ManagedColor(d->view->resourceProvider()->bgColor());
@@ -258,3 +268,12 @@ void View::setPaintingFlow(qreal flow)
     d->view->resourceProvider()->setFlow(flow);
 }
 
+QList<Node *> View::selectedNodes() const
+{
+    if (!d->view) return QList<Node *>();
+    if (!d->view->viewManager()) return QList<Node *>();
+    if (!d->view->viewManager()->nodeManager()) return QList<Node *>();
+
+    KisNodeList selectedNodes = d->view->viewManager()->nodeManager()->selectedNodes();
+    return LibKisUtils::createNodeList(selectedNodes, d->view->image());
+}

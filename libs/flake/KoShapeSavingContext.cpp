@@ -217,7 +217,7 @@ void KoShapeSavingContext::saveLayerSet(KoXmlWriter &xmlWriter) const
         xmlWriter.addAttribute("draw:name", layer->name());
         if (layer->isGeometryProtected())
             xmlWriter.addAttribute("draw:protected", "true");
-        if (! layer->isVisible())
+        if (! layer->isVisible(false))
             xmlWriter.addAttribute("draw:display", "none");
         xmlWriter.endElement();  // draw:layer
     }
@@ -247,7 +247,7 @@ QString KoShapeSavingContext::imageHref(const KoImageData *image)
 QString KoShapeSavingContext::imageHref(const QImage &image)
 {
     // TODO this can be optimized to recognize images which have the same content
-    // Also this can use quite a lot of memeory as the qimage are all kept until
+    // Also this can use quite a lot of memory as the qimage are all kept until
     // they are saved to the store in memory
     QString href = QString("Pictures/image%1.png").arg(++d->imageId);
     d->images.insert(href, image);
@@ -293,7 +293,7 @@ bool KoShapeSavingContext::saveDataCenter(KoStore *store, KoXmlWriter* manifestW
             store->close();
             // TODO error handling
             if (ok) {
-                const QString mimetype = KisMimeDatabase::mimeTypeForFile(it.key());
+                const QString mimetype = KisMimeDatabase::mimeTypeForFile(it.key(), false);
                 manifestWriter->addManifestEntry(it.key(), mimetype);
             }
             else {

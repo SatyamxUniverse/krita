@@ -20,19 +20,16 @@
 
 #include <KoCanvasBase.h>
 #include <KoCanvasController.h>
-#include <KoViewConverter.h>
 #include <KoSelection.h>
-#include <KoShapeContainer.h>
 #include <KoToolManager.h>
-#include <KoShapeManager.h>
 
 #include <kis_types.h>
 #include <kis_layer.h>
 #include <kis_node.h>
-#include <kis_mask.h>
-#include <kis_image.h>
 
-#include <kis_paint_device.h>
+#include <KoSelectedShapesProxy.h>
+#include "kis_shape_layer.h"
+
 
 struct KisNodeShape::Private
 {
@@ -51,20 +48,21 @@ KisNodeShape::KisNodeShape(KisNodeSP node)
 
     setSelectable(false);
 
-    connect(node, SIGNAL(visibilityChanged(bool)), SLOT(setNodeVisible(bool)));
-    connect(node, SIGNAL(userLockingChanged(bool)), SLOT(editabilityChanged()));
+    connect(node, SIGNAL(sigNodeChangedInternal()), SLOT(editabilityChanged()));
     editabilityChanged();  // Correctly set the lock at loading
 }
 
 KisNodeShape::~KisNodeShape()
 {
-    KoCanvasController *canvasController = KoToolManager::instance()->activeCanvasController();
-    // If we're the active layer, we should tell the active selection we're dead meat.
-    if (canvasController && canvasController->canvas() && canvasController->canvas()->shapeManager()) {
-        KoSelection *activeSelection = canvasController->canvas()->shapeManager()->selection();
-        KoShapeLayer *activeLayer = activeSelection->activeLayer();
-        if (activeLayer == this){
-            activeSelection->setActiveLayer(0);
+    if (KoToolManager::instance()) {
+        KoCanvasController *canvasController = KoToolManager::instance()->activeCanvasController();
+        // If we're the active layer, we should tell the active selection we're dead meat.
+        if (canvasController && canvasController->canvas()) {
+            KoSelection *activeSelection = canvasController->canvas()->selectedShapesProxy()->selection();
+            KoShapeLayer *activeLayer = activeSelection->activeLayer();
+            if (activeLayer == this){
+                activeSelection->setActiveLayer(0);
+            }
         }
     }
     delete m_d;
@@ -73,12 +71,6 @@ KisNodeShape::~KisNodeShape()
 KisNodeSP KisNodeShape::node()
 {
     return m_d->node;
-}
-
-void KisNodeShape::setNodeVisible(bool /*v*/)
-{
-    // Necessary because shapes are not QObjects
-//     setVisible(v);
 }
 
 bool KisNodeShape::checkIfDescendant(KoShapeLayer *activeLayer)
@@ -100,6 +92,15 @@ void KisNodeShape::editabilityChanged()
     } else {
         setGeometryProtected(false);
     }
+
+    Q_FOREACH (KoShape *shape, this->shapes()) {
+        KisNodeShape *node = dynamic_cast<KisNodeShape*>(shape);
+        KIS_SAFE_ASSERT_RECOVER(node) { continue; }
+        if (node) {
+            node->editabilityChanged();
+        }
+    }
+
     /**
      * Editability of a child depends on the editablity
      * of its parent. So when we change one's editability,
@@ -108,11 +109,14 @@ void KisNodeShape::editabilityChanged()
 
     KoCanvasController *canvasController = KoToolManager::instance()->activeCanvasController();
 
-    if(canvasController && canvasController->canvas() && canvasController->canvas()->shapeManager()) {
-        KoSelection *activeSelection = canvasController->canvas()->shapeManager()->selection();
+    if(canvasController && canvasController->canvas()) {
+        KoSelection *activeSelection = canvasController->canvas()->selectedShapesProxy()->selection();
         KoShapeLayer *activeLayer = activeSelection->activeLayer();
 
-        if(activeLayer && checkIfDescendant(activeLayer)) {
+
+        KisShapeLayer *shapeLayer = dynamic_cast<KisShapeLayer*>(m_d->node.data());
+
+        if(activeLayer && (checkIfDescendant(activeLayer) || (shapeLayer && shapeLayer == activeLayer))) {
             activeSelection->setActiveLayer(activeLayer);
         }
     }

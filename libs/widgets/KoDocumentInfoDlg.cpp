@@ -25,7 +25,6 @@
 
 #include "KoDocumentInfo.h"
 #include "KoDocumentBase.h"
-#include "KoGlobal.h"
 #include "KoPageWidgetItem.h"
 #include <KoIcon.h>
 
@@ -35,7 +34,7 @@
 #include <kmainwindow.h>
 #include <KoDialog.h>
 #include <QUrl>
-
+#include <QCompleter>
 #include <QLineEdit>
 #include <QDateTime>
 #include <KisMimeDatabase.h>
@@ -91,8 +90,12 @@ KoDocumentInfoDlg::KoDocumentInfoDlg(QWidget* parent, KoDocumentInfo* docInfo)
     d->aboutUi = new Ui::KoDocumentInfoAboutWidget();
     QWidget *infodlg = new QWidget();
     d->aboutUi->setupUi(infodlg);
-    d->aboutUi->cbLanguage->addItems(KoGlobal::listOfLanguages());
-    d->aboutUi->cbLanguage->setCurrentIndex(-1);
+    QStringList licenseExamples;
+    licenseExamples << "CC-BY 4.0" << "CC-BY-SA 4.0" << "CC-BY-SA-NC 4.0" << "CC-0";
+    QCompleter *examples = new QCompleter(licenseExamples);
+    examples->setCaseSensitivity(Qt::CaseInsensitive);
+    examples->setCompletionMode(QCompleter::PopupCompletion);
+    d->aboutUi->leLicense->setCompleter(examples);
 
     KPageWidgetItem *page = new KPageWidgetItem(infodlg, i18n("General"));
     page->setHeader(i18n("General"));
@@ -172,13 +175,14 @@ void KoDocumentInfoDlg::initAboutTab()
 
     d->aboutUi->leTitle->setText(d->info->aboutInfo("title"));
     d->aboutUi->leSubject->setText(d->info->aboutInfo("subject"));
-    QString language = KoGlobal::languageFromTag(d->info->aboutInfo("language"));
-    d->aboutUi->cbLanguage->setCurrentIndex(d->aboutUi->cbLanguage->findText(language));
 
     d->aboutUi->leKeywords->setToolTip(i18n("Use ';' (Example: Office;KDE;Calligra)"));
     if (!d->info->aboutInfo("keyword").isEmpty())
         d->aboutUi->leKeywords->setText(d->info->aboutInfo("keyword"));
 
+    if (!d->info->aboutInfo("license").isEmpty()) {
+        d->aboutUi->leLicense->setText(d->info->aboutInfo("license"));
+    }
     d->aboutUi->meDescription->setPlainText(d->info->aboutInfo("abstract"));
     if (doc && !doc->mimeType().isEmpty()) {
         d->aboutUi->lblType->setText(KisMimeDatabase::descriptionForMimeType(doc->mimeType()));
@@ -207,19 +211,19 @@ void KoDocumentInfoDlg::initAboutTab()
 
 void KoDocumentInfoDlg::initAuthorTab()
 {
-    d->authorUi->fullName->setText(d->info->authorInfo("creator"));
+    d->authorUi->nickName->setText(d->info->authorInfo("creator"));
+    d->authorUi->firstName->setText(d->info->authorInfo("creator-first-name"));
+    d->authorUi->lastName->setText(d->info->authorInfo("creator-last-name"));
     d->authorUi->initials->setText(d->info->authorInfo("initial"));
     d->authorUi->title->setText(d->info->authorInfo("author-title"));
     d->authorUi->company->setText(d->info->authorInfo("company"));
-    d->authorUi->email->setText(d->info->authorInfo("email"));
-    d->authorUi->phoneWork->setText(d->info->authorInfo("telephone-work"));
-    d->authorUi->phoneHome->setText(d->info->authorInfo("telephone"));
-    d->authorUi->fax->setText(d->info->authorInfo("fax"));
-    d->authorUi->country->setText(d->info->authorInfo("country"));
-    d->authorUi->postal->setText(d->info->authorInfo("postal-code"));
-    d->authorUi->city->setText(d->info->authorInfo("city"));
-    d->authorUi->street->setText(d->info->authorInfo("street"));
     d->authorUi->position->setText(d->info->authorInfo("position"));
+    QListWidget *contact = d->authorUi->leContact;
+    Q_FOREACH(QString contactMode, d->info->authorContactInfo()) {
+        if (!contactMode.isEmpty()) {
+            contact->addItem(contactMode);
+        }
+    }
 }
 
 void KoDocumentInfoDlg::saveAboutData()
@@ -228,7 +232,7 @@ void KoDocumentInfoDlg::saveAboutData()
     d->info->setAboutInfo("title", d->aboutUi->leTitle->text());
     d->info->setAboutInfo("subject", d->aboutUi->leSubject->text());
     d->info->setAboutInfo("abstract", d->aboutUi->meDescription->toPlainText());
-    d->info->setAboutInfo("language", KoGlobal::tagOfLanguage(d->aboutUi->cbLanguage->currentText()));
+    d->info->setAboutInfo("license", d->aboutUi->leLicense->text());
 }
 
 void KoDocumentInfoDlg::hideEvent( QHideEvent *event )

@@ -21,7 +21,7 @@
 #include "KoShapeCreateCommand.h"
 #include "KoShape.h"
 #include "KoShapeContainer.h"
-#include "KoShapeBasedDocumentBase.h"
+#include "KoShapeControllerBase.h"
 
 #include <klocalizedstring.h>
 
@@ -35,14 +35,12 @@
 class Q_DECL_HIDDEN KoShapeCreateCommand::Private
 {
 public:
-    Private(KoShapeBasedDocumentBase *_document, const QList<KoShape*> &_shapes)
+    Private(KoShapeControllerBase *_document, const QList<KoShape*> &_shapes, KoShapeContainer *_parentShape)
             : shapesDocument(_document),
             shapes(_shapes),
+            explicitParentShape(_parentShape),
             deleteShapes(true)
     {
-        Q_FOREACH(KoShape *shape, shapes) {
-            originalShapeParents << shape->parent();
-        }
     }
 
     ~Private() {
@@ -51,24 +49,27 @@ public:
         }
     }
 
-    KoShapeBasedDocumentBase *shapesDocument;
+    KoShapeControllerBase *shapesDocument;
     QList<KoShape*> shapes;
-    QList<KoShapeContainer*> originalShapeParents;
+    KoShapeContainer *explicitParentShape;
     bool deleteShapes;
 
     std::vector<std::unique_ptr<KUndo2Command>> reorderingCommands;
-
-    QScopedPointer<KUndo2Command> reorderingCommand;
 };
 
-KoShapeCreateCommand::KoShapeCreateCommand(KoShapeBasedDocumentBase *controller, KoShape *shape, KUndo2Command *parent)
-    : KoShapeCreateCommand(controller, QList<KoShape *>() << shape, parent)
+KoShapeCreateCommand::KoShapeCreateCommand(KoShapeControllerBase *controller, KoShape *shape, KoShapeContainer *parentShape, KUndo2Command *parent)
+    : KoShapeCreateCommand(controller, QList<KoShape *>() << shape, parentShape, parent)
 {
 }
 
-KoShapeCreateCommand::KoShapeCreateCommand(KoShapeBasedDocumentBase *controller, const QList<KoShape *> shapes, KUndo2Command *parent)
-        : KUndo2Command(kundo2_i18np("Create shape", "Create shapes", shapes.size()), parent),
-        d(new Private(controller, shapes))
+KoShapeCreateCommand::KoShapeCreateCommand(KoShapeControllerBase *controller, const QList<KoShape *> shapes, KoShapeContainer *parentShape, KUndo2Command *parent)
+        : KoShapeCreateCommand(controller, shapes, parentShape, parent, kundo2_i18np("Create shape", "Create %1 shapes", shapes.size()))
+{
+}
+
+KoShapeCreateCommand::KoShapeCreateCommand(KoShapeControllerBase *controller, const QList<KoShape *> shapes, KoShapeContainer *parentShape, KUndo2Command *parent, const KUndo2MagicString &undoString)
+        : KUndo2Command(undoString, parent)
+        , d(new Private(controller, shapes, parentShape))
 {
 }
 
@@ -86,6 +87,10 @@ void KoShapeCreateCommand::redo()
     d->reorderingCommands.clear();
 
     Q_FOREACH(KoShape *shape, d->shapes) {
+        if (d->explicitParentShape) {
+            shape->setParent(d->explicitParentShape);
+        }
+
         d->shapesDocument->addShape(shape);
 
         KoShapeContainer *shapeParent = shape->parent();
@@ -96,7 +101,7 @@ void KoShapeCreateCommand::redo()
         if (shapeParent) {
             KUndo2Command *cmd = KoShapeReorderCommand::mergeInShape(shapeParent->shapes(), shape);
 
-            if (d->reorderingCommand) {
+            if (cmd) {
                 cmd->redo();
                 d->reorderingCommands.push_back(
                     std::unique_ptr<KUndo2Command>(cmd));
@@ -116,11 +121,8 @@ void KoShapeCreateCommand::undo()
         d->reorderingCommands.pop_back();
     }
 
-    KIS_SAFE_ASSERT_RECOVER_RETURN(d->shapes.size() == d->originalShapeParents.size());
-
-    for (int i = 0; i < d->shapes.size(); i++) {
-        d->shapesDocument->removeShape(d->shapes[i]);
-        d->shapes[i]->setParent(d->originalShapeParents[i]);
+    Q_FOREACH(KoShape *shape, d->shapes) {
+        d->shapesDocument->removeShape(shape);
     }
 
     d->deleteShapes = true;

@@ -374,7 +374,7 @@ void DeleteCommand::finalizeSectionHandling(QTextCursor *cur, DeleteVisitor &v)
     }
 
     // Now lets deal with KoSectionModel
-    qSort(m_sectionsToRemove.begin(), m_sectionsToRemove.end());
+    std::sort(m_sectionsToRemove.begin(), m_sectionsToRemove.end());
     deleteSectionsFromModel();
 }
 
@@ -439,7 +439,7 @@ void DeleteCommand::doDelete()
         KoAnnotation *annotation = dynamic_cast<KoAnnotation *>(range);
         if (anchorRange) {
             // we should only delete the anchor if the selection is covering it... not if the selection is
-            // just adjecent to the anchor. This is more in line with what other wordprocessors do
+            // just adjacent to the anchor. This is more in line with what other wordprocessors do
             if (anchorRange->position() != textEditor->selectionStart()
                     && anchorRange->position() != textEditor->selectionEnd()) {
                 KoShape *shape = anchorRange->anchor()->shape();
@@ -448,7 +448,7 @@ void DeleteCommand::doDelete()
                     shapeDeleteCommand->redo();
                 }
                 // via m_shapeController->removeShape a DeleteAnchorsCommand should be created that
-                // also calls rangeManager->remove(range), so we shouldn't do that here aswell
+                // also calls rangeManager->remove(range), so we shouldn't do that here as well
             }
         } else if (annotation) {
             KoShape *shape = annotation->annotationShape();
@@ -457,7 +457,7 @@ void DeleteCommand::doDelete()
                 shapeDeleteCommand->redo();
             }
             // via m_shapeController->removeShape a DeleteAnnotationsCommand should be created that
-            // also calls rangeManager->remove(range), so we shouldn't do that here aswell
+            // also calls rangeManager->remove(range), so we shouldn't do that here as well
         } else {
             rangeManager->remove(range);
         }

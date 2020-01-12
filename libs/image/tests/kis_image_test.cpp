@@ -89,7 +89,8 @@ class ForbiddenLodStrokeStrategy : public KisStrokeStrategy
 {
 public:
     ForbiddenLodStrokeStrategy(std::function<void()> lodCallback)
-        : m_lodCallback(lodCallback)
+        : KisStrokeStrategy(QLatin1String("ForbiddenLodStrokeStrategy")),
+          m_lodCallback(lodCallback)
     {
     }
 
@@ -178,11 +179,10 @@ void KisImageTest::testConvertImageColorSpace()
     image->refreshGraph();
 
     const KoColorSpace *cs16 = KoColorSpaceRegistry::instance()->rgb16();
-    image->lock();
     image->convertImageColorSpace(cs16,
                                   KoColorConversionTransformation::internalRenderingIntent(),
                                   KoColorConversionTransformation::internalConversionFlags());
-    image->unlock();
+    image->waitForDone();
 
     QVERIFY(*cs16 == *image->colorSpace());
     QVERIFY(*cs16 == *image->root()->colorSpace());
@@ -194,6 +194,57 @@ void KisImageTest::testConvertImageColorSpace()
     QVERIFY(*cs16 == *blur1->compositeOp()->colorSpace());
 
     image->refreshGraph();
+}
+
+void KisImageTest::testAssignImageProfile()
+{
+    const KoColorSpace *rgb8 = KoColorSpaceRegistry::instance()->rgb8();
+    const KoColorSpace *gray8 = KoColorSpaceRegistry::instance()->graya8();
+    KisImageSP image = new KisImage(0, 1000, 1000, rgb8, "stest");
+
+    KisPaintDeviceSP device1 = new KisPaintDevice(rgb8);
+    KisLayerSP paint1 = new KisPaintLayer(image, "paint1", OPACITY_OPAQUE_U8, device1);
+
+    KisPaintDeviceSP device2 = new KisPaintDevice(gray8);
+    KisLayerSP paint2 = new KisPaintLayer(image, "paint2", OPACITY_OPAQUE_U8, device2);
+
+
+    KisFilterSP filter = KisFilterRegistry::instance()->value("blur");
+    Q_ASSERT(filter);
+    KisFilterConfigurationSP configuration = filter->defaultConfiguration();
+    Q_ASSERT(configuration);
+
+    KisLayerSP blur1 = new KisAdjustmentLayer(image, "blur1", configuration, 0);
+
+    image->addNode(paint1, image->root());
+    image->addNode(paint2, image->root());
+    image->addNode(blur1, image->root());
+
+    QCOMPARE(*image->colorSpace(), *rgb8);
+    QCOMPARE(*image->colorSpace()->profile(), *KoColorSpaceRegistry::instance()->p709SRGBProfile());
+
+    QCOMPARE(*paint1->colorSpace(), *rgb8);
+    QCOMPARE(*paint1->colorSpace()->profile(), *KoColorSpaceRegistry::instance()->p709SRGBProfile());
+
+    QCOMPARE(*paint2->colorSpace(), *gray8);
+
+    QCOMPARE(*blur1->colorSpace(), *rgb8);
+    QCOMPARE(*blur1->colorSpace()->profile(), *KoColorSpaceRegistry::instance()->p709SRGBProfile());
+
+
+    image->assignImageProfile(KoColorSpaceRegistry::instance()->p2020G10Profile());
+    image->waitForDone();
+
+    QVERIFY(*image->colorSpace() != *rgb8);
+    QCOMPARE(*image->colorSpace()->profile(), *KoColorSpaceRegistry::instance()->p2020G10Profile());
+
+    QVERIFY(*paint1->colorSpace() != *rgb8);
+    QCOMPARE(*paint1->colorSpace()->profile(), *KoColorSpaceRegistry::instance()->p2020G10Profile());
+
+    QCOMPARE(*paint2->colorSpace(), *gray8);
+
+    QVERIFY(*blur1->colorSpace() != *rgb8);
+    QCOMPARE(*blur1->colorSpace()->profile(), *KoColorSpaceRegistry::instance()->p2020G10Profile());
 }
 
 void KisImageTest::testGlobalSelection()
@@ -288,6 +339,7 @@ void KisImageTest::testCloneImage()
         KisAnnotationSP newAnnotation = newImage->annotation("mytype");
         QVERIFY(newAnnotation);
         QVERIFY(newAnnotation != annotation);
+
 
         KisProofingConfigurationSP newProofing = newImage->proofingConfiguration();
         QVERIFY(newProofing);
@@ -386,8 +438,6 @@ void KisImageTest::testLayerComposition()
     QVERIFY(!newLayer2->visible());
 }
 
-#include "testutil.h"
-#include "kis_group_layer.h"
 #include "kis_transparency_mask.h"
 #include "kis_psd_layer_style.h"
 
@@ -485,7 +535,7 @@ struct FlattenTestImage
         // dbgKrita << ppVar(layer3->exactBounds());
         // dbgKrita << ppVar(layer4->exactBounds());
 
-        TestUtil::ExternalImageChecker chk("flatten", "imagetest");
+        TestUtil::ReferenceImageChecker chk("flatten", "imagetest");
         QVERIFY(chk.checkDevice(p.image->projection(), p.image, "00_initial"));
     }
 
@@ -537,7 +587,7 @@ void KisImageTest::testFlattenLayer()
 {
     FlattenTestImage p;
 
-    TestUtil::ExternalImageChecker chk("flatten", "imagetest");
+    TestUtil::ReferenceImageChecker chk("flatten", "imagetest");
 
     {
         QCOMPARE(p.layer2->compositeOpId(), COMPOSITE_ADD);
@@ -587,7 +637,7 @@ void KisImageTest::testFlattenLayer()
     }
 }
 
-#include <metadata/kis_meta_data_merge_strategy_registry.h>
+#include <kis_meta_data_merge_strategy_registry.h>
 
 template<class ContainerTest>
 KisLayerSP mergeHelper(ContainerTest &p, KisLayerSP layer)
@@ -608,8 +658,8 @@ void KisImageTest::testMergeDown()
 {
     FlattenTestImage p;
 
-    TestUtil::ExternalImageChecker img("flatten", "imagetest");
-    TestUtil::ExternalImageChecker chk("mergedown_simple", "imagetest");
+    TestUtil::ReferenceImageChecker img("flatten", "imagetest");
+    TestUtil::ReferenceImageChecker chk("mergedown_simple", "imagetest");
 
 
     {
@@ -658,8 +708,8 @@ void KisImageTest::testMergeDownDestinationInheritsAlpha()
 {
     FlattenTestImage p;
 
-    TestUtil::ExternalImageChecker img("flatten", "imagetest");
-    TestUtil::ExternalImageChecker chk("mergedown_dst_inheritsalpha", "imagetest");
+    TestUtil::ReferenceImageChecker img("flatten", "imagetest");
+    TestUtil::ReferenceImageChecker chk("mergedown_dst_inheritsalpha", "imagetest");
 
     {
         QCOMPARE(p.layer2->compositeOpId(), COMPOSITE_ADD);
@@ -681,8 +731,8 @@ void KisImageTest::testMergeDownDestinationCustomCompositeOp()
 {
     FlattenTestImage p;
 
-    TestUtil::ExternalImageChecker img("flatten", "imagetest");
-    TestUtil::ExternalImageChecker chk("mergedown_dst_customop", "imagetest");
+    TestUtil::ReferenceImageChecker img("flatten", "imagetest");
+    TestUtil::ReferenceImageChecker chk("mergedown_dst_customop", "imagetest");
 
     {
         QCOMPARE(p.layer6->compositeOpId(), COMPOSITE_OVER);
@@ -706,8 +756,8 @@ void KisImageTest::testMergeDownDestinationSameCompositeOpLayerStyle()
 {
     FlattenTestImage p;
 
-    TestUtil::ExternalImageChecker img("flatten", "imagetest");
-    TestUtil::ExternalImageChecker chk("mergedown_sameop_ls", "imagetest");
+    TestUtil::ReferenceImageChecker img("flatten", "imagetest");
+    TestUtil::ReferenceImageChecker chk("mergedown_sameop_ls", "imagetest");
 
     {
         QCOMPARE(p.group1->compositeOpId(), COMPOSITE_ADD);
@@ -731,8 +781,8 @@ void KisImageTest::testMergeDownDestinationSameCompositeOp()
 {
     FlattenTestImage p;
 
-    TestUtil::ExternalImageChecker img("flatten", "imagetest");
-    TestUtil::ExternalImageChecker chk("mergedown_sameop_fastpath", "imagetest");
+    TestUtil::ReferenceImageChecker img("flatten", "imagetest");
+    TestUtil::ReferenceImageChecker chk("mergedown_sameop_fastpath", "imagetest");
 
     {
         QCOMPARE(p.layer8->compositeOpId(), COMPOSITE_ADD);
@@ -756,8 +806,8 @@ void KisImageTest::testMergeDownMultipleFrames()
 {
     FlattenTestImage p;
 
-    TestUtil::ExternalImageChecker img("flatten", "imagetest");
-    TestUtil::ExternalImageChecker chk("mergedown_simple", "imagetest");
+    TestUtil::ReferenceImageChecker img("flatten", "imagetest");
+    TestUtil::ReferenceImageChecker chk("mergedown_simple", "imagetest");
 
     QSet<int> initialFrames;
     {
@@ -823,8 +873,8 @@ void KisImageTest::testMergeMultiple()
 {
     FlattenTestImage p;
 
-    TestUtil::ExternalImageChecker img("flatten", "imagetest");
-    TestUtil::ExternalImageChecker chk("mergemultiple", "imagetest");
+    TestUtil::ReferenceImageChecker img("flatten", "imagetest");
+    TestUtil::ReferenceImageChecker chk("mergemultiple", "imagetest");
 
     {
         QList<KisNodeSP> selectedNodes;
@@ -878,7 +928,6 @@ void KisImageTest::testMergeMultiple()
 
 void testMergeCrossColorSpaceImpl(bool useProjectionColorSpace, bool swapSpaces)
 {
-    QRect refRect;
     TestUtil::MaskParent p;
 
     KisPaintLayerSP layer1;
@@ -891,7 +940,7 @@ void testMergeCrossColorSpaceImpl(bool useProjectionColorSpace, bool swapSpaces)
     const KoColorSpace *cs3 = KoColorSpaceRegistry::instance()->rgb16();
 
     if (swapSpaces) {
-        qSwap(cs2, cs3);
+        std::swap(cs2, cs3);
     }
 
     dbgKrita << "Testing testMergeCrossColorSpaceImpl:";
@@ -946,7 +995,6 @@ void KisImageTest::testMergeCrossColorSpace()
 
 void KisImageTest::testMergeSelectionMasks()
 {
-    QRect refRect;
     TestUtil::MaskParent p;
 
     QRect rect1(100, 100, 100, 100);
@@ -1000,10 +1048,44 @@ void KisImageTest::testFlattenImage()
     FlattenTestImage p;
     KisImageSP image = p.image;
 
-    TestUtil::ExternalImageChecker img("flatten", "imagetest");
+    TestUtil::ReferenceImageChecker img("flatten", "imagetest");
 
     {
-        KisLayerUtils::flattenImage(p.image);
+        KisLayerUtils::flattenImage(p.image, 0);
+        p.image->waitForDone();
+        QVERIFY(img.checkDevice(p.image->projection(), p.image, "00_initial"));
+
+        p.undoStore->undo();
+        p.image->waitForDone();
+
+        QVERIFY(img.checkDevice(p.image->projection(), p.image, "00_initial"));
+    }
+
+    {
+        KisLayerUtils::flattenImage(p.image, p.layer5); // flatten with active layer just under the root (not inside any group)
+        p.image->waitForDone();
+        QVERIFY(img.checkDevice(p.image->projection(), p.image, "00_initial"));
+
+        p.undoStore->undo();
+        p.image->waitForDone();
+
+        QVERIFY(img.checkDevice(p.image->projection(), p.image, "00_initial"));
+    }
+
+    {
+        KisLayerUtils::flattenImage(p.image, p.layer2); // flatten with active layer just under the root (not inside any group), but with a mask
+        p.image->waitForDone();
+        QVERIFY(img.checkDevice(p.image->projection(), p.image, "00_initial"));
+
+        p.undoStore->undo();
+        p.image->waitForDone();
+
+        QVERIFY(img.checkDevice(p.image->projection(), p.image, "00_initial"));
+    }
+
+    {
+        KisLayerUtils::flattenImage(p.image, p.layer3); // flatten with active layer inside of a group
+        p.image->waitForDone();
         QVERIFY(img.checkDevice(p.image->projection(), p.image, "00_initial"));
 
         p.undoStore->undo();
@@ -1056,7 +1138,7 @@ struct FlattenPassThroughTestImage
 
         p.image->initialRefreshGraph();
 
-        TestUtil::ExternalImageChecker chk("passthrough", "imagetest");
+        TestUtil::ReferenceImageChecker chk("passthrough", "imagetest");
         QVERIFY(chk.checkDevice(p.image->projection(), p.image, "00_initial"));
     }
 
@@ -1079,7 +1161,7 @@ void KisImageTest::testFlattenPassThroughLayer()
 {
     FlattenPassThroughTestImage p;
 
-    TestUtil::ExternalImageChecker chk("passthrough", "imagetest");
+    TestUtil::ReferenceImageChecker chk("passthrough", "imagetest");
 
     {
         QCOMPARE(p.group1->compositeOpId(), COMPOSITE_OVER);
@@ -1099,7 +1181,7 @@ void KisImageTest::testMergeTwoPassThroughLayers()
 {
     FlattenPassThroughTestImage p;
 
-    TestUtil::ExternalImageChecker chk("passthrough", "imagetest");
+    TestUtil::ReferenceImageChecker chk("passthrough", "imagetest");
 
     {
         QCOMPARE(p.group1->compositeOpId(), COMPOSITE_OVER);
@@ -1118,7 +1200,7 @@ void KisImageTest::testMergePaintOverPassThroughLayer()
 {
     FlattenPassThroughTestImage p;
 
-    TestUtil::ExternalImageChecker chk("passthrough", "imagetest");
+    TestUtil::ReferenceImageChecker chk("passthrough", "imagetest");
 
     {
         QCOMPARE(p.group1->compositeOpId(), COMPOSITE_OVER);
@@ -1138,7 +1220,7 @@ void KisImageTest::testMergePassThroughOverPaintLayer()
 {
     FlattenPassThroughTestImage p;
 
-    TestUtil::ExternalImageChecker chk("passthrough", "imagetest");
+    TestUtil::ReferenceImageChecker chk("passthrough", "imagetest");
 
     {
         QCOMPARE(p.group1->compositeOpId(), COMPOSITE_OVER);
@@ -1154,6 +1236,58 @@ void KisImageTest::testMergePassThroughOverPaintLayer()
     }
 }
 
+#include "kis_paint_device_debug_utils.h"
+#include "kis_algebra_2d.h"
 
+void KisImageTest::testPaintOverlayMask()
+{
+    QRect refRect(0, 0, 512, 512);
+    TestUtil::MaskParent p(refRect);
 
-QTEST_MAIN(KisImageTest)
+    QRect fillRect(50, 50, 412, 412);
+    QRect selectionRect(200, 200, 100, 50);
+
+    KisPaintLayerSP layer1 = p.layer;
+    layer1->paintDevice()->fill(fillRect, KoColor(Qt::yellow, layer1->colorSpace()));
+
+    KisSelectionMaskSP mask = new KisSelectionMask(p.image);
+    KisSelectionSP selection = new KisSelection(new KisSelectionDefaultBounds(layer1->paintDevice()));
+
+    selection->pixelSelection()->select(selectionRect, 128);
+    selection->pixelSelection()->select(KisAlgebra2D::blowRect(selectionRect,-0.3), 255);
+
+    mask->setSelection(selection);
+
+    //mask->setVisible(false);
+    //mask->setActive(false);
+
+    p.image->addNode(mask, layer1);
+
+    // a simple layer to disable oblidge child mechanism
+    KisPaintLayerSP layer2 = new KisPaintLayer(p.image, "layer2", OPACITY_OPAQUE_U8);
+    p.image->addNode(layer2);
+
+    p.image->initialRefreshGraph();
+
+    KIS_DUMP_DEVICE_2(p.image->projection(), refRect, "00_initial", "dd");
+
+    p.image->setOverlaySelectionMask(mask);
+    p.image->waitForDone();
+
+    KIS_DUMP_DEVICE_2(p.image->projection(), refRect, "01_activated_00_image", "dd");
+    KIS_DUMP_DEVICE_2(p.image->root()->original(), refRect, "01_activated_01_root_original", "dd");
+    KIS_DUMP_DEVICE_2(p.image->root()->projection(), refRect, "01_activated_02_root_projection", "dd");
+
+    KisImageSP clonedImage = p.image->clone();
+    clonedImage->waitForDone();
+    KIS_DUMP_DEVICE_2(clonedImage->projection(), refRect, "02_cloned_when_activated_00_image", "dd");
+    KIS_DUMP_DEVICE_2(clonedImage->root()->original(), refRect, "02_cloned_when_activated_01_root_original", "dd");
+    KIS_DUMP_DEVICE_2(clonedImage->root()->projection(), refRect, "02_cloned_when_activated_02_root_projection", "dd");
+
+    p.image->setOverlaySelectionMask(0);
+    p.image->waitForDone();
+
+    KIS_DUMP_DEVICE_2(p.image->projection(), refRect, "03_deactivated", "dd");
+}
+
+KISTEST_MAIN(KisImageTest)

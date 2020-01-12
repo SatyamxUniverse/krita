@@ -103,7 +103,7 @@ bool PSDLayerMaskSection::readLayerInfoImpl(QIODevice* io)
 
                 dbgFile << "Going to read layer" << i << "pos" << io->pos();
                 dbgFile << "== Enter PSDLayerRecord";
-                PSDLayerRecord *layerRecord = new PSDLayerRecord(m_header);
+                QScopedPointer<PSDLayerRecord> layerRecord(new PSDLayerRecord(m_header));
                 if (!layerRecord->read(io)) {
                     error = QString("Could not load layer %1: %2").arg(i).arg(layerRecord->error);
                     return false;
@@ -112,7 +112,7 @@ bool PSDLayerMaskSection::readLayerInfoImpl(QIODevice* io)
                 dbgFile << "Finished reading layer" << i << layerRecord->layerName << "blending mode"
                         << layerRecord->blendModeKey << io->pos()
                         << "Number of channels:" <<  layerRecord->channelInfoRecords.size();
-                layers << layerRecord;
+                layers << layerRecord.take();
             }
         }
 
@@ -188,7 +188,7 @@ bool PSDLayerMaskSection::readLayerInfoImpl(QIODevice* io)
                 channelInfo->channelDataLength = channelInfo->channelDataLength - (channelInfo->channelDataStart - channelStartPos);
 
                 dbgFile << "\t\tchannel record" << j << "for layer" << i << "with id" << channelInfo->channelId
-                        << "starting postion" << channelInfo->channelDataStart
+                        << "starting position" << channelInfo->channelDataStart
                         << "with length" << channelInfo->channelDataLength
                         << "and has compression type" << channelInfo->compressionType;
 
@@ -327,9 +327,8 @@ void flattenNodes(KisNodeSP node, QList<FlattenedNode> &nodes)
 {
     KisNodeSP child = node->firstChild();
     while (child) {
-
-        bool isGroupLayer = child->inherits("KisGroupLayer");
-        bool isRasterLayer = child->inherits("KisPaintLayer") || child->inherits("KisShapeLayer");
+        const bool isLayer = child->inherits("KisLayer");
+        const bool isGroupLayer = child->inherits("KisGroupLayer");
 
         if (isGroupLayer) {
             {
@@ -347,7 +346,7 @@ void flattenNodes(KisNodeSP node, QList<FlattenedNode> &nodes)
                 item.type = FlattenedNode::FOLDER_OPEN;
                 nodes << item;
             }
-        } else if (isRasterLayer) {
+        } else if (isLayer) {
             FlattenedNode item;
             item.node = child;
             item.type = FlattenedNode::RASTER_LAYER;
@@ -555,14 +554,15 @@ void PSDLayerMaskSection::writeImpl(QIODevice* io, KisNodeSP rootLayer)
                 layerRecord->visible = nodeVisible;
                 layerRecord->irrelevant = nodeIrrelevant;
 
-                layerRecord->layerName = nodeName;
+                layerRecord->layerName = nodeName.isEmpty() ? i18n("Unnamed Layer") : nodeName;
 
                 layerRecord->write(io,
                                    layerContentDevice,
                                    onlyTransparencyMask,
                                    maskRect,
                                    sectionType,
-                                   stylesXmlDoc);
+                                   stylesXmlDoc,
+                                   node->inherits("KisGroupLayer"));
             }
 
             dbgFile << "start writing layer pixel data" << io->pos();
@@ -580,9 +580,6 @@ void PSDLayerMaskSection::writeImpl(QIODevice* io, KisNodeSP rootLayer)
             SAFE_WRITE_EX(io, globalMaskSize);
         }
 
-        {
-            PsdAdditionalLayerInfoBlock globalInfoSection(m_header);
-            globalInfoSection.writePattBlockEx(io, mergedPatternsXmlDoc);
-        }
+        globalInfoSection.writePattBlockEx(io, mergedPatternsXmlDoc);
     }
 }

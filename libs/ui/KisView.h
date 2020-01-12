@@ -46,18 +46,21 @@ class KisInputManager;
 class KoZoomController;
 class KoZoomController;
 struct KoPageLayout;
-class KoCanvasResourceManager;
+class KoCanvasResourceProvider;
 
 // KDE classes
 class QAction;
 class KActionCollection;
+class KConfigGroup;
 
 // Qt classes
 class QDragEnterEvent;
+class QDragMoveEvent;
 class QDropEvent;
 class QPrintDialog;
 class QCloseEvent;
 class QStatusBar;
+class QMdiSubWindow;
 
 /**
  * This class is used to display a @ref KisDocument.
@@ -72,11 +75,8 @@ public:
     /**
      * Creates a new view for the document.
      */
-    KisView(KisDocument *document, KoCanvasResourceManager *resourceManager, KActionCollection *actionCollection, QWidget *parent = 0);
+    KisView(KisDocument *document, KisViewManager *viewManager, QWidget *parent = 0);
     ~KisView() override;
-
-    QAction *undoAction() const;
-    QAction *redoAction() const;
 
     // Temporary while teasing apart view and mainwindow
     void setViewManager(KisViewManager *view);
@@ -90,14 +90,12 @@ public:
     KisDocument *document() const;
 
     /**
-     * Reset the view to show the given document.
+     * Deletes the view and creates a new one, displaying @p document,
+     * in the same sub-window.
+     *
+     * @return the new view
      */
-    void setDocument(KisDocument *document);
-
-    /**
-     * Tells this view that its document has got deleted (called internally)
-     */
-    void setDocumentDeleted();
+    KisView *replaceBy(KisDocument *document);
 
     /**
      * In order to print the document represented by this view a new print job should
@@ -115,6 +113,11 @@ public:
      * @return the KisMainWindow in which this view is currently.
      */
     KisMainWindow *mainWindow() const;
+
+    /**
+     * Tells this view which subwindow it is part of.
+     */
+    void setSubWindow(QMdiSubWindow *subWindow);
 
     /**
      * @return the statusbar of the KisMainWindow in which this view is currently.
@@ -142,6 +145,8 @@ public:
 
     /// create a list of actions that when activated will change the unit on the document.
     QList<QAction*> createChangeUnitActions(bool addPixelUnit = false);
+
+    void closeView();
 
 public:
 
@@ -202,19 +207,28 @@ public:
     KisSelectionSP selection();
 
     void notifyCurrentStateChanged(bool isCurrent);
+    bool isCurrent() const;
 
     void setShowFloatingMessage(bool show);
-    void showFloatingMessageImpl(const QString &message, const QIcon& icon, int timeout, KisFloatingMessage::Priority priority, int alignment);
+    void showFloatingMessage(const QString &message, const QIcon& icon, int timeout = 4500,
+                             KisFloatingMessage::Priority priority = KisFloatingMessage::Medium,
+                             int alignment = Qt::AlignCenter | Qt::TextWordWrap);
 
     bool canvasIsMirrored() const;
+
+    void syncLastActiveNodeToDocument();
+
+    void saveViewState(KisPropertiesConfiguration &config) const;
+    void restoreViewState(const KisPropertiesConfiguration &config);
 
 public Q_SLOTS:
 
     /**
      * Display a message in the status bar (calls QStatusBar::message())
      * @todo rename to something more generic
+     * @param value determines autosaving
      */
-    void slotActionStatusText(const QString &text);
+    void slotSavingStatusMessage(const QString &text, int timeout, bool isAutoSaving = false);
 
     /**
      * End of the message in the status bar (calls QStatusBar::clear())
@@ -233,6 +247,10 @@ public Q_SLOTS:
     void slotGamutCheck(bool gamutCheck);
 
     bool queryClose();
+
+    void slotScreenChanged();
+
+    void slotThemeChanged(QPalette pal);
 
 private Q_SLOTS:
     void slotImageNodeAdded(KisNodeSP node);
@@ -254,8 +272,9 @@ Q_SIGNALS:
 protected:
 
     // QWidget overrides
-    void dragEnterEvent(QDragEnterEvent * event) override;
-    void dropEvent(QDropEvent * event) override;
+    void dragEnterEvent(QDragEnterEvent *event) override;
+    void dropEvent(QDropEvent *event) override;
+    void dragMoveEvent(QDragMoveEvent *event) override;
     void closeEvent(QCloseEvent *event) override;
 
     /**

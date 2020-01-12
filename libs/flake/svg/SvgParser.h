@@ -41,17 +41,25 @@
 
 class KoShape;
 class KoShapeGroup;
+class KoShapeContainer;
 class KoDocumentResourceManager;
 class KoVectorPatternBackground;
 class KoMarker;
 class KoPathShape;
-
+class KoSvgTextShape;
 
 class KRITAFLAKE_EXPORT SvgParser
 {
+    struct DeferredUseStore;
+
 public:
     explicit SvgParser(KoDocumentResourceManager *documentResourceManager);
     virtual ~SvgParser();
+
+    static KoXmlDocument createDocumentFromSvg(QIODevice *device, QString *errorMsg = 0, int *errorLine = 0, int *errorColumn = 0);
+    static KoXmlDocument createDocumentFromSvg(const QByteArray &data, QString *errorMsg = 0, int *errorLine = 0, int *errorColumn = 0);
+    static KoXmlDocument createDocumentFromSvg(const QString &data, QString *errorMsg = 0, int *errorLine = 0, int *errorColumn = 0);
+    static KoXmlDocument createDocumentFromSvg(QXmlInputSource *source, QString *errorMsg = 0, int *errorLine = 0, int *errorColumn = 0);
 
     /// Parses a svg fragment, returning the list of top level child shapes
     QList<KoShape*> parseSvg(const KoXmlElement &e, QSizeF * fragmentSize = 0);
@@ -61,6 +69,10 @@ public:
 
     void setResolution(const QRectF boundsInPixels, qreal pixelsPerInch);
 
+    /// A special workaround coeff for using when loading old ODF-embedded SVG files,
+    /// which used hard-coded 96 ppi for font size
+    void setForcedFontSizeResolution(qreal value);
+
     /// Returns the list of all shapes of the svg document
     QList<KoShape*> shapes() const;
 
@@ -68,27 +80,36 @@ public:
     /// no longer know about the symbols.
     QVector<KoSvgSymbol*> takeSymbols();
 
+    QString documentTitle() const;
+    QString documentDescription() const;
+
+    
     typedef std::function<QByteArray(const QString&)> FileFetcherFunc;
     void setFileFetcher(FileFetcherFunc func);
 
     QList<QExplicitlySharedDataPointer<KoMarker>> knownMarkers() const;
 
-    QString documentTitle() const;
-    QString documentDescription() const;
+    void parseDefsElement(const KoXmlElement &e);
+    KoShape* parseTextElement(const KoXmlElement &e, KoSvgTextShape *mergeIntoShape = 0);
 
 protected:
 
     /// Parses a group-like element element, saving all its topmost properties
     KoShape* parseGroup(const KoXmlElement &e, const KoXmlElement &overrideChildrenFrom = KoXmlElement());
 
+    // XXX
+    KoShape* parseTextNode(const KoXmlText &e);
+    
     /// Parses a container element, returning a list of child shapes
-    QList<KoShape*> parseContainer(const KoXmlElement &);
+    QList<KoShape*> parseContainer(const KoXmlElement &, bool parseTextNodes = false);
 
     /// XXX
-    QList<KoShape*> parseSingleElement(const KoXmlElement &b);
+    QList<KoShape*> parseSingleElement(const KoXmlElement &b, DeferredUseStore* deferredUseStore = 0);
 
     /// Parses a use element, returning a list of child shapes
-    KoShape* parseUse(const KoXmlElement &);
+    KoShape* parseUse(const KoXmlElement &, DeferredUseStore* deferredUseStore);
+
+    KoShape* resolveUse(const KoXmlElement &e, const QString& key);
 
     /// Parses a gradient element
     SvgGradientHelper *parseGradient(const KoXmlElement &);
@@ -143,7 +164,7 @@ protected:
     SvgClipPathHelper* findClipPath(const QString &id);
 
     /// Adds list of shapes to the given group shape
-    void addToGroup(QList<KoShape*> shapes, KoShapeGroup * group);
+    void addToGroup(QList<KoShape*> shapes, KoShapeContainer *group);
 
     /// creates a shape from the given shape id
     KoShape * createShape(const QString &shapeID);
@@ -156,6 +177,7 @@ protected:
 
     void uploadStyleToContext(const KoXmlElement &e);
     void applyCurrentStyle(KoShape *shape, const QPointF &shapeToOriginalUserCoordinates);
+    void applyCurrentBasicStyle(KoShape *shape);
 
     /// Applies styles to the given shape
     void applyStyle(KoShape *, const KoXmlElement &, const QPointF &shapeToOriginalUserCoordinates);
@@ -181,7 +203,7 @@ protected:
     void applyId(const QString &id, KoShape *shape);
 
     /// Applies viewBox transformation to the current graphical context
-    /// NOTE: after applying the function currectBoundingBox can become null!
+    /// NOTE: after applying the function currentBoundingBox can become null!
     void applyViewBoxTransform(const KoXmlElement &element);
 
 private:
@@ -194,12 +216,12 @@ private:
     QMap<QString, QExplicitlySharedDataPointer<KoMarker>> m_markers;
     KoDocumentResourceManager *m_documentResourceManager;
     QList<KoShape*> m_shapes;
-    QVector<KoSvgSymbol*> m_symbols;
+    QMap<QString, KoSvgSymbol*> m_symbols;
     QList<KoShape*> m_toplevelShapes;
-
+    QList<KoShape*> m_defsShapes;
+    bool m_isInsideTextSubtree = false;
     QString m_documentTitle;
     QString m_documentDescription;
-
 };
 
 #endif

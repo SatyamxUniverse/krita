@@ -36,13 +36,14 @@ public:
     explicit KoPathBaseCommand(KUndo2Command *parent = 0);
 
     /** initialize the base command with a single shape
+     * @param shape the shape
      * @param parent the parent command used for macro commands
      */
     explicit KoPathBaseCommand(KoPathShape *shape, KUndo2Command *parent = 0);
 
 protected:
     /**
-     * Shedules repainting of all shapes control point rects.
+     * Schedules repainting of all shapes control point rects.
      * @param normalizeShapes controls if paths are normalized before painting
      */
     void repaint(bool normalizeShapes);

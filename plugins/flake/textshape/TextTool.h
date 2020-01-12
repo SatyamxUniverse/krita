@@ -81,18 +81,28 @@ public:
 #endif
     ~TextTool() override;
 
+    /// reimplemented from superclass
     void paint(QPainter &painter, const KoViewConverter &converter) override;
 
+    /// reimplemented from superclass
     void mousePressEvent(KoPointerEvent *event) override;
+    /// reimplemented from superclass
     void mouseDoubleClickEvent(KoPointerEvent *event) override;
+    /// reimplemented from superclass
+    void mouseTripleClickEvent(KoPointerEvent *event) override;
+    /// reimplemented from superclass
     void mouseMoveEvent(KoPointerEvent *event) override;
+    /// reimplemented from superclass
     void mouseReleaseEvent(KoPointerEvent *event) override;
+    /// reimplemented from superclass
     void keyPressEvent(QKeyEvent *event) override;
+    /// reimplemented from superclass
     void keyReleaseEvent(QKeyEvent *event) override;
     /// reimplemented from superclass
     void activate(ToolActivation activation, const QSet<KoShape *> &shapes) override;
     /// reimplemented from superclass
     void deactivate() override;
+    /// reimplemented from superclass
     void copy() const override;
 
     /// reimplemented from KoUndoableTool
@@ -264,7 +274,7 @@ private Q_SLOTS:
     /// Enable or disable shrink-to-fit-text.
     void setShrinkToFit(bool enabled);
     /// set Paragraph style of current selection. Existing style will be completely overridden.
-    void setStyle(KoParagraphStyle *syle);
+    void setStyle(KoParagraphStyle *style);
     /// set the characterStyle of the current selection. see above.
     void setStyle(KoCharacterStyle *style);
     /// set the level of current selected list

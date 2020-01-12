@@ -2,14 +2,11 @@ if (NOT WIN32 AND NOT APPLE)
     add_subdirectory(tests)
 endif()
 
-include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
-
 set(kritatooltransform_SOURCES
     tool_transform.cc
     tool_transform_args.cc
     kis_transform_mask_adapter.cpp
     kis_animated_transform_parameters.cpp
-    tool_transform_changes_tracker.cpp
     kis_tool_transform.cc
     kis_tool_transform_config_widget.cpp
     kis_transform_strategy_base.cpp

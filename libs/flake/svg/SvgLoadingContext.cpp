@@ -48,8 +48,10 @@ public:
 
     ~Private()
     {
-        if (! gcStack.isEmpty())
+        if (! gcStack.isEmpty() && !gcStack.top()->isResolutionFrame) {
+            // Resolution frame is usually the first and is not removed.
             warnFlake << "the context stack is not empty (current count" << gcStack.size() << ", expected 0)";
+        }
         qDeleteAll(gcStack);
         gcStack.clear();
         delete styleParser;
@@ -91,18 +93,20 @@ SvgGraphicsContext *SvgLoadingContext::currentGC() const
 
 SvgGraphicsContext *SvgLoadingContext::pushGraphicsContext(const KoXmlElement &element, bool inherit)
 {
-    SvgGraphicsContext *gc = new SvgGraphicsContext;
-
+    SvgGraphicsContext *gc;
     // copy data from current context
-    if (! d->gcStack.isEmpty() && inherit)
-        *gc = *(d->gcStack.top());
+    if (! d->gcStack.isEmpty() && inherit) {
+        gc = new SvgGraphicsContext(*d->gcStack.top());
+    } else {
+        gc = new SvgGraphicsContext();
+    }
 
+    gc->textProperties.resetNonInheritableToDefault(); // some of the text properties are not inherited
     gc->filterId.clear(); // filters are not inherited
     gc->clipPathId.clear(); // clip paths are not inherited
     gc->clipMaskId.clear(); // clip masks are not inherited
     gc->display = true; // display is not inherited
     gc->opacity = 1.0; // opacity is not inherited
-    gc->baselineShift.clear(); // baseline-shift is not inherited
 
     if (!element.isNull()) {
         if (element.hasAttribute("transform")) {
@@ -244,11 +248,11 @@ void SvgLoadingContext::parseProfile(const KoXmlElement &element)
 
     if (element.attribute("rendering-intent", "auto") != "auto") {
         // WARNING: Krita does *not* treat rendering intents attributes of the profile!
-        qDebug() << "WARNING: we do *not* treat rendering intents attributes of the profile!";
+        debugFlake << "WARNING: we do *not* treat rendering intents attributes of the profile!";
     }
 
     if (d->profiles.contains(name)) {
-        qDebug() << "Profile already in the map!" << ppVar(name);
+        debugFlake << "Profile already in the map!" << ppVar(name);
         return;
     }
 
@@ -265,12 +269,12 @@ void SvgLoadingContext::parseProfile(const KoXmlElement &element)
                 profile = engine->addProfile(profileData);
 
                 if (profile->uniqueId() != uniqueId) {
-                    qDebug() << "WARNING: ProfileID of the attached profile doesn't match the one mentioned in SVG element";
-                    qDebug() << "       " << ppVar(profile->uniqueId().toHex());
-                    qDebug() << "       " << ppVar(uniqueId.toHex());
+                    debugFlake << "WARNING: ProfileID of the attached profile doesn't match the one mentioned in SVG element";
+                    debugFlake << "       " << ppVar(profile->uniqueId().toHex());
+                    debugFlake << "       " << ppVar(uniqueId.toHex());
                 }
             } else {
-                qDebug() << "WARNING: couldn't fetch the ICCprofile file!" << fileName;
+                debugFlake << "WARNING: couldn't fetch the ICCprofile file!" << fileName;
             }
         }
     }
@@ -278,7 +282,7 @@ void SvgLoadingContext::parseProfile(const KoXmlElement &element)
     if (profile) {
         d->profiles.insert(name, profile);
     } else {
-        qDebug() << "WARNING: couldn't load SVG profile" << ppVar(name) << ppVar(href) << ppVar(uniqueId);
+        debugFlake << "WARNING: couldn't load SVG profile" << ppVar(name) << ppVar(href) << ppVar(uniqueId);
     }
 }
 

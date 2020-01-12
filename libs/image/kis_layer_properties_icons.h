@@ -43,6 +43,7 @@ public:
     static const KoID colorizeNeedsUpdate;
     static const KoID colorizeEditKeyStrokes;
     static const KoID colorizeShowColoring;
+    static const KoID openFileLayerFile;
 
     static KisLayerPropertiesIcons* instance();
 
@@ -62,7 +63,6 @@ public:
      */
     static QVariant nodeProperty(KisNodeSP node, const KoID &id, const QVariant &defaultValue);
 
-private:
     void updateIcons();
 
 private:

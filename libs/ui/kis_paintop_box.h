@@ -52,6 +52,7 @@ class KoCanvasController;
 class KisViewManager;
 class KisCanvasResourceProvider;
 class KisPopupButton;
+class KisIconWidget;
 class KisToolOptionsPopup;
 class KisPaintOpPresetsPopup;
 class KisPaintOpPresetsChooserPopup;
@@ -60,6 +61,7 @@ class KisCompositeOpComboBox;
 class KisWidgetChooser;
 class KisFavoriteResourceManager;
 class KisAction;
+class KisPresetSaveWidget;
 
 /**
  * This widget presents all paintops that a user can paint with.
@@ -73,9 +75,9 @@ class KisAction;
     void slotSaveLockedOptionToPreset(KisPropertiesConfigurationSP p);
     void slotDropLockedOption(KisPropertiesConfigurationSP p);
     void slotDirtyPresetToggled(bool);
-    Everytime a value is changed in a preset, the preset is made dirty through the onChange() function.
+    Every time a value is changed in a preset, the preset is made dirty through the onChange() function.
     For Locked Settings however, a changed Locked Setting will not cause a preset to become dirty. That is
-    becuase it borrows its values from the KisLockedPropertiesServer.
+    because it borrows its values from the KisLockedPropertiesServer.
     Hence the dirty state of the Preset is kept consistent before and after a writeConfiguration operation in  most cases.
  * XXX: When we have a lot of paintops, replace the listbox
  * with a table, and for every category a combobox.
@@ -121,6 +123,11 @@ public Q_SLOTS:
     void slotCanvasResourceChanged(int key, const QVariant& v);
     void resourceSelected(KoResource* resource);
 
+    /// This should take care of creating a new brush preset from scratch
+    /// It will either load the default brush preset for the engine,
+    /// or create a new empty preset if a default preset does not exist
+    void slotCreatePresetFromScratch(QString paintop);
+
 private:
 
     void setCurrentPaintop(const KoID& paintop);
@@ -135,8 +142,6 @@ private:
 
 private Q_SLOTS:
 
-    void slotSaveActivePreset();
-    void slotUpdatePreset();
     void slotSetupDefaultPreset();
     void slotNodeChanged(const KisNodeSP node);
     void slotToggleEraseMode(bool checked);
@@ -179,12 +184,13 @@ private:
     QWidget*                            m_paintopWidget;
     KisPaintOpConfigWidget*             m_optionWidget;
     KisPopupButton*                     m_toolOptionsPopupButton;
-    KisPopupButton*                     m_brushEditorPopupButton;
+
+    KisPresetSaveWidget*                m_savePresetWidget;
+    KisIconWidget*                     m_brushEditorPopupButton;
     KisPopupButton*                     m_presetSelectorPopupButton;
     KisCompositeOpComboBox*             m_cmbCompositeOp;
     QToolButton*                        m_eraseModeButton;
     QToolButton*                        m_alphaLockButton;
-    QToolButton*                        m_disablePressureButton;
     QToolButton*                        m_hMirrorButton;
     QToolButton*                        m_vMirrorButton;
     KisToolOptionsPopup*                m_toolOptionsPopup;
@@ -206,9 +212,16 @@ private:
     KisAction* m_hMirrorAction;
     KisAction* m_vMirrorAction;
 
+    KisAction* hideCanvasDecorationsX;
+    KisAction* lockActionX;
+    KisAction* moveToCenterActionX;
+    KisAction* hideCanvasDecorationsY;
+    KisAction* lockActionY;
+    KisAction* moveToCenterActionY;
+
+
     struct TabletToolID {
         TabletToolID(const KoInputDevice& dev) {
-            uniqueID = dev.uniqueTabletId();
             // Only the eraser is special, and we don't look at Cursor
             pointer = QTabletEvent::Pen;
             if (dev.pointer() == QTabletEvent::Eraser) {
@@ -217,17 +230,14 @@ private:
         }
 
         bool operator == (const TabletToolID& id) const {
-            return pointer == id.pointer && uniqueID == id.uniqueID;
+            return pointer == id.pointer;
         }
 
         bool operator < (const TabletToolID& id) const {
-            if (uniqueID == id.uniqueID)
-                return pointer < id.pointer;
-            return uniqueID < id.uniqueID;
+            return pointer < id.pointer;
         }
 
         QTabletEvent::PointerType  pointer;
-        qint64                     uniqueID;
     };
 
     struct TabletToolData {
@@ -248,6 +258,9 @@ private:
     bool             m_eraserBrushOpacityEnabled;
 
     KisSignalAutoConnectionsStore m_presetConnections;
+
+    QString m_eraserName;
+    QString m_defaultPresetName;
 };
 
 #endif //KIS_PAINTOP_BOX_H_

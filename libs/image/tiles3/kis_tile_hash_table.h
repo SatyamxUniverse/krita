@@ -59,7 +59,7 @@ public:
      * \param col column of the tile
      * \param row row of the tile
      */
-    TileTypeSP getExistedTile(qint32 col, qint32 row);
+    TileTypeSP getExistingTile(qint32 col, qint32 row);
 
     /**
      * Returns a tile in position (col,row). If no tile exists,
@@ -78,11 +78,13 @@ public:
      * parameters set to (qint32_MIN, qint32_MIN).
      * \param col column of the tile
      * \param row row of the tile
+     * \param existingTile returns true if the tile actually exists in the table
+     *                     and it is not a lazily created default wrapper tile
      */
-    TileTypeSP getReadOnlyTileLazy(qint32 col, qint32 row);
+    TileTypeSP getReadOnlyTileLazy(qint32 col, qint32 row, bool &existingTile);
     void addTile(TileTypeSP tile);
-    void deleteTile(TileTypeSP tile);
-    void deleteTile(qint32 col, qint32 row);
+    bool deleteTile(TileTypeSP tile);
+    bool deleteTile(qint32 col, qint32 row);
 
     void clear();
 
@@ -95,11 +97,13 @@ public:
 
     void debugPrintInfo();
     void debugMaxListLength(qint32 &min, qint32 &max);
+
 private:
 
-    TileTypeSP getTile(qint32 col, qint32 row);
-    void linkTile(TileTypeSP tile);
-    TileTypeSP unlinkTile(qint32 col, qint32 row);
+    TileTypeSP getTileMinefieldWalk(qint32 col, qint32 row, qint32 idx);
+    TileTypeSP getTile(qint32 col, qint32 row, qint32 idx);
+    void linkTile(TileTypeSP tile, qint32 idx);
+    bool unlinkTile(qint32 col, qint32 row, qint32 idx);
 
     inline void setDefaultTileDataImp(KisTileData *defaultTileData);
     inline KisTileData* defaultTileDataImp() const;
@@ -110,7 +114,7 @@ private:
     void debugListLengthDistibution();
     void sanityChecksumCheck();
 private:
-    template<class U> friend class KisTileHashTableIteratorTraits;
+    template<class U, class LockerType> friend class KisTileHashTableIteratorTraits;
 
     static const qint32 TABLE_SIZE = 1024;
     TileTypeSP *m_hashTable;
@@ -131,31 +135,27 @@ private:
  * Note: You can't work with your hash table in a regular way
  *       during iterating with this iterator, because HT is locked.
  *       The only thing you can do is to delete current tile.
+ *
+ * LockerType defines if the iterator is constant or mutable. One should
+ * pass either QReadLocker or QWriteLocker as a parameter.
  */
-template<class T>
+template<class T, class LockerType>
 class KisTileHashTableIteratorTraits
 {
 public:
     typedef T               TileType;
     typedef KisSharedPtr<T> TileTypeSP;
 
-    KisTileHashTableIteratorTraits(KisTileHashTableTraits<T> *ht) {
+    KisTileHashTableIteratorTraits(KisTileHashTableTraits<T> *ht)
+        : m_locker(&ht->m_lock)
+    {
         m_hashTable = ht;
         m_index = nextNonEmptyList(0);
         if (m_index < KisTileHashTableTraits<T>::TABLE_SIZE)
             m_tile = m_hashTable->m_hashTable[m_index];
-
-        m_hashTable->m_lock.lockForWrite();
     }
 
-    ~KisTileHashTableIteratorTraits<T>() {
-        if (m_index != -1)
-            m_hashTable->m_lock.unlock();
-    }
-
-    KisTileHashTableIteratorTraits<T>& operator++() {
-        next();
-        return *this;
+    ~KisTileHashTableIteratorTraits() {
     }
 
     void next() {
@@ -168,7 +168,8 @@ public:
                     m_tile = m_hashTable->m_hashTable[idx];
                 } else {
                     //EOList reached
-                    destroy();
+                    m_index = -1;
+                    // m_tile.clear(); // already null
                 }
             }
         }
@@ -181,28 +182,35 @@ public:
         return !m_tile;
     }
 
-    void deleteCurrent() {
+    // disable the method if we didn't lock for writing
+    template <class Helper = LockerType>
+    typename std::enable_if<std::is_same<Helper, QWriteLocker>::value, void>::type
+    deleteCurrent() {
         TileTypeSP tile = m_tile;
         next();
-        m_hashTable->unlinkTile(tile->col(), tile->row());
+
+        const qint32 idx = m_hashTable->calculateHash(tile->col(), tile->row());
+        m_hashTable->unlinkTile(tile->col(), tile->row(), idx);
     }
 
-    void moveCurrentToHashTable(KisTileHashTableTraits<T> *newHashTable) {
+    // disable the method if we didn't lock for writing
+    template <class Helper = LockerType>
+    typename std::enable_if<std::is_same<Helper, QWriteLocker>::value, void>::type
+    moveCurrentToHashTable(KisTileHashTableTraits<T> *newHashTable) {
         TileTypeSP tile = m_tile;
         next();
-        m_hashTable->unlinkTile(tile->col(), tile->row());
+
+        const qint32 idx = m_hashTable->calculateHash(tile->col(), tile->row());
+        m_hashTable->unlinkTile(tile->col(), tile->row(), idx);
 
         newHashTable->addTile(tile);
     }
 
-    void destroy() {
-        m_index = -1;
-        m_hashTable->m_lock.unlock();
-    }
 protected:
     TileTypeSP m_tile;
     qint32 m_index;
     KisTileHashTableTraits<T> *m_hashTable;
+    LockerType m_locker;
 
 protected:
     qint32 nextNonEmptyList(qint32 startIdx) {
@@ -216,11 +224,12 @@ protected:
         return idx;
     }
 private:
-    Q_DISABLE_COPY(KisTileHashTableIteratorTraits<T>)
+    Q_DISABLE_COPY(KisTileHashTableIteratorTraits)
 };
 
 
 typedef KisTileHashTableTraits<KisTile> KisTileHashTable;
-typedef KisTileHashTableIteratorTraits<KisTile> KisTileHashTableIterator;
+typedef KisTileHashTableIteratorTraits<KisTile, QWriteLocker> KisTileHashTableIterator;
+typedef KisTileHashTableIteratorTraits<KisTile, QReadLocker> KisTileHashTableConstIterator;
 
 #endif /* KIS_TILEHASHTABLE_H_ */

@@ -24,6 +24,7 @@
 #include <QLabel>
 #include <QString>
 #include <QGridLayout>
+#include <QStringList>
 
 #include <kis_image.h>
 #include <kis_paint_device.h>
@@ -80,13 +81,18 @@ void KisWdgGenerator::initialize(KisViewManager *view)
     d->view = view;
     d->uiWdgGenerators.setupUi(this);
     d->widgetLayout = new QGridLayout(d->uiWdgGenerators.centralWidgetHolder);
-    QList<KisGeneratorSP> generators = KisGeneratorRegistry::instance()->values();
+    QStringList generatorNames = KisGeneratorRegistry::instance()->keys();
+    generatorNames.sort();
 
-    Q_FOREACH (const KisGeneratorSP generator, generators) {
+    Q_FOREACH (const QString &generatorName, generatorNames) {
+
+        KisGeneratorSP generator = KisGeneratorRegistry::instance()->get(generatorName);
+
         Q_ASSERT(generator);
         KisGeneratorItem * item = new KisGeneratorItem(generator->name(),
                 d->uiWdgGenerators.lstGenerators,
                 QListWidgetItem::UserType + 1);
+
         item->generator = generator;
     }
     connect(d->uiWdgGenerators.lstGenerators, SIGNAL(currentRowChanged(int)),
@@ -111,6 +117,7 @@ void KisWdgGenerator::setConfiguration(const KisFilterConfigurationSP  config)
             if (wdg) {
                 wdg->setConfiguration(config);
             }
+
             return;
         }
     }
@@ -144,13 +151,16 @@ void KisWdgGenerator::slotGeneratorActivated(int row)
         delete d->centralWidget;
 
         KisConfigWidget* widget =
-            d->currentGenerator->createConfigurationWidget(d->uiWdgGenerators.centralWidgetHolder, d->dev);
+            d->currentGenerator->createConfigurationWidget(d->uiWdgGenerators.centralWidgetHolder, d->dev, true);
 
         if (!widget) { // No widget, so display a label instead
             d->centralWidget = new QLabel(i18n("No configuration options."),
                                           d->uiWdgGenerators.centralWidgetHolder);
         } else {
             d->centralWidget = widget;
+
+            connect( widget, SIGNAL(sigConfigurationUpdated()), this, SIGNAL(previewConfiguration()));
+
             widget->setView(d->view);
             widget->setConfiguration(d->currentGenerator->defaultConfiguration());
         }

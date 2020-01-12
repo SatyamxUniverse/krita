@@ -54,10 +54,12 @@
 
 //already defined in KoRulerController.cpp
 #ifndef KDE_USE_FINAL
-static int compareTabs(KoText::Tab &tab1, KoText::Tab &tab2)
-{
-    return tab1.position < tab2.position;
-}
+struct {
+    bool operator()(KoText::Tab tab1, KoText::Tab tab2) const
+    {
+        return tab1.position < tab2.position;
+    }
+} compareTabs;
 #endif
 class Q_DECL_HIDDEN KoParagraphStyle::Private
 {
@@ -1617,7 +1619,7 @@ void KoParagraphStyle::loadOdfProperties(KoShapeLoadingContext &scontext)
 
     // Borders
     // The border attribute is actually three attributes in one string, all optional
-    // and with no given order. Also there is a hierachy, first the common for all
+    // and with no given order. Also there is a hierarchy, first the common for all
     // sides and then overwrites per side, while in the code only the sides are stored.
     // So first the common data border is fetched, then this is overwritten per
     // side and the result stored.
@@ -1895,7 +1897,7 @@ void KoParagraphStyle::loadOdfProperties(KoShapeLoadingContext &scontext)
 void KoParagraphStyle::setTabPositions(const QList<KoText::Tab> &tabs)
 {
     QList<KoText::Tab> newTabs = tabs;
-    qSort(newTabs.begin(), newTabs.end(), compareTabs);
+    std::sort(newTabs.begin(), newTabs.end(), compareTabs);
     QList<QVariant> list;
     Q_FOREACH (const KoText::Tab &tab, tabs) {
         QVariant v;
@@ -2284,7 +2286,7 @@ void KoParagraphStyle::saveOdf(KoGenStyle &style, KoShapeSavingContext &context)
         elementWriter.addAttribute("style:lines", QString::number(dropCapsLines()));
         elementWriter.addAttribute("style:length", dropCapsLength() == 0 ? "word" : QString::number(dropCapsLength()));
         if (dropCapsDistance())
-            elementWriter.addAttributePt("style:distance", dropCapsDistance());
+            elementWriter.addAttribute("style:distance", dropCapsDistance());
         elementWriter.endElement();
         QString elementContents = QString::fromUtf8(buf.buffer(), buf.buffer().size());
         style.addChildElement("style:drop-cap", elementContents, KoGenStyle::ParagraphType);
@@ -2320,7 +2322,7 @@ void KoParagraphStyle::saveOdf(KoGenStyle &style, KoShapeSavingContext &context)
         elementWriter.startElement("style:tab-stops");
         Q_FOREACH (const KoText::Tab &tab, tabPositions()) {
             elementWriter.startElement("style:tab-stop");
-            elementWriter.addAttributePt("style:position", tab.position);
+            elementWriter.addAttribute("style:position", tab.position);
             if (!tabTypeMap[tab.type].isEmpty())
                 elementWriter.addAttribute("style:type", tabTypeMap[tab.type]);
             if (tab.type == QTextOption::DelimiterTab && !tab.delimiter.isNull())
@@ -2334,7 +2336,7 @@ void KoParagraphStyle::saveOdf(KoGenStyle &style, KoShapeSavingContext &context)
             else if (tab.leaderWeight == KoCharacterStyle::PercentLineWeight)
                 elementWriter.addAttribute("style:leader-width", QString("%1%").arg(QString::number(tab.leaderWidth)));
             else if (tab.leaderWeight == KoCharacterStyle::LengthLineWeight)
-                elementWriter.addAttributePt("style:leader-width", tab.leaderWidth);
+                elementWriter.addAttribute("style:leader-width", tab.leaderWidth);
             if (tab.leaderColor.isValid())
                 elementWriter.addAttribute("style:leader-color", tab.leaderColor.name());
             else

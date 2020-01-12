@@ -23,9 +23,11 @@
 #include "KoShapeBackground.h"
 #include "kritaflake_export.h"
 #include <Qt>
+#include <QSharedDataPointer>
 
 class KoColorBackgroundPrivate;
 class QColor;
+class QBrush;
 
 /// A simple solid color shape background
 class KRITAFLAKE_EXPORT KoColorBackground : public KoShapeBackground
@@ -49,17 +51,17 @@ public:
     /// Returns the background style
     Qt::BrushStyle style() const;
 
+    QBrush brush() const;
+
     // reimplemented from KoShapeBackground
     void paint(QPainter &painter, const KoViewConverter &converter, KoShapePaintingContext &context, const QPainterPath &fillPath) const override;
     // reimplemented from KoShapeBackground
     void fillStyle(KoGenStyle &style, KoShapeSavingContext &context) override;
     // reimplemented from KoShapeBackground
     bool loadStyle(KoOdfLoadingContext & context, const QSizeF &shapeSize) override;
-protected:
-    KoColorBackground(KoShapeBackgroundPrivate &dd);
 private:
-    Q_DECLARE_PRIVATE(KoColorBackground)
-    Q_DISABLE_COPY(KoColorBackground)
+    class Private;
+    QSharedDataPointer<Private> d;
 };
 
 #endif // KOCOLORBACKGROUND_H

@@ -31,6 +31,7 @@ class KisViewManager;
 class KisNodeCommandsAdapter;
 class KisAction;
 class KisActionManager;
+class KisProcessingApplicator;
 
 /**
  * KisLayerManager takes care of the gui around working with layers:
@@ -49,8 +50,6 @@ public:
     void setView(QPointer<KisView>view);
 
 Q_SIGNALS:
-
-    void sigLayerActivated(KisLayerSP layer);
 
 private:
 
@@ -91,25 +90,29 @@ private Q_SLOTS:
     void convertNodeToPaintLayer(KisNodeSP source);
     void convertGroupToAnimated();
 
-    KisLayerSP addLayer(KisNodeSP activeNode);
-    void addGroupLayer(KisNodeSP activeNode);
+    void convertLayerToFileLayer(KisNodeSP source);
 
-    void addCloneLayer(KisNodeSP activeNode);
+    KisLayerSP addPaintLayer(KisNodeSP activeNode);
+    KisNodeSP addGroupLayer(KisNodeSP activeNode);
 
-    void addShapeLayer(KisNodeSP activeNode);
+    KisNodeSP addCloneLayer(KisNodeList nodes);
 
-    void addAdjustmentLayer(KisNodeSP activeNode);
-    KisAdjustmentLayerSP addAdjustmentLayer(KisNodeSP activeNode, const QString & name, KisFilterConfigurationSP  filter, KisSelectionSP selection);
+    KisNodeSP addShapeLayer(KisNodeSP activeNode);
 
-    void addGeneratorLayer(KisNodeSP activeNode);
+    KisNodeSP addAdjustmentLayer(KisNodeSP activeNode);
+    KisAdjustmentLayerSP addAdjustmentLayer(KisNodeSP activeNode, const QString & name, KisFilterConfigurationSP  filter, KisSelectionSP selection, KisProcessingApplicator *applicator);
 
-    void addFileLayer(KisNodeSP activeNode);
+    KisNodeSP addGeneratorLayer(KisNodeSP activeNode);
+
+    KisNodeSP addFileLayer(KisNodeSP activeNode);
 
     void layerStyle();
 
+    void changeCloneSource();
+
 private:
     void adjustLayerPosition(KisNodeSP node, KisNodeSP activeNode, KisNodeSP &parent, KisNodeSP &above);
-    void addLayerCommon(KisNodeSP activeNode, KisLayerSP layer, bool updateImage = true);
+    void addLayerCommon(KisNodeSP activeNode, KisNodeSP layer, bool updateImage = true, KisProcessingApplicator *applicator = 0);
 
 private:
 

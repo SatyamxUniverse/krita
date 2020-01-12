@@ -18,7 +18,7 @@
  */
 
 #include "kis_dlg_blacklist_cleanup.h"
-#include <kis_resource_server_provider.h>
+#include <KisResourceServerProvider.h>
 
 #include <kis_icon.h>
 #include <KoResourceServerProvider.h>
@@ -38,7 +38,7 @@ KisDlgBlacklistCleanup::KisDlgBlacklistCleanup()
     QWidget* page = new QWidget(this);
     setupUi(page);
     setMainWidget(page);
-    labelWarning->setPixmap(KisIconUtils::loadIcon("dialog-warning").pixmap(32, 32));
+    labelWarning->setPixmap(KisIconUtils::loadIcon("warning").pixmap(32, 32));
 }
 
 void KisDlgBlacklistCleanup::accept()
@@ -61,6 +61,9 @@ void KisDlgBlacklistCleanup::accept()
     }
     if (cbRemovePattern->isChecked()) {
         KoResourceServerProvider::instance()->patternServer()->removeBlackListedFiles();
+    }
+    if (cbRemoveGamutMasks->isChecked()) {
+        KoResourceServerProvider::instance()->gamutMaskServer()->removeBlackListedFiles();
     }
 }
 

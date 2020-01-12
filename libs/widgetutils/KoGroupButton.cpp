@@ -17,16 +17,12 @@
    the Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
    Boston, MA 02110-1301, USA.
 */
-
 #include "KoGroupButton.h"
 
-// Qt
 #include <QAction>
 #include <QStyleOptionToolButton>
 #include <QStylePainter>
-#include <QToolButton>
 
-// KF5
 #include <KLocalizedString>
 
 class Q_DECL_HIDDEN KoGroupButton::Private
@@ -42,12 +38,12 @@ public:
 };
 
 KoGroupButton::KoGroupButton(GroupPosition position, QWidget* parent)
- : QToolButton(parent), d(new Private(this, position))
+    : KisHighlightedToolButton(parent), d(new Private(this, position))
 {
 }
 
 KoGroupButton::KoGroupButton(QWidget* parent)
- : QToolButton(parent), d(new Private(this, NoGroup))
+    : KisHighlightedToolButton(parent), d(new Private(this, NoGroup))
 {
 }
 
@@ -109,12 +105,32 @@ void KoGroupButton::paintEvent(QPaintEvent* event)
             panelOpt.palette = panelPal;
             painter.setOpacity(0.5);
         }
+    } else {
+
+        if (!isChecked() && !isDown() && !(panelOpt.state & QStyle::State_MouseOver)) {
+
+        } else {
+            // only highlight the selected item
+            panelOpt.state |= (QStyle::State_On | QStyle::State_Sunken);
+            QPalette panelPal(panelOpt.palette);
+            QColor c;
+            c = panelPal.color(QPalette::Button);
+            c.setAlpha(50);
+            panelPal.setColor(QPalette::Button, c);
+            c = panelPal.color(QPalette::Window);
+            c.setAlpha(50);
+            panelPal.setColor(QPalette::Window, c);
+            panelOpt.palette = panelPal;
+            painter.setOpacity(0.5);
+        }
     }
+
+
     painter.drawPrimitive(QStyle::PE_PanelButtonTool, panelOpt);
     painter.setOpacity(1.0);
 
     // Separator
-    //! @todo make specific fixes for styles such as Plastique, Cleanlooks if there's practical no alernative
+    //! @todo make specific fixes for styles such as Plastique, Cleanlooks if there's practical no alternative
     const int y1 = opt.rect.top() + 1;
     const int y2 = opt.rect.bottom() - 1;
     painter.setOpacity(0.4);

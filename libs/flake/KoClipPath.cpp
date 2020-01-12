@@ -26,6 +26,7 @@
 #include <QPainterPath>
 #include <QPainter>
 #include <QVarLengthArray>
+#include <QSharedData>
 
 #include <kis_algebra_2d.h>
 
@@ -44,18 +45,20 @@ QTransform scaleFromPercent(const QSizeF &size)
     return QTransform().scale(w/1.0, h/1.0);
 }
 
-class Q_DECL_HIDDEN KoClipPath::Private
+class Q_DECL_HIDDEN KoClipPath::Private : public QSharedData
 {
 public:
     Private()
+        : QSharedData()
     {}
 
     Private(const Private &rhs)
-        : clipPath(rhs.clipPath),
-          clipRule(rhs.clipRule),
-          coordinates(rhs.coordinates),
-          initialTransformToShape(rhs.initialTransformToShape),
-          initialShapeSize(rhs.initialShapeSize)
+        : QSharedData()
+        , clipPath(rhs.clipPath)
+        , clipRule(rhs.clipRule)
+        , coordinates(rhs.coordinates)
+        , initialTransformToShape(rhs.initialTransformToShape)
+        , initialShapeSize(rhs.initialShapeSize)
     {
         Q_FOREACH (KoShape *shape, rhs.shapes) {
             KoShape *clonedShape = shape->cloneShape();
@@ -78,7 +81,7 @@ public:
             result->addPath(t.map(pathShape->outline()));
         } else if (const KoShapeGroup *groupShape = dynamic_cast<const KoShapeGroup*>(shape)) {
             QList<KoShape*> shapes = groupShape->shapes();
-            qSort(shapes.begin(), shapes.end(), KoShape::compareShapeZIndex);
+            std::sort(shapes.begin(), shapes.end(), KoShape::compareShapeZIndex);
 
             Q_FOREACH (const KoShape *child, shapes) {
                 collectShapePath(result, child);
@@ -96,7 +99,7 @@ public:
         clipPath = QPainterPath();
         clipPath.setFillRule(Qt::WindingFill);
 
-        qSort(clipShapes.begin(), clipShapes.end(), KoShape::compareShapeZIndex);
+        std::sort(clipShapes.begin(), clipShapes.end(), KoShape::compareShapeZIndex);
 
         Q_FOREACH (KoShape *path, clipShapes) {
             if (!path) continue;
@@ -119,11 +122,6 @@ KoClipPath::KoClipPath(QList<KoShape*> clipShapes, KoFlake::CoordinateSystem coo
     d->shapes = clipShapes;
     d->coordinates = coordinates;
     d->compileClipPath();
-}
-
-KoClipPath::KoClipPath(const KoClipPath &rhs)
-    : d(new Private(*rhs.d))
-{
 }
 
 KoClipPath::~KoClipPath()
@@ -234,7 +232,7 @@ QTransform KoClipPath::clipDataTransformation(KoShape *clippedShape) const
     QTransform scaleTransform = QTransform().scale(sx, sy);
 
     // 1. transform to initial clipped shape coordinates
-    // 2. apply resizing transfromation
+    // 2. apply resizing transformation
     // 3. convert to current clipped shape document coordinates
     return d->initialTransformToShape * scaleTransform * currentShapeTransform;
 }

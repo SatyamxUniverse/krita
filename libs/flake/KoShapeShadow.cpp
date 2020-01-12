@@ -70,7 +70,7 @@ void KoShapeShadow::Private::paintGroupShadow(KoShapeGroup *group, QPainter &pai
     QList<KoShape*> shapes = group->shapes();
     Q_FOREACH (KoShape *child, shapes) {
         // we paint recursively here, so we do not have to check recursively for visibility
-        if (!child->isVisible())
+        if (!child->isVisible(false))
             continue;
         painter.save();
         //apply group child's transformation
@@ -103,7 +103,7 @@ void KoShapeShadow::Private::paintShadow(KoShape *shape, QPainter &painter, cons
 }
 
 /* You can also find a BSD version to this method from
- * http://gitorious.org/ofi-labs/x2/blobs/master/graphics/shadowblur/
+ * https://github.com/ariya/X2/tree/master/graphics/shadowblur
  */
 void KoShapeShadow::Private::blurShadow(QImage &image, int radius, const QColor& shadowColor)
 {
@@ -112,7 +112,7 @@ void KoShapeShadow::Private::blurShadow(QImage &image, int radius, const QColor&
     // Check http://www.w3.org/TR/SVG/filters.html#
     // As noted in the SVG filter specification, ru
     // approximates a real gaussian blur nicely.
-    // See comments in http://webkit.org/b/40793, it seems sensible
+    // See comments in https://bugs.webkit.org/show_bug.cgi?id=40793, it seems sensible
     // to follow Skia's limit of 128 pixels for the blur radius.
     if (radius > 128)
         radius = 128;

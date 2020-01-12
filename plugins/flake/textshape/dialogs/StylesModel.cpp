@@ -28,7 +28,7 @@
 #include <QImage>
 #include <QList>
 #include <QSharedPointer>
-#include <QSignalMapper>
+#include <KisSignalMapper.h>
 #include <QCollator>
 
 #include <klocalizedstring.h>
@@ -39,7 +39,7 @@ StylesModel::StylesModel(KoStyleManager *manager, AbstractStylesModel::Type mode
     , m_styleManager(0)
     , m_currentParagraphStyle(0)
     , m_defaultCharacterStyle(0)
-    , m_styleMapper(new QSignalMapper(this))
+    , m_styleMapper(new KisSignalMapper(this))
     , m_provideStyleNone(false)
 {
     m_modelType = modelType;
@@ -343,7 +343,7 @@ void StylesModel::updateParagraphStyles()
     m_styleList.clear();
 
     QList<KoParagraphStyle *> styles = m_styleManager->paragraphStyles();
-    qSort(styles.begin(), styles.end(), sortParagraphStyleByName);
+    std::sort(styles.begin(), styles.end(), sortParagraphStyleByName);
 
     Q_FOREACH (KoParagraphStyle *style, styles) {
         if (style != m_styleManager->defaultParagraphStyle()) { //The default character style is not user selectable. It only provides individual property defaults and is not a style per say.
@@ -407,7 +407,7 @@ void StylesModel::updateCharacterStyles()
     }
 
     QList<KoCharacterStyle *> styles = m_styleManager->characterStyles();
-    qSort(styles.begin(), styles.end(), sortCharacterStyleByName);
+    std::sort(styles.begin(), styles.end(), sortCharacterStyleByName);
 
     Q_FOREACH (KoCharacterStyle *style, styles) {
         if (style != m_styleManager->defaultCharacterStyle()) { //The default character style is not user selectable. It only provides individual property defaults and is not a style per say.

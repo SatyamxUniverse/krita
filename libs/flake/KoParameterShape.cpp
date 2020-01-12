@@ -26,25 +26,28 @@
 #include <QPainter>
 #include <FlakeDebug.h>
 
-KoParameterShapePrivate::KoParameterShapePrivate(KoParameterShape *shape)
-    : KoPathShapePrivate(shape),
-    parametric(true)
+KoParameterShape::Private::Private()
+    : QSharedData()
+    , parametric(true)
 {
 }
 
-KoParameterShapePrivate::KoParameterShapePrivate(const KoParameterShapePrivate &rhs, KoParameterShape *q)
-    : KoPathShapePrivate(rhs, q),
-      handles(rhs.handles)
+KoParameterShape::Private::Private(const Private &rhs)
+    : QSharedData()
+    , parametric(rhs.parametric)
+    , handles(rhs.handles)
 {
 }
 
 KoParameterShape::KoParameterShape()
-    : KoPathShape(new KoParameterShapePrivate(this))
+    : KoPathShape()
+    , d(new Private)
 {
 }
 
-KoParameterShape::KoParameterShape(KoParameterShapePrivate *dd)
-    : KoPathShape(dd)
+KoParameterShape::KoParameterShape(const KoParameterShape &rhs)
+    : KoPathShape(rhs)
+    , d(rhs.d)
 {
 }
 
@@ -54,7 +57,7 @@ KoParameterShape::~KoParameterShape()
 
 void KoParameterShape::moveHandle(int handleId, const QPointF & point, Qt::KeyboardModifiers modifiers)
 {
-    Q_D(KoParameterShape);
+
     if (handleId >= d->handles.size()) {
         warnFlake << "handleId out of bounds";
         return;
@@ -71,7 +74,7 @@ void KoParameterShape::moveHandle(int handleId, const QPointF & point, Qt::Keybo
 
 int KoParameterShape::handleIdAt(const QRectF & rect) const
 {
-    Q_D(const KoParameterShape);
+
     int handle = -1;
 
     for (int i = 0; i < d->handles.size(); ++i) {
@@ -85,13 +88,13 @@ int KoParameterShape::handleIdAt(const QRectF & rect) const
 
 QPointF KoParameterShape::handlePosition(int handleId) const
 {
-    Q_D(const KoParameterShape);
+
     return d->handles.value(handleId);
 }
 
 void KoParameterShape::paintHandles(KisHandlePainterHelper &handlesHelper)
 {
-    Q_D(KoParameterShape);
+
 
     QList<QPointF>::const_iterator it(d->handles.constBegin());
     for (; it != d->handles.constEnd(); ++it) {
@@ -101,13 +104,13 @@ void KoParameterShape::paintHandles(KisHandlePainterHelper &handlesHelper)
 
 void KoParameterShape::paintHandle(KisHandlePainterHelper &handlesHelper, int handleId)
 {
-    Q_D(KoParameterShape);
+
     handlesHelper.drawGradientHandle(d->handles[handleId]);
 }
 
 void KoParameterShape::setSize(const QSizeF &newSize)
 {
-    Q_D(KoParameterShape);
+
     QTransform matrix(resizeMatrix(newSize));
 
     for (int i = 0; i < d->handles.size(); ++i) {
@@ -119,7 +122,7 @@ void KoParameterShape::setSize(const QSizeF &newSize)
 
 QPointF KoParameterShape::normalize()
 {
-    Q_D(KoParameterShape);
+
     QPointF offset(KoPathShape::normalize());
     QTransform matrix;
     matrix.translate(-offset.x(), -offset.y());
@@ -133,33 +136,33 @@ QPointF KoParameterShape::normalize()
 
 bool KoParameterShape::isParametricShape() const
 {
-    Q_D(const KoParameterShape);
+
     return d->parametric;
 }
 
 void KoParameterShape::setParametricShape(bool parametric)
 {
-    Q_D(KoParameterShape);
+
     d->parametric = parametric;
     update();
 }
 
 QList<QPointF> KoParameterShape::handles() const
 {
-    Q_D(const KoParameterShape);
+
     return d->handles;
 }
 
 void KoParameterShape::setHandles(const QList<QPointF> &handles)
 {
-    Q_D(KoParameterShape);
+
     d->handles = handles;
 
-    d->shapeChanged(ParameterChanged);
+    shapeChangedPriv(ParameterChanged);
 }
 
 int KoParameterShape::handleCount() const
 {
-    Q_D(const KoParameterShape);
+
     return d->handles.count();
 }

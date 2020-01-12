@@ -48,7 +48,7 @@ KisNodeFilterProxyModel::KisNodeFilterProxyModel(QObject *parent)
     : QSortFilterProxyModel(parent),
       m_d(new Private)
 {
-    connect(&m_d->activeNodeCompressor, SIGNAL(timeout()), SLOT(slotUpdateCurrentNodeFilter()));
+    connect(&m_d->activeNodeCompressor, SIGNAL(timeout()), SLOT(slotUpdateCurrentNodeFilter()), Qt::QueuedConnection);
 }
 
 KisNodeFilterProxyModel::~KisNodeFilterProxyModel()
@@ -72,6 +72,8 @@ bool KisNodeFilterProxyModel::setData(const QModelIndex &index, const QVariant &
 
 bool KisNodeFilterProxyModel::Private::checkIndexAllowedRecursively(QModelIndex srcIndex)
 {
+    if (!srcIndex.isValid()) return false;
+
     KisNodeSP node = nodeModel->nodeFromIndex(srcIndex);
     if (node == activeNode ||
         acceptedLabels.contains(node->colorLabelIndex())) {
@@ -83,7 +85,7 @@ bool KisNodeFilterProxyModel::Private::checkIndexAllowedRecursively(QModelIndex 
 
     const int numChildren = srcIndex.model()->rowCount(srcIndex);
     for (int i = 0; i < numChildren; i++) {
-        QModelIndex child = srcIndex.child(i, 0);
+        QModelIndex child = nodeModel->index(i, 0, srcIndex);
         if (checkIndexAllowedRecursively(child)) {
             result = true;
             break;
@@ -98,6 +100,8 @@ bool KisNodeFilterProxyModel::filterAcceptsRow(int source_row, const QModelIndex
     KIS_ASSERT_RECOVER(m_d->nodeModel) { return true; }
 
     const QModelIndex index = sourceModel()->index(source_row, 0, source_parent);
+    if (!index.isValid()) return false;
+
     KisNodeSP node = m_d->nodeModel->nodeFromIndex(index);
 
     return !node ||
@@ -129,15 +133,13 @@ void KisNodeFilterProxyModel::setAcceptedLabels(const QList<int> &value)
 
 void KisNodeFilterProxyModel::setActiveNode(KisNodeSP node)
 {
+    // NOTE: the current node might change due to beginRemoveRows, in such case
+    //       we must ensure we don't trigger recursive model invalidation.
+
     // the new node may temporary become null when the last layer
     // of the document in removed
     m_d->pendingActiveNode = node;
-
-    if (node && indexFromNode(node).isValid()) {
-        m_d->activeNodeCompressor.start();
-    } else {
-        slotUpdateCurrentNodeFilter();
-    }
+    m_d->activeNodeCompressor.start();
 }
 
 void KisNodeFilterProxyModel::slotUpdateCurrentNodeFilter()

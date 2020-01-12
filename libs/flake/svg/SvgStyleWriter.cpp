@@ -64,16 +64,24 @@
 
 void SvgStyleWriter::saveSvgStyle(KoShape *shape, SvgSavingContext &context)
 {
+    saveSvgBasicStyle(shape, context);
+
     saveSvgFill(shape, context);
     saveSvgStroke(shape, context);
+
     saveSvgEffects(shape, context);
     saveSvgClipping(shape, context);
     saveSvgMasking(shape, context);
     saveSvgMarkers(shape, context);
-    if (! shape->isVisible())
+}
+
+void SvgStyleWriter::saveSvgBasicStyle(KoShape *shape, SvgSavingContext &context)
+{
+    if (!shape->isVisible(false)) {
         context.shapeWriter().addAttribute("display", "none");
-    if (shape->transparency() > 0.0)
+    } else if (shape->transparency() > 0.0) {
         context.shapeWriter().addAttribute("opacity", 1.0 - shape->transparency());
+    }
 }
 
 void SvgStyleWriter::saveSvgFill(KoShape *shape, SvgSavingContext &context)
@@ -234,18 +242,10 @@ void SvgStyleWriter::saveSvgMasking(KoShape *shape, SvgSavingContext &context)
 
     const QRectF rect = clipMask->maskRect();
 
-    // think funny duplication? please note the 'pt' suffix! :)
-    if (clipMask->coordinates() == KoFlake::ObjectBoundingBox) {
-        context.styleWriter().addAttribute("x", rect.x());
-        context.styleWriter().addAttribute("y", rect.y());
-        context.styleWriter().addAttribute("width", rect.width());
-        context.styleWriter().addAttribute("height", rect.height());
-    } else {
-        context.styleWriter().addAttributePt("x", rect.x());
-        context.styleWriter().addAttributePt("y", rect.y());
-        context.styleWriter().addAttributePt("width", rect.width());
-        context.styleWriter().addAttributePt("height", rect.height());
-    }
+    context.styleWriter().addAttribute("x", rect.x());
+    context.styleWriter().addAttribute("y", rect.y());
+    context.styleWriter().addAttribute("width", rect.width());
+    context.styleWriter().addAttribute("height", rect.height());
 
     embedShapes(clipMask->shapes(), context.styleWriter());
 
@@ -339,8 +339,6 @@ QString SvgStyleWriter::saveSvgGradient(const QGradient *gradient, const QTransf
     if (! gradient)
         return QString();
 
-    Q_ASSERT(gradient->coordinateMode() == QGradient::ObjectBoundingMode);
-
     const QString spreadMethod[3] = {
         QString("pad"),
         QString("reflect"),
@@ -353,7 +351,7 @@ QString SvgStyleWriter::saveSvgGradient(const QGradient *gradient, const QTransf
         const QLinearGradient * g = static_cast<const QLinearGradient*>(gradient);
         context.styleWriter().startElement("linearGradient");
         context.styleWriter().addAttribute("id", uid);
-        context.styleWriter().addAttribute("gradientTransform", SvgUtil::transformToString(gradientTransform));
+        SvgUtil::writeTransformAttributeLazy("gradientTransform", gradientTransform, context.styleWriter());
         context.styleWriter().addAttribute("gradientUnits", convertGradientMode(g->coordinateMode()));
         context.styleWriter().addAttribute("x1", g->start().x());
         context.styleWriter().addAttribute("y1", g->start().y());
@@ -367,7 +365,7 @@ QString SvgStyleWriter::saveSvgGradient(const QGradient *gradient, const QTransf
         const QRadialGradient * g = static_cast<const QRadialGradient*>(gradient);
         context.styleWriter().startElement("radialGradient");
         context.styleWriter().addAttribute("id", uid);
-        context.styleWriter().addAttribute("gradientTransform", SvgUtil::transformToString(gradientTransform));
+        SvgUtil::writeTransformAttributeLazy("gradientTransform", gradientTransform, context.styleWriter());
         context.styleWriter().addAttribute("gradientUnits", convertGradientMode(g->coordinateMode()));
         context.styleWriter().addAttribute("cx", g->center().x());
         context.styleWriter().addAttribute("cy", g->center().y());
@@ -502,19 +500,12 @@ QString SvgStyleWriter::saveSvgVectorPattern(QSharedPointer<KoVectorPatternBackg
 
     const QRectF rect = pattern->referenceRect();
 
-    if (pattern->referenceCoordinates() == KoFlake::ObjectBoundingBox) {
-        context.styleWriter().addAttribute("x", rect.x());
-        context.styleWriter().addAttribute("y", rect.y());
-        context.styleWriter().addAttribute("width", rect.width());
-        context.styleWriter().addAttribute("height", rect.height());
-    } else {
-        context.styleWriter().addAttributePt("x", rect.x());
-        context.styleWriter().addAttributePt("y", rect.y());
-        context.styleWriter().addAttributePt("width", rect.width());
-        context.styleWriter().addAttributePt("height", rect.height());
-    }
+    context.styleWriter().addAttribute("x", rect.x());
+    context.styleWriter().addAttribute("y", rect.y());
+    context.styleWriter().addAttribute("width", rect.width());
+    context.styleWriter().addAttribute("height", rect.height());
 
-    context.styleWriter().addAttribute("patternTransform", SvgUtil::transformToString(pattern->patternTransform()));
+    SvgUtil::writeTransformAttributeLazy("patternTransform", pattern->patternTransform(), context.styleWriter());
 
     if (pattern->contentCoordinates() == KoFlake::ObjectBoundingBox) {
         // TODO: move this normalization into the KoVectorPatternBackground itself

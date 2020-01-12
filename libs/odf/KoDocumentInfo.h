@@ -57,6 +57,7 @@ public:
      * @param parent a pointer to the parent object
      */
     explicit KoDocumentInfo(QObject *parent = 0);
+    explicit KoDocumentInfo(const KoDocumentInfo &rhs, QObject *parent = 0);
 
     /** The destructor */
     ~KoDocumentInfo() override;
@@ -90,6 +91,12 @@ public:
      * @return a QString with the information
      */
     QString authorInfo(const QString& info) const;
+
+    /**
+     * @brief authorContactInfo
+     * @return returns list of contact info for author.
+     */
+    QStringList authorContactInfo() const;
 
     /**
      * Set information about the document
@@ -130,7 +137,7 @@ private:
     /**
      * Set information about the author
      * This sets what is actually saved to file. The public method setAuthorInfo() can be used to set
-     * values that overide what is fetched from the author profile. During saveParameters() author
+     * values that override what is fetched from the author profile. During saveParameters() author
      * profile and any overrides is combined resulting in calls to this method.
      * @param info the kind of information to set
      * @param data the data to set for this information
@@ -197,9 +204,13 @@ private:
     QStringList m_aboutTags;
     /** A QStringList containing all tags for the author information */
     QStringList m_authorTags;
+    /** A QStringList containing all valid contact tags */
+    QStringList m_contactTags;
+    /** A QMap with the contact modes and their type in the second string */
+    QMap <QString, QString> m_contact;
     /** The map containing information about the author */
     QMap<QString, QString> m_authorInfo;
-    /** The map containing information about the author set programatically*/
+    /** The map containing information about the author set programmatically*/
     QMap<QString, QString> m_authorInfoOverride;
     /** The map containing information about the document */
     QMap<QString, QString> m_aboutInfo;

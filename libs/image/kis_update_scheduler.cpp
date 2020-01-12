@@ -28,9 +28,11 @@
 #include "kis_strokes_queue.h"
 
 #include "kis_queues_progress_updater.h"
+#include "KisImageConfigNotifier.h"
 
 #include <QReadWriteLock>
 #include "kis_lazy_wait_condition.h"
+#include <mutex>
 
 //#define DEBUG_BALANCING
 
@@ -48,7 +50,7 @@
 struct Q_DECL_HIDDEN KisUpdateScheduler::Private {
     Private(KisUpdateScheduler *_q, KisProjectionUpdateListener *p)
         : q(_q)
-        , updaterContext(KisUpdaterContext::useIdealThreadCountTag, q)
+        , updaterContext(KisImageConfig(true).maxNumberOfThreads(), q)
         , projectionUpdateListener(p)
     {}
 
@@ -58,13 +60,18 @@ struct Q_DECL_HIDDEN KisUpdateScheduler::Private {
     KisStrokesQueue strokesQueue;
     KisUpdaterContext updaterContext;
     bool processingBlocked = false;
-    qreal balancingRatio = 1.0; // updates-queue-size/strokes-queue-size
+    qreal defaultBalancingRatio = 1.0; // desired strokes-queue-size / updates-queue-size
     KisProjectionUpdateListener *projectionUpdateListener;
     KisQueuesProgressUpdater *progressUpdater = 0;
 
     QAtomicInt updatesLockCounter;
     QReadWriteLock updatesStartLock;
     KisLazyWaitCondition updatesFinishedCondition;
+
+    qreal balancingRatio() const {
+        const qreal strokeRatioOverride = strokesQueue.balancingRatioOverride();
+        return strokeRatioOverride > 0 ? strokeRatioOverride : defaultBalancingRatio;
+    }
 };
 
 KisUpdateScheduler::KisUpdateScheduler(KisProjectionUpdateListener *projectionUpdateListener, QObject *parent)
@@ -86,17 +93,32 @@ KisUpdateScheduler::~KisUpdateScheduler()
     delete m_d;
 }
 
+void KisUpdateScheduler::setThreadsLimit(int value)
+{
+    KIS_SAFE_ASSERT_RECOVER_RETURN(!m_d->processingBlocked);
+
+    /**
+     * Thread limit can be changed without the full-featured barrier
+     * lock, we can avoid waiting for all the jobs to complete. We
+     * should just ensure there is no more jobs in the updater context.
+     */
+    lock();
+    m_d->updaterContext.lock();
+    m_d->updaterContext.setThreadsLimit(value);
+    m_d->updaterContext.unlock();
+    unlock(false);
+}
+
+int KisUpdateScheduler::threadsLimit() const
+{
+    std::lock_guard<KisUpdaterContext> l(m_d->updaterContext);
+    return m_d->updaterContext.threadsLimit();
+}
+
 void KisUpdateScheduler::connectSignals()
 {
-    connect(&m_d->updaterContext, SIGNAL(sigContinueUpdate(const QRect&)),
-            SLOT(continueUpdate(const QRect&)),
-            Qt::DirectConnection);
-
-    connect(&m_d->updaterContext, SIGNAL(sigDoSomeUsefulWork()),
-            SLOT(doSomeUsefulWork()), Qt::DirectConnection);
-
-    connect(&m_d->updaterContext, SIGNAL(sigSpareThreadAppeared()),
-            SLOT(spareThreadAppeared()), Qt::DirectConnection);
+    connect(KisImageConfigNotifier::instance(), SIGNAL(configChanged()),
+            SLOT(updateSettings()));
 }
 
 void KisUpdateScheduler::setProgressProxy(KoProgressProxy *progressProxy)
@@ -128,7 +150,13 @@ void KisUpdateScheduler::progressUpdate()
     }
 }
 
-void KisUpdateScheduler::updateProjection(KisNodeSP node, const QRect& rc, const QRect &cropRect)
+void KisUpdateScheduler::updateProjection(KisNodeSP node, const QVector<QRect> &rects, const QRect &cropRect)
+{
+    m_d->updatesQueue.addUpdateJob(node, rects, cropRect, currentLevelOfDetail());
+    processQueues();
+}
+
+void KisUpdateScheduler::updateProjection(KisNodeSP node, const QRect &rc, const QRect &cropRect)
 {
     m_d->updatesQueue.addUpdateJob(node, rc, cropRect, currentLevelOfDetail());
     processQueues();
@@ -175,6 +203,11 @@ void KisUpdateScheduler::addSpontaneousJob(KisSpontaneousJob *spontaneousJob)
 {
     m_d->updatesQueue.addSpontaneousJob(spontaneousJob);
     processQueues();
+}
+
+bool KisUpdateScheduler::hasUpdatesRunning() const
+{
+    return !m_d->updatesQueue.isEmpty();
 }
 
 KisStrokeId KisUpdateScheduler::startStroke(KisStrokeStrategy *strokeStrategy)
@@ -240,11 +273,7 @@ void KisUpdateScheduler::explicitRegenerateLevelOfDetail()
 
 int KisUpdateScheduler::currentLevelOfDetail() const
 {
-    int levelOfDetail = -1;
-
-    if (levelOfDetail < 0) {
-        levelOfDetail = m_d->updaterContext.currentLevelOfDetail();
-    }
+    int levelOfDetail = m_d->updaterContext.currentLevelOfDetail();
 
     if (levelOfDetail < 0) {
         levelOfDetail = m_d->updatesQueue.overrideLevelOfDetail();
@@ -280,9 +309,9 @@ KisPostExecutionUndoAdapter *KisUpdateScheduler::lodNPostExecutionUndoAdapter() 
 void KisUpdateScheduler::updateSettings()
 {
     m_d->updatesQueue.updateSettings();
-
-    KisImageConfig config;
-    m_d->balancingRatio = config.schedulerBalancingRatio();
+    KisImageConfig config(true);
+    m_d->defaultBalancingRatio = config.schedulerBalancingRatio();
+    setThreadsLimit(config.maxNumberOfThreads());
 }
 
 void KisUpdateScheduler::lock()
@@ -367,7 +396,7 @@ void KisUpdateScheduler::processQueues()
             tryProcessUpdatesQueue();
         }
     }
-    else if(m_d->balancingRatio * m_d->strokesQueue.sizeMetric() > m_d->updatesQueue.sizeMetric()) {
+    else if(m_d->balancingRatio() * m_d->strokesQueue.sizeMetric() > m_d->updatesQueue.sizeMetric()) {
         DEBUG_BALANCING_METRICS("STROKES", "N");
         m_d->strokesQueue.processQueue(m_d->updaterContext,
                                         !m_d->updatesQueue.isEmpty());
@@ -453,14 +482,13 @@ KisTestableUpdateScheduler::KisTestableUpdateScheduler(KisProjectionUpdateListen
     // The queue will update settings in a constructor itself
     // m_d->updatesQueue = new KisTestableSimpleUpdateQueue();
     // m_d->strokesQueue = new KisStrokesQueue();
-    // m_d->updaterContext = new KisTestableUpdaterContext(threadCount);
 
     connectSignals();
 }
 
-KisTestableUpdaterContext* KisTestableUpdateScheduler::updaterContext()
+KisUpdaterContext *KisTestableUpdateScheduler::updaterContext()
 {
-    return dynamic_cast<KisTestableUpdaterContext*>(&m_d->updaterContext);
+    return &m_d->updaterContext;
 }
 
 KisTestableSimpleUpdateQueue* KisTestableUpdateScheduler::updateQueue()

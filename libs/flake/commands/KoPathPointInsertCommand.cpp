@@ -29,8 +29,9 @@ class KoPathPointInsertCommandPrivate
 public:
     KoPathPointInsertCommandPrivate() : deletePoints(true) { }
     ~KoPathPointInsertCommandPrivate() {
-        if (deletePoints)
+        if (deletePoints) {
             qDeleteAll(points);
+        }
     }
     QList<KoPathPointData> pointDataList;
     QList<KoPathPoint*> points;
@@ -97,17 +98,18 @@ void KoPathPointInsertCommand::redo()
 
         if (segment.first()->activeControlPoint2()) {
             QPointF controlPoint2 = segment.first()->controlPoint2();
-            qSwap(controlPoint2, d->controlPoints[i].first);
+            std::swap(controlPoint2, d->controlPoints[i].first);
             segment.first()->setControlPoint2(controlPoint2);
         }
 
         if (segment.second()->activeControlPoint1()) {
             QPointF controlPoint1 = segment.second()->controlPoint1();
-            qSwap(controlPoint1, d->controlPoints[i].second);
+            std::swap(controlPoint1, d->controlPoints[i].second);
             segment.second()->setControlPoint1(controlPoint1);
         }
 
         pathShape->insertPoint(d->points.at(i), pointData.pointIndex);
+        pathShape->recommendPointSelectionChange({pointData.pointIndex});
         pathShape->update();
     }
     d->deletePoints = false;
@@ -134,15 +136,25 @@ void KoPathPointInsertCommand::undo()
 
         if (before->activeControlPoint2()) {
             QPointF controlPoint2 = before->controlPoint2();
-            qSwap(controlPoint2, d->controlPoints[i].first);
+            std::swap(controlPoint2, d->controlPoints[i].first);
             before->setControlPoint2(controlPoint2);
         }
 
         if (after->activeControlPoint1()) {
             QPointF controlPoint1 = after->controlPoint1();
-            qSwap(controlPoint1, d->controlPoints[i].second);
+            std::swap(controlPoint1, d->controlPoints[i].second);
             after->setControlPoint1(controlPoint1);
         }
+
+        QList<KoPathPointIndex> segmentPoints;
+        segmentPoints << pdBefore.pointIndex;
+
+        KoPathPointIndex nextPoint(pdBefore.pointIndex.first, pdBefore.pointIndex.second + 1);
+        if (pathShape->pointByIndex(nextPoint)) {
+            segmentPoints << nextPoint;
+        }
+
+        pathShape->recommendPointSelectionChange(segmentPoints);
         pathShape->update();
     }
     d->deletePoints = true;

@@ -1,9 +1,11 @@
 /*
  *  Copyright (c) 2014 Boudewijn Rempt <boud@valdyas.org>
+ *  Copyright (c) 2017 Victor Wåhlström <victor.wahlstrom@initiali.se>
  *
  *  This library is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
- *  the Free Software Foundation; version 2.1 of the License.
+ *  the Free Software Foundation; version 2 of the License, or
+ *  (at your option) any later version.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -23,23 +25,6 @@
 
 #include <KisImportExportFilter.h>
 #include <kis_config_widget.h>
-#include "ui_kis_wdg_options_heightmap.h"
-
-class KisWdgOptionsHeightmap : public KisConfigWidget, public Ui::WdgOptionsHeightMap
-{
-    Q_OBJECT
-
-public:
-    KisWdgOptionsHeightmap(QWidget *parent)
-        : KisConfigWidget(parent)
-    {
-        setupUi(this);
-    }
-
-    void setConfiguration(const KisPropertiesConfigurationSP  cfg) override;
-    KisPropertiesConfigurationSP configuration() const override;
-};
-
 
 class KisHeightMapExport : public KisImportExportFilter
 {
@@ -51,7 +36,7 @@ public:
     KisConfigWidget *createConfigurationWidget(QWidget *parent, const QByteArray& from = "", const QByteArray& to = "") const override;
     void initializeCapabilities() override;
     
-    KisImportExportFilter::ConversionStatus convert(KisDocument *document, QIODevice *io,  KisPropertiesConfigurationSP configuration = 0) override;
+    KisImportExportErrorCode convert(KisDocument *document, QIODevice *io,  KisPropertiesConfigurationSP configuration = 0) override;
 };
 
 #endif

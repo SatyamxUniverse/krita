@@ -26,10 +26,42 @@
 #include "KoStreamedMath.h"
 
 
+template<Vc::Implementation _impl>
+struct OptiDiv {
+    static ALWAYS_INLINE float divScalar(const float& divident, const float& divisor) {
+#ifdef __SSE__
+        float result;
+
+        __m128 x = _mm_set_ss(divisor);
+        __m128 y = _mm_set_ss(divident);
+        x = _mm_rcp_ss(x);
+        x = _mm_mul_ss(x, y);
+
+
+        _mm_store_ss(&result, x);
+        return result;
+#else
+        return divident / divisor;
+#endif
+
+    }
+
+    static ALWAYS_INLINE Vc::float_v divVector(Vc::float_v::AsArg divident, Vc::float_v::AsArg  divisor) {
+#ifdef __SSE__
+        return divident * Vc::reciprocal(divisor);
+#else
+        return divident / divisor;
+#endif
+
+    }
+
+};
+
+
 template<typename channels_type, typename pixel_type, bool alphaLocked, bool allChannelsFlag>
 struct OverCompositor32 {
-    struct OptionalParams {
-        OptionalParams(const KoCompositeOp::ParameterInfo& params)
+    struct ParamsWrapper {
+        ParamsWrapper(const KoCompositeOp::ParameterInfo& params)
             : channelFlags(params.channelFlags)
         {
         }
@@ -38,7 +70,7 @@ struct OverCompositor32 {
 
     // \see docs in AlphaDarkenCompositor32
     template<bool haveMask, bool src_aligned, Vc::Implementation _impl>
-    static ALWAYS_INLINE void compositeVector(const quint8 *src, quint8 *dst, const quint8 *mask, float opacity, const OptionalParams &oparams)
+    static ALWAYS_INLINE void compositeVector(const quint8 *src, quint8 *dst, const quint8 *mask, float opacity, const ParamsWrapper &oparams)
     {
         Q_UNUSED(oparams);
 
@@ -97,7 +129,11 @@ struct OverCompositor32 {
              * be converted to zeroes, which is exactly what we need
              */
             new_alpha = dst_alpha + (uint8Max - dst_alpha) * src_alpha * uint8MaxRec1;
-            src_blend = src_alpha / new_alpha;
+
+            // Optimized version of:
+            //     src_blend = src_alpha / new_alpha;
+            src_blend = OptiDiv<_impl>::divVector(src_alpha, new_alpha);
+
         }
 
         if (!(src_blend == oneValue).isFull()) {
@@ -124,7 +160,7 @@ struct OverCompositor32 {
     }
 
     template <bool haveMask, Vc::Implementation _impl>
-    static ALWAYS_INLINE void compositeOnePixelScalar(const channels_type *src, channels_type *dst, const quint8 *mask, float opacity, const OptionalParams &oparams)
+    static ALWAYS_INLINE void compositeOnePixelScalar(const channels_type *src, channels_type *dst, const quint8 *mask, float opacity, const ParamsWrapper &oparams)
     {
         using namespace Arithmetic;
         const qint32 alpha_pos = 3;
@@ -156,7 +192,10 @@ struct OverCompositor32 {
                 }
             } else {
                 dstAlpha += (uint8Max - dstAlpha) * srcAlpha * uint8Rec1;
-                srcBlendNorm = srcAlpha / dstAlpha;
+                // Optimized version of:
+                //     srcBlendNorm = srcAlpha / dstAlpha);
+                srcBlendNorm = OptiDiv<_impl>::divScalar(srcAlpha, dstAlpha);
+
             }
 
             if(allChannelsFlag) {

@@ -31,13 +31,15 @@ class KRITAUI_EXPORT KisSplashScreen : public QWidget, public Ui::WdgSplash
 {
     Q_OBJECT
 public:
-    explicit KisSplashScreen(const QString &m_version, const QPixmap &m_pixmap, bool themed = false, QWidget *parent = 0, Qt::WindowFlags f = 0);
+    explicit KisSplashScreen(const QString &m_version, const QPixmap &m_pixmap, const QPixmap &pixmap_x2, bool themed = false, QWidget *parent = 0, Qt::WindowFlags f = 0);
 
     void repaint();
 
     void show();
-    void displayLinks();
-    void displayRecentFiles();
+    void displayLinks(bool show);
+    void displayRecentFiles(bool show);
+
+    void setLoadingText(QString text);
 
 private Q_SLOTS:
 
@@ -55,7 +57,9 @@ private:
 
     QTimer m_timer;
     bool m_themed;
-
+    QImage m_splashImage;
+    int m_textTop;
+    qreal m_scaleFactor;
 };
 
 #endif // KIS_SPLASH_SCREEN_H

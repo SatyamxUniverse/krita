@@ -3,7 +3,8 @@
  *
  *  This library is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
- *  the Free Software Foundation; version 2.1 of the License.
+ *  the Free Software Foundation; version 2 of the License, or
+ *  (at your option) any later version.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -28,7 +29,6 @@ static const int DEFAULT_LENGTH = 1000;
 
 KisDynamicSensorFade::KisDynamicSensorFade()
     : KisDynamicSensor(FADE)
-    , m_counter(0)
     , m_periodic(false)
 {
     setLength(DEFAULT_LENGTH);
@@ -38,24 +38,12 @@ qreal KisDynamicSensorFade::value(const KisPaintInformation&  pi)
 {
     if (pi.isHoveringMode()) return 1.0;
 
-    if (m_counter > m_length) {
-        if (m_periodic) {
-            reset();
-        }
-        else {
-            m_counter = m_length;
-        }
-    }
+    const int currentValue =
+        m_periodic ?
+        pi.currentDabSeqNo() % m_length :
+        qMin(pi.currentDabSeqNo(), m_length);
 
-    qreal result =  m_counter / qreal(m_length);
-    m_counter++;
-
-    return result;
-}
-
-void KisDynamicSensorFade::reset()
-{
-    m_counter = 0;
+    return qreal(currentValue) / m_length;
 }
 
 void KisDynamicSensorFade::setPeriodic(bool periodic)

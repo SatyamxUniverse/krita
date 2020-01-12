@@ -23,7 +23,7 @@
 #include "KoChannelInfo.h"
 #include "KoColorSpace.h"
 
-KisPhongBumpmapConfigWidget::KisPhongBumpmapConfigWidget(const KisPaintDeviceSP dev, QWidget *parent, Qt::WFlags f)
+KisPhongBumpmapConfigWidget::KisPhongBumpmapConfigWidget(const KisPaintDeviceSP dev, QWidget *parent, Qt::WindowFlags f)
                             : KisConfigWidget(parent, f)
                             , m_device(dev)
 {
@@ -89,7 +89,7 @@ KisPhongBumpmapConfigWidget::KisPhongBumpmapConfigWidget(const KisPaintDeviceSP 
     for (quint8 ch = 0; ch < m_device->colorSpace()->colorChannelCount(); ch++)
         m_page->heightChannelComboBox->addItem(channels.at(ch)->name());
     
-    connect(m_page->useNormalMap, SIGNAL(toggled(bool)), this, SLOT(slotDisableHeightChannelCombobox(bool) ) );
+    connect(m_page->useNormalMap, SIGNAL(toggled(bool)), this, SLOT(slotDisableHeightChannelCombobox(bool)) );
 
 
 }

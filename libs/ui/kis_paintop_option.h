@@ -24,7 +24,7 @@
 #include <kritaui_export.h>
 #include <kis_properties_configuration.h>
 #include <brushengine/kis_locked_properties_proxy.h>
-#include <kis_base_option.h>
+#include <KisPaintopPropertiesBase.h>
 
 class QWidget;
 class QString;
@@ -37,6 +37,11 @@ class KisPaintopLodLimitations;
  * (for example, a curve), a user-visible name and can
  * be serialized and deserialized into KisPaintOpPresets
  *
+ * Because KisPaintOpOption classes create a QWidget in
+ * their constructor (the configuration page) you CANNOT
+ * create those objects in a KisPaintOp. KisPaintOps are
+ * created in non-gui threads.
+ *
  * Options are disabled by default.
  */
 class KRITAUI_EXPORT KisPaintOpOption : public QObject
@@ -48,7 +53,8 @@ public:
         GENERAL,
         COLOR,
         TEXTURE,
-        FILTER
+        FILTER,
+        MASKING_BRUSH
     };
 
     KisPaintOpOption(KisPaintOpOption::PaintopCategory category, bool checked);
@@ -73,13 +79,13 @@ public:
     void startReadOptionSetting(const KisPropertiesConfigurationSP setting);
     void startWriteOptionSetting(KisPropertiesConfigurationSP setting) const;
 
-    QWidget* configurationPage() const;
+    QWidget *configurationPage() const;
 
     virtual void lodLimitations(KisPaintopLodLimitations *l) const;
 
 protected:
 
-    void setConfigurationPage(QWidget * page);
+    void setConfigurationPage(QWidget *page);
 
 protected:
     /**
@@ -90,7 +96,7 @@ protected:
     }
 
     /**
-     * Re-implement this to set te widgets with the values in @param setting.
+     * Re-implement this to set the widgets with the values in @p setting.
      */
     virtual void readOptionSetting(const KisPropertiesConfigurationSP setting) {
         Q_UNUSED(setting);
@@ -98,6 +104,7 @@ protected:
 
 protected Q_SLOTS:
     void emitSettingChanged();
+    void emitCheckedChanged();
 
 Q_SIGNALS:
 
@@ -105,6 +112,12 @@ Q_SIGNALS:
      * emit this whenever a setting has changed. It will update the preview
      */
     void sigSettingChanged();
+
+    /**
+     * emit this whenever a checked state of the option has changed. It as always
+     * emitted *before* sigSettingChanged()
+     */
+    void sigCheckedChanged(bool value);
 
 protected:
 

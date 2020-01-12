@@ -31,7 +31,6 @@
 #include "kis_image.h"
 #include "kis_paint_device.h"
 #include "kis_paint_layer.h"
-#include "recorder/kis_recorded_paint_action.h"
 #include "kis_selection.h"
 #include "kis_selection_mask.h"
 #include "kis_algebra_2d.h"
@@ -50,7 +49,7 @@ struct KisResourcesSnapshot::Private {
     KisDefaultBoundsBaseSP bounds;
     KoColor currentFgColor;
     KoColor currentBgColor;
-    KoPattern *currentPattern;
+    KoPattern *currentPattern = 0;
     KoAbstractGradient *currentGradient;
     KisPaintOpPresetSP currentPaintOpPreset;
     KisNodeSP currentNode;
@@ -58,23 +57,24 @@ struct KisResourcesSnapshot::Private {
     KisFilterConfigurationSP currentGenerator;
 
     QPointF axesCenter;
-    bool mirrorMaskHorizontal;
-    bool mirrorMaskVertical;
+    bool mirrorMaskHorizontal = false;
+    bool mirrorMaskVertical = false;
 
-    quint8 opacity;
-    QString compositeOpId;
+    quint8 opacity = OPACITY_OPAQUE_U8;
+    QString compositeOpId = COMPOSITE_OVER;
     const KoCompositeOp *compositeOp;
 
-    KisPainter::StrokeStyle strokeStyle;
-    KisPainter::FillStyle fillStyle;
+    KisPainter::StrokeStyle strokeStyle = KisPainter::StrokeStyleBrush;
+    KisPainter::FillStyle fillStyle = KisPainter::FillStyleForegroundColor;
 
-    bool globalAlphaLock;
-    qreal effectiveZoom;
-    bool presetAllowsLod;
+    bool globalAlphaLock = false;
+    qreal effectiveZoom = 1.0;
+    bool presetAllowsLod = false;
     KisSelectionSP selectionOverride;
+    bool hasOverrideSelection = false;
 };
 
-KisResourcesSnapshot::KisResourcesSnapshot(KisImageSP image, KisNodeSP currentNode, KoCanvasResourceManager *resourceManager, KisDefaultBoundsBaseSP bounds)
+KisResourcesSnapshot::KisResourcesSnapshot(KisImageSP image, KisNodeSP currentNode, KoCanvasResourceProvider *resourceManager, KisDefaultBoundsBaseSP bounds)
     : m_d(new Private())
 {
     m_d->image = image;
@@ -82,18 +82,21 @@ KisResourcesSnapshot::KisResourcesSnapshot(KisImageSP image, KisNodeSP currentNo
         bounds = new KisDefaultBounds(m_d->image);
     }
     m_d->bounds = bounds;
-    m_d->currentFgColor = resourceManager->resource(KoCanvasResourceManager::ForegroundColor).value<KoColor>();
-    m_d->currentBgColor = resourceManager->resource(KoCanvasResourceManager::BackgroundColor).value<KoColor>();
+    m_d->currentFgColor = resourceManager->resource(KoCanvasResourceProvider::ForegroundColor).value<KoColor>();
+    m_d->currentBgColor = resourceManager->resource(KoCanvasResourceProvider::BackgroundColor).value<KoColor>();
     m_d->currentPattern = resourceManager->resource(KisCanvasResourceProvider::CurrentPattern).value<KoPattern*>();
     m_d->currentGradient = resourceManager->resource(KisCanvasResourceProvider::CurrentGradient).value<KoAbstractGradient*>();
 
     /**
-     * We should deep-copy the preset, so that long-runnign actions
-     * will have correct brush parameters. Theoretically this cloniong
+     * We should deep-copy the preset, so that long-running actions
+     * will have correct brush parameters. Theoretically this cloning
      * can be expensive, but according to measurements, it takes
      * something like 0.1 ms for an average preset.
      */
-    m_d->currentPaintOpPreset = resourceManager->resource(KisCanvasResourceProvider::CurrentPaintOpPreset).value<KisPaintOpPresetSP>()->clone();
+    KisPaintOpPresetSP p = resourceManager->resource(KisCanvasResourceProvider::CurrentPaintOpPreset).value<KisPaintOpPresetSP>();
+    if (p) {
+        m_d->currentPaintOpPreset = resourceManager->resource(KisCanvasResourceProvider::CurrentPaintOpPreset).value<KisPaintOpPresetSP>()->clone();
+    }
 
 #ifdef HAVE_THREADED_TEXT_RENDERING_WORKAROUND
     KisPaintOpRegistry::instance()->preinitializePaintOpIfNeeded(m_d->currentPaintOpPreset);
@@ -130,7 +133,8 @@ KisResourcesSnapshot::KisResourcesSnapshot(KisImageSP image, KisNodeSP currentNo
 
     m_d->globalAlphaLock = resourceManager->resource(KisCanvasResourceProvider::GlobalAlphaLock).toBool();
     m_d->effectiveZoom = resourceManager->resource(KisCanvasResourceProvider::EffectiveZoom).toDouble();
-    m_d->presetAllowsLod = resourceManager->resource(KisCanvasResourceProvider::PresetAllowsLod).toBool();
+
+    m_d->presetAllowsLod = resourceManager->resource(KisCanvasResourceProvider::EffectiveLodAvailablility).toBool();
 }
 
 KisResourcesSnapshot::KisResourcesSnapshot(KisImageSP image, KisNodeSP currentNode, KisDefaultBoundsBaseSP bounds)
@@ -198,22 +202,30 @@ void KisResourcesSnapshot::setupPainter(KisPainter* painter)
     painter->setPaintOpPreset(m_d->currentPaintOpPreset, m_d->currentNode, m_d->image);
 }
 
-void KisResourcesSnapshot::setupPaintAction(KisRecordedPaintAction *action)
+void KisResourcesSnapshot::setupMaskingBrushPainter(KisPainter *painter)
 {
-    action->setPaintOpPreset(m_d->currentPaintOpPreset);
-    action->setPaintIncremental(!needsIndirectPainting());
+    KIS_SAFE_ASSERT_RECOVER_RETURN(painter->device());
+    KIS_SAFE_ASSERT_RECOVER_RETURN(m_d->currentPaintOpPreset->hasMaskingPreset());
 
-    action->setPaintColor(m_d->currentFgColor);
-    action->setBackgroundColor(m_d->currentBgColor);
-    action->setGenerator(m_d->currentGenerator);
-    action->setGradient(m_d->currentGradient);
-    action->setPattern(m_d->currentPattern);
+    painter->setPaintColor(KoColor(Qt::white, painter->device()->colorSpace()));
+    painter->setBackgroundColor(KoColor(Qt::black, painter->device()->colorSpace()));
 
-    action->setOpacity(m_d->opacity / qreal(OPACITY_OPAQUE_U8));
-    action->setCompositeOp(m_d->compositeOp->id());
+    painter->setOpacity(OPACITY_OPAQUE_U8);
+    painter->setChannelFlags(QBitArray());
 
-    action->setStrokeStyle(m_d->strokeStyle);
-    action->setFillStyle(m_d->fillStyle);
+    // masked brush always paints in indirect mode
+    painter->setCompositeOp(COMPOSITE_ALPHA_DARKEN);
+
+    painter->setMirrorInformation(m_d->axesCenter, m_d->mirrorMaskHorizontal, m_d->mirrorMaskVertical);
+
+    painter->setStrokeStyle(m_d->strokeStyle);
+
+    /**
+     * The paintOp should be initialized the last, because it may
+     * ask the painter for some options while initialization
+     */
+    painter->setPaintOpPreset(m_d->currentPaintOpPreset->createMaskingPreset(),
+                              m_d->currentNode, m_d->image);
 }
 
 KisPostExecutionUndoAdapter* KisResourcesSnapshot::postExecutionUndoAdapter() const
@@ -261,7 +273,14 @@ bool KisResourcesSnapshot::needsIndirectPainting() const
 
 QString KisResourcesSnapshot::indirectPaintingCompositeOp() const
 {
-    return m_d->currentPaintOpPreset->settings()->indirectPaintingCompositeOp();
+    return m_d->currentPaintOpPreset ?
+            m_d->currentPaintOpPreset->settings()->indirectPaintingCompositeOp()
+              : COMPOSITE_ALPHA_DARKEN;
+}
+
+bool KisResourcesSnapshot::needsMaskingBrushRendering() const
+{
+    return m_d->currentPaintOpPreset && m_d->currentPaintOpPreset->hasMaskingPreset();
 }
 
 KisSelectionSP KisResourcesSnapshot::activeSelection() const
@@ -270,7 +289,7 @@ KisSelectionSP KisResourcesSnapshot::activeSelection() const
      * It is possible to have/use the snapshot without the image. Such
      * usecase is present for example in the scratchpad.
      */
-    if (m_d->selectionOverride) {
+    if (m_d->hasOverrideSelection) {
         return m_d->selectionOverride;
     }
 
@@ -373,6 +392,11 @@ bool KisResourcesSnapshot::presetAllowsLod() const
     return m_d->presetAllowsLod;
 }
 
+bool KisResourcesSnapshot::presetNeedsAsynchronousUpdates() const
+{
+    return m_d->currentPaintOpPreset && m_d->currentPaintOpPreset->settings()->needsAsynchronousUpdates();
+}
+
 void KisResourcesSnapshot::setFGColorOverride(const KoColor &color)
 {
     m_d->currentFgColor = color;
@@ -386,6 +410,7 @@ void KisResourcesSnapshot::setBGColorOverride(const KoColor &color)
 void KisResourcesSnapshot::setSelectionOverride(KisSelectionSP selection)
 {
     m_d->selectionOverride = selection;
+    m_d->hasOverrideSelection = true; // needed if selection passed is null to ignore selection
 }
 
 void KisResourcesSnapshot::setBrush(const KisPaintOpPresetSP &brush)

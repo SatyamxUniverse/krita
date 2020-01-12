@@ -199,18 +199,18 @@ struct psd_gradient_color {
 
 struct psd_pattern {
 
-    psd_color_mode color_mode; // The image mode of the file.
-    quint8 height; // Point: vertical, 2 bytes and horizontal, 2 bytes
-    quint8 width;
+    psd_color_mode color_mode = Bitmap; // The image mode of the file.
+    quint8 height = 0; // Point: vertical, 2 bytes and horizontal, 2 bytes
+    quint8 width = 0;
     QString name;
     QString uuid;
-    qint32 version;
-    quint8 top; // Rectangle: top, left, bottom, right
-    quint8 left;
-    quint8 bottom;
-    quint8 right;
-    qint32 max_channel; // Max channels
-    qint32 channel_number;
+    qint32 version = 0;
+    quint8 top = 0; // Rectangle: top, left, bottom, right
+    quint8 left = 0;
+    quint8 bottom = 0;
+    quint8 right = 0;
+    qint32 max_channel = 0; // Max channels
+    qint32 channel_number = 0;
     QVector<QRgb> color_table;
 };
 
@@ -225,7 +225,7 @@ struct psd_layer_effects_context {
 
 #define PSD_LOOKUP_TABLE_SIZE 256
 
-// dsdw, isdw: http://www.adobe.com/devnet-apps/photoshop/fileformatashtml/PhotoshopFileFormats.htm#50577409_22203
+// dsdw, isdw: https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/PhotoshopFileFormats.htm#50577409_22203
 class KRITAPSD_EXPORT psd_layer_effects_shadow_base {
 public:
     psd_layer_effects_shadow_base()
@@ -497,12 +497,12 @@ public:
     //using psd_layer_effects_shadow_base::setKnocksOut;
 };
 
-// isdw: http://www.adobe.com/devnet-apps/photoshop/fileformatashtml/PhotoshopFileFormats.htm#50577409_22203
+// isdw: https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/PhotoshopFileFormats.htm#50577409_22203
 class KRITAPSD_EXPORT psd_layer_effects_inner_shadow : public psd_layer_effects_shadow_common
 {
 public:
     psd_layer_effects_inner_shadow() {
-        setKnocksOut(true);
+        setKnocksOut(false);
         setInvertsSelection(true);
         setEdgeHidden(false);
     }
@@ -539,12 +539,12 @@ public:
     // using psd_layer_effects_shadow_base::setGradient;
 };
 
-// oglw: http://www.adobe.com/devnet-apps/photoshop/fileformatashtml/PhotoshopFileFormats.htm#50577409_25738
+// oglw: https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/PhotoshopFileFormats.htm#50577409_25738
 class KRITAPSD_EXPORT psd_layer_effects_outer_glow : public psd_layer_effects_glow_common
 {
 };
 
-// iglw: http://www.adobe.com/devnet-apps/photoshop/fileformatashtml/PhotoshopFileFormats.htm#50577409_27692
+// iglw: https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/PhotoshopFileFormats.htm#50577409_27692
 class KRITAPSD_EXPORT psd_layer_effects_inner_glow : public psd_layer_effects_glow_common
 {
 public:
@@ -552,6 +552,7 @@ public:
         : m_source(psd_glow_edge) {
         setInvertsSelection(true);
         setEdgeHidden(false);
+        setKnocksOut(false);
     }
 
     psd_glow_source source() const {
@@ -613,7 +614,7 @@ struct psd_pattern_info {
     quint8 identifier[256];
 };
 
-// bevl: http://www.adobe.com/devnet-apps/photoshop/fileformatashtml/PhotoshopFileFormats.htm#50577409_31889
+// bevl: https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/PhotoshopFileFormats.htm#50577409_31889
 struct psd_layer_effects_bevel_emboss : public psd_layer_effects_shadow_base
 {
     psd_layer_effects_bevel_emboss()
@@ -870,7 +871,7 @@ private:
 
     QString m_highlightBlendMode; // already in Krita format
     QColor m_highlightColor;
-    qint32 m_highlightOpacity; // Hightlight opacity as a percent
+    qint32 m_highlightOpacity; // Highlight opacity as a percent
 
     QString m_shadowBlendMode; // already in Krita format
     QColor m_shadowColor;
@@ -1021,7 +1022,7 @@ protected:
     // using psd_layer_effects_shadow_base::setFillType;
 };
 
-// sofi: http://www.adobe.com/devnet-apps/photoshop/fileformatashtml/PhotoshopFileFormats.htm#50577409_70055
+// sofi: https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/PhotoshopFileFormats.htm#50577409_70055
 struct psd_layer_effects_color_overlay : public psd_layer_effects_overlay_base
 {
     psd_layer_effects_color_overlay() {

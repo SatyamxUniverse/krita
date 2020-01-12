@@ -1,7 +1,7 @@
 /* ============================================================
  *
  * This file is a part of digiKam project
- * http://www.digikam.org
+ * https://www.digikam.org
  *
  * Date        : 2004-08-02
  * Description : theme manager
@@ -36,16 +36,15 @@
 #include <QPixmap>
 #include <QDate>
 #include <QDesktopWidget>
-#include <QApplication>
 #include <QMenu>
 #include <QMenuBar>
 #include <QStatusBar>
 #include <QDebug>
 #include <QStandardPaths>
+#include <QAction>
+#include <QMessageBox>
 
 // KDE includes
-
-#include <QMessageBox>
 
 #include <klocalizedstring.h>
 #include <kcolorscheme.h>
@@ -54,7 +53,6 @@
 #include <kactionmenu.h>
 #include <kconfig.h>
 #include <kconfiggroup.h>
-#include <QAction>
 
 // Calligra
 #include <kis_icon.h>
@@ -186,9 +184,11 @@ void ThemeManager::slotChangePalette()
     }
 
     //qDebug() << ">>>>>>>>>>>>>>>>>> going to set palette on app" << theme;
+    // hint for the style to synchronize the color scheme with the window manager/compositor
+    qApp->setProperty("KDE_COLOR_SCHEME_PATH", filename);
     qApp->setPalette(palette);
 
-#ifdef Q_OS_OSX
+#ifdef Q_OS_MACOS
     if (theme == "Krita bright" || theme.isEmpty()) {
         qApp->setStyle("Macintosh");
         qApp->style()->polish(qApp);
@@ -197,6 +197,8 @@ void ThemeManager::slotChangePalette()
         qApp->style()->polish(qApp);
     }
 #endif
+
+    KisIconUtils::clearIconCache();
     emit signalThemeChanged();
 }
 
@@ -233,7 +235,7 @@ void ThemeManager::populateThemeMenu()
         KSharedConfigPtr config = KSharedConfig::openConfig(filename);
         QIcon icon = createSchemePreviewIcon(config);
         KConfigGroup group(config, "General");
-        const QString name = group.readEntry("Name", info.baseName());
+        const QString name = group.readEntry("Name", info.completeBaseName());
         action = new QAction(name, d->themeMenuActionGroup);
         action->setIcon(icon);
         action->setCheckable(true);
@@ -300,7 +302,7 @@ void ThemeManager::populateThemeMap()
         const QFileInfo info(filename);
         KSharedConfigPtr config = KSharedConfig::openConfig(filename);
         KConfigGroup group(config, "General");
-        const QString name = group.readEntry("Name", info.baseName());
+        const QString name = group.readEntry("Name", info.completeBaseName());
         d->themeMap.insert(name, filename);
     }
 

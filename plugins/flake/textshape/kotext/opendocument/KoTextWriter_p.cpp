@@ -47,6 +47,7 @@
 #include <KoTableRowStyle.h>
 #include <KoInlineTextObjectManager.h>
 #include <KoVariable.h>
+#include "kis_assert.h"
 
 #include "TextDebug.h"
 
@@ -77,15 +78,22 @@ KoTextWriter::Private::Private(KoShapeSavingContext &context)
     , writer(0)
     , context(context)
 {
-    currentPairedInlineObjectsStack = new QStack<KoInlineObject*>();
+    currentPairedInlineObjectsStack.reset(new QStack<KoInlineObject*>());
     writer = &context.xmlWriter();
 }
 
-void KoTextWriter::Private::writeBlocks(QTextDocument *document, int from, int to, QHash<QTextList *, QString> &listStyles, QTextTable *currentTable, QTextList *currentList)
+KoTextWriter::Private::~Private()
 {
-    pairedInlineObjectsStackStack.push(currentPairedInlineObjectsStack);
-    currentPairedInlineObjectsStack = new QStack<KoInlineObject*>();
-    QTextBlock block = document->findBlock(from);
+    KIS_SAFE_ASSERT_RECOVER (pairedInlineObjectsStackStack.isEmpty()) {
+        qDeleteAll(pairedInlineObjectsStackStack);
+    }
+}
+
+void KoTextWriter::Private::writeBlocks(QTextDocument *doc, int from, int to, QHash<QTextList *, QString> &listStyles, QTextTable *currentTable, QTextList *currentList)
+{
+    pairedInlineObjectsStackStack.push(currentPairedInlineObjectsStack.take());
+    currentPairedInlineObjectsStack.reset(new QStack<KoInlineObject*>());
+    QTextBlock block = doc->findBlock(from);
 
     // Here we are going to detect all sections that
     // are positioned entirely inside selection.
@@ -95,7 +103,7 @@ void KoTextWriter::Private::writeBlocks(QTextDocument *document, int from, int t
     // the selection and finding open/close pairs.
     QSet<QString> entireWithinSectionNames;
     QStack<QString> sectionNamesStack;
-    QTextCursor cur(document);
+    QTextCursor cur(doc);
     cur.setPosition(from);
     while (to == -1 || cur.position() <= to) {
         if (cur.block().position() >= from) { // Begin of the block is inside selection.
@@ -143,12 +151,12 @@ void KoTextWriter::Private::writeBlocks(QTextDocument *document, int from, int t
             continue;
         }
         if (format.hasProperty(KoParagraphStyle::TableOfContentsData)) {
-            saveTableOfContents(document, listStyles, block);
+            saveTableOfContents(doc, listStyles, block);
             block = block.next();
             continue;
         }
         if (format.hasProperty(KoParagraphStyle::BibliographyData)) {
-            saveBibliography(document, listStyles, block);
+            saveBibliography(doc, listStyles, block);
             block = block.next();
             continue;
         }
@@ -183,8 +191,7 @@ void KoTextWriter::Private::writeBlocks(QTextDocument *document, int from, int t
     } // while
 
     Q_ASSERT(!pairedInlineObjectsStackStack.isEmpty());
-    delete currentPairedInlineObjectsStack;
-    currentPairedInlineObjectsStack = pairedInlineObjectsStackStack.pop();
+    currentPairedInlineObjectsStack.reset(pairedInlineObjectsStackStack.pop());
 }
 
 
@@ -618,7 +625,7 @@ void KoTextWriter::Private::saveParagraph(const QTextBlock &block, int from, int
                     } else {
                         // split the fragment into subspans at the points of range starts/ends
                         QList<int> subSpanTos = textRanges.uniqueKeys();
-                        qSort(subSpanTos);
+                        std::sort(subSpanTos.begin(), subSpanTos.end());
                         // ensure last subSpanTo to be at the end
                         if (subSpanTos.last() != spanTo) {
                             subSpanTos.append(spanTo);
@@ -1080,7 +1087,7 @@ void KoTextWriter::Private::writeAttributes(QTextStream &, KoXmlElement &)
 
 }
 
-void KoTextWriter::Private::writeNode(QTextStream &outputXmlStream, KoXmlNode &node, bool writeOnlyChildren)
+void KoTextWriter::Private::writeNode(QTextStream &outputXmlStream, const KoXmlNode &node, bool writeOnlyChildren)
 {
     if (node.isText()) {
         outputXmlStream  << node.toText().data();

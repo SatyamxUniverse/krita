@@ -18,7 +18,6 @@
 #ifndef OCIO_DISPLAY_FILTER_H
 #define OCIO_DISPLAY_FILTER_H
 
-#include "kritalutdocker_export.h"
 #include <kis_display_filter.h>
 #include <OpenColorIO/OpenColorIO.h>
 #include <OpenColorIO/OpenColorTransforms.h>
@@ -36,7 +35,7 @@ enum OCIO_CHANNEL_SWIZZLE {
     A
 };
 
-class KRITALUTDOCKER_EXPORT OcioDisplayFilter : public KisDisplayFilter
+class OcioDisplayFilter : public KisDisplayFilter
 {
     Q_OBJECT
 public:
@@ -50,9 +49,9 @@ public:
     bool lockCurrentColorVisualRepresentation() const;
     void setLockCurrentColorVisualRepresentation(bool value);
 
-    void updateShader();
+    bool updateShader();
     template <class F>
-    void updateShaderImpl(F *f);
+    bool updateShaderImpl(F *f);
 
     KisExposureGammaCorrectionInterface *correctionInterface() const;
 

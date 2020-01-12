@@ -23,6 +23,7 @@
 #include <QImageReader>
 #include <QByteArray>
 #include <QBuffer>
+#include <QPainter>
 
 #include <kis_dom_utils.h>
 
@@ -32,6 +33,20 @@ KisPngBrush::KisPngBrush(const QString& filename)
     setBrushType(INVALID);
     setSpacing(0.25);
     setHasColor(false);
+}
+
+KisPngBrush::KisPngBrush(const KisPngBrush &rhs)
+    : KisScalingSizeBrush(rhs)
+{
+    setSpacing(rhs.spacing());
+    if (brushTipImage().isGrayscale()) {
+        setBrushType(MASK);
+        setHasColor(false);
+    }
+    else {
+        setBrushType(IMAGE);
+        setHasColor(true);
+    }
 }
 
 KisBrush* KisPngBrush::clone() const
@@ -55,6 +70,7 @@ bool KisPngBrush::load()
 
 bool KisPngBrush::loadFromDevice(QIODevice *dev)
 {
+
     // Workaround for some OS (Debian, Ubuntu), where loading directly from the QIODevice
     // fails with "libpng error: IDAT: CRC error"
     QByteArray data = dev->readAll();
@@ -63,8 +79,9 @@ bool KisPngBrush::loadFromDevice(QIODevice *dev)
     QImageReader reader(&buf, "PNG");
 
     if (!reader.canRead()) {
-      setValid(false);
-      return false;
+        dbgKrita << "Could not read brush" << filename() << ". Error:" << reader.errorString();
+        setValid(false);
+        return false;
     }
 
     if (reader.textKeys().contains("brush_spacing")) {
@@ -76,32 +93,44 @@ bool KisPngBrush::loadFromDevice(QIODevice *dev)
     }
     else {
         QFileInfo info(filename());
-        setName(info.baseName());
+        setName(info.completeBaseName());
     }
 
     QImage image = reader.read();
 
     if (image.isNull()) {
-      dbgKrita << "Could not read brush" << filename() << ". Error:" << reader.errorString();
-      setValid(false);
-      return false;
+        dbgKrita << "Could not create image for" << filename() << ". Error:" << reader.errorString();
+        setValid(false);
+        return false;
     }
 
-    setBrushTipImage(image);
-    setValid(!brushTipImage().isNull());
+    setValid(true);
 
-    if (brushTipImage().isGrayscale()) {
+    if (image.allGray()) {
+        // Make sure brush tips all have a white background
+        QImage base(image.size(), image.format());
+        if ((int)base.format() < (int)QImage::Format_RGB32) {
+            base = base.convertToFormat(QImage::Format_ARGB32);
+        }
+        QPainter gc(&base);
+        gc.fillRect(base.rect(), Qt::white);
+        gc.drawImage(0, 0, image);
+        gc.end();
+        QImage converted = base.convertToFormat(QImage::Format_Grayscale8);
+        setBrushTipImage(converted);
         setBrushType(MASK);
         setHasColor(false);
     }
     else {
+        setBrushTipImage(image);
         setBrushType(IMAGE);
         setHasColor(true);
     }
 
     setWidth(brushTipImage().width());
     setHeight(brushTipImage().height());
-    return !brushTipImage().isNull();
+
+    return valid();
 }
 
 bool KisPngBrush::save()

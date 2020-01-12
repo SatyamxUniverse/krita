@@ -28,7 +28,6 @@
 
 #include <KoColorConversionTransformation.h>
 
-#include "kis_paint_device.h" // msvc cannot handle forward declarations, so include kis_paint_device here
 #include "kis_types.h"
 #include "kis_shared.h"
 #include "kis_node_graph_listener.h"
@@ -38,12 +37,10 @@
 
 #include <kritaimage_export.h>
 
-class KisDocument;
 class KoColorSpace;
 class KoColor;
 
 class KisCompositeProgressProxy;
-class KisActionRecorder;
 class KisUndoStore;
 class KisUndoAdapter;
 class KisImageSignalRouter;
@@ -55,6 +52,7 @@ class KisSpontaneousJob;
 class KisImageAnimationInterface;
 class KUndo2MagicString;
 class KisProofingConfiguration;
+class KisPaintDevice;
 
 namespace KisMetaData
 {
@@ -80,9 +78,11 @@ class KRITAIMAGE_EXPORT KisImage : public QObject,
 
 public:
 
-    /// @param colorSpace can be null. in that case it will be initialised to a default color space.
+    /// @p colorSpace can be null. In that case, it will be initialised to a default color space.
     KisImage(KisUndoStore *undoStore, qint32 width, qint32 height, const KoColorSpace *colorSpace, const QString& name);
     ~KisImage() override;
+
+    static KisImageSP fromQImage(const QImage &image, KisUndoStore *undoStore);
 
 public: // KisNodeGraphListener implementation
 
@@ -90,16 +90,28 @@ public: // KisNodeGraphListener implementation
     void nodeHasBeenAdded(KisNode *parent, int index) override;
     void aboutToRemoveANode(KisNode *parent, int index) override;
     void nodeChanged(KisNode * node) override;
+    void nodeCollapsedChanged(KisNode *node) override;
     void invalidateAllFrames() override;
     void notifySelectionChanged() override;
-    void requestProjectionUpdate(KisNode *node, const QRect& rect, bool resetAnimationCache) override;
+    void requestProjectionUpdate(KisNode *node, const QVector<QRect> &rects, bool resetAnimationCache) override;
     void invalidateFrames(const KisTimeRange &range, const QRect &rect) override;
     void requestTimeSwitch(int time) override;
+    KisNode* graphOverlayNode() const override;
 
 public: // KisProjectionUpdateListener implementation
     void notifyProjectionUpdated(const QRect &rc) override;
 
 public:
+
+    /**
+     * Set the number of threads used by the image's working threads
+     */
+    void setWorkingThreadsLimit(int value);
+
+    /**
+     * Return the number of threads available to the image's working threads
+     */
+    int workingThreadsLimit() const;
 
     /**
      * Makes a copy of the image with all the layers. If possible, shallow
@@ -112,6 +124,21 @@ public:
      * this option if you plan to work with the copied image later.
      */
     KisImage *clone(bool exactCopy = false);
+
+    void copyFromImage(const KisImage &rhs);
+
+private:
+
+    // must specify exactly one from CONSTRUCT or REPLACE.
+    enum CopyPolicy {
+        CONSTRUCT = 1, ///< we are copy-constructing a new KisImage
+        REPLACE = 2, ///< we are replacing the current KisImage with another
+        EXACT_COPY = 4, /// we need an exact copy of the original image
+    };
+
+    void copyFromImageImpl(const KisImage &rhs, int policy);
+
+public:
 
     /**
      * Render the projection onto a QImage.
@@ -131,24 +158,62 @@ public:
 
 
     /**
-     * XXX: docs!
+     * Render a thumbnail of the projection onto a QImage.
      */
     QImage convertToQImage(const QSize& scaledImageSize, const KoColorProfile *profile);
 
     /**
-     * Calls KisUpdateScheduler::lock (XXX: APIDOX -- what does that mean?)
+     * [low-level] Lock the image without waiting for all the internal job queues are processed
+     *
+     * WARNING: Don't use it unless you really know what you are doing! Use barrierLock() instead!
+     *
+     * Waits for all the **currently running** internal jobs to complete and locks the image
+     * for writing. Please note that this function does **not** wait for all the internal
+     * queues to process, so there might be some non-finished actions pending. It means that
+     * you just postpone these actions until you unlock() the image back. Until then, then image
+     * might easily be frozen in some inconsistent state.
+     *
+     * The only sane usage for this function is to lock the image for **emergency**
+     * processing, when some internal action or scheduler got hung up, and you just want
+     * to fetch some data from the image without races.
+     *
+     * In all other cases, please use barrierLock() instead!
      */
     void lock();
 
     /**
-     * Calls KisUpdateScheduler::unlock (XXX: APIDOX -- what does that mean?)
+     * Unlocks the image and starts/resumes all the pending internal jobs. If the image
+     * has been locked for a non-readOnly access, then all the internal caches of the image
+     * (e.g. lod-planes) are reset and regeneration jobs are scheduled.
      */
     void unlock();
 
     /**
-     * Returns true if lock() has been called more often than unlock().
+     * @return return true if the image is in a locked state, i.e. all the internal
+     *         jobs are blocked from execution by calling wither lock() or barrierLock().
+     *
+     *         When the image is locked, the user can do some modifications to the image
+     *         contents safely without a perspective having race conditions with internal
+     *         image jobs.
      */
     bool locked() const;
+
+    /**
+     * Sets the mask (it must be a part of the node hierarchy already) to be paited on
+     * the top of all layers. This method does all the locking and syncing for you. It
+     * is executed asynchronously.
+     */
+    void setOverlaySelectionMask(KisSelectionMaskSP mask);
+
+    /**
+     * \see setOverlaySelectionMask
+     */
+    KisSelectionMaskSP overlaySelectionMask() const;
+
+    /**
+     * \see setOverlaySelectionMask
+     */
+    bool hasOverlaySelectionMask() const;
 
     /**
      * @return the global selection object or 0 if there is none. The
@@ -167,58 +232,143 @@ public:
     void rollBackLayerName();
 
     /**
-     * Resize the image to the specified rect. The resize
-     * method handles the creating on an undo step itself.
+     * @brief start asynchronous operation on resizing the image
      *
-     * @param newRect the rect describing the new width, height and offset
-     *        of the image
+     * The method will resize the image to fit the new size without
+     * dropping any pixel data. The GUI will get correct
+     * notification with old and new sizes, so it adjust canvas origin
+     * accordingly and avoid jumping of the canvas on screen
+     *
+     * @param newRect the rectangle of the image which will be visible
+     *        after operation is completed
+     *
+     * Please note that the actual operation starts asynchronously in
+     * a background, so you cannot expect the image having new size
+     * right after this call.
      */
     void resizeImage(const QRect& newRect);
 
     /**
-     * Crop the image to the specified rect. The crop
-     * method handles the creating on an undo step itself.
+     * @brief start asynchronous operation on cropping the image
      *
-     * @param newRect the rect describing the new width, height and offset
-     *        of the image
+     * The method will **drop** all the image data outside \p newRect
+     * and resize the image to fit the new size. The GUI will get correct
+     * notification with old and new sizes, so it adjust canvas origin
+     * accordingly and avoid jumping of the canvas on screen
+     *
+     * @param newRect the rectangle of the image which will be cut-out
+     *
+     * Please note that the actual operation starts asynchronously in
+     * a background, so you cannot expect the image having new size
+     * right after this call.
      */
     void cropImage(const QRect& newRect);
 
 
     /**
-     * Crop a node to @newRect. The node will *not* be moved anywhere,
-     * it just drops some content
+     * @brief start asynchronous operation on cropping a subtree of nodes starting at \p node
+     *
+     * The method will **drop** all the layer data outside \p newRect. Neither
+     * image nor a layer will be moved anywhere
+     *
+     * @param node node to crop
+     * @param newRect the rectangle of the layer which will be cut-out
+     *
+     * Please note that the actual operation starts asynchronously in
+     * a background, so you cannot expect the image having new size
+     * right after this call.
      */
     void cropNode(KisNodeSP node, const QRect& newRect);
 
-    /// XXX: ApiDox
+    /**
+     * @brief start asynchronous operation on scaling the image
+     * @param size new image size in pixels
+     * @param xres new image x-resolution pixels-per-pt
+     * @param yres new image y-resolution pixels-per-pt
+     * @param filterStrategy filtering strategy
+     *
+     * Please note that the actual operation starts asynchronously in
+     * a background, so you cannot expect the image having new size
+     * right after this call.
+     */
     void scaleImage(const QSize &size, qreal xres, qreal yres, KisFilterStrategy *filterStrategy);
 
-    /// XXX: ApiDox
-    void scaleNode(KisNodeSP node, qreal scaleX, qreal scaleY, KisFilterStrategy *filterStrategy);
+    /**
+     * @brief start asynchronous operation on scaling a subtree of nodes starting at \p node
+     * @param node node to scale
+     * @param center the center of the scaling
+     * @param scaleX x-scale coefficient to be applied to the node
+     * @param scaleY y-scale coefficient to be applied to the node
+     * @param filterStrategy filtering strategy
+     * @param selection the selection we based on
+     *
+     * Please note that the actual operation starts asynchronously in
+     * a background, so you cannot expect the image having new size
+     * right after this call.
+     */
+    void scaleNode(KisNodeSP node, const QPointF &center, qreal scaleX, qreal scaleY, KisFilterStrategy *filterStrategy, KisSelectionSP selection);
 
     /**
-     * Execute a rotate transform on all layers in this image.
-     * Image is resized to fit rotated image.
+     * @brief start asynchronous operation on rotating the image
+     *
+     * The image is resized to fit the rotated rectangle
+     *
+     * @param radians rotation angle in radians
+     *
+     * Please note that the actual operation starts asynchronously in
+     * a background, so you cannot expect the operation being completed
+     * right after the call
      */
     void rotateImage(double radians);
 
     /**
-     * Execute a rotate transform on on a subtree of this image.
-     * Image is not resized.
+     * @brief start asynchronous operation on rotating a subtree of nodes starting at \p node
+     *
+     * The image is not resized!
+     *
+     * @param node the root of the subtree to rotate
+     * @param radians rotation angle in radians
+     * @param selection the selection we based on
+     *
+     * Please note that the actual operation starts asynchronously in
+     * a background, so you cannot expect the operation being completed
+     * right after the call
      */
-    void rotateNode(KisNodeSP node, double radians);
+    void rotateNode(KisNodeSP node, double radians, KisSelectionSP selection);
 
     /**
-     * Execute a shear transform on all layers in this image.
+     * @brief start asynchronous operation on shearing the image
+     *
+     * The image is resized to fit the sheared polygon
+     *
+     * @p angleX, @p angleY are given in degrees.
+     *
+     * Please note that the actual operation starts asynchronously in
+     * a background, so you cannot expect the operation being completed
+     * right after the call
      */
     void shear(double angleX, double angleY);
 
     /**
-     * Shear a node and all its children.
-     * @param angleX, @param angleY are given in degrees.
+     * @brief start asynchronous operation on shearing a subtree of nodes starting at \p node
+     *
+     * The image is not resized!
+     *
+     * @param node the root of the subtree to rotate
+     * @param angleX x-shear given in degrees.
+     * @param angleY y-shear given in degrees.
+     * @param selection the selection we based on
+     *
+     * Please note that the actual operation starts asynchronously in
+     * a background, so you cannot expect the operation being completed
+     * right after the call
      */
-    void shearNode(KisNodeSP node, double angleX, double angleY);
+    void shearNode(KisNodeSP node, double angleX, double angleY, KisSelectionSP selection);
+
+    /**
+     * Convert image projection to \p dstColorSpace, keeping all the layers intouched.
+     */
+    void convertImageProjectionColorSpace(const KoColorSpace *dstColorSpace);
 
     /**
      * Convert the image and all its layers to the dstColorSpace
@@ -228,16 +378,27 @@ public:
                                 KoColorConversionTransformation::ConversionFlags conversionFlags);
 
     /**
-     * Set the color space of  the projection (and the root layer)
-     * to dstColorSpace. No conversion is done for other layers,
-     * their colorspace can differ.
-     * NOTE: Note conversion is done, only regeneration, so no rendering
-     * intent needed
+     * Convert layer and all its child layers to dstColorSpace
      */
-    void convertProjectionColorSpace(const KoColorSpace *dstColorSpace);
+    void convertLayerColorSpace(KisNodeSP node,
+                                const KoColorSpace *dstColorSpace,
+                                KoColorConversionTransformation::Intent renderingIntent,
+                                KoColorConversionTransformation::ConversionFlags conversionFlags);
+
 
     // Get the profile associated with this image
     const KoColorProfile *  profile() const;
+
+    /**
+     * Set the profile of the layer and all its children to the new profile.
+     * It doesn't do any pixel conversion.
+     *
+     * This is essential if you have loaded an image that didn't
+     * have an embedded profile to which you want to attach the right profile.
+     *
+     * @returns false if the profile could not be assigned
+     */
+    bool assignLayerProfile(KisNodeSP node, const KoColorProfile *profile);
 
     /**
      * Set the profile of the image to the new profile and do the same for
@@ -247,19 +408,16 @@ public:
      * This is essential if you have loaded an image that didn't
      * have an embedded profile to which you want to attach the right profile.
      *
-     * This does not create an undo action; only call it when creating or
-     * loading an image.
-     *
      * @returns false if the profile could not be assigned
      */
-    bool assignImageProfile(const KoColorProfile *profile);
+    bool assignImageProfile(const KoColorProfile *profile, bool blockAllUpdates = false);
 
     /**
      * Returns the current undo adapter. You can add new commands to the
      * undo stack using the adapter. This adapter is used for a backward
      * compatibility for old commands created before strokes. It blocks
      * all the porcessing at the scheduler, waits until it's finished
-     * adn executes commands exclusively.
+     * and executes commands exclusively.
      */
     KisUndoAdapter* undoAdapter() const;
 
@@ -270,6 +428,12 @@ public:
      * in not called.
      */
     KisPostExecutionUndoAdapter* postExecutionUndoAdapter() const override;
+
+    /**
+     * Return the lastly executed LoD0 command. It is effectively the same
+     * as to call undoAdapter()->presentCommand();
+     */
+    const KUndo2Command* lastExecutedCommand() const override;
 
     /**
      * Replace current undo store with the new one. The old store
@@ -283,11 +447,6 @@ public:
      * Return current undo store of the image
      */
     KisUndoStore* undoStore();
-
-    /**
-     * @return the action recorder associated with this image
-     */
-    KisActionRecorder* actionRecorder() const;
 
     /**
      * Tell the image it's modified; this emits the sigImageModified
@@ -324,11 +483,11 @@ public:
     QPointF documentToPixel(const QPointF &documentCoord) const;
 
     /**
-     * Convert a document coordinate to an integer pixel coordinate.
+     * Convert a document coordinate to an integer pixel coordinate rounded down.
      *
      * @param documentCoord PostScript Pt coordinate to convert.
      */
-    QPoint documentToIntPixel(const QPointF &documentCoord) const;
+    QPoint documentToImagePixelFloored(const QPointF &documentCoord) const;
 
     /**
      * Convert a document rectangle to a pixel rectangle.
@@ -336,13 +495,6 @@ public:
      * @param documentRect PostScript Pt rectangle to convert.
      */
     QRectF documentToPixel(const QRectF &documentRect) const;
-
-    /**
-     * Convert a document rectangle to an integer pixel rectangle.
-     *
-     * @param documentRect PostScript Pt rectangle to convert.
-     */
-    QRect documentToIntPixel(const QRectF &documentRect) const;
 
     /**
      * Convert a pixel coordinate to a document coordinate.
@@ -409,7 +561,7 @@ public:
     /**
      * Merge all visible layers and discard hidden ones.
      */
-    void flatten();
+    void flatten(KisNodeSP activeNode);
 
     /**
      * Merge the specified layer with the layer
@@ -431,7 +583,7 @@ public:
     void mergeMultipleLayers(QList<KisNodeSP> mergedLayers, KisNodeSP putAfter);
 
     /// @return the exact bounds of the image in pixel coordinates.
-    QRect bounds() const;
+    QRect bounds() const override;
 
     /**
      * Returns the actual bounds of the image, taking LevelOfDetail
@@ -478,7 +630,7 @@ public:
     vKisAnnotationSP_it endAnnotations();
 
     /**
-     * Called before the image is delted and sends the sigAboutToBeDeleted signal
+     * Called before the image is deleted and sends the sigAboutToBeDeleted signal
      */
     void notifyAboutToBeDeleted();
 
@@ -535,7 +687,7 @@ public:
     bool wrapAroundModeActive() const;
 
     /**
-     * \return curent level of detail which is used when processing the image.
+     * \return current level of detail which is used when processing the image.
      * Current working zoom = 2 ^ (- currentLevelOfDetail()). Default value is
      * null, which means we work on the original image.
      */
@@ -561,6 +713,18 @@ public:
      */
     void setMirrorAxesCenter(const QPointF &value) const;
 
+    /**
+     * Configure the image to allow masks on the root not (as reported by
+     * root()->allowAsChild()). By default it is not allowed (because it
+     * looks weird from GUI point of view)
+     */
+    void setAllowMasksOnRootNode(bool value);
+
+    /**
+     * \see setAllowMasksOnRootNode()
+     */
+    bool allowMasksOnRootNode() const;
+
 public Q_SLOTS:
 
     /**
@@ -583,11 +747,6 @@ public:
      */
     bool levelOfDetailBlocked() const;
 
-    /**
-     * Notifies that the node collapsed state has changed
-     */
-    void notifyNodeCollpasedChanged();
-
     KisImageAnimationInterface *animationInterface() const;
 
     /**
@@ -602,18 +761,18 @@ public:
      */
     KisProofingConfigurationSP proofingConfiguration() const;
 
-public:
+public Q_SLOTS:
     bool startIsolatedMode(KisNodeSP node);
     void stopIsolatedMode();
+
+public:
     KisNodeSP isolatedModeRoot() const;
 
 Q_SIGNALS:
 
     /**
      *  Emitted whenever an action has caused the image to be
-     *  recomposited.
-     *
-     * @param rc The rect that has been recomposited.
+     *  recomposited. Parameter is the rect that has been recomposited.
      */
     void sigImageUpdated(const QRect &);
 
@@ -754,26 +913,51 @@ Q_SIGNALS:
      */
     void sigProofingConfigChanged();
 
+    /**
+     * Internal signal for asynchronously requesting isolated mode to stop. Don't use it
+     * outside KisImage, use sigIsolatedModeChanged() instead.
+     */
+    void sigInternalStopIsolatedModeRequested();
+
 public Q_SLOTS:
     KisCompositeProgressProxy* compositeProgressProxy();
 
     bool isIdle(bool allowLocked = false);
 
     /**
-     * @brief barrierLock APIDOX
-     * @param readOnly
+     * @brief Wait until all the queued background jobs are completed and lock the image.
+     *
+     * KisImage object has a local scheduler that executes long-running image
+     * rendering/modifying jobs (we call them "strokes") in a background. Basically,
+     * one should either access the image from the scope of such jobs (strokes) or
+     * just lock the image before using.
+     *
+     * Calling barrierLock() will wait until all the queued operations are finished
+     * and lock the image, so you can start accessing it in a safe way.
+     *
+     * @p readOnly tells the image if the caller is going to modify the image during
+     *             holding the lock. Locking with non-readOnly  access will reset all
+     *             the internal caches of the image (lod-planes) when the lock status
+     *             will be lifted.
      */
     void barrierLock(bool readOnly = false);
 
     /**
-     * @brief barrierLock APIDOX
-     * @param readOnly
+     * @brief Tries to lock the image without waiting for the jobs to finish
+     *
+     * Same as barrierLock(), but doesn't block execution of the calling thread
+     * until all the background jobs are finished. Instead, in case of presence of
+     * unfinished jobs in the queue, it just returns false
+     *
+     * @return whether the lock has been acquired
+     * @see barrierLock
      */
     bool tryBarrierLock(bool readOnly = false);
 
     /**
-     * @brief barrierLock APIDOX
-     * @param readOnly
+     * Wait for all the internal image jobs to complete and return without locking
+     * the image. This function is handly for tests or other synchronous actions,
+     * when one needs to wait for the result of his actions.
      */
     void waitForDone();
 
@@ -799,13 +983,39 @@ public Q_SLOTS:
      * when we change the size of the image. In this case, the whole
      * image will be reloaded into UI by sigSizeChanged(), so there is
      * no need to inform the UI about individual dirty rects.
+     *
+     * The last call to enableUIUpdates() will return the list of updates
+     * that were requested while they were blocked.
      */
     void disableUIUpdates() override;
 
     /**
+     * Notify GUI about a bunch of updates planned. GUI is expected to wait
+     * until all the updates are completed, and render them on screen only
+     * in the very and of the batch.
+     */
+    void notifyBatchUpdateStarted() override;
+
+    /**
+     * Notify GUI that batch update has been completed. Now GUI can start
+     * showing all of them on screen.
+     */
+    void notifyBatchUpdateEnded() override;
+
+    /**
+     * Notify GUI that rect \p rc is now prepared in the image and
+     * GUI can read data from it.
+     *
+     * WARNING: GUI will read the data right in the handler of this
+     *          signal, so exclusive access to the area must be guaranteed
+     *          by the caller.
+     */
+    void notifyUIUpdateCompleted(const QRect &rc) override;
+
+    /**
      * \see disableUIUpdates
      */
-    void enableUIUpdates() override;
+    QVector<QRect> enableUIUpdates() override;
 
     /**
      * Disables the processing of all the setDirty() requests that
@@ -874,6 +1084,14 @@ public Q_SLOTS:
     void addSpontaneousJob(KisSpontaneousJob *spontaneousJob);
 
     /**
+     * \return true if there are some updates in the updates queue
+     * Please note, that is doesn't guarantee that there are no updates
+     * running in in the updater context at the very moment. To guarantee that
+     * there are no updates left at all, please use barrier jobs instead.
+     */
+    bool hasUpdatesRunning() const override;
+
+    /**
      * This method is called by the UI (*not* by the creator of the
      * stroke) when it thinks the current stroke should undo its last
      * action, for example, when the user presses Ctrl+Z while some
@@ -915,7 +1133,7 @@ public Q_SLOTS:
 
     /**
      * Same as requestStrokeEnd() but is called by view manager when
-     * the current node is changed. Use to dintinguish
+     * the current node is changed. Use to distinguish
      * sigStrokeEndRequested() and
      * sigStrokeEndRequestedActiveNodeFiltered() which are used by
      * KisNodeJugglerCompressed
@@ -930,24 +1148,22 @@ private:
     void emitSizeChanged();
 
     void resizeImageImpl(const QRect& newRect, bool cropLayers);
-    void rotateImpl(const KUndo2MagicString &actionName, KisNodeSP rootNode,
-                    bool resizeImage, double radians);
+    void rotateImpl(const KUndo2MagicString &actionName, KisNodeSP rootNode, double radians,
+                    bool resizeImage, KisSelectionSP selection);
     void shearImpl(const KUndo2MagicString &actionName, KisNodeSP rootNode,
-                   bool resizeImage, double angleX, double angleY,
-                   const QPointF &origin);
+                   bool resizeImage, double angleX, double angleY, KisSelectionSP selection);
 
     void safeRemoveTwoNodes(KisNodeSP node1, KisNodeSP node2);
 
     void refreshHiddenArea(KisNodeSP rootNode, const QRect &preparedArea);
 
     void requestProjectionUpdateImpl(KisNode *node,
-                                     const QRect& rect,
+                                     const QVector<QRect> &rects,
                                      const QRect &cropRect);
 
     friend class KisImageResizeCommand;
     void setSize(const QSize& size);
 
-    friend class KisImageSetProjectionColorSpaceCommand;
     void setProjectionColorSpace(const KoColorSpace * colorSpace);
 
 

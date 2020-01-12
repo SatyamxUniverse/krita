@@ -35,6 +35,10 @@
 #include <KoColorConversions.h>
 #include <KoColorProfile.h>
 #include <KoColorSpace.h>
+#include <KoColor.h>
+#include <KoColorSpaceRegistry.h>
+#include <KoColorModelStandardIds.h>
+#include <KoColorSpaceTraits.h>
 
 #include <kis_layer.h>
 #include <kis_paint_device.h>
@@ -47,128 +51,16 @@
 #include <kis_cursor.h>
 #include "kis_iterator_ng.h"
 #include "kis_selection_tool_helper.h"
+#include <kis_slider_spin_box.h>
 
-namespace
-{
-
-bool isReddish(int h)
-{
-    return ((h > 330 && h < 360) || (h > 0 && h < 40));
-}
-
-bool isYellowish(int h)
-{
-    return (h > 40 && h < 65);
-}
-
-bool isGreenish(int h)
-{
-    return (h > 70 && h < 155);
-}
-
-bool isCyanish(int h)
-{
-    return (h > 150 && h < 190);
-}
-
-bool isBlueish(int h)
-{
-    return (h > 185 && h < 270);
-}
-
-bool isMagentaish(int h)
-{
-    return (h > 265 && h < 330);
-}
-
-bool isHighlight(int v)
-{
-    return (v > 200);
-}
-
-bool isMidTone(int v)
-{
-    return (v > 100 && v < 200);
-}
-
-bool isShadow(int v)
-{
-    return (v < 100);
-}
-
-}
-
-quint32 matchColors(const QColor & c, enumAction action)
-{
-    int r = c.red();
-    int g = c.green();
-    int b = c.blue();
-
-    int h, s, v;
-    rgb_to_hsv(r, g, b, &h, &s, &v);    // XXX: Map the degree in which the colors conform to the requirement
-    //      to a range of selectedness between 0 and 255
-
-    switch (action) {
-
-    case REDS:
-        if (isReddish(h))
-            return MAX_SELECTED;
-        else
-            return MIN_SELECTED;
-    case YELLOWS:
-        if (isYellowish(h)) {
-            return MAX_SELECTED;
-        } else
-            return MIN_SELECTED;
-    case GREENS:
-        if (isGreenish(h))
-            return MAX_SELECTED;
-        else
-            return MIN_SELECTED;
-    case CYANS:
-        if (isCyanish(h))
-            return MAX_SELECTED;
-        else
-            return MIN_SELECTED;
-    case BLUES:
-        if (isBlueish(h))
-            return MAX_SELECTED;
-        else
-            return MIN_SELECTED;
-    case MAGENTAS:
-        if (isMagentaish(h))
-            return MAX_SELECTED;
-        else
-            return MIN_SELECTED;
-    case HIGHLIGHTS:
-        if (isHighlight(v))
-            return MAX_SELECTED;
-        else
-            return MIN_SELECTED;
-    case MIDTONES:
-        if (isMidTone(v))
-            return MAX_SELECTED;
-        else
-            return MIN_SELECTED;
-    case SHADOWS:
-        if (isShadow(v))
-            return MAX_SELECTED;
-        else
-            return MIN_SELECTED;
-    };
-
-    return MIN_SELECTED;
-}
-
-DlgColorRange::DlgColorRange(KisViewManager *view, QWidget *parent)
-        : KoDialog(parent)
-        , m_selectionCommandsAdded(0)
+DlgColorRange::DlgColorRange(KisViewManager *viewManager, QWidget *parent)
+    : KoDialog(parent)
+    , m_selectionCommandsAdded(0)
+    , m_viewManager(viewManager)
 {
     setCaption(i18n("Color Range"));
     setButtons(Ok | Cancel);
     setDefaultButton(Ok);
-
-    m_view = view;
 
     m_page = new WdgColorRange(this);
     Q_CHECK_PTR(m_page);
@@ -177,6 +69,11 @@ DlgColorRange::DlgColorRange(KisViewManager *view, QWidget *parent)
     setCaption(i18n("Color Range"));
     setMainWidget(m_page);
     resize(m_page->sizeHint());
+
+    m_page->intFuzziness->setObjectName("fuzziness");
+    m_page->intFuzziness->setRange(0, 200);
+    m_page->intFuzziness->setSingleStep(10);
+    m_page->intFuzziness->setValue(100);
 
     m_invert = false;
     m_mode = SELECTION_ADD;
@@ -222,13 +119,13 @@ void DlgColorRange::okClicked()
 
 void DlgColorRange::cancelClicked()
 {
-    if (!m_view) return;
-    if (!m_view->image()) return;
+    if (!m_viewManager) return;
+    if (!m_viewManager->image()) return;
 
     for (int i = 0; i < m_selectionCommandsAdded; i++) {
-        m_view->undoAdapter()->undoLastCommand();
+        m_viewManager->undoAdapter()->undoLastCommand();
     }
-    m_view->canvas()->update();
+    m_viewManager->canvas()->update();
     reject();
 }
 
@@ -256,10 +153,11 @@ void DlgColorRange::slotAdd(bool on)
 
 void DlgColorRange::slotSelectClicked()
 {
-    KisPaintDeviceSP device = m_view->activeDevice();
+    KisPaintDeviceSP device = m_viewManager->activeDevice();
     KIS_ASSERT_RECOVER_RETURN(device);
 
-    QRect rc = device->exactBounds();
+    QRect rc = m_viewManager->image()->bounds();
+
     if (rc.isEmpty()) return;
 
     QApplication::setOverrideCursor(KisCursor::waitCursor());
@@ -267,42 +165,83 @@ void DlgColorRange::slotSelectClicked()
     qint32 x, y, w, h;
     rc.getRect(&x, &y, &w, &h);
 
-    const KoColorSpace *cs = m_view->activeDevice()->colorSpace();
+    const KoColorSpace *cs = m_viewManager->activeDevice()->colorSpace();
+    const KoColorSpace *lab = KoColorSpaceRegistry::instance()->lab16();
 
-    KisSelectionSP selection = new KisSelection(new KisSelectionDefaultBounds(m_view->activeDevice(), m_view->image()));
+    KoColor match;
+    switch (m_currentAction) {
+    case REDS:
+        match = KoColor(QColor(Qt::red), cs);
+        break;
+    case YELLOWS:
+        match = KoColor(QColor(Qt::yellow), cs);
+        break;
+    case GREENS:
+        match = KoColor(QColor(Qt::green), cs);
+        break;
+    case CYANS:
+        match = KoColor(QColor(Qt::cyan), cs);
+        break;
+    case BLUES:
+        match = KoColor(QColor(Qt::blue), cs);
+        break;
+    case MAGENTAS:
+        match = KoColor(QColor(Qt::magenta), cs);
+        break;
+    default:
+        ;
+    };
 
-    KisHLineConstIteratorSP hiter = m_view->activeDevice()->createHLineConstIteratorNG(x, y, w);
+    int fuzziness = m_page->intFuzziness->value();
+
+    KisSelectionSP selection = new KisSelection(new KisSelectionDefaultBounds(m_viewManager->activeDevice()));
+
+    KisHLineConstIteratorSP hiter = m_viewManager->activeDevice()->createHLineConstIteratorNG(x, y, w);
     KisHLineIteratorSP selIter = selection->pixelSelection()->createHLineIteratorNG(x, y, w);
-    QColor c;
+
     for (int row = y; row < h - y; ++row) {
         do {
-            cs->toQColor(hiter->oldRawData(), &c);
             // Don't try to select transparent pixels.
-            if (c.alpha() > OPACITY_TRANSPARENT_U8) {
-                quint8 match = matchColors(c, m_currentAction);
+            if (cs->opacityU8(hiter->oldRawData()) >  OPACITY_TRANSPARENT_U8) {
 
-                if (match) {
+                bool selected = false;
+
+                KoColor c(hiter->oldRawData(), cs);
+                if (m_currentAction > MAGENTAS) {
+                    c.convertTo(lab);
+                    quint8 L = lab->scaleToU8(c.data(), 0);
+
+                    switch (m_currentAction) {
+                    case HIGHLIGHTS:
+                        selected = (L > MAX_SELECTED - fuzziness);
+                        break;
+                    case MIDTONES:
+                        selected = (L > MAX_SELECTED / 2 - fuzziness && L < MAX_SELECTED / 2 + fuzziness);
+                        break;
+                    case SHADOWS:
+                        selected = (L < MIN_SELECTED + fuzziness);
+                        break;
+                    default:
+                        ;
+                    }
+                }
+                else {
+                    quint8 difference = cs->difference(match.data(), c.data());
+                    selected = (difference <= fuzziness);
+                }
+
+                if (selected) {
                     if (!m_invert) {
                         if (m_mode == SELECTION_ADD) {
-                            *(selIter->rawData()) =  match;
+                            *(selIter->rawData()) =  MAX_SELECTED;
                         } else if (m_mode == SELECTION_SUBTRACT) {
-                            quint8 selectedness = *(selIter->rawData());
-                            if (match < selectedness) {
-                                *(selIter->rawData()) = selectedness - match;
-                            } else {
-                                *(selIter->rawData()) = 0;
-                            }
+                            *(selIter->rawData()) = MIN_SELECTED;
                         }
                     } else {
                         if (m_mode == SELECTION_ADD) {
-                            quint8 selectedness = *(selIter->rawData());
-                            if (match < selectedness) {
-                                *(selIter->rawData()) = selectedness - match;
-                            } else {
-                                *(selIter->rawData()) = 0;
-                            }
+                            *(selIter->rawData()) = MIN_SELECTED;
                         } else if (m_mode == SELECTION_SUBTRACT) {
-                            *(selIter->rawData()) =  match;
+                            *(selIter->rawData()) =  MAX_SELECTED;
                         }
                     }
                 }
@@ -313,7 +252,7 @@ void DlgColorRange::slotSelectClicked()
     }
 
     selection->pixelSelection()->invalidateOutlineCache();
-    KisSelectionToolHelper helper(m_view->canvasBase(), kundo2_i18n("Color Range Selection"));
+    KisSelectionToolHelper helper(m_viewManager->canvasBase(), kundo2_i18n("Color Range Selection"));
     helper.selectPixelSelection(selection->pixelSelection(), m_mode);
 
     m_page->bnDeselect->setEnabled(true);
@@ -323,10 +262,10 @@ void DlgColorRange::slotSelectClicked()
 
 void DlgColorRange::slotDeselectClicked()
 {
-    if (!m_view) return;
+    if (!m_viewManager) return;
 
 
-    m_view->undoAdapter()->undoLastCommand();
+    m_viewManager->undoAdapter()->undoLastCommand();
     m_selectionCommandsAdded--;
     if (!m_selectionCommandsAdded) {
         m_page->bnDeselect->setEnabled(false);

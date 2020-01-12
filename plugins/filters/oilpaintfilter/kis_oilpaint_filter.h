@@ -38,12 +38,12 @@ public:
         return KoID("oilpaint", i18n("Oilpaint"));
     }
 
-    KisFilterConfigurationSP factoryConfiguration() const override;
+    KisFilterConfigurationSP defaultConfiguration() const override;
 public:
-    KisConfigWidget * createConfigurationWidget(QWidget* parent, const KisPaintDeviceSP dev) const override;
+    KisConfigWidget * createConfigurationWidget(QWidget* parent, const KisPaintDeviceSP dev, bool useForMasks) const override;
 
 private:
-    void OilPaint(const KisPaintDeviceSP src, KisPaintDeviceSP dst, const QPoint& srcTopLeft, const QPoint& dstTopLeft, int w, int h,
+    void OilPaint(const KisPaintDeviceSP src, KisPaintDeviceSP dst, const QRect &applyRect,
                   int BrushSize, int Smoothness, KoUpdater* progressUpdater) const;
     void MostFrequentColor(KisPaintDeviceSP src, quint8* dst, const QRect& bounds, int X, int Y, int Radius, int Intensity) const;
 };

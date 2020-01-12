@@ -34,6 +34,7 @@
 #include <QMenu>
 
 #include <kis_debug.h>
+#include <kis_config.h>
 
 #include <KoColorProfile.h>
 #include "kis_coordinates_converter.h"
@@ -47,7 +48,6 @@
 #include "KisViewManager.h"
 #include "kis_canvas2.h"
 #include "kis_prescaled_projection.h"
-#include "kis_config.h"
 #include "kis_canvas_resource_provider.h"
 #include "KisDocument.h"
 #include "kis_selection_manager.h"
@@ -65,7 +65,7 @@ class KisQPainterCanvas::Private
 public:
     KisPrescaledProjectionSP prescaledProjection;
     QBrush checkBrush;
-    QImage buffer;
+    bool scrollCheckers;
 };
 
 KisQPainterCanvas::KisQPainterCanvas(KisCanvas2 *canvas, KisCoordinatesConverter *coordinatesConverter, QWidget * parent)
@@ -76,10 +76,10 @@ KisQPainterCanvas::KisQPainterCanvas(KisCanvas2 *canvas, KisCoordinatesConverter
     setAutoFillBackground(true);
     setAcceptDrops(true);
     setFocusPolicy(Qt::StrongFocus);
-    setAttribute(Qt::WA_InputMethodEnabled, true);
+    setAttribute(Qt::WA_InputMethodEnabled, false);
     setAttribute(Qt::WA_StaticContents);
     setAttribute(Qt::WA_OpaquePaintEvent);
-#ifdef Q_OS_OSX
+#ifdef Q_OS_MACOS
     setAttribute(Qt::WA_AcceptTouchEvents, false);
 #else
     setAttribute(Qt::WA_AcceptTouchEvents, true);
@@ -105,15 +105,7 @@ void KisQPainterCanvas::paintEvent(QPaintEvent * ev)
 
     setAutoFillBackground(false);
 
-    if (m_d->buffer.size() != size()) {
-        m_d->buffer = QImage(size(), QImage::Format_ARGB32_Premultiplied);
-    }
-
-    QPainter gc(&m_d->buffer);
-
-    // we double buffer, so we paint on an image first, then from the image onto the canvas,
-    // so copy the clip region since otherwise we're filling the whole buffer every time with
-    // the background color _and_ the transparent squares.
+    QPainter gc(this);
     gc.setClipRegion(ev->region());
 
     KisCoordinatesConverter *converter = coordinatesConverter();
@@ -127,7 +119,7 @@ void KisQPainterCanvas::paintEvent(QPaintEvent * ev)
     QPointF brushOrigin;
     QPolygonF polygon;
 
-    converter->getQPainterCheckersInfo(&checkersTransform, &brushOrigin, &polygon);
+    converter->getQPainterCheckersInfo(&checkersTransform, &brushOrigin, &polygon, m_d->scrollCheckers);
     gc.setPen(Qt::NoPen);
     gc.setBrush(m_d->checkBrush);
     gc.setBrushOrigin(brushOrigin);
@@ -144,10 +136,6 @@ void KisQPainterCanvas::paintEvent(QPaintEvent * ev)
 #endif
 
     drawDecorations(gc, ev->rect());
-    gc.end();
-
-    QPainter painter(this);
-    painter.drawImage(ev->rect(), m_d->buffer, ev->rect());
 }
 
 void KisQPainterCanvas::drawImage(QPainter & gc, const QRect &updateWidgetRect) const
@@ -181,7 +169,7 @@ void KisQPainterCanvas::channelSelectionChanged(const QBitArray &channelFlags)
     m_d->prescaledProjection->setChannelFlags(channelFlags);
 }
 
-void KisQPainterCanvas::setDisplayProfile(KisDisplayColorConverter *colorConverter)
+void KisQPainterCanvas::setDisplayColorConverter(KisDisplayColorConverter *colorConverter)
 {
     Q_ASSERT(m_d->prescaledProjection);
     m_d->prescaledProjection->setMonitorProfile(colorConverter->monitorProfile(),
@@ -197,6 +185,13 @@ void KisQPainterCanvas::setDisplayFilter(QSharedPointer<KisDisplayFilter> displa
         canvas()->startUpdateInPatches(canvas()->image()->bounds());
 }
 
+void KisQPainterCanvas::notifyImageColorSpaceChanged(const KoColorSpace *cs)
+{
+    Q_UNUSED(cs);
+    // FIXME: on color space change the data is refetched multiple
+    //        times by different actors!
+    canvas()->startUpdateInPatches(canvas()->image()->bounds());
+}
 
 void KisQPainterCanvas::setWrapAroundViewingMode(bool value)
 {
@@ -251,7 +246,10 @@ void KisQPainterCanvas::resizeEvent(QResizeEvent *e)
 
 void KisQPainterCanvas::slotConfigChanged()
 {
+    KisConfig cfg(true);
+
     m_d->checkBrush = QBrush(createCheckersImage());
+    m_d->scrollCheckers = cfg.scrollCheckers();
     notifyConfigChanged();
 }
 

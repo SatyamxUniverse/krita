@@ -29,6 +29,7 @@
 
 class KoToolBase;
 class KoShape;
+class KoSelection;
 
 /**
  * A strategy for the KoInteractionTool.
@@ -43,7 +44,7 @@ public:
      * @param tool the parent tool which controls this strategy
      * @param clicked the initial point that the user depressed (in pt).
      */
-    ShapeRotateStrategy(KoToolBase *tool, const QPointF &clicked, Qt::MouseButtons buttons);
+    ShapeRotateStrategy(KoToolBase *tool, KoSelection *selection, const QPointF &clicked, Qt::MouseButtons buttons);
     ~ShapeRotateStrategy() override {}
 
     void handleMouseMove(const QPointF &mouseLocation, Qt::KeyboardModifiers modifiers) override;
@@ -61,7 +62,7 @@ private:
     QTransform m_rotationMatrix;
     QList<QTransform> m_oldTransforms;
     QPointF m_rotationCenter;
-    QList<KoShape *> m_selectedShapes;
+    QList<KoShape *> m_transformedShapesAndSelection;
 };
 
 #endif

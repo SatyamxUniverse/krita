@@ -195,7 +195,7 @@ struct PaintDevicePolygonOp
         int y = boundRect.top();
         interp.setY(y);
 
-        do {
+        while (dstIt.nextPixel()) {
             int newY = dstIt.y();
 
             if (y != newY) {
@@ -213,7 +213,7 @@ struct PaintDevicePolygonOp
                 // brain-blowing part:
                 //
                 // since the interpolator does the inverted
-                // transfomation we read data from "dstPoint"
+                // transformation we read data from "dstPoint"
                 // (which is non-transformed) and write it into
                 // "srcPoint" (which is transformed position)
 
@@ -221,7 +221,7 @@ struct PaintDevicePolygonOp
                 srcAcc->sampledOldRawData(dstIt.rawData());
             }
 
-        } while (dstIt.nextPixel());
+        }
 
     }
 

@@ -23,6 +23,8 @@
 #include <QEvent>
 #include <QTouchEvent>
 #include <QScopedPointer>
+#include <QQueue>
+#include <QElapsedTimer>
 
 #include "kis_input_manager.h"
 #include "kis_shortcut_matcher.h"
@@ -33,7 +35,7 @@
 #include "input/kis_tablet_debugger.h"
 #include "kis_timed_signal_threshold.h"
 #include "kis_signal_auto_connection.h"
-
+#include "kis_latency_tracker.h"
 
 class KisToolInvocationAction;
 
@@ -46,6 +48,7 @@ public:
     void addStrokeShortcut(KisAbstractInputAction* action, int index, const QList< Qt::Key >& modifiers, Qt::MouseButtons buttons);
     void addKeyShortcut(KisAbstractInputAction* action, int index,const QList<Qt::Key> &keys);
     void addTouchShortcut( KisAbstractInputAction* action, int index, KisShortcutConfiguration::GestureAction gesture );
+    bool addNativeGestureShortcut( KisAbstractInputAction* action, int index, KisShortcutConfiguration::GestureAction gesture );
     void addWheelShortcut(KisAbstractInputAction* action, int index, const QList< Qt::Key >& modifiers, KisShortcutConfiguration::MouseWheelMovement wheelAction);
     bool processUnhandledEvent(QEvent *event);
     void setupActions();
@@ -53,8 +56,8 @@ public:
 
     KisInputManager *q;
 
-    QPointer<KisCanvas2> canvas = 0;
-    KisToolProxy *toolProxy = 0;
+    QPointer<KisCanvas2> canvas;
+    QPointer<KisToolProxy> toolProxy;
 
     bool forwardAllEventsToTool = false;
     bool ignoringQtCursorEvents();
@@ -70,18 +73,21 @@ public:
     QScopedPointer<QEvent> compressedMoveEvent;
     bool testingAcceptCompressedTabletEvents = false;
     bool testingCompressBrushEvents = false;
-    bool tabletActive = false; // Indicates whether or not tablet is in proximity
 
     typedef QPair<int, QPointer<QObject> > PriorityPair;
     typedef QList<PriorityPair> PriorityList;
     PriorityList priorityEventFilter;
     int priorityEventFilterSeqNo;
 
+    bool touchStrokeStarted = false;
+
+    QPointF previousPos;
+    bool buttonPressed = false;
+
     void blockMouseEvents();
     void allowMouseEvents();
     void eatOneMousePress();
     void setMaskSyntheticEvents(bool value);
-    void setTabletActive(bool value);
     void resetCompressor();
 
     template <class Event, bool useBlocking>
@@ -125,6 +131,8 @@ public:
 
     struct EventEater
     {
+        EventEater();
+
         bool eventFilter(QObject* target, QEvent* event);
 
         // This should be called after we're certain a tablet stroke has started.
@@ -138,10 +146,19 @@ public:
         bool hungry{false};   // Continue eating mouse strokes
         bool peckish{false};  // Eat a single mouse press event
         bool eatSyntheticEvents{false}; // Mask all synthetic events
+        bool activateSecondaryButtonsWorkaround{false}; // Use mouse events for right- and middle-clicks
     };
     EventEater eventEater;
 
-    bool containsPointer = true;
+    bool containsPointer = false;
 
     int accumulatedScrollDelta = 0;
+
+    class TabletLatencyTracker : public KisLatencyTracker {
+    protected:
+        virtual qint64 currentTimestamp() const;
+        virtual void print(const QString &message);
+    };
+
+    KisSharedPtr<TabletLatencyTracker> tabletLatencyTracker;
 };

@@ -119,10 +119,10 @@ void KoFileDialog::setMimeTypeFilters(const QStringList &mimeTypeList, QString d
     QString defaultFilter;
 
     if (!defaultMimeType.isEmpty()) {
-        QString suffix = KisMimeDatabase::suffixesForMimeType(defaultMimeType).first().remove("*.");
+        QString suffix = KisMimeDatabase::suffixesForMimeType(defaultMimeType).first();
 
         if (!d->proposedFileName.isEmpty()) {
-            d->proposedFileName = QFileInfo(d->proposedFileName).baseName() + "." + suffix;
+            d->proposedFileName = QFileInfo(d->proposedFileName).completeBaseName() + "." + suffix;
         }
 
         QStringList defaultFilters = getFilterStringListFromMime(QStringList() << defaultMimeType, false);
@@ -155,14 +155,18 @@ void KoFileDialog::createFileDialog()
         dontUseNative = false;
     }
 #endif
+#ifdef Q_OS_WIN
+    dontUseNative = false;
+#endif
 
-    d->fileDialog->setOption(QFileDialog::DontUseNativeDialog, group.readEntry("DontUseNativeFileDialog", dontUseNative));
+    bool optionDontUseNative = group.readEntry("DontUseNativeFileDialog", dontUseNative);
+    d->fileDialog->setOption(QFileDialog::DontUseNativeDialog, optionDontUseNative);
     d->fileDialog->setOption(QFileDialog::DontConfirmOverwrite, false);
-    d->fileDialog->setOption(QFileDialog::HideNameFilterDetails, true);
+    d->fileDialog->setOption(QFileDialog::HideNameFilterDetails, dontUseNative ? true : false);
 
-#ifdef Q_OS_OSX
+#ifdef Q_OS_MACOS
     QList<QUrl> urls = d->fileDialog->sidebarUrls();
-    QUrl volumes = QUrl::fromLocalFile("\/Volumes");
+    QUrl volumes = QUrl::fromLocalFile("/Volumes");
     if (!urls.contains(volumes)) {
         urls.append(volumes);
     }
@@ -197,7 +201,8 @@ void KoFileDialog::createFileDialog()
     d->fileDialog->setNameFilters(d->filterList);
 
     if (!d->proposedFileName.isEmpty()) {
-        QString mime = KisMimeDatabase::mimeTypeForFile(d->proposedFileName);
+        QString mime = KisMimeDatabase::mimeTypeForFile(d->proposedFileName, d->type == KoFileDialog::SaveFile ? false : true);
+
         QString description = KisMimeDatabase::descriptionForMimeType(mime);
         Q_FOREACH(const QString &filter, d->filterList) {
             if (filter.startsWith(description)) {
@@ -213,7 +218,15 @@ void KoFileDialog::createFileDialog()
     if (d->type == ImportDirectory ||
             d->type == ImportFile || d->type == ImportFiles ||
             d->type == SaveFile) {
-        d->fileDialog->setWindowModality(Qt::WindowModal);
+
+        bool allowModal = true;
+// MacOS do not declare native file dialog as modal BUG:413241.
+#ifdef Q_OS_MACOS
+        allowModal = optionDontUseNative;
+#endif
+        if (allowModal) {
+            d->fileDialog->setWindowModality(Qt::WindowModal);
+        }
     }
 }
 
@@ -226,7 +239,12 @@ QString KoFileDialog::filename()
     }
 
     if (!url.isEmpty()) {
-        if (d->type == SaveFile && QFileInfo(url).suffix().isEmpty()) {
+        QString suffix = QFileInfo(url).suffix();
+        if (KisMimeDatabase::mimeTypeForSuffix(suffix).isEmpty()) {
+            suffix = "";
+        }
+
+        if (d->type == SaveFile && suffix.isEmpty()) {
             QString selectedFilter;
             // index 0 is all supported; if that is chosen, saveDocument will automatically make it .kra
             for (int i = 1; i < d->filterList.size(); ++i) {
@@ -245,7 +263,7 @@ QString KoFileDialog::filename()
             url = url + extension;
         }
 
-        d->mimeType = KisMimeDatabase::mimeTypeForFile(url);
+        d->mimeType = KisMimeDatabase::mimeTypeForFile(url, d->type == KoFileDialog::SaveFile ? false : true);
         saveUsedDir(url, d->dialogName);
     }
     return url;

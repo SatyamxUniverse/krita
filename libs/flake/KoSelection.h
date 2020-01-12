@@ -54,7 +54,7 @@ class KRITAFLAKE_EXPORT KoSelection : public QObject, public KoShape, public KoS
 
 public:
 
-    KoSelection();
+    KoSelection(QObject *parent = 0);
     ~KoSelection() override;
 
     void paint(QPainter &painter, const KoViewConverter &converter, KoShapePaintingContext &paintcontext) override;
@@ -75,7 +75,6 @@ public:
      * the selection.
      *
      * @param shape the shape to add to the selection
-     * @param recursive enables recursively selecting shapes of parent groups
      */
     void select(KoShape *shape);
 
@@ -91,7 +90,6 @@ public:
      * from the selection.
      *
      * @param shape the shape to remove from the selection
-     * @param recursive enables recursively deselecting shapes of parent groups
      */
     void deselect(KoShape *shape);
 
@@ -101,10 +99,14 @@ public:
     /**
      * Return the list of selected shapes
      * @return the list of selected shapes
-     * @param strip if StrippedSelection, the returned list will not include any children
-     *    of a container shape if the container-parent is itself also in the set.
      */
     const QList<KoShape*> selectedShapes() const;
+
+    /**
+     * Same as selectedShapes() but only for shapes in visible state. Used by
+     * the algorithms that draw shapes on the image
+     */
+    const QList<KoShape*> selectedVisibleShapes() const;
 
     /**
      * Same as selectedShapes() but only for editable shapes. Used by
@@ -120,8 +122,6 @@ public:
 
     /**
      * Return the first selected shape, or 0 if there is nothing selected.
-     * @param strip if StrippedSelection, the returned list will not include any children
-     *    of a grouped shape if the group-parent is itself also in the set.
      */
     KoShape *firstSelectedShape() const;
 
@@ -159,7 +159,12 @@ private:
     void saveOdf(KoShapeSavingContext &) const override;
     bool loadOdf(const KoXmlElement &, KoShapeLoadingContext &) override;
 
-    Q_DECLARE_PRIVATE_D(KoShape::d_ptr, KoSelection)
+protected:
+    KoSelection(const KoSelection &rhs);
+
+private:
+    class Private;
+    QSharedDataPointer<Private> d;
 };
 
 #endif

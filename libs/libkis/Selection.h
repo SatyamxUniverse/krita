@@ -63,6 +63,11 @@ public:
 public Q_SLOTS:
 
     /**
+     * @return a duplicate of the seletion
+     */
+    Selection *duplicate() const;
+
+    /**
      * @return the width of the selection
      */
     int width() const;
@@ -196,6 +201,11 @@ public Q_SLOTS:
      */
     void intersect(Selection *selection);
 
+        /**
+     * Intersect with the inverse of the given selection with this selection.
+     */
+    void symmetricdifference(Selection *selection);
+
     /**
      * @brief pixelData reads the given rectangle from the Selection's mask and returns it as a
      * byte array. The pixel data starts top-left, and is ordered row-first.
@@ -231,6 +241,9 @@ public Q_SLOTS:
 
 private:
     friend class Document;
+    friend class FilterLayer;
+    friend class FillLayer;
+    friend class SelectionMask;
 
     KisSelectionSP selection() const;
 

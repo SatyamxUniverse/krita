@@ -40,7 +40,7 @@
 #include "kis_iterator_ng.h"
 #include "kis_image.h"
 
-void selectByColor(KisPaintDeviceSP dev, KisPixelSelectionSP selection, const quint8 * c, int fuzziness, const QRect & rc)
+void selectByColor(KisPaintDeviceSP dev, KisPixelSelectionSP selection, const quint8 *c, int fuzziness, const QRect & rc)
 {
     if (rc.isEmpty()) {
         return;
@@ -61,9 +61,16 @@ void selectByColor(KisPaintDeviceSP dev, KisPixelSelectionSP selection, const qu
         do {
             //if (dev->colorSpace()->hasAlpha())
             //    opacity = dev->colorSpace()->alpha(hiter->rawData());
-            quint8 match = cs->difference(c, hiter->oldRawData());
-            if (match <= fuzziness) {
-                *(selIter->rawData()) = MAX_SELECTED;
+            if (fuzziness == 1) {
+                if (memcmp(c, hiter->oldRawData(), cs->pixelSize()) == 0) {
+                    *(selIter->rawData()) = MAX_SELECTED;
+                }
+            }
+            else {
+                quint8 match = cs->difference(c, hiter->oldRawData());
+                if (match <= fuzziness) {
+                    *(selIter->rawData()) = MAX_SELECTED;
+                }
             }
         }
         while (hiter->nextPixel() && selIter->nextPixel());
@@ -80,13 +87,16 @@ KisToolSelectSimilar::KisToolSelectSimilar(KoCanvasBase * canvas)
                     i18n("Similar Color Selection")),
       m_fuzziness(20)
 {
-    connect(&m_widgetHelper, &KisSelectionToolConfigWidgetHelper::selectionActionChanged,
-            this, &KisToolSelectSimilar::setSelectionAction);
 }
 
 void KisToolSelectSimilar::activate(ToolActivation toolActivation, const QSet<KoShape*> &shapes)
 {
-    KisTool::activate(toolActivation, shapes);
+    KisToolSelect::activate(toolActivation, shapes);
+    if (selectionOptionWidget()) {
+        // similar color selection tool doesn't use antialiasing option for now
+        // hence explicit disabling it
+        selectionOptionWidget()->disableAntiAliasSelectionOption();
+    }
     m_configGroup =  KSharedConfig::openConfig()->group(toolId());
 }
 
@@ -101,6 +111,10 @@ void KisToolSelectSimilar::beginPrimaryAction(KoPointerEvent *event)
         !selectionEditable()) {
 
         event->ignore();
+        return;
+    }
+
+    if (KisToolSelect::selectionDidMove()) {
         return;
     }
 
@@ -130,7 +144,7 @@ void KisToolSelectSimilar::beginPrimaryAction(KoPointerEvent *event)
     KisSelectionToolHelper helper(kisCanvas, kundo2_i18n("Select Similar Color"));
     helper.selectPixelSelection(tmpSel, selectionAction());
 
-    QApplication::restoreOverrideCursor();                        
+    QApplication::restoreOverrideCursor();
 
 }
 
@@ -144,8 +158,9 @@ QWidget* KisToolSelectSimilar::createOptionWidget()
 {
     KisToolSelectBase::createOptionWidget();
     KisSelectionOptions *selectionWidget = selectionOptionWidget();
+    // similar color selection tool doesn't use antialiasing option for now
+    // hence explicit disabling it
     selectionWidget->disableAntiAliasSelectionOption();
-    selectionWidget->disableSelectionModeOption();
 
     QHBoxLayout* fl = new QHBoxLayout();
     QLabel * lbl = new QLabel(i18n("Fuzziness: "), selectionWidget);
@@ -153,7 +168,7 @@ QWidget* KisToolSelectSimilar::createOptionWidget()
 
     KisSliderSpinBox* input = new KisSliderSpinBox(selectionWidget);
     input->setObjectName("fuzziness");
-    input->setRange(0, 200);
+    input->setRange(1, 200);
     input->setSingleStep(10);
     fl->addWidget(input);
     connect(input, SIGNAL(valueChanged(int)), this, SLOT(slotSetFuzziness(int)));
@@ -167,7 +182,13 @@ QWidget* KisToolSelectSimilar::createOptionWidget()
     return selectionWidget;
 }
 
-void KisToolSelectSimilar::setSelectionAction(int action)
+void KisToolSelectSimilar::resetCursorStyle()
 {
-    changeSelectionAction(action);
+    if (selectionAction() == SELECTION_ADD) {
+        useCursor(KisCursor::load("tool_similar_selection_cursor_add.png", 6, 6));
+    } else if (selectionAction() == SELECTION_SUBTRACT) {
+        useCursor(KisCursor::load("tool_similar_selection_cursor_sub.png", 6, 6));
+    } else {
+        KisToolSelect::resetCursorStyle();
+    }
 }

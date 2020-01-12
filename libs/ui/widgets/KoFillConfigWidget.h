@@ -28,6 +28,7 @@
 #include <KoFlake.h>
 #include <KoFlakeTypes.h>
 
+class KoShapeFillWrapper;
 class KoCanvasBase;
 class KoShapeBackground;
 class KoShape;
@@ -44,7 +45,14 @@ class KRITAUI_EXPORT KoFillConfigWidget : public QWidget
     };
 
 public:
-    explicit KoFillConfigWidget(KoCanvasBase *canvas, KoFlake::FillVariant fillVariant, QWidget *parent);
+
+    /**
+     * @param trackShapeSelection controls if the widget connects to the canvas's selectionChanged signal.
+     *                            If you decide to pass 'false', then don't forget to call
+     *                            forceUpdateOnSelectionChanged() manually of every selectionChanged() and
+     *                            selectionContentChanged() signals.
+     */
+    explicit KoFillConfigWidget(KoCanvasBase *canvas, KoFlake::FillVariant fillVariant, bool trackShapeSelection, QWidget *parent);
     ~KoFillConfigWidget() override;
 
     void setNoSelectionTrackingMode(bool value);
@@ -61,10 +69,13 @@ public:
     void activate();
     void deactivate();
 
+    void forceUpdateOnSelectionChanged();
+
 private Q_SLOTS:
     void styleButtonPressed(int buttonId);
 
     void noColorSelected();
+     void shapeChanged();
 
     /// apply color changes to the selected shape
     void colorChanged();
@@ -72,7 +83,7 @@ private Q_SLOTS:
     /// the pattern of the fill changed, apply the changes
     void patternChanged(QSharedPointer<KoShapeBackground> background);
 
-    void shapeChanged();
+
 
     void slotUpdateFillTitle();
 
@@ -87,22 +98,26 @@ private Q_SLOTS:
     void slotGradientRepeatChanged();
 
     void slotProposeCurrentColorToResourceManager();
+    void slotRecoverColorInResourceManager();
 
 Q_SIGNALS:
     void sigFillChanged();
 
     void sigInternalRequestColorToResourceManager();
+    void sigInternalRecoverColorInResourceManager();
 
 private:
-    /// update the widget with the KoShape background
-    void updateWidget(KoShape *shape);
-
     void uploadNewGradientBackground(const QGradient *gradient);
     void setNewGradientBackgroundToShape();
     void updateGradientSaveButtonAvailability();
     void loadCurrentFillFromResourceServer();
 
     void updateWidgetComponentVisbility();
+
+    /// update the widget with the KoShape background
+    void updateFillIndexFromShape(KoShape *shape);
+
+    void updateFillColorFromShape(KoShape *shape);
 
     class Private;
     Private * const d;

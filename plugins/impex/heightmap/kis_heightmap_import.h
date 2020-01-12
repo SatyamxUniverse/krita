@@ -1,5 +1,6 @@
 /*
  *  Copyright (c) 2014 Boudewijn Rempt <boud@valdyas.org>
+ *  Copyright (c) 2017 Victor Wåhlström <victor.wahlstrom@initiali.se>
  *
  *  This library is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
@@ -24,7 +25,6 @@
 
 #include <KisImportExportFilter.h>
 
-
 class KisHeightMapImport : public KisImportExportFilter
 {
     Q_OBJECT
@@ -32,7 +32,7 @@ public:
     KisHeightMapImport(QObject *parent, const QVariantList &);
     ~KisHeightMapImport() override;
 public:
-    KisImportExportFilter::ConversionStatus convert(KisDocument *document, QIODevice *io,  KisPropertiesConfigurationSP configuration = 0) override;
+    KisImportExportErrorCode convert(KisDocument *document, QIODevice *io,  KisPropertiesConfigurationSP configuration = 0) override;
 };
 
 #endif

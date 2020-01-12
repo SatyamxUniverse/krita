@@ -43,7 +43,7 @@ class KoColorSpaceFactory;
  *
  * Encapsulation of the profile accesses inside a separate class lets us
  * follow this rule without even thinking of it. KoColorProfileStorage just
- * *never* calls any method of the registry, therefore lock order inverion is
+ * *never* calls any method of the registry, therefore lock order inversion is
  * not possible,
  */
 class KoColorProfileStorage
@@ -68,7 +68,7 @@ public:
     void removeProfile(KoColorProfile* profile);
 
     /**
-     * @brief containsProfile shows if a profile is registered in teh storage
+     * @brief containsProfile shows if a profile is registered in the storage
      */
     bool containsProfile(const KoColorProfile *profile);
 

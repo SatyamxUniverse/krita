@@ -38,6 +38,8 @@
 #include "kis_coordinates_converter.h"
 #include "kis_canvas_decoration.h"
 #include "kis_painting_assistants_decoration.h"
+#include "input/KisInputActionGroup.h"
+#include "KisReferenceImagesDecoration.h"
 
 class KoToolProxy;
 class KoColorProfile;
@@ -54,13 +56,14 @@ class KisAnimationPlayer;
 class KisShapeController;
 class KisCoordinatesConverter;
 class KoViewConverter;
+class KisAbstractCanvasWidget;
 
 /**
  * KisCanvas2 is not an actual widget class, but rather an adapter for
  * the widget it contains, which may be either a QPainter based
  * canvas, or an OpenGL based canvas: that are the real widgets.
  */
-class KRITAUI_EXPORT KisCanvas2 : public KoCanvasBase
+class KRITAUI_EXPORT KisCanvas2 : public KoCanvasBase, public KisInputActionGroupsMaskInterface
 {
 
     Q_OBJECT
@@ -74,7 +77,7 @@ public:
      * @param viewConverter the viewconverter for converting between
      *                       window and document coordinates.
      */
-    KisCanvas2(KisCoordinatesConverter *coordConverter, KoCanvasResourceManager *resourceManager, KisView *view, KoShapeBasedDocumentBase *sc);
+    KisCanvas2(KisCoordinatesConverter *coordConverter, KoCanvasResourceProvider *resourceManager, KisMainWindow *mainWindow, KisView *view, KoShapeControllerBase *sc);
 
     ~KisCanvas2() override;
 
@@ -117,6 +120,13 @@ public: // KoCanvasBase implementation
      */
     KoShapeManager *globalShapeManager() const;
 
+    /**
+     * Return shape manager associated with the currently active node.
+     * If current node has no internal shape manager, return null.
+     */
+    KoShapeManager *localShapeManager() const;
+
+
     void updateCanvas(const QRectF& rc) override;
 
     void updateInputMethodInfo() override;
@@ -148,8 +158,20 @@ public: // KoCanvasBase implementation
      */
     KisInputManager* globalInputManager() const;
 
-    KisPaintingAssistantsDecorationSP paintingAssistantsDecoration() const;
+    /**
+     * Return the mask of currently available input action groups
+     * Note: Override from KisInputActionGroupsMaskInterface
+     */
+    KisInputActionGroupsMask inputActionGroupsMask() const override;
 
+    /**
+     * Set the mask of currently available action groups
+     * Note: Override from KisInputActionGroupsMaskInterface
+     */
+    void setInputActionGroupsMask(KisInputActionGroupsMask mask) override;
+
+    KisPaintingAssistantsDecorationSP paintingAssistantsDecoration() const;
+    KisReferenceImagesDecorationSP referenceImagesDecoration() const;
 
 public: // KisCanvas2 methods
 
@@ -193,8 +215,25 @@ public: // KisCanvas2 methods
     KisAnimationPlayer *animationPlayer() const;
     void refetchDataFromImage();
 
+    /**
+     * @return area of the image (in image coordinates) that is visible on the canvas
+     * with a small margin selected by the user
+     */
+    QRect regionOfInterest() const;
+
+    /**
+     * Set artificial limit outside which the image will not be rendered
+     * \p rc is measured in image pixels
+     */
+    void setRenderingLimit(const QRect &rc);
+
+    /**
+     * @return aftificial limit outside which the image will not be rendered
+     */
+    QRect renderingLimit() const;
+
 Q_SIGNALS:
-    void imageChanged(KisImageWSP image);
+    void sigCanvasEngineChanged();
 
     void sigCanvasCacheUpdated();
     void sigContinueResizeImage(qint32 w, qint32 h);
@@ -203,6 +242,8 @@ Q_SIGNALS:
 
     // emitted whenever the canvas widget thinks sketch should update
     void updateCanvasRequested(const QRect &rc);
+
+    void sigRegionOfInterestChanged(const QRect &roi);
 
 public Q_SLOTS:
 
@@ -220,17 +261,19 @@ public Q_SLOTS:
     void slotSoftProofing(bool softProofing);
     void slotGamutCheck(bool gamutCheck);
     void slotChangeProofingConfig();
-    void slotZoomChanged(int zoom);
+    void slotPopupPaletteRequestedZoomChange(int zoom);
 
     void channelSelectionChanged();
 
-    /**
-     * Called whenever the display monitor profile resource changes
-     */
-    void slotSetDisplayProfile(const KoColorProfile *profile);
     void startUpdateInPatches(const QRect &imageRect);
 
     void slotTrySwitchShapeManager();
+
+    /**
+     * Called whenever the configuration settings change.
+     */
+    void slotConfigChanged();
+
 
 private Q_SLOTS:
 
@@ -239,6 +282,9 @@ private Q_SLOTS:
     void startUpdateCanvasProjection(const QRect & rc);
     void updateCanvasProjection();
 
+    void slotBeginUpdatesBatch();
+    void slotEndUpdatesBatch();
+    void slotSetLodUpdatesBlocked(bool value);
 
     /**
      * Called whenever the view widget needs to show a different part of
@@ -248,17 +294,17 @@ private Q_SLOTS:
      */
     void documentOffsetMoved(const QPoint &documentOffset);
 
-    /**
-     * Called whenever the configuration settings change.
-     */
-    void slotConfigChanged();
-
     void slotSelectionChanged();
 
     void slotDoCanvasUpdate();
 
     void bootstrapFinished();
 
+    void slotUpdateRegionOfInterest();
+
+    void slotReferenceImagesChanged();
+
+    void slotImageColorSpaceChanged();
 public:
 
     bool isPopupPaletteVisible() const;
@@ -283,8 +329,9 @@ private:
     void createQPainterCanvas();
     void createOpenGLCanvas();
     void updateCanvasWidgetImpl(const QRect &rc = QRect());
-    void setCanvasWidget(QWidget *widget);
+    void setCanvasWidget(KisAbstractCanvasWidget *widget);
     void resetCanvas(bool useOpenGL);
+    void setDisplayProfile(const KoColorProfile *profile);
 
     void notifyLevelOfDetailChange();
 
@@ -293,6 +340,8 @@ private:
     // (to be defined what that means) for things KisCanvas2 expects from KisView
     // TODO: see to avoid that
     void setup();
+
+    void initializeFpsDecoration();
 
 private:
     friend class KisView; // calls setup()

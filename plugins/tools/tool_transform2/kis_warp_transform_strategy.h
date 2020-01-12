@@ -32,6 +32,10 @@ class TransformTransactionProperties;
 class QCursor;
 class QImage;
 
+enum TransformType {
+    WARP_TRANSFORM,
+    CAGE_TRANSFORM
+};
 
 class KisWarpTransformStrategy : public KisSimplifiedActionPolicyStrategy
 {
@@ -43,6 +47,8 @@ public:
     ~KisWarpTransformStrategy() override;
 
     void setTransformFunction(const QPointF &mousePos, bool perspectiveModifierActive) override;
+    void setTransformType(TransformType type);
+
     void paint(QPainter &gc) override;
     QCursor getCurrentCursor() const override;
 
@@ -57,6 +63,9 @@ public:
     bool endPrimaryAction() override;
 
     bool acceptsClicks() const override;
+
+private:
+    Q_PRIVATE_SLOT(m_d, void recalculateTransformations());
 
 Q_SIGNALS:
     void requestCanvasUpdate();

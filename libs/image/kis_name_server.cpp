@@ -18,14 +18,8 @@
 
 #include "kis_name_server.h"
 
-KisNameServer::KisNameServer(qint32 seed)
-{
-    m_generator = seed;
-}
-
-KisNameServer::~KisNameServer()
-{
-}
+KisNameServer::KisNameServer(qint32 seed) : m_generator(seed)
+{ }
 
 qint32 KisNameServer::currentSeed() const
 {

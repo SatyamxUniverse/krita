@@ -17,9 +17,17 @@
  */
 #include "Window.h"
 
+#include <QMenuBar>
+#include <QObject>
+#include <QAction>
+
+#include <kis_action.h>
 #include <KisMainWindow.h>
 #include <KisPart.h>
 #include <KisDocument.h>
+#include <KisViewManager.h>
+#include <kis_action_manager.h>
+#include <kis_debug.h>
 
 #include <Document.h>
 #include <View.h>
@@ -76,11 +84,7 @@ QList<View*> Window::views() const
 View *Window::addView(Document *document)
 {
     if (d->window) {
-        KisView *view = KisPart::instance()->createView(document->document(),
-                                                    d->window->resourceManager(),
-                                                    d->window->actionCollection(),
-                                                    d->window);
-        d->window->addView(view);
+        KisView *view = d->window->newView(document->document());
         return new View(view);
     }
     return 0;
@@ -115,6 +119,35 @@ void Window::close()
         KisPart::instance()->removeMainWindow(d->window);
         d->window->close();
     }
+}
+
+
+QAction *Window::createAction(const QString &id, const QString &text, const QString &menuLocation)
+{
+    KisAction *action = d->window->viewManager()->actionManager()->createAction(id);
+    action->setText(text);
+    action->setObjectName(id);
+    if (!menuLocation.isEmpty()) {
+        QAction *found = 0;
+        QList<QAction *> candidates = d->window->menuBar()->actions();
+        Q_FOREACH(const QString &name, menuLocation.split("/")) {
+            Q_FOREACH(QAction *candidate, candidates) {
+                if (candidate->objectName().toLower() == name.toLower()) {
+                    found = candidate;
+                    candidates = candidate->menu()->actions();
+                    break;
+                }
+            }
+            if (candidates.isEmpty()) {
+                break;
+            }
+        }
+
+        if (found && found->menu()) {
+            found->menu()->addAction(action);
+        }
+    }
+    return action;
 }
 
 

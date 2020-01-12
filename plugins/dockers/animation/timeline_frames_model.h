@@ -19,6 +19,7 @@
 #ifndef __TIMELINE_FRAMES_MODEL_H
 #define __TIMELINE_FRAMES_MODEL_H
 
+
 #include <QScopedPointer>
 #include <QIcon>
 
@@ -31,18 +32,29 @@
 class KisNodeDummy;
 class KisDummiesFacadeBase;
 class KisAnimationPlayer;
+class KisNodeDisplayModeAdapter;
 
 
 class KRITAANIMATIONDOCKER_EXPORT TimelineFramesModel : public TimelineNodeListKeeper::ModelWithExternalNotifications
 {
     Q_OBJECT
+
+public:
+    enum MimeCopyPolicy {
+        UndefinedPolicy = 0,
+        MoveFramesPolicy,
+        CopyFramesPolicy
+    };
+
 public:
     TimelineFramesModel(QObject *parent);
     ~TimelineFramesModel() override;
 
     bool hasConnectionToCanvas() const;
 
-    void setDummiesFacade(KisDummiesFacadeBase *dummiesFacade, KisImageSP image);
+    void setDummiesFacade(KisDummiesFacadeBase *dummiesFacade,
+                          KisImageSP image,
+                          KisNodeDisplayModeAdapter *displayModeAdapter);
 
     bool canDropFrameData(const QMimeData *data, const QModelIndex &index);
     bool insertOtherLayer(int index, int dstRow);
@@ -50,6 +62,10 @@ public:
 
     bool createFrame(const QModelIndex &dstIndex);
     bool copyFrame(const QModelIndex &dstIndex);
+
+    bool insertFrames(int dstColumn, const QList<int> &dstRows, int count, int timing = 1);
+
+    bool insertHoldFrames(QModelIndexList selectedIndexes, int count);
 
     QString audioChannelFileName() const;
     void setAudioChannelFileName(const QString &fileName);
@@ -59,6 +75,9 @@ public:
 
     qreal audioVolume() const;
     void setAudioVolume(qreal value);
+
+    void setFullClipRangeStart(int column);
+    void setFullClipRangeEnd(int column);
 
     void setLastClickedIndex(const QModelIndex &index);
 
@@ -71,8 +90,12 @@ public:
     Qt::DropActions supportedDragActions() const override;
     Qt::DropActions supportedDropActions() const override;
     QStringList mimeTypes() const override;
-    QMimeData * mimeData(const QModelIndexList &indexes) const override;
-    bool dropMimeData(const QMimeData * data, Qt::DropAction action, int row, int column, const QModelIndex & parent) override;
+    QMimeData *mimeData(const QModelIndexList &indexes) const override;
+    QMimeData *mimeDataExtended(const QModelIndexList &indexes, const QModelIndex &baseIndex, MimeCopyPolicy copyPolicy) const;
+    bool dropMimeData(const QMimeData *data, Qt::DropAction action, int row, int column, const QModelIndex &parent) override;
+
+    bool dropMimeDataExtended(const QMimeData *data, Qt::DropAction action, const QModelIndex &parent, bool *dataMoved = 0);
+
     Qt::ItemFlags flags(const QModelIndex &index) const override;
 
     bool insertRows(int row, int count, const QModelIndex &parent) override;
@@ -99,6 +122,7 @@ public:
         virtual ~NodeManipulationInterface() {}
         virtual KisLayerSP addPaintLayer() const = 0;
         virtual void removeNode(KisNodeSP node) const = 0;
+        virtual bool setNodeProperties(KisNodeSP node, KisImageSP image, KisBaseNode::PropertyList properties) const = 0;
     };
 
     /**
@@ -106,13 +130,14 @@ public:
      *       be deleted automatically later
      */
     void setNodeManipulationInterface(NodeManipulationInterface *iface);
+    KisNodeSP nodeAt(QModelIndex index) const override;
 
 protected:
-    KisNodeSP nodeAt(QModelIndex index) const override;
     QMap<QString, KisKeyframeChannel *> channelsAt(QModelIndex index) const override;
 
 private Q_SLOTS:
     void slotDummyChanged(KisNodeDummy *dummy);
+    void slotImageContentChanged();
     void processUpdateQueue();
 
 public Q_SLOTS:

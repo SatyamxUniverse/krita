@@ -31,31 +31,46 @@ KoID KisCompositeOpListModel::favoriteCategory() {
     return category;
 }
 
+void KisCompositeOpListModel::initialize()
+{
+    QMap<KoID, KoID> ops = KoCompositeOpRegistry::instance().getCompositeOps();
+    QMapIterator<KoID, KoID> it(ops);
+
+    while (it.hasNext()) {
+        KoID op = *it.next();
+        KoID category = it.key();
+        BaseKoIDCategorizedListModel::DataItem *item = categoriesMapper()->addEntry(category.name(), op);
+        item->setCheckable(true);
+    }
+
+    BaseKoIDCategorizedListModel::DataItem *item = categoriesMapper()->addCategory(favoriteCategory().name());
+    item->setExpanded(true);
+
+    readFavoriteCompositeOpsFromConfig();
+}
+
+void KisCompositeOpListModel::initializeForLayerStyles()
+{
+    QMap<KoID, KoID> ops = KoCompositeOpRegistry::instance().getLayerStylesCompositeOps();
+    QMapIterator<KoID, KoID> it(ops);
+
+    while (it.hasNext()) {
+        KoID op = *it.next();
+        KoID category = it.key();
+        BaseKoIDCategorizedListModel::DataItem *item = categoriesMapper()->addEntry(category.name(), op);
+        item->setCheckable(false);
+    }
+
+   categoriesMapper()->expandAllCategories();
+}
+
 KisCompositeOpListModel* KisCompositeOpListModel::sharedInstance()
 {
     static KisCompositeOpListModel *model = 0;
 
     if (!model) {
         model = new KisCompositeOpListModel();
-
-        QMap<KoID, KoID> ops = KoCompositeOpRegistry::instance().getCompositeOps();
-        QMapIterator<KoID, KoID> it(ops);
-
-        while (it.hasNext()) {
-            KoID op = *it.next();
-            KoID category = it.key();
-
-            BaseKoIDCategorizedListModel::DataItem *item =
-                model->categoriesMapper()->addEntry(category.name(), op);
-
-            item->setCheckable(true);
-        }
-
-        BaseKoIDCategorizedListModel::DataItem *item =
-            model->categoriesMapper()->addCategory(favoriteCategory().name());
-        item->setExpanded(true);
-
-        model->readFavoriteCompositeOpsFromConfig();
+        model->initialize();
     }
 
     return model;
@@ -125,7 +140,7 @@ void KisCompositeOpListModel::removeFavoriteEntry(const KoID &entry)
 
 void KisCompositeOpListModel::readFavoriteCompositeOpsFromConfig()
 {
-    KisConfig   config;
+    KisConfig config(true);
     Q_FOREACH (const QString &op, config.favoriteCompositeOps()) {
         KoID entry = KoCompositeOpRegistry::instance().getKoID(op);
 
@@ -148,6 +163,6 @@ void KisCompositeOpListModel::writeFavoriteCompositeOpsToConfig() const
         list.append(item->data()->id());
     }
 
-    KisConfig config;
+    KisConfig config(false);
     config.setFavoriteCompositeOps(list);
 }

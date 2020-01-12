@@ -101,7 +101,7 @@ void EffectItemBase::createText(const QString &text)
     textItem->setFont(font);
     QRectF textBox = textItem->boundingRect();
     QPointF offset = rect().center() - textBox.center();
-    textItem->translate(offset.x(), offset.y());
+    setTransform(QTransform::fromTranslate(offset.x(), offset.y()), true);
 }
 
 void EffectItemBase::createOutput(const QPointF &position, const QString &name)
@@ -161,7 +161,7 @@ void EffectItemBase::mousePressEvent(QGraphicsSceneMouseEvent *event)
 
     QDrag *drag = new QDrag(event->widget());
     drag->setMimeData(data);
-    drag->start();
+    drag->exec();
 }
 
 void EffectItemBase::dragMoveEvent(QGraphicsSceneDragDropEvent *event)
@@ -253,7 +253,7 @@ EffectItem::EffectItem(KoFilterEffect *effect)
     : EffectItemBase(effect)
 {
     Q_ASSERT(effect);
-    QRectF circle(QPointF(), ConnectorSize);
+    //QRectF circle(QPointF(), ConnectorSize);
 
     QPointF position(ItemWidth, ConnectorSize.height());
 

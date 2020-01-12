@@ -34,15 +34,26 @@
 
 #include "kis_global.h"
 #include <cmath>
+#include <QTemporaryFile>
 
-#ifdef Q_OS_OSX
+#ifdef Q_OS_MACOS
 #include <errno.h>
 #endif
 
 KisImageConfig::KisImageConfig(bool readOnly)
-    : m_config( KSharedConfig::openConfig()->group(QString())),
-      m_readOnly(readOnly)
+    : m_config(KSharedConfig::openConfig()->group(QString()))
+    , m_readOnly(readOnly)
 {
+    if (!readOnly) {
+        KIS_SAFE_ASSERT_RECOVER_RETURN(qApp->thread() == QThread::currentThread());
+    }
+#ifdef Q_OS_MACOS
+    // clear /var/folders/ swap path set by old broken Krita swap implementation in order to use new default swap dir.
+    QString swap = m_config.readEntry("swaplocation", "");
+    if (swap.startsWith("/var/folders/")) {
+        m_config.deleteEntry("swaplocation");
+    }
+#endif
 }
 
 KisImageConfig::~KisImageConfig()
@@ -219,11 +230,75 @@ void KisImageConfig::setMemoryPoolLimitPercent(qreal value)
     m_config.writeEntry("memoryPoolLimitPercent", value);
 }
 
+QString KisImageConfig::safelyGetWritableTempLocation(const QString &suffix, const QString &configKey, bool requestDefault) const
+{
+#ifdef Q_OS_MACOS
+    // On OSX, QDir::tempPath() gives us a folder we cannot reply upon (usually
+    // something like /var/folders/.../...) and that will have vanished when we
+    // try to create the tmp file in KisMemoryWindow::KisMemoryWindow using
+    // swapFileTemplate. thus, we just pick the home folder if swapDir does not
+    // tell us otherwise.
+
+    // the other option here would be to use a "garbled name" temp file (i.e. no name
+    // KRITA_SWAP_FILE_XXXXXX) in an obscure /var/folders place, which is not
+    // nice to the user. having a clearly named swap file in the home folder is
+    // much nicer to Krita's users.
+
+    // furthermore, this is just a default and swapDir can always be configured
+    // to another location.
+
+    QString swap = QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + QDir::separator() + suffix;
+#else
+    Q_UNUSED(suffix);
+    QString swap = QDir::tempPath();
+#endif
+    if (requestDefault) {
+       return swap;
+    }
+    const QString configuredSwap = m_config.readEntry(configKey, swap);
+    if (!configuredSwap.isEmpty()) {
+        swap = configuredSwap;
+    }
+
+    QString chosenLocation;
+    QStringList proposedSwapLocations;
+    proposedSwapLocations << swap;
+    proposedSwapLocations << QDir::tempPath();
+    proposedSwapLocations << QDir::homePath();
+
+    Q_FOREACH (const QString location, proposedSwapLocations) {
+        if (!QFileInfo(location).isWritable()) continue;
+
+        /**
+         * On NTFS, isWritable() doesn't check for attributes due to performance
+         * reasons, so we should try it in a brute-force way...
+         * (yes, there is a hacky-global-variable workaround, but let's be safe)
+         */
+        QTemporaryFile tempFile;
+        tempFile.setFileTemplate(location + QDir::separator() + "krita_test_swap_location");
+        if (tempFile.open() && !tempFile.fileName().isEmpty()) {
+            chosenLocation = location;
+            break;
+        }
+    }
+
+    if (chosenLocation.isEmpty()) {
+        qCritical() << "CRITICAL: no writable location for a swap file found! Tried the following paths:" << proposedSwapLocations;
+        qCritical() << "CRITICAL: hope I don't crash...";
+        chosenLocation = swap;
+    }
+
+    if (chosenLocation != swap) {
+        qWarning() << "WARNING: configured swap location is not writable, using a fall-back location" << swap << "->" << chosenLocation;
+    }
+
+    return chosenLocation;
+}
+
+
 QString KisImageConfig::swapDir(bool requestDefault)
 {
-    QString swap = QDir::tempPath();
-    return !requestDefault ?
-            m_config.readEntry("swaplocation", swap) : swap;
+    return safelyGetWritableTempLocation("swap", "swaplocation", requestDefault);
 }
 
 void KisImageConfig::setSwapDir(const QString &swapDir)
@@ -318,12 +393,10 @@ void KisImageConfig::setLazyFrameCreationEnabled(bool value)
 #include <sys/sysctl.h>
 #elif defined Q_OS_WIN
 #include <windows.h>
-#elif defined Q_OS_OSX
+#elif defined Q_OS_MACOS
 #include <sys/types.h>
 #include <sys/sysctl.h>
 #endif
-
-#include <kis_debug.h>
 
 int KisImageConfig::totalRAM()
 {
@@ -364,7 +437,7 @@ int KisImageConfig::totalRAM()
 #   if defined ENV32BIT
     totalMemory = qMin(totalMemory, 2000);
 #   endif
-#elif defined Q_OS_OSX
+#elif defined Q_OS_MACOS
     int mib[2] = { CTL_HW, HW_MEMSIZE };
     u_int namelen = sizeof(mib) / sizeof(mib[0]);
     uint64_t size;
@@ -418,7 +491,7 @@ KisProofingConfigurationSP KisImageConfig::defaultProofingconfiguration()
     if (m_config.readEntry("defaultProofingBlackpointCompensation", true)) {
         proofingConfig->conversionFlags  |= KoColorConversionTransformation::ConversionFlag::BlackpointCompensation;
     } else {
-                proofingConfig->conversionFlags  = proofingConfig->conversionFlags & ~KoColorConversionTransformation::ConversionFlag::BlackpointCompensation;
+        proofingConfig->conversionFlags  = proofingConfig->conversionFlags & ~KoColorConversionTransformation::ConversionFlag::BlackpointCompensation;
     }
     QColor def(Qt::green);
     m_config.readEntry("defaultProofingGamutwarning", def);
@@ -452,4 +525,111 @@ bool KisImageConfig::useLodForColorizeMask(bool requestDefault) const
 void KisImageConfig::setUseLodForColorizeMask(bool value)
 {
     m_config.writeEntry("useLodForColorizeMask", value);
+}
+
+int KisImageConfig::maxNumberOfThreads(bool defaultValue) const
+{
+    return (defaultValue ? QThread::idealThreadCount() : m_config.readEntry("maxNumberOfThreads", QThread::idealThreadCount()));
+}
+
+void KisImageConfig::setMaxNumberOfThreads(int value)
+{
+    if (value == QThread::idealThreadCount()) {
+        m_config.deleteEntry("maxNumberOfThreads");
+    } else {
+        m_config.writeEntry("maxNumberOfThreads", value);
+    }
+}
+
+int KisImageConfig::frameRenderingClones(bool defaultValue) const
+{
+    const int defaultClonesCount = qMax(1, maxNumberOfThreads(defaultValue) / 2);
+    return defaultValue ? defaultClonesCount : m_config.readEntry("frameRenderingClones", defaultClonesCount);
+}
+
+void KisImageConfig::setFrameRenderingClones(int value)
+{
+    m_config.writeEntry("frameRenderingClones", value);
+}
+
+int KisImageConfig::fpsLimit(bool defaultValue) const
+{
+    int limit = defaultValue ? 100 : m_config.readEntry("fpsLimit", 100);
+    return limit > 0 ? limit : 1;
+}
+
+void KisImageConfig::setFpsLimit(int value)
+{
+    m_config.writeEntry("fpsLimit", value);
+}
+
+bool KisImageConfig::useOnDiskAnimationCacheSwapping(bool defaultValue) const
+{
+    return defaultValue ? true : m_config.readEntry("useOnDiskAnimationCacheSwapping", true);
+}
+
+void KisImageConfig::setUseOnDiskAnimationCacheSwapping(bool value)
+{
+    m_config.writeEntry("useOnDiskAnimationCacheSwapping", value);
+}
+
+QString KisImageConfig::animationCacheDir(bool defaultValue) const
+{
+    return safelyGetWritableTempLocation("animation_cache", "animationCacheDir", defaultValue);
+}
+
+void KisImageConfig::setAnimationCacheDir(const QString &value)
+{
+    m_config.writeEntry("animationCacheDir", value);
+}
+
+bool KisImageConfig::useAnimationCacheFrameSizeLimit(bool defaultValue) const
+{
+    return defaultValue ? true : m_config.readEntry("useAnimationCacheFrameSizeLimit", true);
+}
+
+void KisImageConfig::setUseAnimationCacheFrameSizeLimit(bool value)
+{
+    m_config.writeEntry("useAnimationCacheFrameSizeLimit", value);
+}
+
+int KisImageConfig::animationCacheFrameSizeLimit(bool defaultValue) const
+{
+    return defaultValue ? 2500 : m_config.readEntry("animationCacheFrameSizeLimit", 2500);
+}
+
+void KisImageConfig::setAnimationCacheFrameSizeLimit(int value)
+{
+    m_config.writeEntry("animationCacheFrameSizeLimit", value);
+}
+
+bool KisImageConfig::useAnimationCacheRegionOfInterest(bool defaultValue) const
+{
+    return defaultValue ? true : m_config.readEntry("useAnimationCacheRegionOfInterest", true);
+}
+
+void KisImageConfig::setUseAnimationCacheRegionOfInterest(bool value)
+{
+    m_config.writeEntry("useAnimationCacheRegionOfInterest", value);
+}
+
+qreal KisImageConfig::animationCacheRegionOfInterestMargin(bool defaultValue) const
+{
+    return defaultValue ? 0.25 : m_config.readEntry("animationCacheRegionOfInterestMargin", 0.25);
+}
+
+void KisImageConfig::setAnimationCacheRegionOfInterestMargin(qreal value)
+{
+    m_config.writeEntry("animationCacheRegionOfInterestMargin", value);
+}
+
+QColor KisImageConfig::selectionOverlayMaskColor(bool defaultValue) const
+{
+    QColor def(255, 0, 0, 128);
+    return (defaultValue ? def : m_config.readEntry("selectionOverlayMaskColor", def));
+}
+
+void KisImageConfig::setSelectionOverlayMaskColor(const QColor &color)
+{
+    m_config.writeEntry("selectionOverlayMaskColor", color);
 }

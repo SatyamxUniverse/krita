@@ -40,6 +40,7 @@ public:
 
     /**
      * Create a new file layer
+     * @param basePath the base path of the layer
      * @param name the proposed name for this layer
      * @param parent the widget parent of this dialog
      */
@@ -47,6 +48,9 @@ public:
     QString fileName() const;
     QString layerName() const;
     KisFileLayer::ScalingMethod scaleToImageResolution() const;
+
+    void setFileName(QString fileName);
+    void setScalingMethod(KisFileLayer::ScalingMethod method);
 
 protected Q_SLOTS:
     void slotNameChanged(const QString &);

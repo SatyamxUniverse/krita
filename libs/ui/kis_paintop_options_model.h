@@ -29,9 +29,7 @@
 
 struct KRITAUI_EXPORT KisOptionInfo
 {
-    KisOptionInfo()
-        : option(0)
-    {}
+    KisOptionInfo() = default;
 
     KisOptionInfo(KisPaintOpOption* o, int i, const QString &label)
         : label(label)
@@ -39,14 +37,10 @@ struct KRITAUI_EXPORT KisOptionInfo
         , index(i)
     {}
 
-    KisOptionInfo(const KisOptionInfo& info)
-        : label(info.label)
-        , option(info.option)
-        , index(info.index)
-    {}
+    KisOptionInfo(const KisOptionInfo &) = default;
 
     QString label;
-    KisPaintOpOption *option;
+    KisPaintOpOption *option {nullptr};
     int index;
 };
 
@@ -67,7 +61,7 @@ class KRITAUI_EXPORT KisPaintOpOptionListModel : public BaseOptionCategorizedLis
 {
 public:
     KisPaintOpOptionListModel(QObject *parent);
-    void addPaintOpOption(KisPaintOpOption* option, int widgetIndex, const QString &label);
+    void addPaintOpOption(KisPaintOpOption* option, int widgetIndex, const QString &label, KisPaintOpOption::PaintopCategory categoryType);
     QVariant data(const QModelIndex& idx, int role = Qt::DisplayRole) const override;
     bool setData(const QModelIndex& idx, const QVariant& value, int role=Qt::EditRole) override;
     void signalDataChanged(const QModelIndex& index);

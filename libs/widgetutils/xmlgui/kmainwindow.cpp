@@ -35,9 +35,9 @@
 #include "ktoolbar.h"
 
 #include <QApplication>
-#include <QtCore/QList>
-#include <QtCore/QObject>
-#include <QtCore/QTimer>
+#include <QList>
+#include <QObject>
+#include <QTimer>
 #include <QCloseEvent>
 #include <QDesktopWidget>
 #include <QDockWidget>
@@ -228,7 +228,7 @@ static bool endsWithHashNumber(const QString &s)
     }
     return false;
 }
-
+#ifdef HAVE_DBUS
 static inline bool isValidDBusObjectPathCharacter(const QChar &c)
 {
     ushort u = c.unicode();
@@ -237,7 +237,7 @@ static inline bool isValidDBusObjectPathCharacter(const QChar &c)
            || (u >= QLatin1Char('0') && u <= QLatin1Char('9'))
            || (u == QLatin1Char('_')) || (u == QLatin1Char('/'));
 }
-
+#endif
 void KMainWindowPrivate::polish(KMainWindow *q)
 {
     // Set a unique object name. Required by session management, window management, and for the dbus interface.
@@ -406,25 +406,6 @@ bool KMainWindow::restore(int , bool )
     return false;
 }
 
-void KMainWindow::setCaption(const QString &caption)
-{
-    setPlainCaption(caption);
-}
-
-void KMainWindow::setCaption(const QString &caption, bool modified)
-{
-    QString title = caption;
-    if (!title.contains(QStringLiteral("[*]")) && !title.isEmpty()) { // append the placeholder so that the modified mechanism works
-        title.append(QStringLiteral(" [*]"));
-    }
-    setPlainCaption(title);
-    setWindowModified(modified);
-}
-
-void KMainWindow::setPlainCaption(const QString &caption)
-{
-    setWindowTitle(caption);
-}
 
 void KMainWindow::appHelpActivated(void)
 {
@@ -453,6 +434,10 @@ void KMainWindow::closeEvent(QCloseEvent *e)
     }
 
     if (queryClose()) {
+        // widgets will start destroying themselves at this point and we don't
+        // want to save state anymore after this as it might be incorrect
+        d->autoSaveSettings = false;
+        d->letDirtySettings = false;
         e->accept();
     } else {
         e->ignore();    //if the window should not be closed, don't close it
@@ -504,7 +489,7 @@ void KMainWindow::saveMainWindowSettings(KConfigGroup &cg)
     }
 
     // One day will need to save the version number, but for now, assume 0
-    // Utilise the QMainWindow::saveState() functionality.
+    // Utilize the QMainWindow::saveState() functionality.
     const QByteArray state = saveState();
     cg.writeEntry("State", state.toBase64());
 

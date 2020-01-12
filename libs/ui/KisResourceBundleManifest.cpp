@@ -30,7 +30,7 @@
 #include <resources/KoAbstractGradient.h>
 
 #include "kis_brush_server.h"
-#include "kis_resource_server_provider.h"
+#include "KisResourceServerProvider.h"
 #include <brushengine/kis_paintop_preset.h>
 #include "kis_workspace_resource.h"
 
@@ -47,7 +47,7 @@ QString resourceTypeToManifestType(const QString &type) {
 }
 
 QString manifestTypeToResourceType(const QString &type) {
-    if (type == "patterns" || type == "gradients" || type == "palettes") {
+    if (type == "patterns" || type == "gradients" || type == "palettes" || type == "gamutmasks") {
         return "ko_" + type;
     }
     else {

@@ -34,9 +34,16 @@ public:
 
     /**
      * @brief forceUpdateTimedNode forrces the node to regenerate its project. The update might
-     * be asynchronous, so you chould call image->waitForDone() after that.
+     * be asynchronous, so you should call image->waitForDone() after that.
      */
     virtual void forceUpdateTimedNode() = 0;
+
+    /**
+     * @return true if forceUpdateTimedNode() is going to
+     * produce any real updates, that is the node has any
+     * updates still pending
+     */
+    virtual bool hasPendingTimedUpdates() const = 0;
 };
 
 #endif // KISDELAYEDUPDATENODEINTERFACE_H

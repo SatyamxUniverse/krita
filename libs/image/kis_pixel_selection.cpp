@@ -40,6 +40,7 @@
 #include "kis_outline_generator.h"
 #include <kis_iterator_ng.h>
 #include "kis_lod_transform.h"
+#include "kundo2command.h"
 
 
 struct Q_DECL_HIDDEN KisPixelSelection::Private {
@@ -72,8 +73,8 @@ KisPixelSelection::KisPixelSelection(KisDefaultBoundsBaseSP defaultBounds, KisSe
     m_d->parentSelection = parentSelection;
 }
 
-KisPixelSelection::KisPixelSelection(const KisPixelSelection& rhs)
-        : KisPaintDevice(rhs)
+KisPixelSelection::KisPixelSelection(const KisPixelSelection& rhs, KritaUtils::DeviceCopyMode copyMode)
+        : KisPaintDevice(rhs, copyMode)
         , KisSelectionComponent(rhs)
         , m_d(new Private)
 {
@@ -84,6 +85,20 @@ KisPixelSelection::KisPixelSelection(const KisPixelSelection& rhs)
     m_d->thumbnailImageValid = rhs.m_d->thumbnailImageValid;
     m_d->thumbnailImage = rhs.m_d->thumbnailImage;
     m_d->thumbnailImageTransform = rhs.m_d->thumbnailImageTransform;
+}
+
+KisPixelSelection::KisPixelSelection(const KisPaintDeviceSP copySource, KritaUtils::DeviceCopyMode copyMode, KisSelectionWSP parentSelection)
+    : KisPaintDevice(0, KoColorSpaceRegistry::instance()->alpha8(), copySource->defaultBounds())
+    , m_d(new Private)
+{
+    KisPaintDeviceSP tmpDevice = new KisPaintDevice(*copySource, copyMode, 0);
+    tmpDevice->convertTo(this->colorSpace());
+
+    this->makeFullCopyFrom(*tmpDevice, copyMode, 0);
+
+    m_d->parentSelection = parentSelection;
+    m_d->outlineCacheValid = true;
+    m_d->invalidateThumbnailImage();
 }
 
 KisSelectionComponent* KisPixelSelection::clone(KisSelection*)
@@ -150,6 +165,9 @@ void KisPixelSelection::applySelection(KisPixelSelectionSP selection, SelectionA
     case SELECTION_INTERSECT:
         intersectSelection(selection);
         break;
+    case SELECTION_SYMMETRICDIFFERENCE:
+        symmetricdifferenceSelection(selection);
+        break;
     default:
         break;
     }
@@ -162,12 +180,12 @@ void KisPixelSelection::copyAlphaFrom(KisPaintDeviceSP src, const QRect &process
     KisSequentialConstIterator srcIt(src, processRect);
     KisSequentialIterator dstIt(this, processRect);
 
-    do {
+    while (srcIt.nextPixel() && dstIt.nextPixel()) {
         const quint8 *srcPtr = srcIt.rawDataConst();
         quint8 *alpha8Ptr = dstIt.rawData();
 
         *alpha8Ptr = srcCS->opacityU8(srcPtr);
-    } while (srcIt.nextPixel() && dstIt.nextPixel());
+    }
 
     m_d->outlineCacheValid = false;
     m_d->outlineCache = QPainterPath();
@@ -255,6 +273,32 @@ void KisPixelSelection::intersectSelection(KisPixelSelectionSP selection)
     m_d->invalidateThumbnailImage();
 }
 
+void KisPixelSelection::symmetricdifferenceSelection(KisPixelSelectionSP selection)
+{
+    QRect r = selection->selectedRect().united(selectedRect());
+    if (r.isEmpty()) return;
+
+    KisHLineIteratorSP dst = createHLineIteratorNG(r.x(), r.y(), r.width());
+    KisHLineConstIteratorSP src = selection->createHLineConstIteratorNG(r.x(), r.y(), r.width());
+    for (int i = 0; i < r.height(); ++i) {
+
+        do {
+            *dst->rawData() = abs(*dst->rawData() - *src->oldRawData());
+        }  while (src->nextPixel() && dst->nextPixel());
+
+        dst->nextRow();
+        src->nextRow();
+    }
+    
+    m_d->outlineCacheValid &= selection->outlineCacheValid();
+
+    if (m_d->outlineCacheValid) {
+       m_d->outlineCache = (m_d->outlineCache | selection->outlineCache()) - (m_d->outlineCache & selection->outlineCache());
+    }
+
+    m_d->invalidateThumbnailImage();
+}
+
 void KisPixelSelection::clear(const QRect & r)
 {
     if (*defaultPixel().data() != MIN_SELECTED) {
@@ -296,9 +340,9 @@ void KisPixelSelection::invert()
 
     if (!rc.isEmpty()) {
         KisSequentialIterator it(this, rc);
-        do {
+        while(it.nextPixel()) {
             *(it.rawData()) = MAX_SELECTED - *(it.rawData());
-        } while (it.nextPixel());
+        }
     }
     quint8 defPixel = MAX_SELECTED - *defaultPixel().data();
     setDefaultPixel(KoColor(&defPixel, colorSpace()));
@@ -359,7 +403,7 @@ QVector<QPolygon> KisPixelSelection::outline() const
     QRect selectionExtent = selectedExactRect();
 
     /**
-     * When the default pixel is not fully transarent, the
+     * When the default pixel is not fully transparent, the
      * exactBounds() return extent of the device instead. To make this
      * value sane we should limit the calculated area by the bounds of
      * the image.
@@ -384,7 +428,7 @@ QVector<QPolygon> KisPixelSelection::outline() const
         delete[] buffer;
         return paths;
     }
-    catch(std::bad_alloc) {
+    catch(const std::bad_alloc&) {
         // Allocating so much memory failed, so we fall through to the slow option.
         warnKrita << "KisPixelSelection::outline ran out of memory allocating" << width << "*" << height << "bytes.";
     }
@@ -472,16 +516,16 @@ QImage deviceToQImage(KisPaintDeviceSP device,
     QColor color = maskColor;
     const qreal alphaScale = maskColor.alphaF();
 
-    KisSequentialIterator it(device, rc);
-    do {
-        quint8 value = (MAX_SELECTED - *(it.rawData())) * alphaScale;
+    KisSequentialConstIterator it(device, rc);
+    while(it.nextPixel()) {
+        quint8 value = (MAX_SELECTED - *(it.rawDataConst())) * alphaScale;
         color.setAlpha(value);
 
         QPoint pt(it.x(), it.y());
         pt -= rc.topLeft();
 
         image.setPixel(pt.x(), pt.y(), color.rgba());
-    } while (it.nextPixel());
+    }
 
     return image;
 }

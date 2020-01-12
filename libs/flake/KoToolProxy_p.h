@@ -21,7 +21,8 @@
 #define KOTOOLPROXYPRIVATE_P
 
 #include <QTimer>
-#include <QPoint>
+#include <QTime>
+#include <QPointF>
 
 class KoPointerEvent;
 class KoToolBase;
@@ -44,20 +45,26 @@ public:
     /// the toolManager tells us which KoCanvasController this toolProxy is working for.
     void setCanvasController(KoCanvasController *controller);
 
-    KoToolBase *activeTool;
-    bool tabletPressed;
-    bool hasSelection;
+    KoToolBase *activeTool {0};
+    bool tabletPressed {false};
+    bool hasSelection {false};
     QTimer scrollTimer;
     QPoint widgetScrollPoint;
-    KoCanvasController *controller;
-    KoToolProxy *parent;
+    KoCanvasController *controller {0};
+    KoToolProxy *parent {0};
 
     // used to determine if the mouse-release is after a drag or a simple click
     QPoint mouseDownPoint;
 
     // up until at least 4.3.0 we get a mouse move event when the tablet leaves the canvas.
-    bool mouseLeaveWorkaround;
+    bool mouseLeaveWorkaround {false};
 
+    bool isToolPressed {false};
+
+    // for multi clicking (double click or triple click) we need the following
+    int multiClickCount {0};
+    QPointF multiClickGlobalPoint;
+    QTime multiClickTimeStamp;
 };
 
 #endif

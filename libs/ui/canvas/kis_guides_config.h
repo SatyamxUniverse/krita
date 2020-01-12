@@ -26,6 +26,7 @@
 #include <QScopedPointer>
 #include <QList>
 #include <boost/operators.hpp>
+#include <KoUnit.h>
 
 class QDomElement;
 class QDomDocument;
@@ -49,6 +50,7 @@ public:
     KisGuidesConfig(const KisGuidesConfig &rhs);
     KisGuidesConfig& operator=(const KisGuidesConfig &rhs);
     bool operator==(const KisGuidesConfig &rhs) const;
+    bool hasSamePositionAs(const KisGuidesConfig &rhs) const;
 
     /**
      * @brief Set the positions of the horizontal guide lines
@@ -89,6 +91,12 @@ public:
     bool snapToGuides() const;
     void setSnapToGuides(bool value);
 
+    bool rulersMultiple2() const;
+    void setRulersMultiple2(bool value);
+
+    KoUnit::Type unitType() const;
+    void setUnitType(KoUnit::Type type);
+
     LineTypeInternal guidesLineType() const;
     void setGuidesLineType(LineTypeInternal value);
 
@@ -110,6 +118,13 @@ public:
 
     QDomElement saveToXml(QDomDocument& doc, const QString &tag) const;
     bool loadFromXml(const QDomElement &parent);
+
+    bool isDefault() const;
+
+    /// Transform the guides using the given \p transform. Please note that \p transform
+    /// should be in 'document' coordinate system.
+    /// Used with image-wide transformations.
+    void transform(const QTransform &transform);
 
 private:
     class Private;

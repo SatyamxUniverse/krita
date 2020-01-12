@@ -19,6 +19,7 @@
 #include "kis_zoom_action.h"
 
 #include <QApplication>
+#include <QNativeGestureEvent>
 
 #include <klocalizedstring.h>
 
@@ -51,18 +52,18 @@ inline QPoint pointFromEvent(QEvent *event) {
 class KisZoomAction::Private
 {
 public:
-    Private(KisZoomAction *qq) : q(qq), distance(0), lastDistance(0.f) {}
+    Private(KisZoomAction *qq) : q(qq), lastDistance(0.f) {}
 
     QPointF centerPoint(QTouchEvent* event);
 
     KisZoomAction *q;
-    int distance;
     Shortcuts mode;
 
     QPointF lastPosition;
     float lastDistance;
 
-    QPoint startPoint;
+    qreal startZoom = 1.0;
+    qreal lastDescreteZoomDistance = 0.0;
 
     void zoomTo(bool zoomIn, const QPoint &pos);
 };
@@ -74,7 +75,7 @@ QPointF KisZoomAction::Private::centerPoint(QTouchEvent* event)
 
     Q_FOREACH (QTouchEvent::TouchPoint point, event->touchPoints()) {
         if (point.state() != Qt::TouchPointReleased) {
-            result += point.screenPos();
+            result += point.pos();
             count++;
         }
     }
@@ -164,7 +165,7 @@ void KisZoomAction::begin(int shortcut, QEvent *event)
     switch(shortcut) {
         case ZoomModeShortcut:
         case RelativeZoomModeShortcut: {
-            d->startPoint = pointFromEvent(event);
+            d->startZoom = inputManager()->canvas()->viewManager()->zoomController()->zoomAction()->effectiveZoom();
             d->mode = (Shortcuts)shortcut;
             QTouchEvent *tevent = dynamic_cast<QTouchEvent*>(event);
             if(tevent)
@@ -173,9 +174,9 @@ void KisZoomAction::begin(int shortcut, QEvent *event)
         }
         case DiscreteZoomModeShortcut:
         case RelativeDiscreteZoomModeShortcut:
-            d->startPoint = pointFromEvent(event);
+            d->startZoom = inputManager()->canvas()->viewManager()->zoomController()->zoomAction()->effectiveZoom();
+            d->lastDescreteZoomDistance = 0;
             d->mode = (Shortcuts)shortcut;
-            d->distance = 0;
             break;
         case ZoomInShortcut:
             d->zoomTo(true, pointFromEvent(event));
@@ -207,9 +208,11 @@ void KisZoomAction::inputEvent( QEvent* event )
             Q_FOREACH (const QTouchEvent::TouchPoint &point, tevent->touchPoints()) {
                 if (point.state() != Qt::TouchPointReleased) {
                     count++;
-
-                    dist += (point.screenPos() - center).manhattanLength();
+                    dist += (point.pos() - center).manhattanLength();
                 }
+            }
+            if (count == 0) {
+                count = 1;
             }
 
             dist /= count;
@@ -227,52 +230,77 @@ void KisZoomAction::inputEvent( QEvent* event )
             }
             return;  // Don't try to update the cursor during a pinch-zoom
         }
+        case QEvent::NativeGesture: {
+            QNativeGestureEvent *gevent = static_cast<QNativeGestureEvent*>(event);
+            if (gevent->gestureType() == Qt::ZoomNativeGesture) {
+                KisCanvas2 *canvas = inputManager()->canvas();
+                KisCanvasController *controller = static_cast<KisCanvasController*>(canvas->canvasController());
+                const float delta = 1.0f + gevent->value();
+                controller->zoomRelativeToPoint(canvas->canvasWidget()->mapFromGlobal(gevent->globalPos()), delta);
+            } else if (gevent->gestureType() == Qt::SmartZoomNativeGesture) {
+                KisCanvas2 *canvas = inputManager()->canvas();
+                KoZoomController *controller = canvas->viewManager()->zoomController();
+
+                if (controller->zoomMode() != KoZoomMode::ZOOM_WIDTH) {
+                    controller->setZoom(KoZoomMode::ZOOM_WIDTH, 1.0);
+                } else {
+                    controller->setZoom(KoZoomMode::ZOOM_CONSTANT, 1.0);
+                }
+            }
+            return;
+        }
         default:
             break;
     }
     KisAbstractInputAction::inputEvent(event);
 }
 
-void KisZoomAction::cursorMoved(const QPointF &lastPos, const QPointF &pos)
+void KisZoomAction::cursorMovedAbsolute(const QPointF &startPos, const QPointF &pos)
 {
-    QPointF diff = -(pos - lastPos);
+    QPointF diff = -(pos - startPos);
 
     const int stepCont = 100;
-    const int stepDisc = 20;
+    const int stepDisc = 50;
 
     if (d->mode == ZoomModeShortcut ||
         d->mode == RelativeZoomModeShortcut) {
-        KisConfig cfg;
-        float coeff;
+
+        const qreal zoom = inputManager()->canvas()->viewManager()->zoomController()->zoomAction()->effectiveZoom();
+        const qreal logDistance = std::pow(2.0, qreal(diff.y()) / qreal(stepCont));
+
+        KisConfig cfg(true);
+        qreal newZoom = zoom;
         if (cfg.readEntry<bool>("InvertMiddleClickZoom", false)) {
-            coeff = 1.0 - qreal(diff.y()) / stepCont;
-        }
-        else {
-            coeff = 1.0 + qreal(diff.y()) / stepCont;
+            newZoom = d->startZoom / logDistance;
+        } else {
+            newZoom = d->startZoom * logDistance;
         }
 
         if (d->mode == ZoomModeShortcut) {
-            float zoom = coeff * inputManager()->canvas()->viewManager()->zoomController()->zoomAction()->effectiveZoom();
-            inputManager()->canvas()->viewManager()->zoomController()->setZoom(KoZoomMode::ZOOM_CONSTANT, zoom);
+            inputManager()->canvas()->viewManager()->zoomController()->setZoom(KoZoomMode::ZOOM_CONSTANT, newZoom);
         } else {
+            const qreal coeff = newZoom / zoom;
+
             KoCanvasControllerWidget *controller =
                 dynamic_cast<KoCanvasControllerWidget*>(
                     inputManager()->canvas()->canvasController());
 
-            controller->zoomRelativeToPoint(d->startPoint, coeff);
+            controller->zoomRelativeToPoint(startPos.toPoint(), coeff);
         }
 
     } else if (d->mode == DiscreteZoomModeShortcut ||
                d->mode == RelativeDiscreteZoomModeShortcut) {
-        d->distance += diff.y();
 
         QPoint stillPoint = d->mode == RelativeDiscreteZoomModeShortcut ?
-            d->startPoint : QPoint();
+            startPos.toPoint() : QPoint();
 
-        bool zoomIn = d->distance > 0;
-        while (qAbs(d->distance) > stepDisc) {
+        qreal currentDiff = qreal(diff.y()) / stepDisc - d->lastDescreteZoomDistance;
+
+        bool zoomIn = currentDiff > 0;
+        while (qAbs(currentDiff) > 1.0) {
             d->zoomTo(zoomIn, stillPoint);
-            d->distance += zoomIn ? -stepDisc : stepDisc;
+            d->lastDescreteZoomDistance += zoomIn ? 1.0 : -1.0;
+            currentDiff = qreal(diff.y()) / stepDisc - d->lastDescreteZoomDistance;
         }
     }
 }
@@ -280,5 +308,16 @@ void KisZoomAction::cursorMoved(const QPointF &lastPos, const QPointF &pos)
 bool KisZoomAction::isShortcutRequired(int shortcut) const
 {
     return shortcut == ZoomModeShortcut;
+}
+
+bool KisZoomAction::supportsHiResInputEvents() const
+{
+    return true;
+}
+
+KisInputActionGroup KisZoomAction::inputActionGroup(int shortcut) const
+{
+    Q_UNUSED(shortcut);
+    return ViewTransformActionGroup;
 }
 

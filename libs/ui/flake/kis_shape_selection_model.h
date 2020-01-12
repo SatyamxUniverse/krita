@@ -53,12 +53,10 @@ public:
 
     void containerChanged(KoShapeContainer *, KoShape::ChangeType) override;
     void childChanged(KoShape * child, KoShape::ChangeType type) override;
-    bool isChildLocked(const KoShape *child) const override;
     void setShapeSelection(KisShapeSelection* selection);
 
 private Q_SLOTS:
     void requestUpdate(const QRect &updateRect);
-    void startUpdateJob();
 
 private:
     QMap<KoShape*, QRectF> m_shapeMap;
@@ -66,10 +64,7 @@ private:
     KisSelectionWSP m_parentSelection;
     KisShapeSelection* m_shapeSelection;
 
-    KisSignalCompressor *m_updateSignalCompressor;
-    QRect m_updateRect;
     bool m_updatesEnabled;
-    bool m_fullUpdateRequested;
 };
 
 #endif

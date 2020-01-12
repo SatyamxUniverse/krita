@@ -32,7 +32,7 @@
 #include <QOpenGLFunctions_3_2_Core>
 #include <QOpenGLFunctions_3_0>
 #include <QOpenGLFunctions_2_0>
-
+#include <QOpenGLExtraFunctions>
 
 OcioDisplayFilter::OcioDisplayFilter(KisExposureGammaCorrectionInterface *interface, QObject *parent)
     : KisDisplayFilter(parent)
@@ -126,7 +126,7 @@ void OcioDisplayFilter::updateProcessor()
         inputColorSpaceName = config->getColorSpaceNameByIndex(0);
     }
     if (!look) {
-	look = config->getLookNameByIndex(0);
+    look = config->getLookNameByIndex(0);
     }
 
     if (!displayDevice || !view || !inputColorSpaceName) {
@@ -143,13 +143,13 @@ void OcioDisplayFilter::updateProcessor()
      * As the OCIO docs will tell you, looks are a aesthetic transform that is
      * added onto the mix.
      * A view+display can have it's own assigned Look, or list of looks, and these
-     * can be overriden optionally.
+     * can be overridden optionally.
      * What the OCIO docs won't tell you is that a display transform won't use the
      * looks attached to it unless "skipColorSpaceConversions" is false...
      * I have no idea what "skipColorSpaceConversions" is beyond what it says on the
      * tin. It is not mentioned in the documentation anywhere. Or on the website.
-     * Or how to set it. Or unset it. Why it is apparantly set true to begin with.
-     * Only that, apparantly, this was done with non-color data in mind...
+     * Or how to set it. Or unset it. Why it is apparently set true to begin with.
+     * Only that, apparently, this was done with non-color data in mind...
      *
      * Until there's clear documentation on how to use this feature, I am afraid the
      * override is all we can offer.
@@ -234,9 +234,9 @@ void OcioDisplayFilter::updateProcessor()
         float m44[16];
         float offset[4];
         OCIO::MatrixTransform::View(m44, offset, channelHot, lumacoef);
-        OCIO::MatrixTransformRcPtr swizzle = OCIO::MatrixTransform::Create();
-        swizzle->setValue(m44, offset);
-        transform->setChannelView(swizzle);
+        OCIO::MatrixTransformRcPtr swizzleTransform = OCIO::MatrixTransform::Create();
+        swizzleTransform->setValue(m44, offset);
+        transform->setChannelView(swizzleTransform);
     }
 
     // Post-display transform gamma
@@ -265,41 +265,56 @@ void OcioDisplayFilter::updateProcessor()
     m_shaderDirty = true;
 }
 
-void OcioDisplayFilter::updateShader()
+bool OcioDisplayFilter::updateShader()
 {
-    if (KisOpenGL::hasOpenGL3()) {
+    if (KisOpenGL::hasOpenGLES()) {
+        QOpenGLExtraFunctions *f = QOpenGLContext::currentContext()->extraFunctions();
+        if (f) {
+            return updateShaderImpl(f);
+        }
+    } else if (KisOpenGL::hasOpenGL3()) {
         QOpenGLFunctions_3_2_Core *f = QOpenGLContext::currentContext()->versionFunctions<QOpenGLFunctions_3_2_Core>();
-        updateShaderImpl(f);
+        if (f) {
+            return updateShaderImpl(f);
+        }
     }
+
     // XXX This option can be removed once we move to Qt 5.7+
-    else if (KisOpenGL::supportsLoD()) {
+    if (KisOpenGL::supportsLoD()) {
 #ifdef Q_OS_MAC
         QOpenGLFunctions_3_2_Core *f = QOpenGLContext::currentContext()->versionFunctions<QOpenGLFunctions_3_2_Core>();
 #else
         QOpenGLFunctions_3_0 *f = QOpenGLContext::currentContext()->versionFunctions<QOpenGLFunctions_3_0>();
 #endif
-        updateShaderImpl(f);
-    } else {
-        QOpenGLFunctions_2_0 *f = QOpenGLContext::currentContext()->versionFunctions<QOpenGLFunctions_2_0>();
-        updateShaderImpl(f);
+        if (f) {
+            return updateShaderImpl(f);
+        }
     }
+    QOpenGLExtraFunctions *f = QOpenGLContext::currentContext()->extraFunctions();
+    if (f) {
+        return updateShaderImpl(f);
+    }
+
+    return false;
 }
 
 template <class F>
-void OcioDisplayFilter::updateShaderImpl(F *f) {
+bool OcioDisplayFilter::updateShaderImpl(F *f) {
     // check whether we are allowed to use shaders -- though that should
     // work for everyone these days
-    KisConfig cfg;
-    if (!cfg.useOpenGL()) return;
+    KisConfig cfg(true);
+    if (!cfg.useOpenGL()) return false;
 
-    if (!m_shaderDirty) return;
+    if (!m_shaderDirty) return false;
 
     if (!f) {
         qWarning() << "Failed to get valid OpenGL functions for OcioDisplayFilter!";
-        return;
+        return false;
     }
 
     f->initializeOpenGLFunctions();
+
+    bool shouldRecompileShader = false;
 
     const int lut3DEdgeSize = cfg.ocioLutEdgeSize();
 
@@ -363,7 +378,9 @@ void OcioDisplayFilter::updateShaderImpl(F *f) {
         os << m_processor->getGpuShaderText(shaderDesc) << "\n";
 
         m_program = QString::fromLatin1(os.str().c_str());
+        shouldRecompileShader = true;
     }
 
     m_shaderDirty = false;
+    return shouldRecompileShader;
 }

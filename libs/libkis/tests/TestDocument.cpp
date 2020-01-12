@@ -19,11 +19,10 @@
 #include <QTest>
 
 #include <KritaVersionWrapper.h>
-#include <QTest>
 #include <QColor>
 #include <QDataStream>
+#include <QDir>
 
-#include <KritaVersionWrapper.h>
 #include <Node.h>
 #include <Krita.h>
 #include <Document.h>
@@ -37,6 +36,8 @@
 #include <kis_fill_painter.h>
 #include <kis_paint_layer.h>
 #include <KisPart.h>
+
+#include <sdk/tests/kistest.h>
 
 void TestDocument::testSetColorSpace()
 {
@@ -52,7 +53,9 @@ void TestDocument::testSetColorSpace()
 
     QVERIFY(layer->colorSpace()->colorModelId().id() == "GRAYA");
     QVERIFY(layer->colorSpace()->colorDepthId().id() == "U16");
-    QVERIFY(layer->colorSpace()->profile()->name() == "gray built-in");
+    QVERIFY(layer->colorSpace()->profile()->name() == profiles.first());
+
+    KisPart::instance()->removeDocument(kisdoc);
 }
 
 void TestDocument::testSetColorProfile()
@@ -70,6 +73,7 @@ void TestDocument::testSetColorProfile()
         d.setColorProfile(profile);
         QVERIFY(image->colorSpace()->profile()->name() == profile);
     }
+    KisPart::instance()->removeDocument(kisdoc);
 }
 
 void TestDocument::testPixelData()
@@ -98,6 +102,8 @@ void TestDocument::testPixelData()
         ds >> channelvalue;
         QVERIFY(channelvalue == 255);
     } while (!ds.atEnd());
+
+    KisPart::instance()->removeDocument(kisdoc);
 }
 
 void TestDocument::testThumbnail()
@@ -117,21 +123,64 @@ void TestDocument::testThumbnail()
     thumb.save("thumb.png");
     QVERIFY(thumb.width() == 10);
     QVERIFY(thumb.height() == 10);
-    // Our thumbnail calculater in KisPaintDevice cannot make a filled 10x10 thumbnail from a 100x100 device,
+    // Our thumbnail calculator in KisPaintDevice cannot make a filled 10x10 thumbnail from a 100x100 device,
     // it makes it 10x10 empty, then puts 8x8 pixels in there... Not a bug in the Node class
     for (int i = 0; i < 8; ++i) {
         for (int j = 0; j < 8; ++j) {
-#if QT_VERSION >= QT_VERSION_CHECK(5, 6, 0)
             QVERIFY(thumb.pixelColor(i, j) == QColor(Qt::red));
-#else
-            QVERIFY(QColor(thumb.pixel(i, j)) == QColor(Qt::red));
-#endif
         }
     }
+    KisPart::instance()->removeDocument(kisdoc);
+
+}
+
+void TestDocument::testCreateFillLayer()
+{
+    KisDocument *kisdoc = KisPart::instance()->createDocument();
+    KisImageSP image = new KisImage(0, 50, 50, KoColorSpaceRegistry::instance()->rgb16(), "test");
+    kisdoc->setCurrentImage(image);
+    Document d(kisdoc);
+
+    const QString pattern("pattern");
+    const QString color("color");
+    const QString filllayer = "filllayer";
+    InfoObject info;
+    Selection sel(image->globalSelection());
+
+    FillLayer *f = d.createFillLayer("test1", pattern, info, sel);
+    QVERIFY(f->generatorName() == pattern);
+    QVERIFY(f->type() == filllayer);
+    delete f;
+    f = d.createFillLayer("test1", color, info, sel);
+    QVERIFY(f->generatorName() == color);
+    QVERIFY(f->type() == filllayer);
+
+    info.setProperty(pattern, "Cross01.pat");
+    QVERIFY(f->setGenerator(pattern, &info));
+    QVERIFY(f->filterConfig()->property(pattern).toString() == "Cross01.pat");
+    QVERIFY(f->generatorName() == pattern);
+    QVERIFY(f->type() == filllayer);
+
+    info.setProperty(color, QColor(Qt::red));
+    QVERIFY(f->setGenerator(color, &info));
+    QVariant v = f->filterConfig()->property(color);
+    QColor c = v.value<QColor>();
+    QVERIFY(c == QColor(Qt::red));
+    QVERIFY(f->generatorName() == color);
+    QVERIFY(f->type() == filllayer);
+
+    bool r = f->setGenerator(QString("xxx"), &info);
+    QVERIFY(!r);
+
+    delete f;
+
+    QVERIFY(d.createFillLayer("test1", "xxx", info, sel) == 0);
+
+    KisPart::instance()->removeDocument(kisdoc);
 
 }
 
 
 
-QTEST_MAIN(TestDocument)
+KISTEST_MAIN(TestDocument)
 

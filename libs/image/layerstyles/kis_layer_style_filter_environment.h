@@ -29,6 +29,8 @@ class KisPainter;
 class KisLayer;
 class QPainterPath;
 class QBitArray;
+class KisCachedPaintDevice;
+class KisCachedSelection;
 
 
 class KRITAIMAGE_EXPORT KisLayerStyleFilterEnvironment
@@ -41,13 +43,14 @@ public:
     QRect defaultBounds() const;
     int currentLevelOfDetail() const;
 
-    QPainterPath layerOutlineCache() const;
-
     void setupFinalPainter(KisPainter *gc,
                            quint8 opacity,
                            const QBitArray &channelFlags) const;
 
     KisPixelSelectionSP cachedRandomSelection(const QRect &requestedRect) const;
+
+    KisCachedSelection* cachedSelection();
+    KisCachedPaintDevice* cachedPaintDevice();
 
 private:
     struct Private;

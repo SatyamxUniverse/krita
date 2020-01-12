@@ -32,6 +32,8 @@ QString KoCompositeOp::categoryColor()
 }
 
 QString KoCompositeOp::categoryArithmetic() { return i18n("Arithmetic"); }
+QString KoCompositeOp::categoryBinary()     { return i18n("Binary");     }
+QString KoCompositeOp::categoryModulo()     { return i18n("Modulo");     }
 QString KoCompositeOp::categoryNegative()   { return i18n("Negative");   }
 QString KoCompositeOp::categoryLight()      { return i18n("Lighten");    }
 QString KoCompositeOp::categoryDark()       { return i18n("Darken");     }
@@ -41,11 +43,12 @@ QString KoCompositeOp::categoryHSL()        { return i18n("HSL");        }
 QString KoCompositeOp::categoryHSV()        { return i18n("HSV");        }
 QString KoCompositeOp::categoryMix()        { return i18n("Mix");        }
 QString KoCompositeOp::categoryMisc()       { return i18n("Misc");       }
+QString KoCompositeOp::categoryQuadratic()  { return i18n("Quadratic");  }
 
 KoCompositeOp::ParameterInfo::ParameterInfo()
-    : opacity(1.0f),
-      flow(1.0f),
-      lastOpacity(&opacity)
+    : opacity(1.0f)
+    , flow(1.0f)
+    , lastOpacity(&opacity)
 {
 }
 
@@ -58,6 +61,18 @@ KoCompositeOp::ParameterInfo& KoCompositeOp::ParameterInfo::operator=(const Para
 {
     copy(rhs);
     return *this;
+}
+
+void KoCompositeOp::ParameterInfo::setOpacityAndAverage(float _opacity, float _averageOpacity)
+{
+    if (qFuzzyCompare(_opacity, _averageOpacity)) {
+        opacity = _opacity;
+        lastOpacity = &opacity;
+    } else {
+        opacity = _opacity;
+        _lastOpacityData = _averageOpacity;
+        lastOpacity = &_lastOpacityData;
+    }
 }
 
 void KoCompositeOp::ParameterInfo::copy(const ParameterInfo &rhs)

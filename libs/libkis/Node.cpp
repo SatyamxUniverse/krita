@@ -25,8 +25,6 @@
 #include <KisDocument.h>
 #include <KisMimeDatabase.h>
 #include <KisPart.h>
-#include <kis_change_profile_visitor.h>
-#include <kis_colorspace_convert_visitor.h>
 #include <kis_image.h>
 #include <kis_types.h>
 #include <kis_node.h>
@@ -37,6 +35,7 @@
 #include <kis_generator_layer.h>
 #include <kis_clone_layer.h>
 #include <kis_shape_layer.h>
+#include <KisReferenceImagesLayer.h>
 #include <kis_transparency_mask.h>
 #include <kis_filter_mask.h>
 #include <kis_transform_mask.h>
@@ -44,22 +43,34 @@
 #include <lazybrush/kis_colorize_mask.h>
 #include <kis_layer.h>
 #include <kis_meta_data_merge_strategy.h>
-#include <metadata/kis_meta_data_merge_strategy_registry.h>
+#include <kis_meta_data_merge_strategy_registry.h>
 #include <kis_filter_strategy.h>
 
 #include <kis_raster_keyframe_channel.h>
 #include <kis_keyframe.h>
+#include "kis_selection.h"
 
+#include "InfoObject.h"
 #include "Krita.h"
 #include "Node.h"
 #include "Channel.h"
 #include "Filter.h"
 #include "Selection.h"
 
+#include "GroupLayer.h"
+#include "CloneLayer.h"
+#include "FilterLayer.h"
+#include "FillLayer.h"
+#include "FileLayer.h"
+#include "VectorLayer.h"
+#include "FilterMask.h"
+#include "SelectionMask.h"
+
+#include "LibKisUtils.h"
 
 struct Node::Private {
     Private() {}
-    KisImageSP image;
+    KisImageWSP image;
     KisNodeSP node;
 };
 
@@ -69,6 +80,37 @@ Node::Node(KisImageSP image, KisNodeSP node, QObject *parent)
 {
     d->image = image;
     d->node = node;
+}
+
+Node *Node::createNode(KisImageSP image, KisNodeSP node, QObject *parent)
+{
+    if (node->inherits("KisGroupLayer")) {
+        return new GroupLayer(dynamic_cast<KisGroupLayer*>(node.data()));
+    }
+    else if (node->inherits("KisCloneLayer")) {
+        return new CloneLayer(dynamic_cast<KisCloneLayer*>(node.data()));
+    }
+    else if (node->inherits("KisFileLayer")) {
+        return new FileLayer(dynamic_cast<KisFileLayer*>(node.data()));
+    }
+    else if (node->inherits("KisAdjustmentLayer")) {
+        return new FilterLayer(dynamic_cast<KisAdjustmentLayer*>(node.data()));
+    }
+    else if (node->inherits("KisGeneratorLayer")) {
+        return new FillLayer(dynamic_cast<KisGeneratorLayer*>(node.data()));
+    }
+    else if (node->inherits("KisShapeLayer")) {
+        return new VectorLayer(dynamic_cast<KisShapeLayer*>(node.data()));
+    }
+    else if (node->inherits("KisFilterMask")) {
+        return new FilterMask(image, dynamic_cast<KisFilterMask*>(node.data()));
+    }
+    else if (node->inherits("KisSelectionMask")) {
+        return new SelectionMask(image, dynamic_cast<KisSelectionMask*>(node.data()));
+    }
+    else {
+        return new Node(image, node, parent);
+    }
 }
 
 Node::~Node()
@@ -85,6 +127,13 @@ bool Node::operator==(const Node &other) const
 bool Node::operator!=(const Node &other) const
 {
     return !(operator==(other));
+}
+
+Node *Node::clone() const
+{
+    KisNodeSP clone = d->node->clone();
+    Node *node = Node::createNode(0, clone);
+    return node;
 }
 
 
@@ -141,10 +190,12 @@ QList<Node*> Node::childNodes() const
 {
     QList<Node*> nodes;
     if (d->node) {
+        KisNodeList nodeList;
         int childCount = d->node->childCount();
         for (int i = 0; i < childCount; ++i) {
-            nodes << new Node(d->image, d->node->at(i));
+            nodeList << d->node->at(i);
         }
+        nodes = LibKisUtils::createNodeList(nodeList, d->image);
     }
     return nodes;
 }
@@ -152,7 +203,12 @@ QList<Node*> Node::childNodes() const
 bool Node::addChildNode(Node *child, Node *above)
 {
     if (!d->node) return false;
-    return d->image->addNode(child->node(), d->node, above->node());
+    if (above) {
+        return d->image->addNode(child->node(), d->node, above->node());
+    }
+    else {
+        return d->image->addNode(child->node(), d->node, d->node->childCount());
+    }
 }
 
 bool Node::removeChildNode(Node *child)
@@ -189,20 +245,23 @@ void Node::setColorLabel(int index)
 QString Node::colorDepth() const
 {
     if (!d->node) return "";
-    return d->node->colorSpace()->colorDepthId().id();
+    if (!d->node->projection()) return d->node->colorSpace()->colorDepthId().id();
+    return d->node->projection()->colorSpace()->colorDepthId().id();
 }
 
 QString Node::colorModel() const
 {
     if (!d->node) return "";
-    return d->node->colorSpace()->colorModelId().id();
+    if (!d->node->projection()) return d->node->colorSpace()->colorModelId().id();
+    return d->node->projection()->colorSpace()->colorModelId().id();
 }
 
 
 QString Node::colorProfile() const
 {
     if (!d->node) return "";
-    return d->node->colorSpace()->profile()->name();
+    if (!d->node->projection()) return d->node->colorSpace()->profile()->name();
+    return d->node->projection()->colorSpace()->profile()->name();
 }
 
 bool Node::setColorProfile(const QString &colorProfile)
@@ -211,12 +270,9 @@ bool Node::setColorProfile(const QString &colorProfile)
     if (!d->node->inherits("KisLayer")) return false;
     KisLayer *layer = qobject_cast<KisLayer*>(d->node.data());
     const KoColorProfile *profile = KoColorSpaceRegistry::instance()->profileByName(colorProfile);
-    const KoColorSpace *srcCS = layer->colorSpace();
-    const KoColorSpace *dstCs = KoColorSpaceRegistry::instance()->colorSpace(srcCS->colorModelId().id(),
-                                                                             srcCS->colorDepthId().id(),
-                                                                             profile);
-    KisChangeProfileVisitor v(srcCS, dstCs);
-    return layer->accept(v);
+    bool result = d->image->assignLayerProfile(layer, profile);
+    d->image->waitForDone();
+    return result;
 }
 
 bool Node::setColorSpace(const QString &colorModel, const QString &colorDepth, const QString &colorProfile)
@@ -225,12 +281,12 @@ bool Node::setColorSpace(const QString &colorModel, const QString &colorDepth, c
     if (!d->node->inherits("KisLayer")) return false;
     KisLayer *layer = qobject_cast<KisLayer*>(d->node.data());
     const KoColorProfile *profile = KoColorSpaceRegistry::instance()->profileByName(colorProfile);
-    const KoColorSpace *srcCS = layer->colorSpace();
     const KoColorSpace *dstCs = KoColorSpaceRegistry::instance()->colorSpace(colorModel,
                                                                              colorDepth,
                                                                              profile);
-    KisColorSpaceConvertVisitor v(d->image, srcCS, dstCs, KoColorConversionTransformation::internalRenderingIntent(), KoColorConversionTransformation::internalConversionFlags());
-    return layer->accept(v);
+    d->image->convertLayerColorSpace(d->node, dstCs, KoColorConversionTransformation::internalRenderingIntent(), KoColorConversionTransformation::internalConversionFlags());
+    d->image->waitForDone();
+    return true;
 }
 
 bool Node::animated() const
@@ -243,6 +299,18 @@ void Node::enableAnimation() const
 {
     if (!d->node) return;
     d->node->enableAnimation();
+}
+
+void Node::setShowInTimeline(bool showInTimeline) const
+{
+    if (!d->node) return;
+    d->node->setUseInTimeline(showInTimeline);
+}
+
+bool Node::showInTimeline() const
+{
+    if (!d->node) return false;
+    return d->node->useInTimeline();
 }
 
 bool Node::collapsed() const
@@ -283,6 +351,10 @@ void Node::setLocked(bool value)
     d->node->setUserLocked(value);
 }
 
+bool Node::hasExtents()
+{
+    return !d->node->extent().isEmpty();
+}
 
 QString Node::name() const
 {
@@ -315,13 +387,12 @@ void Node::setOpacity(int value)
 Node* Node::parentNode() const
 {
     if (!d->node) return 0;
-    return new Node(d->image, d->node->parent());
+    return Node::createNode(d->image, d->node->parent());
 }
 
 QString Node::type() const
 {
     if (!d->node) return QString();
-    return QString();
     if (qobject_cast<const KisPaintLayer*>(d->node)) {
         return "paintlayer";
     }
@@ -340,8 +411,11 @@ QString Node::type() const
     if (qobject_cast<const KisCloneLayer*>(d->node)) {
         return "clonelayer";
     }
+    if (qobject_cast<const KisReferenceImagesLayer*>(d->node)) {
+        return "referenceimageslayer";
+    }
     if (qobject_cast<const KisShapeLayer*>(d->node)) {
-        return "shapelayer";
+        return "vectorlayer";
     }
     if (qobject_cast<const KisTransparencyMask*>(d->node)) {
         return "transparencymask";
@@ -358,12 +432,40 @@ QString Node::type() const
     if (qobject_cast<const KisColorizeMask*>(d->node)) {
         return "colorizemask";
     }
+    return QString();
+}
+
+QIcon Node::icon() const
+{
+    QIcon icon;
+    if (d->node) {
+        icon = d->node->icon();
+    }
+    return icon;
 }
 
 bool Node::visible() const
 {
     if (!d->node) return false;
-    return d->node->visible();;
+    return d->node->visible();
+}
+
+bool Node::hasKeyframeAtTime(int frameNumber)
+{
+    if (!d->node || !d->node->isAnimated()) return false;
+
+    KisRasterKeyframeChannel *rkc = dynamic_cast<KisRasterKeyframeChannel*>(d->node->getKeyframeChannel(KisKeyframeChannel::Content.id()));
+    if (!rkc) return false;
+
+    KisKeyframeSP timeOfCurrentKeyframe = rkc->keyframeAt(frameNumber);
+
+    if (!timeOfCurrentKeyframe) {
+        return false;
+    }
+
+    // do an assert just to be careful
+    KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(timeOfCurrentKeyframe->time() == frameNumber, false);
+    return true;
 }
 
 void Node::setVisible(bool visible)
@@ -416,6 +518,8 @@ QByteArray Node::projectionPixelData(int x, int y, int w, int h) const
     if (!d->node) return ba;
 
     KisPaintDeviceSP dev = d->node->projection();
+    if (!dev) return ba;
+
     ba.resize(w * h * dev->pixelSize());
     dev->readBytes(reinterpret_cast<quint8*>(ba.data()), x, y, w, h);
     return ba;
@@ -458,23 +562,23 @@ bool Node::remove()
 Node* Node::duplicate()
 {
     if (!d->node) return 0;
-    return new Node(d->image, d->node->clone());
+    return Node::createNode(d->image, d->node->clone());
 }
 
-bool Node::save(const QString &filename, double xRes, double yRes)
+bool Node::save(const QString &filename, double xRes, double yRes, const InfoObject &exportConfiguration, const QRect &exportRect)
 {
     if (!d->node) return false;
     if (filename.isEmpty()) return false;
 
     KisPaintDeviceSP projection = d->node->projection();
-    QRect bounds = d->node->exactBounds();
+    QRect bounds = (exportRect.isEmpty())? d->node->exactBounds() : exportRect;
 
-    QString mimefilter = KisMimeDatabase::mimeTypeForFile(filename);;
+    QString mimeType = KisMimeDatabase::mimeTypeForFile(filename, false);
     QScopedPointer<KisDocument> doc(KisPart::instance()->createDocument());
 
     KisImageSP dst = new KisImage(doc->createUndoStore(),
-                                  bounds.width(),
-                                  bounds.height(),
+                                  bounds.right(),
+                                  bounds.bottom(),
                                   projection->compositionSourceColorSpace(),
                                   d->node->name());
     dst->setResolution(xRes, yRes);
@@ -483,30 +587,29 @@ bool Node::save(const QString &filename, double xRes, double yRes)
     KisPaintLayer* paintLayer = new KisPaintLayer(dst, "paint device", d->node->opacity());
     paintLayer->paintDevice()->makeCloneFrom(projection, bounds);
     dst->addNode(paintLayer, dst->rootLayer(), KisLayerSP(0));
+    dst->cropImage(bounds);
     dst->initialRefreshGraph();
-    doc->setOutputMimeType(mimefilter.toLatin1());
 
-    bool r = doc->exportDocument(QUrl::fromLocalFile(filename));
+    bool r = doc->exportDocumentSync(QUrl::fromLocalFile(filename), mimeType.toLatin1(), exportConfiguration.configuration());
     if (!r) {
         qWarning() << doc->errorMessage();
     }
     return r;
 }
 
-Node *Node::mergeDown()
+Node* Node::mergeDown()
 {
     if (!d->node) return 0;
     if (!qobject_cast<KisLayer*>(d->node.data())) return 0;
-    if (!d->node->nextSibling()) return 0;
-    if (!d->node->parent()) return 0;
+    if (!d->node->prevSibling()) return 0;
 
-    int index = d->node->parent()->index(d->node->prevSibling());
     d->image->mergeDown(qobject_cast<KisLayer*>(d->node.data()), KisMetaData::MergeStrategyRegistry::instance()->get("Drop"));
     d->image->waitForDone();
-    return new Node(d->image, d->node->parent()->at(index));
+
+    return Node::createNode(d->image, d->node->prevSibling());
 }
 
-void Node::scaleNode(int width, int height, QString strategy)
+void Node::scaleNode(QPointF origin, int width, int height, QString strategy)
 {
     if (!d->node) return;
     if (!qobject_cast<KisLayer*>(d->node.data())) return;
@@ -515,7 +618,13 @@ void Node::scaleNode(int width, int height, QString strategy)
     KisFilterStrategy *actualStrategy = KisFilterStrategyRegistry::instance()->get(strategy);
     if (!actualStrategy) actualStrategy = KisFilterStrategyRegistry::instance()->get("Bicubic");
 
-    d->image->scaleNode(d->node, width, height, actualStrategy);
+    const QRect bounds(d->node->exactBounds());
+
+    d->image->scaleNode(d->node,
+                        origin,
+                        qreal(width) / bounds.width(),
+                        qreal(height) / bounds.height(),
+                        actualStrategy, 0);
 }
 
 void Node::rotateNode(double radians)
@@ -524,7 +633,7 @@ void Node::rotateNode(double radians)
     if (!qobject_cast<KisLayer*>(d->node.data())) return;
     if (!d->node->parent()) return;
 
-    d->image->rotateNode(d->node, radians);
+    d->image->rotateNode(d->node, radians, 0);
 }
 
 void Node::cropNode(int x, int y, int w, int h)
@@ -543,7 +652,7 @@ void Node::shearNode(double angleX, double angleY)
     if (!qobject_cast<KisLayer*>(d->node.data())) return;
     if (!d->node->parent()) return;
 
-    d->image->shearNode(d->node, angleX, angleY);
+    d->image->shearNode(d->node, angleX, angleY, 0);
 }
 
 QImage Node::thumbnail(int w, int h)

@@ -28,12 +28,23 @@
 
 #include <testutil.h>
 
+#include "config-limit-long-tests.h"
+
+void waitForMaskUpdates(KisNodeSP root) {
+#ifdef LIMIT_LONG_TESTS
+    KisLayerUtils::forceAllDelayedNodesUpdate(root);
+    QTest::qWait(100);
+#else /* LIMIT_LONG_TESTS */
+    Q_UNUSED(root);
+    QTest::qWait(100);
+#endif /* LIMIT_LONG_TESTS */
+}
+
 void KisFileLayerTest::testFileLayerPlusTransformMaskOffImage()
 {
-    TestUtil::ExternalImageChecker chk("flayer_tmask_offimage", "file_layer");
+    TestUtil::ReferenceImageChecker chk("flayer_tmask_offimage", "file_layer");
 
     QRect refRect(0,0,640,441);
-    QRect fillRect(400,400,100,100);
     TestUtil::MaskParent p(refRect);
 
     QString refName(TestUtil::fetchDataFileLazy("hakonepa.png"));
@@ -41,7 +52,7 @@ void KisFileLayerTest::testFileLayerPlusTransformMaskOffImage()
 
     p.image->addNode(flayer, p.image->root(), KisNodeSP());
 
-    QTest::qWait(2000);
+    waitForMaskUpdates(p.image->root());
     p.image->waitForDone();
 
     KisTransformMaskSP mask1 = new KisTransformMask();
@@ -53,7 +64,7 @@ void KisFileLayerTest::testFileLayerPlusTransformMaskOffImage()
     p.image->waitForDone();
     chk.checkImage(p.image, "00_initial_layer_update");
 
-    QTest::qWait(4000);
+    waitForMaskUpdates(p.image->root());
     p.image->waitForDone();
     chk.checkImage(p.image, "00X_initial_layer_update");
 
@@ -65,7 +76,7 @@ void KisFileLayerTest::testFileLayerPlusTransformMaskOffImage()
     p.image->waitForDone();
     chk.checkImage(p.image, "01_file_layer_moved");
 
-    QTest::qWait(4000);
+    waitForMaskUpdates(p.image->root());
     p.image->waitForDone();
     chk.checkImage(p.image, "01X_file_layer_moved");
 
@@ -86,7 +97,7 @@ void KisFileLayerTest::testFileLayerPlusTransformMaskOffImage()
     p.image->waitForDone();
     chk.checkImage(p.image, "02_mask1_moved_mask_update");
 
-    QTest::qWait(4000);
+    waitForMaskUpdates(p.image->root());
     p.image->waitForDone();
     chk.checkImage(p.image, "02X_mask1_moved_mask_update");
 
@@ -95,10 +106,9 @@ void KisFileLayerTest::testFileLayerPlusTransformMaskOffImage()
 
 void KisFileLayerTest::testFileLayerPlusTransformMaskSmallFileBigOffset()
 {
-    TestUtil::ExternalImageChecker chk("flayer_tmask_huge_offset", "file_layer");
+    TestUtil::ReferenceImageChecker chk("flayer_tmask_huge_offset", "file_layer");
 
     QRect refRect(0,0,2000,1500);
-    QRect fillRect(400,400,100,100);
     TestUtil::MaskParent p(refRect);
 
     QString refName(TestUtil::fetchDataFileLazy("file_layer_source.png"));
@@ -106,10 +116,10 @@ void KisFileLayerTest::testFileLayerPlusTransformMaskSmallFileBigOffset()
 
     p.image->addNode(flayer, p.image->root(), KisNodeSP());
 
-    QTest::qWait(2000);
+    waitForMaskUpdates(p.image->root());
     p.image->waitForDone();
 
-    // check whether the defalt bounds of the file layer are
+    // check whether the default bounds of the file layer are
     // initialized properly
     QCOMPARE(flayer->original()->defaultBounds()->bounds(), p.image->bounds());
 
@@ -122,7 +132,7 @@ void KisFileLayerTest::testFileLayerPlusTransformMaskSmallFileBigOffset()
     p.image->waitForDone();
     chk.checkImage(p.image, "00_initial_layer_update");
 
-    QTest::qWait(4000);
+    waitForMaskUpdates(p.image->root());
     p.image->waitForDone();
     chk.checkImage(p.image, "00X_initial_layer_update");
 
@@ -136,11 +146,11 @@ void KisFileLayerTest::testFileLayerPlusTransformMaskSmallFileBigOffset()
     p.image->waitForDone();
     chk.checkImage(p.image, "01_mask1_moved_mask_update");
 
-    QTest::qWait(4000);
+    waitForMaskUpdates(p.image->root());
     p.image->waitForDone();
     chk.checkImage(p.image, "01X_mask1_moved_mask_update");
 
     QVERIFY(chk.testPassed());
 }
 
-QTEST_MAIN(KisFileLayerTest)
+KISTEST_MAIN(KisFileLayerTest)

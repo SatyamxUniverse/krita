@@ -179,7 +179,7 @@ void readGrayPixel(const QMap<quint16, QByteArray> &channelBytes,
     const channels_type unitValue = KoColorSpaceMathsTraits<channels_type>::unitValue;
     Pixel *pixelPtr = reinterpret_cast<Pixel*>(dstPtr);
 
-    pixelPtr->gray  = readChannelValue<Traits>(channelBytes, 0, col, unitValue);;
+    pixelPtr->gray  = readChannelValue<Traits>(channelBytes, 0, col, unitValue);
     pixelPtr->alpha = readChannelValue<Traits>(channelBytes, -1, col, unitValue);
 }
 
@@ -332,7 +332,7 @@ psd_status psd_unzip_without_prediction(psd_uchar *src_buf, psd_int src_len,
         state = inflate(&stream, Z_PARTIAL_FLUSH);
         if(state == Z_STREAM_END)
             break;
-        if(state == Z_DATA_ERROR || state != Z_OK)
+        if(state != Z_OK)
             break;
     }  while (stream.avail_out > 0);
 
@@ -479,10 +479,10 @@ void readCommon(KisPaintDeviceSP dev,
 
         KisSequentialIterator it(dev, layerRect);
         int col = 0;
-        do {
+        while (it.nextPixel()) {
             pixelFunc(channelSize, channelBytes, col, it.rawData());
             col++;
-        } while(it.nextPixel());
+        }
 
     } else {
         KisHLineIteratorSP it = dev->createHLineIteratorNG(layerRect.left(), layerRect.top(), layerRect.width());
@@ -659,10 +659,10 @@ void writePixelDataCommon(QIODevice *io,
             int channelIndex = KoChannelInfo::displayPositionToChannelIndex(ch->displayPosition(), origChannels);
 
             quint8 *holder = 0;
-            qSwap(holder, tmp[channelIndex]);
+            std::swap(holder, tmp[channelIndex]);
 
             if (ch->channelType() == KoChannelInfo::ALPHA) {
-                qSwap(holder, alphaPlanePtr);
+                std::swap(holder, alphaPlanePtr);
             } else {
                 planes.append(holder);
             }
@@ -704,13 +704,17 @@ void writePixelDataCommon(QIODevice *io,
         }
 
     } catch (KisAslWriterUtils::ASLWriteException &e) {
-        qDeleteAll(planes);
+        Q_FOREACH (quint8 *plane, planes) {
+            delete[] plane;
+        }
         planes.clear();
 
         throw KisAslWriterUtils::ASLWriteException(PREPEND_METHOD(e.what()));
     }
 
-    qDeleteAll(planes);
+    Q_FOREACH (quint8 *plane, planes) {
+        delete[] plane;
+    }
     planes.clear();
 }
 

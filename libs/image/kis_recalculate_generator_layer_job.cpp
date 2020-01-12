@@ -27,6 +27,7 @@
 KisRecalculateGeneratorLayerJob::KisRecalculateGeneratorLayerJob(KisGeneratorLayerSP layer)
     : m_layer(layer)
 {
+    setExclusive(true);
 }
 
 bool KisRecalculateGeneratorLayerJob::overrides(const KisSpontaneousJob *_otherJob)
@@ -51,4 +52,12 @@ void KisRecalculateGeneratorLayerJob::run()
 int KisRecalculateGeneratorLayerJob::levelOfDetail() const
 {
     return 0;
+}
+
+QString KisRecalculateGeneratorLayerJob::debugName() const
+{
+    QString result;
+    QDebug dbg(&result);
+    dbg << "KisRecalculateGeneratorLayerJob" << m_layer;
+    return result;
 }

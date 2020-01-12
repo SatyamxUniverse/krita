@@ -44,18 +44,24 @@
 #include <kis_layer.h>
 #include <kis_selection.h>
 #include <kis_types.h>
+#include <filter/kis_filter_category_ids.h>
 #include <filter/kis_filter_configuration.h>
 #include <kis_processing_information.h>
 
 #include "widgets/kis_multi_integer_filter_widget.h"
-#include <kis_iterator_ng.h>
+#include <KoMixColorsOp.h>
+#include <KisSequentialIteratorProgress.h>
+#include "kis_algebra_2d.h"
+#include "kis_lod_transform.h"
 
 
-KisPixelizeFilter::KisPixelizeFilter() : KisFilter(id(), KisFilter::categoryArtistic(), i18n("&Pixelize..."))
+KisPixelizeFilter::KisPixelizeFilter() : KisFilter(id(), FiltersCategoryArtisticId, i18n("&Pixelize..."))
 {
     setSupportsPainting(true);
-    setSupportsThreading(false);
-    setSupportsAdjustmentLayers(false);
+    setSupportsThreading(true);
+    setSupportsAdjustmentLayers(true);
+    setSupportsLevelOfDetail(true);
+    setColorSpaceIndependence(FULLY_INDEPENDENT);
 }
 
 void KisPixelizeFilter::processImpl(KisPaintDeviceSP device,
@@ -64,67 +70,82 @@ void KisPixelizeFilter::processImpl(KisPaintDeviceSP device,
                                     KoUpdater* progressUpdater
                                     ) const
 {
-    QPoint srcTopLeft = applyRect.topLeft();
     Q_ASSERT(device);
 
-    qint32 width = applyRect.width();
-    qint32 height = applyRect.height();
+    KisLodTransformScalar t(device);
+    const int pixelWidth = qCeil(t.scale(config ? qMax(1, config->getInt("pixelWidth", 10)) : 10));
+    const int pixelHeight = qCeil(t.scale(config ? qMax(1, config->getInt("pixelHeight", 10)) : 10));
 
-    //read the filter configuration values from the KisFilterConfiguration object
-    quint32 pixelWidth = config ? config->getInt("pixelWidth", 10) : 10;
-    quint32 pixelHeight = config ? config->getInt("pixelHeight", 10) : 10;
-    if (pixelWidth == 0) pixelWidth = 1;
-    if (pixelHeight == 0) pixelHeight = 1;
+    const qint32 pixelSize = device->pixelSize();
 
-    qint32 pixelSize = device->pixelSize();
-    QVector<qint32> average(pixelSize);
+    const QRect deviceBounds = device->defaultBounds()->bounds();
 
-    qint32 count;
+    const int bufferSize = pixelSize * pixelWidth * pixelHeight;
+    QScopedArrayPointer<quint8> buffer(new quint8[bufferSize]);
 
-    if (progressUpdater) {
-        progressUpdater->setRange(0, applyRect.width() * applyRect.height());
-    }
+    KoColor pixelColor(Qt::black, device->colorSpace());
+    KoMixColorsOp *mixOp = device->colorSpace()->mixColorsOp();
 
-    qint32 numberOfPixelsProcessed = 0;
+    using namespace KisAlgebra2D;
+    const qint32 firstCol = divideFloor(applyRect.x(), pixelWidth);
+    const qint32 firstRow = divideFloor(applyRect.y(), pixelHeight);
 
-    for (qint32 y = 0; y < height; y += pixelHeight - (y % pixelHeight)) {
-        qint32 h = pixelHeight;
-        h = qMin(h, height - y);
+    const qint32 lastCol = divideFloor(applyRect.x() + applyRect.width() - 1, pixelWidth);
+    const qint32 lastRow = divideFloor(applyRect.y() + applyRect.height() - 1, pixelHeight);
 
-        for (qint32 x = 0; x < width; x += pixelWidth - (x % pixelWidth)) {
-            qint32 w = pixelWidth;
-            w = qMin(w, width - x);
+    progressUpdater->setRange(firstRow, lastRow);
 
-            average.fill(0, pixelSize);
-            count = 0;
+    for(qint32 i = firstRow; i <= lastRow; i++) {
+        for(qint32 j = firstCol; j <= lastCol; j++) {
+            const QRect maxPatchRect(j * pixelWidth, i * pixelHeight,
+                                     pixelWidth, pixelHeight);
+            const QRect pixelRect = maxPatchRect & deviceBounds;
+            const int numColors = pixelRect.width() * pixelRect.height();
+
 
             //read
-            KisSequentialConstIterator srcIt(device, QRect(srcTopLeft.x() + x, srcTopLeft.y() + y, w, h));
-            do {
-                for (qint32 i = 0; i < pixelSize; i++) {
-                    average[i] += srcIt.oldRawData()[i];
-                }
-                count++;
-            } while (srcIt.nextPixel());
+            KisSequentialConstIterator srcIt(device, pixelRect);
 
-            //average
-            if (count > 0) {
-                for (qint32 i = 0; i < pixelSize; i++)
-                    average[i] /= count;
+            memset(buffer.data(), 0, bufferSize);
+            quint8 *bufferPtr = buffer.data();
+
+            while (srcIt.nextPixel()) {
+                memcpy(bufferPtr, srcIt.oldRawData(), pixelSize);
+                bufferPtr += pixelSize;
             }
-            //write
-            KisSequentialIterator dstIt(device, QRect(srcTopLeft.x() + x, srcTopLeft.y() + y, w, h));
-            do {
-                for (int i = 0; i < pixelSize; i++) {
-                    dstIt.rawData()[i] = average[i];
-                }
-            } while (dstIt.nextPixel());
-            if (progressUpdater) progressUpdater->setValue(++numberOfPixelsProcessed);
+
+            // mix all the colors
+            mixOp->mixColors(buffer.data(), numColors, pixelColor.data());
+
+            // write only colors in applyRect
+            const QRect writeRect = pixelRect & applyRect;
+
+            KisSequentialIterator dstIt(device, writeRect);
+            while (dstIt.nextPixel()) {
+                memcpy(dstIt.rawData(), pixelColor.data(), pixelSize);
+            }
         }
+        progressUpdater->setValue(i);
     }
 }
 
-KisConfigWidget * KisPixelizeFilter::createConfigurationWidget(QWidget* parent, const KisPaintDeviceSP) const
+QRect KisPixelizeFilter::neededRect(const QRect &rect, const KisFilterConfigurationSP config, int lod) const
+{
+    KisLodTransformScalar t(lod);
+
+    const int pixelWidth = qCeil(t.scale(config ? qMax(1, config->getInt("pixelWidth", 10)) : 10));
+    const int pixelHeight = qCeil(t.scale(config ? qMax(1, config->getInt("pixelHeight", 10)) : 10));
+
+    // TODO: make more precise calculation of the rect, including the alignment
+    return rect.adjusted(-2*pixelWidth, -2*pixelHeight, 2*pixelWidth, 2*pixelHeight);
+}
+
+QRect KisPixelizeFilter::changedRect(const QRect &rect, const KisFilterConfigurationSP config, int lod) const
+{
+    return neededRect(rect, config, lod);
+}
+
+KisConfigWidget * KisPixelizeFilter::createConfigurationWidget(QWidget* parent, const KisPaintDeviceSP, bool) const
 {
     vKisIntegerWidgetParam param;
     param.push_back(KisIntegerWidgetParam(2, 512, 10, i18n("Pixel width"), "pixelWidth"));
@@ -132,9 +153,9 @@ KisConfigWidget * KisPixelizeFilter::createConfigurationWidget(QWidget* parent, 
     return new KisMultiIntegerFilterWidget(id().id(),  parent,  id().id(),  param);
 }
 
-KisFilterConfigurationSP KisPixelizeFilter::factoryConfiguration() const
+KisFilterConfigurationSP KisPixelizeFilter::defaultConfiguration() const
 {
-    KisFilterConfigurationSP config = new KisFilterConfiguration("pixelize", 1);
+    KisFilterConfigurationSP config = factoryConfiguration();
     config->setProperty("pixelWidth", 10);
     config->setProperty("pixelHeight", 10);
     return config;

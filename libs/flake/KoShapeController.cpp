@@ -21,7 +21,7 @@
  */
 
 #include "KoShapeController.h"
-#include "KoShapeBasedDocumentBase.h"
+#include "KoShapeControllerBase.h"
 #include "KoShapeRegistry.h"
 #include "KoDocumentResourceManager.h"
 #include "KoShapeManager.h"
@@ -47,22 +47,23 @@ class KoShapeController::Private
 public:
     Private()
         : canvas(0),
-          shapeBasedDocument(0)
+          shapeController(0)
     {
     }
 
     KoCanvasBase *canvas;
-    KoShapeBasedDocumentBase *shapeBasedDocument;
+    KoShapeControllerBase *shapeController;
 
-    KUndo2Command* addShape(KoShape *shape, bool showDialog, KUndo2Command *parent) {
+    KUndo2Command* addShape(KoShape *shape, bool showDialog, KoShapeContainer *parentShape, KUndo2Command *parent) {
 
         if (canvas) {
             if (showDialog && !shape->shapeId().isEmpty()) {
                 KoShapeFactoryBase *factory = KoShapeRegistry::instance()->value(shape->shapeId());
                 Q_ASSERT(factory);
-                int z = 0;
-                Q_FOREACH (KoShape *sh, canvas->shapeManager()->shapes())
+                qint16 z = 0;
+                Q_FOREACH (KoShape *sh, canvas->shapeManager()->shapes()) {
                     z = qMax(z, sh->zIndex());
+                }
                 shape->setZIndex(z + 1);
 
                 // show config dialog.
@@ -98,12 +99,12 @@ public:
             }
         }
 
-        return addShapesDirect({shape}, parent);
+        return addShapesDirect({shape}, parentShape, parent);
     }
 
-    KUndo2Command* addShapesDirect(const QList<KoShape*> shapes, KUndo2Command *parent)
+    KUndo2Command* addShapesDirect(const QList<KoShape*> shapes, KoShapeContainer *parentShape, KUndo2Command *parent)
     {
-        return new KoShapeCreateCommand(shapeBasedDocument, shapes, parent);
+        return new KoShapeCreateCommand(shapeController, shapes, parentShape, parent);
     }
 
     void handleAttachedConnections(KoShape *shape, KUndo2Command *parentCmd) {
@@ -122,14 +123,11 @@ public:
     }
 };
 
-KoShapeController::KoShapeController(KoCanvasBase *canvas, KoShapeBasedDocumentBase *shapeBasedDocument)
+KoShapeController::KoShapeController(KoCanvasBase *canvas, KoShapeControllerBase *shapeController)
     : d(new Private())
 {
     d->canvas = canvas;
-    d->shapeBasedDocument = shapeBasedDocument;
-    if (shapeBasedDocument) {
-        shapeBasedDocument->resourceManager()->setShapeController(this);
-    }
+    d->shapeController = shapeController;
 }
 
 KoShapeController::~KoShapeController()
@@ -140,30 +138,30 @@ KoShapeController::~KoShapeController()
 void KoShapeController::reset()
 {
     d->canvas = 0;
-    d->shapeBasedDocument = 0;
+    d->shapeController = 0;
 }
 
-KUndo2Command* KoShapeController::addShape(KoShape *shape, KUndo2Command *parent)
+KUndo2Command* KoShapeController::addShape(KoShape *shape, KoShapeContainer *parentShape, KUndo2Command *parent)
 {
-    return d->addShape(shape, true, parent);
+    return d->addShape(shape, true, parentShape, parent);
 }
 
-KUndo2Command* KoShapeController::addShapeDirect(KoShape *shape, KUndo2Command *parent)
+KUndo2Command* KoShapeController::addShapeDirect(KoShape *shape, KoShapeContainer *parentShape, KUndo2Command *parent)
 {
-    return d->addShapesDirect({shape}, parent);
+    return d->addShapesDirect({shape}, parentShape, parent);
 }
 
-KUndo2Command *KoShapeController::addShapesDirect(const QList<KoShape *> shapes, KUndo2Command *parent)
+KUndo2Command *KoShapeController::addShapesDirect(const QList<KoShape *> shapes, KoShapeContainer *parentShape, KUndo2Command *parent)
 {
-    return d->addShapesDirect(shapes, parent);
+    return d->addShapesDirect(shapes, parentShape, parent);
 }
 
 KUndo2Command* KoShapeController::removeShape(KoShape *shape, KUndo2Command *parent)
 {
-    KUndo2Command *cmd = new KoShapeDeleteCommand(d->shapeBasedDocument, shape, parent);
+    KUndo2Command *cmd = new KoShapeDeleteCommand(d->shapeController, shape, parent);
     QList<KoShape*> shapes;
     shapes.append(shape);
-    d->shapeBasedDocument->shapesRemoved(shapes, cmd);
+    d->shapeController->shapesRemoved(shapes, cmd);
     // detach shape from any attached connection shapes
     d->handleAttachedConnections(shape, cmd);
     return cmd;
@@ -171,42 +169,44 @@ KUndo2Command* KoShapeController::removeShape(KoShape *shape, KUndo2Command *par
 
 KUndo2Command* KoShapeController::removeShapes(const QList<KoShape*> &shapes, KUndo2Command *parent)
 {
-    KUndo2Command *cmd = new KoShapeDeleteCommand(d->shapeBasedDocument, shapes, parent);
-    d->shapeBasedDocument->shapesRemoved(shapes, cmd);
+    KUndo2Command *cmd = new KoShapeDeleteCommand(d->shapeController, shapes, parent);
+    d->shapeController->shapesRemoved(shapes, cmd);
     foreach (KoShape *shape, shapes) {
         d->handleAttachedConnections(shape, cmd);
     }
     return cmd;
 }
 
-void KoShapeController::setShapeControllerBase(KoShapeBasedDocumentBase *shapeBasedDocument)
+void KoShapeController::setShapeControllerBase(KoShapeControllerBase *shapeController)
 {
-    d->shapeBasedDocument = shapeBasedDocument;
+    d->shapeController = shapeController;
 }
 
 QRectF KoShapeController::documentRectInPixels() const
 {
-    return d->shapeBasedDocument ? d->shapeBasedDocument->documentRectInPixels() : QRectF(0,0,1920,1080);
+    return d->shapeController ? d->shapeController->documentRectInPixels() : QRectF(0,0,1920,1080);
 }
 
 qreal KoShapeController::pixelsPerInch() const
 {
-    return d->shapeBasedDocument ? d->shapeBasedDocument->pixelsPerInch() : 72.0;
+    return d->shapeController ? d->shapeController->pixelsPerInch() : 72.0;
 }
 
 QRectF KoShapeController::documentRect() const
 {
-    return d->shapeBasedDocument ? d->shapeBasedDocument->documentRect() : documentRectInPixels();
+    return d->shapeController ? d->shapeController->documentRect() : documentRectInPixels();
 }
 
 KoDocumentResourceManager *KoShapeController::resourceManager() const
 {
-    if (!d->shapeBasedDocument)
+    if (!d->shapeController) {
+        qWarning() << "THIS IS NOT GOOD!";
         return 0;
-    return d->shapeBasedDocument->resourceManager();
+    }
+    return d->shapeController->resourceManager();
 }
 
-KoShapeBasedDocumentBase *KoShapeController::documentBase() const
+KoShapeControllerBase *KoShapeController::documentBase() const
 {
-    return d->shapeBasedDocument;
+    return d->shapeController;
 }

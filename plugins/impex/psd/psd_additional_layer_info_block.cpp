@@ -158,9 +158,6 @@ void PsdAdditionalLayerInfoBlock::readImpl(QIODevice* io)
         else if (key == "thrs") {
 
         }
-        else if (key == "grdm") {
-
-        }
         else if (key == "selc") {
 
         }
@@ -177,7 +174,9 @@ void PsdAdditionalLayerInfoBlock::readImpl(QIODevice* io)
         else if (key == "lyid") {
 
         }
-        else if (key == "lfx2") {
+        else if (key == "lfx2" || key == "lfxs") {
+            // lfxs is a special variant of layer styles for group layers
+
             KisAslReader reader;
             layerStyleXml = reader.readLfx2PsdSection(io);
         }
@@ -241,15 +240,6 @@ void PsdAdditionalLayerInfoBlock::readImpl(QIODevice* io)
         else if (key == "brst") {
 
         }
-        else if (key == "SoCo") {
-
-        }
-        else if (key == "PtFl") {
-
-        }
-        else if (key == "GdFl") {
-
-        }
         else if (key == "vmsk" || key == "vsms") { // If key is "vsms" then we are writing for (Photoshop CS6) and the document will have a "vscg" key
 
         }
@@ -286,19 +276,10 @@ void PsdAdditionalLayerInfoBlock::readImpl(QIODevice* io)
         else if (key == "linkD" || key == "lnk2" || key == "lnk3") {
 
         }
-        else if (key == "phfl") {
-
-        }
-        else if (key == "blwh") {
-
-        }
         else if (key == "CgEd") {
 
         }
         else if (key == "Txt2") {
-
-        }
-        else if (key == "vibA") {
 
         }
         else if (key == "pths") {
@@ -329,9 +310,6 @@ void PsdAdditionalLayerInfoBlock::readImpl(QIODevice* io)
 
         }
         else if (key == "LMsk") {
-
-        }
-        else if (key == "expA") {
 
         }
         else if (key == "FXid") {
@@ -376,10 +354,11 @@ void PsdAdditionalLayerInfoBlock::writeLsctBlockEx(QIODevice* io, psd_section_ty
     KisAslWriterUtils::writeFixedString(realBlendModeKey, io);
 }
 
-void PsdAdditionalLayerInfoBlock::writeLfx2BlockEx(QIODevice* io, const QDomDocument &stylesXmlDoc)
+void PsdAdditionalLayerInfoBlock::writeLfx2BlockEx(QIODevice* io, const QDomDocument &stylesXmlDoc, bool useLfxsLayerStyleFormat)
 {
     KisAslWriterUtils::writeFixedString("8BIM", io);
-    KisAslWriterUtils::writeFixedString("lfx2", io);
+    // 'lfxs' format is used for Group layers in PS
+    KisAslWriterUtils::writeFixedString(!useLfxsLayerStyleFormat ? "lfx2" : "lfxs", io);
     KisAslWriterUtils::OffsetStreamPusher<quint32> lfx2SizeTag(io, 2);
 
     try {

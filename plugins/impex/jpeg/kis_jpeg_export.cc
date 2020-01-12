@@ -26,6 +26,7 @@
 #include <QStringList>
 #include <QApplication>
 #include <QFileInfo>
+#include <QScopedPointer>
 
 #include <kpluginfactory.h>
 
@@ -37,17 +38,21 @@
 #include <KisImportExportManager.h>
 #include <kis_slider_spin_box.h>
 #include <KisDocument.h>
+#include <KoDocumentInfo.h>
 #include <kis_image.h>
 #include <kis_group_layer.h>
 #include <kis_paint_layer.h>
 #include <kis_paint_device.h>
 #include <kis_properties_configuration.h>
 #include <kis_config.h>
-#include <metadata/kis_meta_data_store.h>
-#include <metadata/kis_meta_data_filter_registry_model.h>
-#include <metadata/kis_exif_info_visitor.h>
+#include <kis_meta_data_store.h>
+#include <kis_meta_data_entry.h>
+#include <kis_meta_data_value.h>
+#include <kis_meta_data_schema.h>
+#include <kis_meta_data_schema_registry.h>
+#include <kis_meta_data_filter_registry_model.h>
+#include <kis_exif_info_visitor.h>
 #include <generator/kis_generator_layer.h>
-#include <KisImportExportManager.h>
 #include <KisExportCheckRegistry.h>
 #include "kis_jpeg_converter.h"
 
@@ -63,7 +68,7 @@ KisJPEGExport::~KisJPEGExport()
 {
 }
 
-KisImportExportFilter::ConversionStatus KisJPEGExport::convert(KisDocument *document, QIODevice *io,  KisPropertiesConfigurationSP configuration)
+KisImportExportErrorCode KisJPEGExport::convert(KisDocument *document, QIODevice *io,  KisPropertiesConfigurationSP configuration)
 {
     KisImageSP image = document->savingImage();
     Q_CHECK_PTR(image);
@@ -85,37 +90,86 @@ KisImportExportFilter::ConversionStatus KisJPEGExport::convert(KisDocument *docu
     options.exif = configuration->getBool("exif", true);
     options.iptc = configuration->getBool("iptc", true);
     options.xmp = configuration->getBool("xmp", true);
-    options.transparencyFillColor = configuration->getColor("transparencyFillcolor").toQColor();
+    KoColor c(KoColorSpaceRegistry::instance()->rgb8());
+    c.fromQColor(Qt::white);
+    options.transparencyFillColor = configuration->getColor("transparencyFillcolor", c).toQColor();
     KisMetaData::FilterRegistryModel m;
     m.setEnabledFilters(configuration->getString("filters").split(","));
     options.filters = m.enabledFilters();
+    options.storeAuthor = configuration->getBool("storeAuthor", false);
+    options.storeDocumentMetaData = configuration->getBool("storeMetaData", false);
 
     KisPaintDeviceSP pd = new KisPaintDevice(*image->projection());
 
     KisJPEGConverter kpc(document, batchMode());
     KisPaintLayerSP l = new KisPaintLayer(image, "projection", OPACITY_OPAQUE_U8, pd);
 
-    KisExifInfoVisitor eIV;
-    eIV.visit(image->rootLayer().data());
+    KisExifInfoVisitor exivInfoVisitor;
+    exivInfoVisitor.visit(image->rootLayer().data());
 
-    KisMetaData::Store* eI = 0;
-    if (eIV.countPaintLayer() == 1) {
-        eI = eIV.exifInfo();
+    QScopedPointer<KisMetaData::Store> metaDataStore;
+    if (exivInfoVisitor.metaDataCount() == 1) {
+        metaDataStore.reset(new KisMetaData::Store(*exivInfoVisitor.exifInfo()));
     }
-    if (eI) {
-        KisMetaData::Store* copy = new KisMetaData::Store(*eI);
-        eI = copy;
+    else {
+        metaDataStore.reset(new KisMetaData::Store());
     }
 
-    KisImageBuilder_Result res = kpc.buildFile(io, l, options, eI);
-
-    if (res == KisImageBuilder_RESULT_OK) {
-        delete eI;
-        return KisImportExportFilter::OK;
+    //add extra meta-data here
+    const KisMetaData::Schema* dcSchema = KisMetaData::SchemaRegistry::instance()->schemaFromUri(KisMetaData::Schema::DublinCoreSchemaUri);
+    Q_ASSERT(dcSchema);
+    if (options.storeDocumentMetaData) {
+        QString title = document->documentInfo()->aboutInfo("title");
+        if (!title.isEmpty()) {
+            if (metaDataStore->containsEntry("title")) {
+                metaDataStore->removeEntry("title");
+            }
+            metaDataStore->addEntry(KisMetaData::Entry(dcSchema, "title", KisMetaData::Value(QVariant(title))));
+        }
+        QString description = document->documentInfo()->aboutInfo("subject");
+        if (description.isEmpty()) {
+            description = document->documentInfo()->aboutInfo("abstract");
+        }
+        if (!description.isEmpty()) {
+            QString keywords = document->documentInfo()->aboutInfo("keyword");
+            if (!keywords.isEmpty()) {
+                description = description + " keywords: " + keywords;
+            }
+            if (metaDataStore->containsEntry("description")) {
+                metaDataStore->removeEntry("description");
+            }
+            metaDataStore->addEntry(KisMetaData::Entry(dcSchema, "description", KisMetaData::Value(QVariant(description))));
+        }
+        QString license = document->documentInfo()->aboutInfo("license");
+        if (!license.isEmpty()) {
+            if (metaDataStore->containsEntry("rights")) {
+                metaDataStore->removeEntry("rights");
+            }
+            metaDataStore->addEntry(KisMetaData::Entry(dcSchema, "rights", KisMetaData::Value(QVariant(license))));
+        }
+        QString date = document->documentInfo()->aboutInfo("date");
+        if (!date.isEmpty() && !metaDataStore->containsEntry("rights")) {
+            metaDataStore->addEntry(KisMetaData::Entry(dcSchema, "date", KisMetaData::Value(QVariant(date))));
+        }
     }
-    delete eI;
-    dbgFile << " Result =" << res;
-    return KisImportExportFilter::InternalError;
+    if (options.storeAuthor) {
+        QString author = document->documentInfo()->authorInfo("creator");
+        if (!author.isEmpty()) {
+            if (!document->documentInfo()->authorContactInfo().isEmpty()) {
+                QString contact = document->documentInfo()->authorContactInfo().at(0);
+                if (!contact.isEmpty()) {
+                    author = author+"("+contact+")";
+                }
+            }
+            if (metaDataStore->containsEntry("creator")) {
+                metaDataStore->removeEntry("creator");
+            }
+            metaDataStore->addEntry(KisMetaData::Entry(dcSchema, "creator", KisMetaData::Value(QVariant(author))));
+        }
+    }
+
+    KisImportExportErrorCode res = kpc.buildFile(io, l, options, metaDataStore.data());
+    return res;
 }
 
 KisPropertiesConfigurationSP KisJPEGExport::defaultConfiguration(const QByteArray &/*from*/, const QByteArray &/*to*/) const
@@ -132,7 +186,16 @@ KisPropertiesConfigurationSP KisJPEGExport::defaultConfiguration(const QByteArra
     cfg->setProperty("exif", true);
     cfg->setProperty("iptc", true);
     cfg->setProperty("xmp", true);
-    cfg->setProperty("transparencyFillcolor", QString("255,255,255"));
+    cfg->setProperty("storeAuthor", false);
+    cfg->setProperty("storeMetaData", false);
+
+    KoColor fill_color(KoColorSpaceRegistry::instance()->rgb8());
+    fill_color = KoColor();
+    fill_color.fromQColor(Qt::white);
+    QVariant v;
+    v.setValue(fill_color);
+
+    cfg->setProperty("transparencyFillcolor", v);
     cfg->setProperty("filters", "");
 
     return cfg;
@@ -164,9 +227,9 @@ KisWdgOptionsJPEG::KisWdgOptionsJPEG(QWidget *parent)
 
     metaDataFilters->setModel(&m_filterRegistryModel);
     qualityLevel->setRange(0, 100, 0);
-    qualityLevel->setSuffix("%");
+    qualityLevel->setSuffix(i18n("%"));
     smoothLevel->setRange(0, 100, 0);
-    smoothLevel->setSuffix("%");
+    smoothLevel->setSuffix(i18n("%"));
 }
 
 
@@ -184,12 +247,12 @@ void KisWdgOptionsJPEG::setConfiguration(const KisPropertiesConfigurationSP cfg)
     chkForceSRGB->setVisible(cfg->getBool("is_sRGB"));
     chkForceSRGB->setChecked(cfg->getBool("forceSRGB", false));
     chkSaveProfile->setChecked(cfg->getBool("saveProfile", true));
-    QStringList rgb = cfg->getString("transparencyFillcolor", "255,255,255").split(',');
     KoColor background(KoColorSpaceRegistry::instance()->rgb8());
     background.fromQColor(Qt::white);
     bnTransparencyFillColor->setDefaultColor(background);
-    background.fromQColor(QColor(rgb[0].toInt(), rgb[1].toInt(), rgb[2].toInt()));
-    bnTransparencyFillColor->setColor(background);
+    bnTransparencyFillColor->setColor(cfg->getColor("transparencyFillcolor", background));
+    chkAuthor->setChecked(cfg->getBool("storeAuthor", false));
+    chkMetaData->setChecked(cfg->getBool("storeMetaData", false));
 
     m_filterRegistryModel.setEnabledFilters(cfg->getString("filters").split(','));
 
@@ -198,6 +261,10 @@ void KisWdgOptionsJPEG::setConfiguration(const KisPropertiesConfigurationSP cfg)
 KisPropertiesConfigurationSP KisWdgOptionsJPEG::configuration() const
 {
     KisPropertiesConfigurationSP cfg = new KisPropertiesConfiguration();
+
+    QVariant transparencyFillcolor;
+    transparencyFillcolor.setValue(bnTransparencyFillColor->color());
+
     cfg->setProperty("progressive", progressive->isChecked());
     cfg->setProperty("quality", (int)qualityLevel->value());
     cfg->setProperty("forceSRGB", chkForceSRGB->isChecked());
@@ -209,8 +276,10 @@ KisPropertiesConfigurationSP KisWdgOptionsJPEG::configuration() const
     cfg->setProperty("exif", exif->isChecked());
     cfg->setProperty("iptc", iptc->isChecked());
     cfg->setProperty("xmp", xmp->isChecked());
-    QColor c = bnTransparencyFillColor->color().toQColor();
-    cfg->setProperty("transparencyFillcolor", QString("%1,%2,%3").arg(c.red()).arg(c.green()).arg(c.blue()));
+    cfg->setProperty("transparencyFillcolor", transparencyFillcolor);
+    cfg->setProperty("storeAuthor", chkAuthor->isChecked());
+    cfg->setProperty("storeMetaData", chkMetaData->isChecked());
+
     QString enabledFilters;
     Q_FOREACH (const KisMetaData::Filter* filter, m_filterRegistryModel.enabledFilters()) {
         enabledFilters = enabledFilters + filter->id() + ',';

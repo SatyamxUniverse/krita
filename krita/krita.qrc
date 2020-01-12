@@ -4,7 +4,7 @@
         <file alias="kritarc">data/kritarc</file>
     </qresource>
     <qresource prefix="/kxmlgui5">
-        <file alias="krita.xmlgui">krita.xmlgui</file>
+        <file alias="krita4.xmlgui">krita4.xmlgui</file>
     </qresource>
     <qresource>
         <file>pics/broken-preset.png</file>
@@ -53,7 +53,7 @@
         <file>pics/select_pixel.png</file>
         <file>pics/select_shape.png</file>
         <file>pics/selection_add.png</file>
-        <file>pics/selection_exclude.png</file>
+        <file>pics/selection_symmetric_difference.png</file>
         <file>pics/selection_intersect.png</file>
         <file>pics/selection_replace.png</file>
         <file>pics/selection_subtract.png</file>

@@ -22,6 +22,7 @@
 #include <QList>
 
 #include "kis_types.h"
+#include "kis_base_node.h"
 #include <kritaui_export.h>
 
 class KActionCollection;
@@ -36,6 +37,7 @@ class KisActionManager;
 class KisView;
 class KisNodeSelectionAdapter;
 class KisNodeInsertionAdapter;
+class KisNodeDisplayModeAdapter;
 class KisNodeJugglerCompressed;
 class KoProperties;
 
@@ -52,26 +54,23 @@ public:
 
     KisNodeManager(KisViewManager * view);
     ~KisNodeManager() override;
-    
+
     void setView(QPointer<KisView>imageView);
 
 Q_SIGNALS:
 
     /// emitted whenever a node is selected.
     void sigNodeActivated(KisNodeSP node);
-    
-    /// emitted whenever a different layer is selected.
-    void sigLayerActivated(KisLayerSP layer);
-    
+
     /// for the layer box: this sets the current node in the layerbox
     /// without telling the node manager that the node is activated,
     /// preventing loops (I think...)
     void sigUiNeedChangeActiveNode(KisNodeSP node);
 
     void sigUiNeedChangeSelectedNodes(const KisNodeList &nodes);
-    
+
 public:
-    
+
     void setup(KActionCollection * collection, KisActionManager* actionManager);
     void updateGUI();
 
@@ -81,7 +80,7 @@ public:
     /// convenience function to get the active layer. If a mask is
     /// active, it's parent layer is the active layer.
     KisLayerSP activeLayer();
-    
+
     /// Get the paint device the user wants to paint on now
     KisPaintDeviceSP activePaintDevice();
 
@@ -92,9 +91,14 @@ public:
     const KoColorSpace* activeColorSpace();
 
     /**
+     * Sets the name for the node in a universal way (masks/layers)
+     */
+    void setNodeName(KisNodeSP node, const QString &name);
+
+    /**
      * Sets opacity for the node in a universal way (masks/layers)
      */
-    void setNodeOpacity(KisNodeSP node, qint32 opacity, bool finalChange);
+    void setNodeOpacity(KisNodeSP node, qint32 opacity);
 
     /**
      * Sets compositeOp for the node in a universal way (masks/layers)
@@ -105,6 +109,11 @@ public:
 
     KisNodeSelectionAdapter* nodeSelectionAdapter() const;
     KisNodeInsertionAdapter* nodeInsertionAdapter() const;
+    KisNodeDisplayModeAdapter* nodeDisplayModeAdapter() const;
+
+    static bool isNodeHidden(KisNodeSP node, bool isGlobalSelectionHidden);
+
+    bool trySetNodeProperties(KisNodeSP node, KisImageSP image, KisBaseNode::PropertyList properties) const;
 
 public Q_SLOTS:
 
@@ -158,23 +167,34 @@ public Q_SLOTS:
      */
     void createFromVisible();
 
+    void slotShowHideTimeline(bool value);
+
     void toggleIsolateActiveNode();
     void toggleIsolateMode(bool checked);
+    void slotUpdateIsolateModeActionImageStatusChange();
     void slotUpdateIsolateModeAction();
-    void slotTryFinishIsolatedMode();
+    void slotTryRestartIsolatedMode();
 
     void moveNodeAt(KisNodeSP node, KisNodeSP parent, int index);
-    void createNode(const QString& nodeType, bool quiet = false, KisPaintDeviceSP copyFrom = 0);
+    KisNodeSP createNode(const QString& nodeType, bool quiet = false, KisPaintDeviceSP copyFrom = 0);
     void convertNode(const QString &nodeType);
     void nodesUpdated();
     void nodeProperties(KisNodeSP node);
-    void nodeOpacityChanged(qreal opacity, bool finalChange);
+    /// pop up a window for changing the source of the selected Clone Layers
+    void changeCloneSource();
+    void nodeOpacityChanged(qreal opacity);
     void nodeCompositeOpChanged(const KoCompositeOp* op);
     void duplicateActiveNode();
     void removeNode();
     void mirrorNodeX();
     void mirrorNodeY();
-    void mirrorNode(KisNodeSP node, const KUndo2MagicString& commandName, Qt::Orientation orientation);
+    void mirrorAllNodesX();
+    void mirrorAllNodesY();
+
+
+    void mirrorNode(KisNodeSP node, const KUndo2MagicString& commandName, Qt::Orientation orientation, KisSelectionSP selection);
+
+
     void activateNextNode();
     void activatePreviousNode();
     void switchToPreviouslyActiveNode();
@@ -189,12 +209,8 @@ public Q_SLOTS:
      */
     void lowerNode();
 
-    void rotate(double radians);
-    void rotate180();
-    void rotateLeft90();
-    void rotateRight90();
-
     void saveNodeAsImage();
+    void saveVectorLayerAsImage();
 
     void slotSplitAlphaIntoMask();
     void slotSplitAlphaWrite();
@@ -228,12 +244,6 @@ public Q_SLOTS:
     void selectUnlockedNodes();
 
 public:
-
-    
-    void shear(double angleX, double angleY);
-
-    void scale(double sx, double sy, KisFilterStrategy *filterStrategy);
-
     void removeSingleNode(KisNodeSP node);
     KisLayerSP createPaintLayer();
 

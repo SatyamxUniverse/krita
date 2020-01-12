@@ -35,6 +35,7 @@
 #include "KoPointerEvent.h"
 #include "KoCanvasBase.h"
 #include <KoViewConverter.h>
+#include "krita_utils.h"
 
 #define INNER_RADIUS 50
 
@@ -66,7 +67,6 @@ KisToolMeasureOptionsWidget::KisToolMeasureOptionsWidget(QWidget* parent, double
     unitBox->setCurrentIndex(m_unit.indexInListForUi(KoUnit::ListAll));
 
     optionLayout->addWidget(unitBox, 0, 2);
-    optionLayout->addWidget(new QLabel(i18n("Degree:"), this), 1, 2);
     optionLayout->addItem(new QSpacerItem(1, 1, QSizePolicy::Fixed, QSizePolicy::Expanding), 2, 0, 1, 2);
 }
 
@@ -78,7 +78,7 @@ void KisToolMeasureOptionsWidget::slotSetDistance(double distance)
 
 void KisToolMeasureOptionsWidget::slotSetAngle(double angle)
 {
-    m_angleLabel->setText(QString("%1").arg(angle, 5, 'f', 1));
+    m_angleLabel->setText(i18nc("angle value in degrees", "%1°", KritaUtils::prettyFormatReal(angle)));
 }
 
 void KisToolMeasureOptionsWidget::slotUnitChanged(int index)
@@ -89,15 +89,13 @@ void KisToolMeasureOptionsWidget::slotUnitChanged(int index)
 
 void KisToolMeasureOptionsWidget::updateDistance()
 {
-    m_distanceLabel->setText(QString("%1").arg(m_unit.toUserValue(m_distance), 5, 'f', 1));
+    m_distanceLabel->setText(KritaUtils::prettyFormatReal(m_unit.toUserValue(m_distance)));
 }
 
 
 KisToolMeasure::KisToolMeasure(KoCanvasBase * canvas)
     : KisTool(canvas, KisCursor::crossCursor())
 {
-    m_startPos = QPointF(0, 0);
-    m_endPos = QPointF(0, 0);
 }
 
 KisToolMeasure::~KisToolMeasure()

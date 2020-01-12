@@ -27,6 +27,16 @@
 
 #include "kis_config.h"
 #include "kis_dom_utils.h"
+#include "kis_algebra_2d.h"
+#include "kis_global.h"
+
+
+struct KisGuidesConfigStaticRegistrar {
+    KisGuidesConfigStaticRegistrar() {
+        qRegisterMetaType<KisGuidesConfig>("KisGuidesConfig");
+    }
+};
+static KisGuidesConfigStaticRegistrar __registrar;
 
 
 class Q_DECL_HIDDEN KisGuidesConfig::Private
@@ -36,6 +46,8 @@ public:
         : showGuides(false)
         , snapToGuides(false)
         , lockGuides(false)
+        , rulersMultiple2(false)
+        , unitType(KoUnit::Pixel)
     {}
 
     bool operator==(const Private &rhs) {
@@ -45,7 +57,9 @@ public:
             snapToGuides == rhs.snapToGuides &&
             lockGuides == rhs.lockGuides &&
             guidesColor == rhs.guidesColor &&
-            guidesLineType == rhs.guidesLineType;
+            guidesLineType == rhs.guidesLineType &&
+            rulersMultiple2 == rhs.rulersMultiple2 &&
+            unitType == rhs.unitType;
     }
 
     QList<qreal> horzGuideLines;
@@ -54,6 +68,9 @@ public:
     bool showGuides;
     bool snapToGuides;
     bool lockGuides;
+    bool rulersMultiple2;
+
+    KoUnit::Type unitType;
 
     QColor guidesColor;
     LineTypeInternal guidesLineType;
@@ -88,6 +105,12 @@ KisGuidesConfig& KisGuidesConfig::operator=(const KisGuidesConfig &rhs)
 bool KisGuidesConfig::operator==(const KisGuidesConfig &rhs) const
 {
     return *d == *rhs.d;
+}
+
+bool KisGuidesConfig::hasSamePositionAs(const KisGuidesConfig &rhs) const
+{
+    return horizontalGuideLines() == rhs.horizontalGuideLines() &&
+        verticalGuideLines() == rhs.verticalGuideLines();
 }
 
 void KisGuidesConfig::setHorizontalGuideLines(const QList<qreal> &lines)
@@ -149,6 +172,26 @@ void KisGuidesConfig::setSnapToGuides(bool value)
     d->snapToGuides = value;
 }
 
+bool KisGuidesConfig::rulersMultiple2() const
+{
+    return d->rulersMultiple2;
+}
+
+void KisGuidesConfig::setRulersMultiple2(bool value)
+{
+    d->rulersMultiple2 = value;
+}
+
+KoUnit::Type KisGuidesConfig::unitType() const
+{
+    return d->unitType;
+}
+
+void KisGuidesConfig::setUnitType(const KoUnit::Type type)
+{
+    d->unitType = type;
+}
+
 KisGuidesConfig::LineTypeInternal
 KisGuidesConfig::guidesLineType() const
 {
@@ -200,14 +243,14 @@ bool KisGuidesConfig::hasGuides() const
 
 void KisGuidesConfig::loadStaticData()
 {
-    KisConfig cfg;
+    KisConfig cfg(true);
     d->guidesLineType = LineTypeInternal(cfg.guidesLineStyle());
     d->guidesColor = cfg.guidesColor();
 }
 
 void KisGuidesConfig::saveStaticData() const
 {
-    KisConfig cfg;
+    KisConfig cfg(false);
     cfg.setGuidesLineStyle(d->guidesLineType);
     cfg.setGuidesColor(d->guidesColor);
 }
@@ -221,6 +264,10 @@ QDomElement KisGuidesConfig::saveToXml(QDomDocument& doc, const QString &tag) co
 
     KisDomUtils::saveValue(&guidesElement, "horizontalGuides", d->horzGuideLines.toVector());
     KisDomUtils::saveValue(&guidesElement, "verticalGuides", d->vertGuideLines.toVector());
+
+    KisDomUtils::saveValue(&guidesElement, "rulersMultiple2", d->rulersMultiple2);
+    KoUnit tmp(d->unitType);
+    KisDomUtils::saveValue(&guidesElement, "unit", tmp.symbol());
 
     return guidesElement;
 }
@@ -242,5 +289,70 @@ bool KisGuidesConfig::loadFromXml(const QDomElement &parent)
     d->horzGuideLines = QList<qreal>::fromVector(hGuides);
     d->vertGuideLines = QList<qreal>::fromVector(vGuides);
 
+    result &= KisDomUtils::loadValue(parent, "rulersMultiple2", &d->rulersMultiple2);
+    QString unit;
+    result &= KisDomUtils::loadValue(parent, "unit", &unit);
+    bool ok = false;
+    KoUnit tmp = KoUnit::fromSymbol(unit, &ok);
+    if (ok) {
+        d->unitType = tmp.type();
+    }
+    result &= ok;
+
+
     return result;
+}
+
+bool KisGuidesConfig::isDefault() const
+{
+    KisGuidesConfig defaultObject;
+    defaultObject.loadStaticData();
+
+    return *this == defaultObject;
+}
+
+void KisGuidesConfig::transform(const QTransform &transform)
+{
+    if (transform.type() >= QTransform::TxShear) return;
+
+    KisAlgebra2D::DecomposedMatix m(transform);
+
+    QTransform t = m.scaleTransform();
+
+    const qreal eps = 1e-3;
+    int numWraps = 0;
+    const qreal wrappedRotation = KisAlgebra2D::wrapValue(m.angle, 90.0);
+    if (wrappedRotation <= eps || wrappedRotation >= 90.0 - eps) {
+        t *= m.rotateTransform();
+        numWraps = qRound(normalizeAngleDegrees(m.angle) / 90.0);
+    }
+
+    t *= m.translateTransform();
+
+
+    QList<qreal> newHorzGuideLines;
+    QList<qreal> newVertGuideLines;
+
+    Q_FOREACH (qreal hRuler, d->horzGuideLines) {
+        const QPointF pt = t.map(QPointF(0, hRuler));
+
+        if (numWraps & 0x1) {
+            newVertGuideLines << pt.x();
+        } else {
+            newHorzGuideLines << pt.y();
+        }
+    }
+
+    Q_FOREACH (qreal vRuler, d->vertGuideLines) {
+        const QPointF pt = t.map(QPointF(vRuler, 0));
+
+        if (!(numWraps & 0x1)) {
+            newVertGuideLines << pt.x();
+        } else {
+            newHorzGuideLines << pt.y();
+        }
+    }
+
+    d->horzGuideLines = newHorzGuideLines;
+    d->vertGuideLines = newVertGuideLines;
 }

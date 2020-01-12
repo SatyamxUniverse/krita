@@ -1,5 +1,4 @@
 set(kritalibkis_LIB_SRCS
-    Action.cpp
     Canvas.cpp
     Channel.cpp
     DockWidget.cpp
@@ -13,11 +12,26 @@ set(kritalibkis_LIB_SRCS
     Notifier.cpp
     PresetChooser
     Palette.cpp
+    PaletteView.cpp
+    Swatch.cpp
     Resource.cpp
     Selection.cpp
     View.cpp
     Extension.cpp
     Window.cpp
+    GroupLayer.cpp
+    CloneLayer.cpp
+    FileLayer.cpp
+    FilterLayer.cpp
+    FillLayer.cpp
+    VectorLayer.cpp
+    FilterMask.cpp
+    SelectionMask.cpp
+
+    Shape.cpp
+    GroupShape.cpp
+
+    LibKisUtils.cpp
 )
 
 add_library(kritalibkis SHARED ${kritalibkis_LIB_SRCS} )

@@ -49,7 +49,7 @@ class QSizeF;
  * for the most common ones.  All variables are always stored inside a QVariant
  * instance internally and you can always just use the resource() method to get
  * that directly.
- * The way to store arbitairy data objects that are stored as pointers you can use
+ * The way to store arbitrary data objects that are stored as pointers you can use
  * the following code snippets;
  * @code
  *  QVariant variant;
@@ -76,7 +76,9 @@ enum DocumentResource {
     HandleRadius,           ///< The handle radius used for drawing handles of any kind
     GrabSensitivity,        ///< The grab sensitivity used for grabbing handles of any kind
     MarkerCollection,       ///< The collection holding all markers
-    ShapeController,       ///< The KoShapeController for the document
+    GlobalShapeController,  ///< The KoShapeController for the document
+    DocumentResolution,     ///< Pixels-per-inch resoluton of the document
+    DocumentRectInPixels,   ///< Bounds of the document in pixels
 
     KarbonStart = 1000,      ///< Base number for Karbon specific values.
     KexiStart = 2000,        ///< Base number for Kexi specific values.
@@ -140,56 +142,56 @@ enum DocumentResource {
 
     /**
      * Return the resource determined by param key as a boolean.
-     * @param key the indentifying key for the resource
+     * @param key the identifying key for the resource
      * @see  KoDocumentResourceManager::DocumentResource
      */
     bool boolResource(int key) const;
 
     /**
      * Return the resource determined by param key as an integer.
-     * @param key the indentifying key for the resource
+     * @param key the identifying key for the resource
      * @see  KoDocumentResourceManager::DocumentResource
      */
     int intResource(int key) const;
 
     /**
      * Return the resource determined by param key as a KoColor.
-     * @param key the indentifying key for the resource
+     * @param key the identifying key for the resource
      * @see  KoDocumentResourceManager::DocumentResource
      */
     KoColor koColorResource(int key) const;
 
     /**
      * Return the resource determined by param key as a pointer to a KoShape.
-     * @param key the indentifying key for the resource
+     * @param key the identifying key for the resource
      * @see  KoDocumentResourceManager::DocumentResource
      */
     KoShape *koShapeResource(int key) const;
 
     /**
      * Return the resource determined by param key as a QString .
-     * @param key the indentifying key for the resource
+     * @param key the identifying key for the resource
      * @see  KoDocumentResourceManager::DocumentResource
      */
     QString stringResource(int key) const;
 
     /**
      * Return the resource determined by param key as a QSizeF.
-     * @param key the indentifying key for the resource
+     * @param key the identifying key for the resource
      * @see  KoDocumentResourceManager::DocumentResource
      */
     QSizeF sizeResource(int key) const;
 
     /**
      * Return the resource determined by param key as a KoUnit.
-     * @param key the indentifying key for the resource
+     * @param key the identifying key for the resource
      * @see  KoDocumentResourceManager::DocumentResource
      */
     KoUnit unitResource(int key) const;
 
     /**
      * Returns true if there is a resource set with the requested key.
-     * @param key the indentifying key for the resource
+     * @param key the identifying key for the resource
      * @see  KoDocumentResourceManager::DocumentResource
      */
     bool hasResource(int key) const;
@@ -229,14 +231,22 @@ enum DocumentResource {
     KoDocumentBase *odfDocument() const;
     void setOdfDocument(KoDocumentBase *currentDocument);
 
-    KoShapeController *shapeController() const;
-    void setShapeController(KoShapeController *shapeController);
+    qreal documentResolution() const;
+    QRectF documentRectInPixels() const;
+
+    /**
+     * TODO: remove these methods after legacy ODF text shape is removed.
+     * New code must use documentResolution() and documentRectInPixels()
+     * instead.
+     */
+    Q_DECL_DEPRECATED KoShapeController *globalShapeController() const;
+    Q_DECL_DEPRECATED void setGlobalShapeController(KoShapeController *globalShapeController);
 
 Q_SIGNALS:
     /**
      * This signal is emitted every time a resource is set that is either
      * new or different from the previous set value.
-     * @param key the indentifying key for the resource
+     * @param key the identifying key for the resource
      * @param value the variants new value.
      * @see KoDocumentResourceManager::DocumentResource
      */

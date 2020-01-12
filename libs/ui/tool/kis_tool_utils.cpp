@@ -1,5 +1,6 @@
 /*
  *  Copyright (c) 2009 Boudewijn Rempt <boud@valdyas.org>
+ *  Copyright (c) 2018 Emmet & Eoin O'Neill <emmetoneill.pdx@gmail.com>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -15,36 +16,40 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
+
 #include <kis_tool_utils.h>
 
-#include <KoColorSpace.h>
 #include <KoMixColorsOp.h>
-#include <kis_paint_device.h>
-#include <kis_layer.h>
 #include <kis_group_layer.h>
-#include <kis_wrapped_rect.h>
-#include <kis_image.h>
 #include <kis_transaction.h>
 #include <kis_sequential_iterator.h>
 #include <kis_properties_configuration.h>
 #include <kconfiggroup.h>
 #include <ksharedconfig.h>
+#include "kis_command_utils.h"
+#include "kis_processing_applicator.h"
 
 namespace KisToolUtils {
 
-    bool pick(KisPaintDeviceSP dev, const QPoint& pos, KoColor *color, int radius)
+    bool pickColor(KoColor &out_color, KisPaintDeviceSP dev, const QPoint &pos,
+                   KoColor const *const blendColor, int radius, int blend, bool pure)
     {
         KIS_ASSERT(dev);
-        KoColor pickedColor;
 
-        if (radius <= 1) {
-            dev->pixel(pos.x(), pos.y(), &pickedColor);
-        } else {
-            const KoColorSpace* cs = dev->colorSpace();
-            pickedColor = KoColor(Qt::transparent, cs);
+        // Bugfix hack forcing pure on first sample to avoid wrong
+        // format blendColor on newly initialized Krita.
+        static bool firstTime = true;
+        if (firstTime == true) {
+            pure = true;
+            firstTime = false;
+        }
 
+        const KoColorSpace *cs = dev->colorSpace();
+        KoColor pickedColor(Qt::transparent, cs);
+
+        // Sampling radius.
+        if (!pure && radius > 1) {
             QVector<const quint8*> pixels;
-
             const int effectiveRadius = radius - 1;
 
             const QRect pickRect(pos.x() - effectiveRadius, pos.y() - effectiveRadius,
@@ -53,26 +58,42 @@ namespace KisToolUtils {
 
             const int radiusSq = pow2(effectiveRadius);
 
-            do {
+            while (it.nextPixel()) {
                 const QPoint realPos(it.x(),  it.y());
                 const QPoint pt = realPos - pos;
                 if (pow2(pt.x()) + pow2(pt.y()) < radiusSq) {
                     pixels << it.oldRawData();
                 }
-            } while (it.nextPixel());
+            }
 
-            const quint8** cpixels = const_cast<const quint8**>(pixels.constData());
+            const quint8 **cpixels = const_cast<const quint8**>(pixels.constData());
             cs->mixColorsOp()->mixColors(cpixels, pixels.size(), pickedColor.data());
+        } else {
+            dev->pixel(pos.x(), pos.y(), &pickedColor);
+        }
+        
+        // Color blending.
+        if (!pure && blendColor && blend < 100) {
+            //Scale from 0..100% to 0..255 range for mixOp weights.
+            quint8 blendScaled = static_cast<quint8>(blend * 2.55f);
+
+            const quint8 *colors[2];
+            colors[0] = blendColor->data();
+            colors[1] = pickedColor.data();
+            qint16 weights[2];
+            weights[0] = 255 - blendScaled;
+            weights[1] = blendScaled;
+
+            const KoMixColorsOp *mixOp = dev->colorSpace()->mixColorsOp();
+            mixOp->mixColors(colors, weights, 2, pickedColor.data());
         }
 
         pickedColor.convertTo(dev->compositionSourceColorSpace());
 
-        bool validColorPicked =
-            pickedColor.opacityU8() != OPACITY_TRANSPARENT_U8;
+        bool validColorPicked = pickedColor.opacityU8() != OPACITY_TRANSPARENT_U8;
 
         if (validColorPicked) {
-            pickedColor.setOpacity(OPACITY_OPAQUE_U8);
-            *color = pickedColor;
+            out_color = pickedColor;
         }
 
         return validColorPicked;
@@ -116,24 +137,26 @@ namespace KisToolUtils {
     bool clearImage(KisImageSP image, KisNodeSP node, KisSelectionSP selection)
     {
         if(node && node->hasEditablePaintDevice()) {
-            KisPaintDeviceSP device = node->paintDevice();
+            KUndo2Command *cmd =
+                new KisCommandUtils::LambdaCommand(kundo2_i18n("Clear"),
+                    [node, selection] () {
+                        KisPaintDeviceSP device = node->paintDevice();
 
-            image->barrierLock();
-            KisTransaction transaction(kundo2_i18n("Clear"), device);
+                        KisTransaction transaction(kundo2_noi18n("internal-clear-command"), device);
 
-            QRect dirtyRect;
-            if (selection) {
-                dirtyRect = selection->selectedRect();
-                device->clearSelection(selection);
-            }
-            else {
-                dirtyRect = device->extent();
-                device->clear();
-            }
+                        QRect dirtyRect;
+                        if (selection) {
+                            dirtyRect = selection->selectedRect();
+                            device->clearSelection(selection);
+                        } else {
+                            dirtyRect = device->extent();
+                            device->clear();
+                        }
 
-            transaction.commit(image->undoAdapter());
-            device->setDirty(dirtyRect);
-            image->unlock();
+                        device->setDirty(dirtyRect);
+                        return transaction.endAndTake();
+                    });
+            KisProcessingApplicator::runSingleCommandStroke(image, cmd);
             return true;
         }
         return false;
@@ -144,10 +167,11 @@ namespace KisToolUtils {
     ColorPickerConfig::ColorPickerConfig()
         : toForegroundColor(true)
         , updateColor(true)
-        , addPalette(false)
+        , addColorToCurrentPalette(false)
         , normaliseValues(false)
         , sampleMerged(true)
         , radius(1)
+        , blend(100)
     {
     }
 
@@ -161,10 +185,11 @@ namespace KisToolUtils {
         KisPropertiesConfiguration props;
         props.setProperty("toForegroundColor", toForegroundColor);
         props.setProperty("updateColor", updateColor);
-        props.setProperty("addPalette", addPalette);
+        props.setProperty("addPalette", addColorToCurrentPalette);
         props.setProperty("normaliseValues", normaliseValues);
         props.setProperty("sampleMerged", sampleMerged);
         props.setProperty("radius", radius);
+        props.setProperty("blend", blend);
 
         KConfigGroup config =  KSharedConfig::openConfig()->group(CONFIG_GROUP_NAME);
 
@@ -180,10 +205,10 @@ namespace KisToolUtils {
 
         toForegroundColor = props.getBool("toForegroundColor", true);
         updateColor = props.getBool("updateColor", true);
-        addPalette = props.getBool("addPalette", false);
+        addColorToCurrentPalette = props.getBool("addPalette", false);
         normaliseValues = props.getBool("normaliseValues", false);
         sampleMerged = props.getBool("sampleMerged", !defaultActivation ? false : true);
         radius = props.getInt("radius", 1);
+        blend = props.getInt("blend", 100);
     }
-
 }

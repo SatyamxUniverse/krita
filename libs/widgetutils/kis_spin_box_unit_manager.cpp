@@ -72,6 +72,7 @@ public:
         conversionConstantIsFixed(true),
         constrains(0),
         unitListCached(false),
+        unitListWithNameCached(false),
         hasHundredPercent(false),
         canAccessDocument(false)
     {
@@ -94,11 +95,13 @@ public:
     mutable QStringList unitListWithName;
     mutable bool unitListWithNameCached;
 
-    //it's possible to store a reference for the % unit, for lenght.
+    //it's possible to store a reference for the % unit, for length.
     bool hasHundredPercent;
     qreal hundredPercent;
 
     bool canAccessDocument;
+
+    QVector<KisSpinBoxUnitManager*> connectedUnitManagers;
 };
 
 KisSpinBoxUnitManager::KisSpinBoxUnitManager(QObject *parent) : QAbstractListModel(parent)
@@ -133,6 +136,30 @@ int KisSpinBoxUnitManager::getApparentUnitId() const
     return list.indexOf(d->unitSymbol);
 }
 
+int KisSpinBoxUnitManager::getApparentUnitRecommandedDecimals() const {
+
+    switch (d->dim) {
+
+    case LENGTH:
+        if (d->unitSymbol == "px") {
+            return 0;
+        } else {
+            return 2;
+        }
+    case IMLENGTH:
+        if (d->unitSymbol == "px") {
+            return 0;
+        } else {
+            return 2;
+        }
+    default: //by default return 2.
+        break;
+    }
+
+    return 2;
+
+}
+
 QStringList KisSpinBoxUnitManager::getsUnitSymbolList(bool withName) const{
 
     QStringList list;
@@ -154,7 +181,7 @@ QStringList KisSpinBoxUnitManager::getsUnitSymbolList(bool withName) const{
         for (int i = 0; i < KoUnit::TypeCount; i++) {
 
             if (KoUnit::Type(i) == KoUnit::Pixel) {
-                continue; //skip pixel, which is a document relative unit, in the base classe.
+                continue; //skip pixel, which is a document relative unit, in the base class.
             }
 
             if (withName) {
@@ -164,10 +191,20 @@ QStringList KisSpinBoxUnitManager::getsUnitSymbolList(bool withName) const{
             }
         }
 
+        if (hasPercent(LENGTH)) {
+
+            if (withName) {
+                list << i18n("percent (%)");
+            } else {
+                list << "%";
+            }
+
+        }
+
         if (d->canAccessDocument) {
             // ad document relative units
             if (withName) {
-                list << KoUnit::unitDescription(KoUnit::Pixel) << i18n("view width (vw)") << i18n("view height (vh)");
+                list << KoUnit::unitDescription(KoUnit::Pixel) << i18n("percent of view width (vw)") << i18n("percent of view height (vh)");
             } else {
                 list << documentRelativeLengthUnitSymbols;
             }
@@ -183,10 +220,20 @@ QStringList KisSpinBoxUnitManager::getsUnitSymbolList(bool withName) const{
             list << "px";
         }
 
+        if (hasPercent(IMLENGTH)) {
+
+            if (withName) {
+                list << i18n("percent (%)");
+            } else {
+                list << "%";
+            }
+
+        }
+
         if (d->canAccessDocument) {
             // ad document relative units
             if (withName) {
-                list << i18n("view width (vw)") << i18n("view height (vh)");
+                list << i18n("percent of view width (vw)") << i18n("percent of view height (vh)");
             } else {
                 list << "vw" << "vh";
             }
@@ -239,7 +286,7 @@ qreal KisSpinBoxUnitManager::getConversionConstant(int dim, QString symbol) cons
     Q_UNUSED(dim);
     Q_UNUSED(symbol);
 
-    return 0; // all units managed here are transform via a linear function, so this wll alway be 0 in this class.
+    return 0; // all units managed here are transform via a linear function, so this will always be 0 in this class.
 }
 
 qreal KisSpinBoxUnitManager::getReferenceValue(double apparentValue) const
@@ -272,7 +319,13 @@ int KisSpinBoxUnitManager::rowCount(const QModelIndex &parent) const {
 QVariant KisSpinBoxUnitManager::data(const QModelIndex &index, int role) const {
 
     if (role == Qt::DisplayRole) {
+
         return getsUnitSymbolList(false).at(index.row());
+
+    } else if (role == Qt::ToolTipRole) {
+
+        return getsUnitSymbolList(true).at(index.row());
+
     }
 
     return QVariant();
@@ -315,7 +368,7 @@ qreal KisSpinBoxUnitManager::getConversionFactor(int dim, QString symbol) const
             if (! ok) {
                 break;
             }
-            factor = unit.toUserValue(1.0);
+            factor = unit.toUserValuePrecise(1.0); // use the precise function
         } while (0) ;
         break;
 
@@ -394,7 +447,7 @@ void KisSpinBoxUnitManager::setApparentUnitFromSymbol(QString pSymbol)
             newSymb = "°";
             break;
         }
-        goto default_indentifier; //alway do default after handling possible special cases.
+        goto default_indentifier; //always do default after handling possible special cases.
 
 default_indentifier:
     default:
@@ -480,12 +533,64 @@ void KisSpinBoxUnitManager::selectApparentUnitFromIndex(int index) {
 
 }
 
+
+void KisSpinBoxUnitManager::syncWithOtherUnitManager(KisSpinBoxUnitManager* other) {
+
+    if (d->connectedUnitManagers.indexOf(other) >= 0) {
+        return;
+    }
+
+    if (other->getUnitDimensionType() == getUnitDimensionType()) { //sync only unitmanager of the same type.
+        if (other->getsUnitSymbolList() == getsUnitSymbolList()) { //and if we have identical units available.
+
+            connect(this, SIGNAL(unitChanged(int)), other, SLOT(selectApparentUnitFromIndex(int))); //sync units.
+            connect(other, SIGNAL(unitChanged(int)), this, SLOT(selectApparentUnitFromIndex(int))); //sync units.
+
+            d->connectedUnitManagers.append(other);
+
+        }
+    }
+
+}
+
+void KisSpinBoxUnitManager::clearSyncWithOtherUnitManager(KisSpinBoxUnitManager* other) {
+
+    int id = d->connectedUnitManagers.indexOf(other);
+
+    if (id < 0) {
+        return;
+    }
+
+    disconnect(this, SIGNAL(unitChanged(int)), other, SLOT(selectApparentUnitFromIndex(int))); //unsync units.
+    disconnect(other, SIGNAL(unitChanged(int)), this, SLOT(selectApparentUnitFromIndex(int))); //unsync units.
+
+    d->connectedUnitManagers.removeAt(id);
+
+}
+
 void KisSpinBoxUnitManager::newUnitSymbolToUnitIndex(QString symbol) {
     int id = getsUnitSymbolList().indexOf(symbol);
 
     if (id >= 0) {
         emit unitChanged(id);
     }
+}
+
+bool KisSpinBoxUnitManager::hasPercent(int unitDim) const {
+
+    if (unitDim == IMLENGTH || unitDim == LENGTH) {
+        return false;
+    }
+
+    if (unitDim == TIME) {
+        return d->canAccessDocument;
+    }
+
+    if (unitDim == ANGLE) {
+        return true; //percent is fixed when considering angles.
+    }
+
+    return false;
 }
 
 void KisSpinBoxUnitManager::recomputeConversionFactor() const

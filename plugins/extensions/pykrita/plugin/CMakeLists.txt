@@ -3,15 +3,17 @@
 add_definitions(-DQT_NO_KEYWORDS)
 configure_file(config.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config.h)
 
-set(SOURCES 
-    plugin.cpp 
+set(SOURCES
+    plugin.cpp
     pyqtpluginsettings.cpp
     utilities.cpp
-    engine.cpp
+    PykritaModule.cpp
+    PythonPluginManager.cpp
+    PythonPluginsModel.cpp
 )
 
-ki18n_wrap_ui(SOURCES 
-    info.ui 
+ki18n_wrap_ui(SOURCES
+    info.ui
     manager.ui
 )
 
@@ -24,15 +26,16 @@ target_link_libraries(
     kritalibkis
   )
 
+if (MINGW)
+    target_compile_definitions(kritapykrita PRIVATE _hypot=hypot)
+endif (MINGW)
+
 install(TARGETS kritapykrita DESTINATION ${KRITA_PLUGIN_INSTALL_DIR})
 
 # Install "built-in" api
 install(
     DIRECTORY krita
-    DESTINATION ${DATA_INSTALL_DIR}/krita/pykrita
+    DESTINATION ${LIB_INSTALL_DIR}/krita-python-libs
     FILES_MATCHING PATTERN "*.py"
 )
-
-add_subdirectory(plugins)
-#add_subdirectory(test)
 

@@ -55,6 +55,8 @@ public:
     KisZoomManager(QPointer<KisView> view, KoZoomHandler*, KoCanvasController *);
     ~KisZoomManager() override;
 
+    void updateScreenResolution(QWidget *parentWidget);
+
     void setup(KActionCollection * actionCollection);
     void updateGUI();
     KoZoomController * zoomController() const {
@@ -82,6 +84,7 @@ public Q_SLOTS:
     void zoomTo100();
     void applyRulersUnit(const KoUnit &baseUnit);
     void setMinMaxZoom();
+    void setRulersPixelMultiple2(bool enabled);
 
 
 private:
@@ -99,6 +102,10 @@ private:
     QPointer<QWidget> m_zoomActionWidget;
     QPoint m_rulersOffset;
     KisSignalAutoConnectionsStore m_mouseTrackingConnections;
+    qreal m_physicalDpiX;
+    qreal m_physicalDpiY;
+    qreal m_devicePixelRatio;
+    bool m_aspectMode {false};
 };
 
 

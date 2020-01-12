@@ -28,6 +28,8 @@
 #include "kis_async_merger.h"
 #include "kis_lock_free_lod_counter.h"
 
+#include "KisUpdaterContextSnapshotEx.h"
+#include "kis_update_scheduler.h"
 
 class KisUpdateJobItem;
 class KisSpontaneousJob;
@@ -51,6 +53,8 @@ public:
      * \see lock()
      */
     void getJobsSnapshot(qint32 &numMergeJobs, qint32 &numStrokeJobs);
+
+    KisUpdaterContextSnapshotEx getContextSnapshotEx() const;
 
     /**
      * Returns the current level of detail of all the running jobs in the
@@ -119,13 +123,25 @@ public:
      */
     void unlock();
 
-Q_SIGNALS:
-    void sigContinueUpdate(const QRect& rc);
-    void sigDoSomeUsefulWork();
-    void sigSpareThreadAppeared();
+    /**
+     * Set the number of threads available for this updater context
+     * WARNING: one cannot change the number of threads if there is
+     *          at least one job running in the context! So before
+     *          calling this method make sure you do two things:
+     *          1) barrierLock() the update scheduler
+     *          2) lock() the context
+     */
+    void setThreadsLimit(int value);
 
-protected Q_SLOTS:
-    void slotJobFinished();
+    /**
+     * Return the number of available threads in the context. Make sure you
+     * lock the context before calling this function!
+     */
+    int threadsLimit() const;
+
+    void continueUpdate(const QRect& rc);
+    void doSomeUsefulWork();
+    void jobFinished();
 
 protected:
     static bool walkerIntersectsJob(KisBaseRectsWalkerSP walker,
@@ -145,6 +161,23 @@ protected:
     QVector<KisUpdateJobItem*> m_jobs;
     QThreadPool m_threadPool;
     KisLockFreeLodCounter m_lodCounter;
+    KisUpdateScheduler *m_scheduler;
+
+private:
+
+    friend class KisUpdaterContextTest;
+    friend class KisUpdateSchedulerTest;
+    friend class KisStrokesQueueTest;
+    friend class KisSimpleUpdateQueueTest;
+    friend class KisUpdateJobItem;
+
+    void addMergeJobTest(KisBaseRectsWalkerSP walker);
+    void addStrokeJobTest(KisStrokeJob *strokeJob);
+    void addSpontaneousJobTest(KisSpontaneousJob *spontaneousJob);
+
+    const QVector<KisUpdateJobItem*> getJobs();
+    void clear();
+
 };
 
 class KRITAIMAGE_EXPORT KisTestableUpdaterContext : public KisUpdaterContext
@@ -164,10 +197,14 @@ public:
     void addStrokeJob(KisStrokeJob *strokeJob) override;
     void addSpontaneousJob(KisSpontaneousJob *spontaneousJob) override;
 
-    const QVector<KisUpdateJobItem*> getJobs();
-    void clear();
+     const QVector<KisUpdateJobItem*> getJobs();
+     void clear();
+
+    friend class KisUpdateJobItem;
 };
 
 
 #endif /* __KIS_UPDATER_CONTEXT_H */
+
+
 

@@ -33,8 +33,8 @@ class KRITAPIGMENT_EXPORT KoColorConversionTransformationFactory : public KoColo
 {
 public:
     /**
-     * Create a color conversion tranformation factory, that can create
-     * KoColorConversionTrasnformation object between a source colorspace
+     * Create a color conversion transformation factory, that can create
+     * KoColorConversionTransformation object between a source colorspace
      * and a destination colorspace.
      *
      * @param _srcModelId id for the source color model

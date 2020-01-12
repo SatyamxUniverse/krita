@@ -23,6 +23,7 @@
 #include "kritaimage_export.h"
 #include <QObject>
 #include <QString>
+#include <QIcon>
 #include <QStringList>
 #include <kis_threaded_text_rendering_workaround.h>
 
@@ -64,6 +65,8 @@ public:
      * Create a KisPaintOp with the given settings and painter.
      * @param settings the settings associated with the input device
      * @param painter the painter used to draw
+     * @param node the node used to draw
+     * @param image the image used to draw
      */
     virtual KisPaintOp * createOp(const KisPaintOpSettingsSP settings, KisPainter * painter, KisNodeSP node, KisImageSP image) = 0;
     virtual QString id() const = 0;
@@ -75,11 +78,11 @@ public:
      */
     QStringList whiteListedCompositeOps() const;
 
-
     /**
-     * The filename of the pixmap we can use to represent this paintop in the ui.
+     * @brief icon
+     * @return the icon to represent this paintop.
      */
-    virtual QString pixmap();
+    virtual QIcon icon();
 
     /**
      * Create and return an settings object for this paintop.

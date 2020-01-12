@@ -34,6 +34,9 @@ private Q_SLOTS:
 
     void testMatrixDecomposition1();
     void testMatrixDecomposition2();
+
+    void testDivisionWithFloor();
+    void testDrawEllipse();
 };
 
 #endif /* __KIS_ALGEBRA_2D_TEST_H */

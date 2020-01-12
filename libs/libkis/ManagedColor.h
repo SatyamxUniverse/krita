@@ -77,7 +77,7 @@ public:
     /**
      * @brief colorForCanvas
      * @param canvas the canvas whose color management you'd like to use. In Krita, different views have
-     * seperate canvasses, and these can have different OCIO configurations active.
+     * separate canvasses, and these can have different OCIO configurations active.
      * @return the QColor as it would be displaying on the canvas. This result can be used to draw widgets with
      * the correct configuration applied.
      */
@@ -158,6 +158,12 @@ public:
     QVector<float> components() const;
 
     /**
+     * @brief componentsOrdered()
+     * @return same as Components, except the values are ordered to the display.
+     */
+    QVector<float> componentsOrdered() const;
+
+    /**
      * @brief setComponents
      * Set the channel/components with normalized values. For integer colorspace, this obviously means the limit
      * is between 0.0-1.0, but for floating point colorspaces, 2.4 or 103.5 are still meaningful (if bright) values.
@@ -167,15 +173,15 @@ public:
 
     /**
      * Serialize this color following Create's swatch color specification available
-     * at http://create.freedesktop.org/wiki/index.php/Swatches_-_colour_file_format
+     * at https://web.archive.org/web/20110826002520/http://create.freedesktop.org/wiki/Swatches_-_colour_file_format/Draft
      */
     QString toXML() const;
 
     /**
      * Unserialize a color following Create's swatch color specification available
-     * at http://create.freedesktop.org/wiki/index.php/Swatches_-_colour_file_format
+     * at https://web.archive.org/web/20110826002520/http://create.freedesktop.org/wiki/Swatches_-_colour_file_format/Draft
      *
-     * @param XXX
+     * @param xml an XML color
      *
      * @return the unserialized color, or an empty color object if the function failed
      *         to unserialize the color
@@ -184,7 +190,6 @@ public:
 
     /**
      * @brief toQString create a user-visible string of the channel names and the channel values
-     * @param color the color to create the string from
      * @return a string that can be used to display the values of this color to the user.
      */
     QString toQString();
@@ -193,6 +198,9 @@ public:
 private:
 
     friend class View;
+    friend class PaletteView;
+    friend class Swatch;
+
     KoColor color() const;
 
     struct Private;

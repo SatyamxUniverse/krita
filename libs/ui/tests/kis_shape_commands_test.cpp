@@ -32,11 +32,11 @@
 
 #include <KoShapeGroup.h>
 #include <KoShapeGroupCommand.h>
-
+#include <sdk/tests/testutil.h>
 
 void KisShapeCommandsTest::testGrouping()
 {
-    TestUtil::ExternalImageChecker chk("grouping", "shape_commands_test");
+    TestUtil::ReferenceImageChecker chk("grouping", "shape_commands_test");
 
     QRect refRect(0,0,64,64);
 
@@ -98,7 +98,7 @@ void KisShapeCommandsTest::testGrouping()
     shapeLayer->addShape(group);
 
     QScopedPointer<KoShapeGroupCommand> cmd(
-        new KoShapeGroupCommand(group, shapes, false, true, true));
+        new KoShapeGroupCommand(group, shapes, true));
 
     cmd->redo();
 
@@ -122,7 +122,7 @@ void KisShapeCommandsTest::testGrouping()
 
 void KisShapeCommandsTest::testResizeShape(bool normalizeGroup)
 {
-    TestUtil::ExternalImageChecker chk("resize_shape", "shape_commands_test");
+    TestUtil::ReferenceImageChecker chk("resize_shape", "shape_commands_test");
 
     QRect refRect(0,0,64,64);
 
@@ -183,7 +183,7 @@ void KisShapeCommandsTest::testResizeShape(bool normalizeGroup)
     shapeLayer->addShape(group);
 
     QScopedPointer<KoShapeGroupCommand> cmd(
-        new KoShapeGroupCommand(group, shapes, false, true, normalizeGroup));
+        new KoShapeGroupCommand(group, shapes, normalizeGroup));
 
     cmd->redo();
 
@@ -226,4 +226,4 @@ void KisShapeCommandsTest::testResizeShapeNormalized()
     testResizeShape(true);
 }
 
-QTEST_MAIN(KisShapeCommandsTest)
+KISTEST_MAIN(KisShapeCommandsTest)

@@ -20,13 +20,18 @@
 
 /** @file */
 
-#include <KoConfig.h>
-
 #include <QtGlobal>
-class QOpenGLContext;
+#include <QFlags>
+
+#include <QSurfaceFormat>
+#include "kis_config.h"
 
 #include "kritaui_export.h"
 
+class QOpenGLContext;
+class QString;
+class QStringList;
+class QSurfaceFormat;
 
 /**
  * This class manages a shared OpenGL context and provides utility
@@ -41,7 +46,44 @@ public:
         TrilinearFilterMode, // LINEAR_MIPMAP_LINEAR
         HighQualityFiltering // Mipmaps + custom shader
     };
+
+    enum OpenGLRenderer {
+        RendererNone = 0x00,
+        RendererAuto = 0x01,
+        RendererDesktopGL = 0x02,
+        RendererOpenGLES = 0x04,
+        RendererSoftware = 0x08
+    };
+    Q_DECLARE_FLAGS(OpenGLRenderers, OpenGLRenderer)
+
+    enum AngleRenderer {
+        AngleRendererDefault    = 0x0000,
+        AngleRendererD3d11      = 0x0002,
+        AngleRendererD3d9       = 0x0004,
+        AngleRendererD3d11Warp  = 0x0008, // "Windows Advanced Rasterization Platform"
+    };
+
+    struct RendererConfig {
+        QSurfaceFormat format;
+        AngleRenderer angleRenderer = AngleRendererDefault;
+
+        OpenGLRenderer rendererId() const;
+    };
+
 public:
+    static RendererConfig selectSurfaceConfig(KisOpenGL::OpenGLRenderer preferredRenderer,
+                                              KisConfig::RootSurfaceFormat preferredRootSurfaceFormat,
+                                              bool enableDebug);
+
+    static void setDefaultSurfaceConfig(const RendererConfig &config);
+
+    static OpenGLRenderer getCurrentOpenGLRenderer();
+    static OpenGLRenderer getQtPreferredOpenGLRenderer();
+    static OpenGLRenderers getSupportedOpenGLRenderers();
+    static OpenGLRenderer getUserPreferredOpenGLRendererConfig();
+    static void setUserPreferredOpenGLRendererConfig(OpenGLRenderer renderer);
+    static QString convertOpenGLRendererToConfig(OpenGLRenderer renderer);
+    static OpenGLRenderer convertConfigToOpenGLRenderer(QString renderer);
 
     /// Request OpenGL version 3.2
     static void initialize();
@@ -49,8 +91,13 @@ public:
     /// Initialize shared OpenGL context
     static void initializeContext(QOpenGLContext *ctx);
 
+    static const QString &getDebugText();
+
+    static QStringList getOpenGLWarnings();
+
     static bool supportsLoD();
     static bool hasOpenGL3();
+    static bool hasOpenGLES();
 
     /// Check for OpenGL
     static bool hasOpenGL();
@@ -72,14 +119,19 @@ public:
      */
     static bool needsPixmapCacheWorkaround();
 
-    static void setDefaultFormat();
+    static void testingInitializeDefaultSurfaceFormat();
+    static void setDebugSynchronous(bool value);
 
 private:
-
+    static void fakeInitWindowsOpenGL(KisOpenGL::OpenGLRenderers supportedRenderers, KisOpenGL::OpenGLRenderer preferredByQt);
 
     KisOpenGL();
 
 
 };
+
+#ifdef Q_OS_WIN
+Q_DECLARE_OPERATORS_FOR_FLAGS(KisOpenGL::OpenGLRenderers);
+#endif
 
 #endif // KIS_OPENGL_H_

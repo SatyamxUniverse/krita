@@ -21,7 +21,7 @@
 
 #include <kritawidgetutils_export.h>
 #include <kstandardshortcut.h>
-#include <QtCore/QList>
+#include <QList>
 
 class QObject;
 class QStringList;
@@ -37,12 +37,11 @@ class KToggleFullScreenAction;
  *
  * These actions should be used instead of hardcoding menubar and
  * toolbar items.  Using these actions helps your application easily
- * conform to the KDE UI Style Guide
- * @see http://developer.kde.org/documentation/standards/kde/style/basics/index.html .
+ * conform to the KDE UI Style Guide.
  *
  * All of the documentation for QAction holds for KStandardAction
  * also.  When in doubt on how things work, check the QAction
- * documention first.
+ * documentation first.
  * Please note that calling any of these methods automatically adds the action
  * to the actionCollection() of the QObject given by the 'parent' parameter.
  *
@@ -197,7 +196,7 @@ inline KRITAWIDGETUTILS_DEPRECATED const char *stdName(StandardAction act_enum)
 
 /**
  * Returns a list of all standard names. Used by KAccelManager
- * to give those heigher weight.
+ * to give those higher weight.
  */
 KRITAWIDGETUTILS_EXPORT QStringList stdNames();
 
@@ -211,7 +210,7 @@ KRITAWIDGETUTILS_EXPORT QList<StandardAction> actionIds();
 /**
  * Returns the standardshortcut associated with @a actionId.
  *
- * @param actionId    The actionId whose associated shortcut is wanted.
+ * @param id    The actionId whose associated shortcut is wanted.
  *
  * @since 4.2
  */

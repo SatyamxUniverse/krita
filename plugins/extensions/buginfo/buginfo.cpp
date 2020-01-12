@@ -31,10 +31,9 @@
 K_PLUGIN_FACTORY_WITH_JSON(BugInfoFactory, "kritabuginfo.json", registerPlugin<BugInfo>();)
 
 BugInfo::BugInfo(QObject *parent, const QVariantList &)
-        : KisViewPlugin(parent)
+        : KisActionPlugin(parent)
 {
     KisAction *action  = createAction("buginfo");
-    action->setText(i18n("Show system information for bug reports."));
     connect(action, SIGNAL(triggered()), this, SLOT(slotBugInfo()));
 }
 
@@ -45,7 +44,7 @@ BugInfo::~BugInfo()
 
 void BugInfo::slotBugInfo()
 {
-    DlgBugInfo dlgBugInfo(m_view->mainWindow());
+    DlgBugInfo dlgBugInfo(viewManager()->mainWindow());
     dlgBugInfo.exec();
 }
 

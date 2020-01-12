@@ -117,14 +117,6 @@ public:
     virtual bool inheritsTransform(const KoShape *shape) const = 0;
 
     /**
-     * Return wheather the child has the effective state of being locked for user modifications.
-     * The model has to call KoShape::isGeometryProtected() and base its return value upon that, it can
-     *  additionally find rules on wheather the child is locked based on the container state.
-     * @param child the shape that the user wants to move.
-     */
-    virtual bool isChildLocked(const KoShape *child) const = 0;
-
-    /**
      * Return the current number of children registered.
      * @return the current number of children registered.
      */
@@ -163,8 +155,8 @@ public:
      * to inform the container of such a change.  The change has already happened at the
      * time this method is called.
      * The base implementation notifies the grand parent of the shape that there was a
-     * change in a shape. A reimplentation if this function should call this method when
-     * overwriding the function.
+     * change in a shape. A reimplementation if this function should call this method when
+     * overriding the function.
      *
      * @param shape the shape that has been changed
      * @param type this enum shows which change the shape has had.

@@ -106,6 +106,25 @@ template <typename T>
     return y >= T(0) ? strippedX : -strippedX;
 }
 
+template<class T>
+typename std::enable_if<std::is_integral<T>::value, T>::type
+divideFloor(T a, T b)
+{
+    const bool a_neg = a < T(0);
+    const bool b_neg = b < T(0);
+
+    if (a == T(0)) {
+        return 0;
+    } else if (a_neg == b_neg) {
+        return a / b;
+    } else {
+        const T a_abs = qAbs(a);
+        const T b_abs = qAbs(b);
+
+        return - 1 - (a_abs - T(1)) / b_abs;
+    }
+}
+
 template <class T>
 T leftUnitNormal(const T &a)
 {
@@ -330,7 +349,7 @@ Size ensureSizeNotSmaller(const Size &size, const Size &bounds)
 /**
  * Attempt to intersect a line to the area of the a rectangle.
  *
- * If the line intersects the rectange, it will be modified to represent the intersecting line segment and true is returned.
+ * If the line intersects the rectangle, it will be modified to represent the intersecting line segment and true is returned.
  * If the line does not intersect the area, it remains unmodified and false will be returned.
  *
  * @param segment
@@ -345,6 +364,30 @@ inline Point abs(const Point &pt) {
     return Point(qAbs(pt.x()), qAbs(pt.y()));
 }
 
+template<typename T, typename std::enable_if<std::is_integral<T>::value, T>::type* = nullptr>
+inline T wrapValue(T value, T wrapBounds) {
+    value %= wrapBounds;
+    if (value < 0) {
+        value += wrapBounds;
+    }
+    return value;
+}
+
+template<typename T, typename std::enable_if<std::is_floating_point<T>::value, T>::type* = nullptr>
+inline T wrapValue(T value, T wrapBounds) {
+    value = std::fmod(value, wrapBounds);
+    if (value < 0) {
+        value += wrapBounds;
+    }
+    return value;
+}
+
+template<typename T, typename std::enable_if<std::is_same<decltype(T().x()), decltype(T().y())>::value, T>::type* = nullptr>
+inline T wrapValue(T value, T wrapBounds) {
+    value.rx() = wrapValue(value.x(), wrapBounds.x());
+    value.ry() = wrapValue(value.y(), wrapBounds.y());
+    return value;
+}
 
 class RightHalfPlane {
 public:
@@ -487,6 +530,24 @@ inline QPointF absoluteToRelative(const QPointF &pt, const QRectF &rc) {
 }
 
 /**
+ * Scales relative isotropic value from relative to absolute coordinate system
+ * using SVG 1.1 rules (see chapter 7.10)
+ */
+inline qreal relativeToAbsolute(qreal value, const QRectF &rc) {
+    const qreal coeff = std::sqrt(pow2(rc.width()) + pow2(rc.height())) / std::sqrt(2.0);
+    return value * coeff;
+}
+
+/**
+ * Scales absolute isotropic value from absolute to relative coordinate system
+ * using SVG 1.1 rules (see chapter 7.10)
+ */
+inline qreal absoluteToRelative(const qreal value, const QRectF &rc) {
+    const qreal coeff = std::sqrt(pow2(rc.width()) + pow2(rc.height())) / std::sqrt(2.0);
+    return coeff != 0 ? value / coeff : 0;
+}
+
+/**
  * Compare the matrices with tolerance \p delta
  */
 bool KRITAGLOBAL_EXPORT fuzzyMatrixCompare(const QTransform &t1, const QTransform &t2, qreal delta);
@@ -580,6 +641,9 @@ struct KRITAGLOBAL_EXPORT DecomposedMatix {
 private:
     bool valid = true;
 };
+
+std::pair<QPointF, QTransform> KRITAGLOBAL_EXPORT transformEllipse(const QPointF &axes, const QTransform &fullLocalToGlobal);
+
 
 }
 

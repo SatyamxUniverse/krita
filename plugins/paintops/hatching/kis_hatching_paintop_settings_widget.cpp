@@ -23,6 +23,7 @@
 #include "kis_hatching_preferences.h"
 #include "kis_hatching_paintop_settings.h"
 
+#include "kis_hatching_pressure_angle_option.h"
 #include "kis_hatching_pressure_crosshatching_option.h"
 #include "kis_hatching_pressure_separation_option.h"
 #include "kis_hatching_pressure_thickness_option.h"
@@ -35,7 +36,6 @@
 #include <kis_paint_action_type_option.h>
 #include <kis_compositeop_option.h>
 #include "kis_texture_option.h"
-#include "kis_curve_option_widget.h"
 #include <kis_pressure_mirror_option_widget.h>
 #include "kis_pressure_texture_strength_option.h"
 
@@ -54,6 +54,7 @@ KisHatchingPaintOpSettingsWidget:: KisHatchingPaintOpSettingsWidget(QWidget* par
     addPaintOpOption(new KisCompositeOpOption(true), i18n("Blending Mode"));
     addPaintOpOption(new KisCurveOptionWidget(new KisHatchingPressureSeparationOption(), i18n("0.0"), i18n("1.0")), i18n("Separation"));
     addPaintOpOption(new KisCurveOptionWidget(new KisHatchingPressureThicknessOption(), i18n("0.0"), i18n("1.0")), i18n("Thickness"));
+    addPaintOpOption(new KisCurveOptionWidget(new KisHatchingPressureAngleOption(), i18n("0.0"), i18n("1.0")), i18n("Angle"));
     addPaintOpOption(new KisCurveOptionWidget(new KisHatchingPressureCrosshatchingOption(), i18n("0.0"), i18n("1.0")), i18n("Crosshatching"));
     addPaintOpOption(new KisCurveOptionWidget(new KisPressureOpacityOption(), i18n("Transparent"), i18n("Opaque")), i18n("Opacity"));
     addPaintOpOption(new KisCurveOptionWidget(new KisPressureSizeOption(), i18n("0%"), i18n("100%")), i18n("Size"));
@@ -91,7 +92,7 @@ KisHatchingPaintOpSettingsWidget:: KisHatchingPaintOpSettingsWidget(QWidget* par
     /*More things I know by reading the XML tree. At this point you can just read it with:
     dbgKrita << xMLAnalyzer.toString() ;
     those QDomElements are the way to navigate the XML tree, read
-    http://doc.qt.nokia.com/latest/qdomdocument.html for more information */
+    https://doc.qt.io/qt-5/qdomdocument.html for more information */
     QDomElement firstTag = xMLAnalyzer.documentElement();
     QDomElement firstTagsChild = firstTag.elementsByTagName("MaskGenerator").item(0).toElement();
 

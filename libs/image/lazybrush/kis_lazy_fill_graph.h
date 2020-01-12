@@ -265,7 +265,6 @@ public:
             LABEL_B
         };
 
-
         vertices_size_type x;
         vertices_size_type y;
         VertexType type;
@@ -273,6 +272,7 @@ public:
         VertexDescriptor(vertices_size_type _x, vertices_size_type _y, VertexType _type = NORMAL)
             : x(_x), y(_y), type(_type) {}
 
+        // TODO: Extra constructors look unnecessary, ask Dmitry before removing
         VertexDescriptor(VertexType _type)
             : x(0), y(0), type(_type) {}
 
@@ -342,6 +342,8 @@ public:
         m_mainArea = mainRect;
         m_aLabelArea = aLabelRegion.boundingRect();
         m_bLabelArea = bLabelRegion.boundingRect();
+
+        //QRegion::rects() is deprecated, https://doc.qt.io/qt-5/qregion-obsolete.html#rects
         m_aLabelRects = aLabelRegion.rects();
         m_bLabelRects = bLabelRegion.rects();
 
@@ -767,7 +769,7 @@ public:
             } else if (m_bLabelArea.contains(pt) && findInRects(m_bLabelRects, pt) && !out_edge_index--) {
                 dst_vertex = vertex_descriptor(0, 0, vertex_descriptor::LABEL_B);
             } else {
-                qDebug() << ppVar(vertex) << ppVar(out_edge_index) << ppVar(out_degree(vertex));
+                dbgImage << ppVar(vertex) << ppVar(out_edge_index) << ppVar(out_degree(vertex));
                 qFatal("Wrong edge sub-index");
             }
             break;

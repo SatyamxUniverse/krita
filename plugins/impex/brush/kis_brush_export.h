@@ -21,26 +21,12 @@
 #define _KIS_Brush_EXPORT_H_
 
 #include <QVariant>
+#include <QSpinBox>
+#include <QPainter>
 
 #include <KisImportExportFilter.h>
-#include <ui_wdg_export_gih.h>
 #include <kis_config_widget.h>
 #include <kis_properties_configuration.h>
-
-class KisWdgOptionsBrush : public KisConfigWidget, public Ui::WdgExportGih
-{
-    Q_OBJECT
-
-public:
-    KisWdgOptionsBrush(QWidget *parent)
-        : KisConfigWidget(parent)
-    {
-        setupUi(this);
-    }
-
-    void setConfiguration(const KisPropertiesConfigurationSP  cfg) override;
-    KisPropertiesConfigurationSP configuration() const override;
-};
 
 
 class KisBrushExport : public KisImportExportFilter
@@ -49,8 +35,7 @@ class KisBrushExport : public KisImportExportFilter
 public:
     KisBrushExport(QObject *parent, const QVariantList &);
     ~KisBrushExport() override;
-    bool supportsIO() const override { return false; }
-    KisImportExportFilter::ConversionStatus convert(KisDocument *document, QIODevice *io,  KisPropertiesConfigurationSP configuration = 0) override;
+    KisImportExportErrorCode convert(KisDocument *document, QIODevice *io,  KisPropertiesConfigurationSP configuration = 0) override;
     KisPropertiesConfigurationSP defaultConfiguration(const QByteArray& from = "", const QByteArray& to = "") const override;
     KisConfigWidget *createConfigurationWidget(QWidget *parent, const QByteArray& from = "", const QByteArray& to = "") const override;
 

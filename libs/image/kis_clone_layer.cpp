@@ -51,7 +51,7 @@ struct Q_DECL_HIDDEN KisCloneLayer::Private
     KisLodCapableLayerOffset offset;
 
     KisLayerSP copyFrom;
-    KisCloneInfo copyFromInfo;
+    KisNodeUuidInfo copyFromInfo;
     CopyLayerType type;
 };
 
@@ -63,7 +63,9 @@ KisCloneLayer::KisCloneLayer(KisLayerSP from, KisImageWSP image, const QString &
     if (!imageSP) {
         return;
     }
-    m_d->fallback = new KisPaintDevice(imageSP->colorSpace());
+    m_d->fallback = new KisPaintDevice(this,
+                                       imageSP->colorSpace(),
+                                       new KisDefaultBounds(imageSP));
     m_d->copyFrom = from;
     m_d->type = COPY_PROJECTION;
 
@@ -77,7 +79,9 @@ KisCloneLayer::KisCloneLayer(const KisCloneLayer& rhs)
         : KisLayer(rhs)
         , m_d(new Private(new KisDefaultBounds(rhs.image())))
 {
-    m_d->fallback = new KisPaintDevice(rhs.m_d->fallback->colorSpace());
+    m_d->fallback = new KisPaintDevice(this,
+                                       rhs.m_d->fallback->colorSpace(),
+                                       new KisDefaultBounds(rhs.image()));
     m_d->copyFrom = rhs.copyFrom();
     m_d->type = rhs.copyType();
     m_d->offset = rhs.m_d->offset;
@@ -105,6 +109,12 @@ KisLayerSP KisCloneLayer::reincarnateAsPaintLayer() const
     newLayer->mergeNodeProperties(nodeProperties());
 
     return newLayer;
+}
+
+void KisCloneLayer::setImage(KisImageWSP image)
+{
+    m_d->fallback->setDefaultBounds(new KisDefaultBounds(image));
+    KisLayer::setImage(image);
 }
 
 bool KisCloneLayer::allowAsChild(KisNodeSP node) const
@@ -294,12 +304,12 @@ CopyLayerType KisCloneLayer::copyType() const
     return m_d->type;
 }
 
-KisCloneInfo KisCloneLayer::copyFromInfo() const
+KisNodeUuidInfo KisCloneLayer::copyFromInfo() const
 {
-    return m_d->copyFrom ? KisCloneInfo(m_d->copyFrom) : m_d->copyFromInfo;
+    return m_d->copyFrom ? KisNodeUuidInfo(m_d->copyFrom) : m_d->copyFromInfo;
 }
 
-void KisCloneLayer::setCopyFromInfo(KisCloneInfo info)
+void KisCloneLayer::setCopyFromInfo(KisNodeUuidInfo info)
 {
     Q_ASSERT(!m_d->copyFrom);
     m_d->copyFromInfo = info;

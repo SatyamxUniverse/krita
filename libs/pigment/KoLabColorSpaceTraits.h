@@ -23,7 +23,7 @@
 
 #include <KoLabColorSpaceMaths.h>
 
-/** 
+/**
  * LAB traits, it provides some convenient functions to
  * access LAB channels through an explicit API.
  *
@@ -110,7 +110,7 @@ struct KoLabU8Traits : public KoLabTraits<quint8> {
     // It works when using integers b/c it is always 0..max -- which is not in fp
     // I've redone the implementation to be consistent with the fp version (for clarity) --LES
     inline static void normalisedChannelsValue(const quint8 *pixel, QVector<float> &channels) {
-        Q_ASSERT((int)channels.count() == (int)parent::channels_nb);
+        Q_ASSERT((int)channels.count() >= (int)parent::channels_nb);
         channels_type c;
         for (uint i = 0; i < parent::channels_nb; i++) {
             c = nativeArray(pixel)[i];
@@ -149,7 +149,7 @@ struct KoLabU8Traits : public KoLabTraits<quint8> {
     }
 
     inline static void fromNormalisedChannelsValue(quint8 *pixel, const QVector<float> &values) {
-        Q_ASSERT((int)values.count() == (int)parent::channels_nb);
+        Q_ASSERT((int)values.count() >= (int)parent::channels_nb);
         channels_type c;
         for (uint i = 0; i < channels_nb; i++) {
             float b = 0;
@@ -181,7 +181,7 @@ struct KoLabU8Traits : public KoLabTraits<quint8> {
 struct KoLabU16Traits : public KoLabTraits<quint16> {
 
     inline static void normalisedChannelsValue(const quint8 *pixel, QVector<float> &channels) {
-        Q_ASSERT((int)channels.count() == (int)parent::channels_nb);
+        Q_ASSERT((int)channels.count() >= (int)parent::channels_nb);
         channels_type c;
         for (uint i = 0; i < parent::channels_nb; i++) {
             c = nativeArray(pixel)[i];
@@ -220,7 +220,7 @@ struct KoLabU16Traits : public KoLabTraits<quint16> {
     }
 
     inline static void fromNormalisedChannelsValue(quint8 *pixel, const QVector<float> &values) {
-        Q_ASSERT((int)values.count() == (int)parent::channels_nb);
+        Q_ASSERT((int)values.count() >= (int)parent::channels_nb);
         channels_type c;
         for (uint i = 0; i < channels_nb; i++) {
             float b = 0;
@@ -279,7 +279,7 @@ struct KoLabF16Traits : public KoLabTraits<half> {
         }
     }
     inline static void normalisedChannelsValue(const quint8 *pixel, QVector<float> &channels) {
-        Q_ASSERT((int)channels.count() == (int)parent::channels_nb);
+        Q_ASSERT((int)channels.count() >= (int)parent::channels_nb);
         channels_type c;
         for (uint i = 0; i < parent::channels_nb; i++) {
             c = nativeArray(pixel)[i];
@@ -306,7 +306,7 @@ struct KoLabF16Traits : public KoLabTraits<half> {
         }
     }
     inline static void fromNormalisedChannelsValue(quint8 *pixel, const QVector<float> &values) {
-        Q_ASSERT((int)values.count() == (int)parent::channels_nb);
+        Q_ASSERT((int)values.count() >= (int)parent::channels_nb);
         channels_type c;
         for (uint i = 0; i < parent::channels_nb; i++) {
             float b = 0;
@@ -361,7 +361,7 @@ struct KoLabF32Traits : public KoLabTraits<float> {
         }
     }
     inline static void normalisedChannelsValue(const quint8 *pixel, QVector<float> &channels) {
-        Q_ASSERT((int)channels.count() == (int)parent::channels_nb);
+        Q_ASSERT((int)channels.count() >= (int)parent::channels_nb);
         channels_type c;
         for (uint i = 0; i < parent::channels_nb; i++) {
             c = nativeArray(pixel)[i];
@@ -388,7 +388,7 @@ struct KoLabF32Traits : public KoLabTraits<float> {
         }
     }
     inline static void fromNormalisedChannelsValue(quint8 *pixel, const QVector<float> &values) {
-        Q_ASSERT((int)values.count() == (int)parent::channels_nb);
+        Q_ASSERT((int)values.count() >= (int)parent::channels_nb);
         channels_type c;
         for (uint i = 0; i < parent::channels_nb; i++) {
             float b = 0;
@@ -441,7 +441,7 @@ struct KoLabF64Traits : public KoLabTraits<double> {
         }
     }
     inline static void normalisedChannelsValue(const quint8 *pixel, QVector<float> &channels) {
-        Q_ASSERT((int)channels.count() == (int)parent::channels_nb);
+        Q_ASSERT((int)channels.count() >= (int)parent::channels_nb);
         channels_type c;
         for (uint i = 0; i < parent::channels_nb; i++) {
             c = nativeArray(pixel)[i];
@@ -468,7 +468,7 @@ struct KoLabF64Traits : public KoLabTraits<double> {
         }
     }
     inline static void fromNormalisedChannelsValue(quint8 *pixel, const QVector<float> &values) {
-        Q_ASSERT((int)values.count() == (int)parent::channels_nb);
+        Q_ASSERT((int)values.count() >= (int)parent::channels_nb);
         channels_type c;
         for (uint i = 0; i < parent::channels_nb; i++) {
             float b = 0;

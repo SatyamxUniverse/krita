@@ -26,6 +26,7 @@
 #include <QUrl>
 #include <QDirIterator>
 #include <QUrlQuery>
+#include <QStandardPaths>
 #include <QDesktopServices>
 
 void KHelpClient::invokeHelp(const QString &anchor, const QString &_appname)
@@ -53,6 +54,8 @@ void KHelpClient::invokeHelp(const QString &anchor, const QString &_appname)
             const QString desktopPath(it.next());
             KDesktopFile desktopFile(desktopPath);
             docPath = desktopFile.readDocPath();
+
+            // TODO: why explicit break in a loop?
             break;
         }
     }

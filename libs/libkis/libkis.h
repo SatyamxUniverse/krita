@@ -5,7 +5,6 @@
 #include <QByteArray>
 #include <QAction>
 
-class Action;
 class Canvas;
 class Channel;
 class ColorDepth;
@@ -25,3 +24,13 @@ class Selection;
 class View;
 class Extension;
 class Window;
+
+class Shape;
+class GroupShape;
+class PaintLayer;
+class CloneLayer;
+class GroupLayer;
+class FilterLayer;
+class FillLayer;
+class FileLayer;
+class VectorLayer;

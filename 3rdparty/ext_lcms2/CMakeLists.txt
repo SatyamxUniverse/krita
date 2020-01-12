@@ -1,27 +1,27 @@
 SET(PREFIX_ext_lcms2 "${EXTPREFIX}" )
-if (MSVC OR MINGW)
+if (MINGW)
 ExternalProject_Add( ext_lcms2
 	DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-	URL http://files.kde.org/krita/build/dependencies/lcms2-2.8.tar.gz
-    URL_MD5 87a5913f1a52464190bb655ad230539c
-		
-    PATCH_COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/lcms2-2.8-20160725.diff
+	URL http://files.kde.org/krita/build/dependencies/lcms2-2.9.tar.gz
+    URL_MD5 8de1b7724f578d2995c8fdfa35c3ad0e
+
+    PATCH_COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/lcms2-9.diff
 	INSTALL_DIR ${PREFIX_ext_lcms2}
 	CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${PREFIX_ext_lcms2} -DCMAKE_BUILD_TYPE=${GLOBAL_BUILD_TYPE} ${GLOBAL_PROFILE} -DBUILD_TESTS=FALSE -DBUILD_UTILS=FALSE -DBUILD_STATIC=FALSE
-	
+
     UPDATE_COMMAND ""
 	DEPENDS ext_patch
 )
-else (MSVC OR MINGW)
+else ()
 ExternalProject_Add( ext_lcms2
-    DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-	URL http://files.kde.org/krita/build/dependencies/lcms2-2.8.tar.gz
-    URL_MD5 87a5913f1a52464190bb655ad230539c
+	DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
+	URL http://files.kde.org/krita/build/dependencies/lcms2-2.9.tar.gz
+    URL_MD5 8de1b7724f578d2995c8fdfa35c3ad0e
 
-    CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=${PREFIX_ext_lcms2} ${GLOBAL_AUTOMAKE_PROFILE}
-    BUILD_COMMAND make
-    INSTALL_COMMAND make install
+    PATCH_COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/lcms2-9.diff
+	INSTALL_DIR ${PREFIX_ext_lcms2}
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${PREFIX_ext_lcms2} -DCMAKE_BUILD_TYPE=${GLOBAL_BUILD_TYPE} ${GLOBAL_PROFILE} -DBUILD_TESTS=FALSE -DBUILD_UTILS=FALSE -DBUILD_STATIC=FALSE
 
     UPDATE_COMMAND ""
 )
-endif (MSVC OR MINGW)
+endif ()

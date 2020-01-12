@@ -22,6 +22,7 @@
 #include "kis_types.h"
 #include "kritaui_export.h"
 #include <KisImportExportFilter.h>
+#include <KisImportExportErrorCode.h>
 
 class KisDocument;
 class KisMainWindow;
@@ -31,11 +32,11 @@ class KRITAUI_EXPORT KisAnimationImporter : public QObject
     Q_OBJECT
 
 public:
-    KisAnimationImporter(KisImageSP image);
+    KisAnimationImporter(KisImageSP image, KoUpdaterPtr updater = 0);
     KisAnimationImporter(KisDocument* document);
     ~KisAnimationImporter() override;
 
-    KisImportExportFilter::ConversionStatus import(QStringList files, int firstFrame, int step);
+    KisImportExportErrorCode import(QStringList files, int firstFrame, int step);
 
 private Q_SLOTS:
     void cancel();

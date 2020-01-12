@@ -32,8 +32,11 @@ class KRITAIMAGE_EXPORT KisLsBevelEmbossFilter : public KisLayerStyleFilter
 public:
     KisLsBevelEmbossFilter();
 
+    KisLayerStyleFilter* clone() const override;
+
     void processDirectly(KisPaintDeviceSP src,
                          KisMultipleProjection *dst,
+                         KisLayerStyleKnockoutBlower *blower,
                          const QRect &applyRect,
                          KisPSDLayerStyleSP style,
                          KisLayerStyleFilterEnvironment *env) const override;
@@ -41,7 +44,10 @@ public:
     QRect neededRect(const QRect & rect, KisPSDLayerStyleSP style, KisLayerStyleFilterEnvironment *env) const override;
     QRect changedRect(const QRect & rect, KisPSDLayerStyleSP style, KisLayerStyleFilterEnvironment *env) const override;
 
+
 private:
+    KisLsBevelEmbossFilter(const KisLsBevelEmbossFilter &rhs);
+
     void applyBevelEmboss(KisPaintDeviceSP srcDevice,
                           KisMultipleProjection *dst,
                           const QRect &applyRect,

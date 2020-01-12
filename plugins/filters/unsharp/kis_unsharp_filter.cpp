@@ -26,6 +26,7 @@
 #include <kis_convolution_kernel.h>
 #include <kis_convolution_painter.h>
 #include <kis_gaussian_kernel.h>
+#include <filter/kis_filter_category_ids.h>
 #include <filter/kis_filter_configuration.h>
 #include <kis_processing_information.h>
 #include <KoProgressUpdater.h>
@@ -36,11 +37,11 @@
 
 #include "kis_wdg_unsharp.h"
 #include "ui_wdgunsharp.h"
-#include <kis_iterator_ng.h>
 #include "KoColorSpaceTraits.h"
+#include <KisSequentialIteratorProgress.h>
 
 
-KisUnsharpFilter::KisUnsharpFilter() : KisFilter(id(), categoryEnhance(), i18n("&Unsharp Mask..."))
+KisUnsharpFilter::KisUnsharpFilter() : KisFilter(id(), FiltersCategoryEnhanceId, i18n("&Unsharp Mask..."))
 {
     setSupportsPainting(true);
     setSupportsAdjustmentLayers(true);
@@ -57,16 +58,16 @@ KisUnsharpFilter::KisUnsharpFilter() : KisFilter(id(), categoryEnhance(), i18n("
     setColorSpaceIndependence(FULLY_INDEPENDENT);
 }
 
-KisConfigWidget * KisUnsharpFilter::createConfigurationWidget(QWidget* parent, const KisPaintDeviceSP) const
+KisConfigWidget * KisUnsharpFilter::createConfigurationWidget(QWidget* parent, const KisPaintDeviceSP, bool) const
 {
     return new KisWdgUnsharp(parent);
 }
 
-KisFilterConfigurationSP KisUnsharpFilter::factoryConfiguration() const
+KisFilterConfigurationSP KisUnsharpFilter::defaultConfiguration() const
 {
-    KisFilterConfigurationSP config = new KisFilterConfiguration(id().id(), 1);
+    KisFilterConfigurationSP config = factoryConfiguration();
     config->setProperty("halfSize", 1);
-    config->setProperty("amount", 50);
+    config->setProperty("amount", 0.5);
     config->setProperty("threshold", 0);
     config->setProperty("lightnessOnly", true);
     return config;
@@ -81,10 +82,10 @@ void KisUnsharpFilter::processImpl(KisPaintDeviceSP device,
 
     QPointer<KoUpdater> filterUpdater = 0;
     QPointer<KoUpdater> convolutionUpdater = 0;
-    KoProgressUpdater* updater = 0;
+    QScopedPointer<KoProgressUpdater> updater;
 
     if (progressUpdater) {
-        updater = new KoProgressUpdater(progressUpdater);
+        updater.reset(new KoProgressUpdater(progressUpdater));
         updater->start(100, i18n("Unsharp Mask"));
         // Two sub-sub tasks that each go from 0 to 100.
         convolutionUpdater = updater->startSubtask();
@@ -98,7 +99,7 @@ void KisUnsharpFilter::processImpl(KisPaintDeviceSP device,
     KisLodTransformScalar t(device);
 
     const qreal halfSize = t.scale(config->getProperty("halfSize", value) ? value.toDouble() : 1.0);
-    const qreal amount = (config->getProperty("amount", value)) ? value.toDouble() : 25;
+    const qreal amount = (config->getProperty("amount", value)) ? value.toDouble() : 0.5;
     const uint threshold = (config->getProperty("threshold", value)) ? value.toUInt() : 0;
     const uint lightnessOnly = (config->getProperty("lightnessOnly", value)) ? value.toBool() : true;
 
@@ -106,11 +107,7 @@ void KisUnsharpFilter::processImpl(KisPaintDeviceSP device,
     KisGaussianKernel::applyGaussian(device, applyRect,
                                      halfSize, halfSize,
                                      channelFlags,
-                                     progressUpdater);
-
-    if (progressUpdater && progressUpdater->interrupted()) {
-        return;
-    }
+                                     convolutionUpdater);
 
     qreal weights[2];
     qreal factor = 128;
@@ -119,14 +116,10 @@ void KisUnsharpFilter::processImpl(KisPaintDeviceSP device,
     weights[1] = -factor * amount;
 
     if (lightnessOnly) {
-        processLightnessOnly(device, applyRect, threshold, weights, factor, channelFlags);
+        processLightnessOnly(device, applyRect, threshold, weights, factor, channelFlags, filterUpdater);
     } else {
-        processRaw(device, applyRect, threshold, weights, factor, channelFlags);
+        processRaw(device, applyRect, threshold, weights, factor, channelFlags, filterUpdater);
     }
-
-    delete updater;
-
-    if (progressUpdater) progressUpdater->setProgress(100);
 }
 
 void KisUnsharpFilter::processRaw(KisPaintDeviceSP device,
@@ -134,29 +127,37 @@ void KisUnsharpFilter::processRaw(KisPaintDeviceSP device,
                                   quint8 threshold,
                                   qreal weights[2],
                                   qreal factor,
-                                  const QBitArray &channelFlags) const
+                                  const QBitArray &channelFlags,
+                                  KoUpdater *progressUpdater) const
 {
     const KoColorSpace *cs = device->colorSpace();
     const int pixelSize = cs->pixelSize();
     KoConvolutionOp * convolutionOp = cs->convolutionOp();
-    KisHLineIteratorSP dstIt = device->createHLineIteratorNG(rect.x(), rect.y(), rect.width());
 
     quint8 *colors[2];
     colors[0] = new quint8[pixelSize];
     colors[1] = new quint8[pixelSize];
 
-    for (int j = 0; j < rect.height(); j++) {
-        do {
-            quint8 diff = cs->difference(dstIt->oldRawData(), dstIt->rawDataConst());
-            if (diff > threshold) {
-                memcpy(colors[0], dstIt->oldRawData(), pixelSize);
-                memcpy(colors[1], dstIt->rawDataConst(), pixelSize);
-                convolutionOp->convolveColors(colors, weights, dstIt->rawData(), factor, 0, 2, channelFlags);
-            } else {
-                memcpy(dstIt->rawData(), dstIt->oldRawData(), pixelSize);
+    KisSequentialIteratorProgress dstIt(device, rect, progressUpdater);
+
+    while (dstIt.nextPixel()) {
+        quint8 diff = 0;
+        if (threshold == 1) {
+            if (memcmp(dstIt.oldRawData(), dstIt.rawDataConst(), cs->pixelSize()) == 0) {
+                diff = 1;
             }
-        } while (dstIt->nextPixel());
-        dstIt->nextRow();
+        }
+        else {
+            diff = cs->difference(dstIt.oldRawData(), dstIt.rawDataConst());
+        }
+
+        if (diff >= threshold) {
+            memcpy(colors[0], dstIt.oldRawData(), pixelSize);
+            memcpy(colors[1], dstIt.rawDataConst(), pixelSize);
+            convolutionOp->convolveColors(colors, weights, dstIt.rawData(), factor, 0, 2, channelFlags);
+        } else {
+            memcpy(dstIt.rawData(), dstIt.oldRawData(), pixelSize);
+        }
     }
 
     delete[] colors[0];
@@ -168,11 +169,11 @@ void KisUnsharpFilter::processLightnessOnly(KisPaintDeviceSP device,
                                             quint8 threshold,
                                             qreal weights[2],
                                             qreal factor,
-                                            const QBitArray & /*channelFlags*/) const
+                                            const QBitArray & /*channelFlags*/,
+                                            KoUpdater *progressUpdater) const
 {
     const KoColorSpace *cs = device->colorSpace();
     const int pixelSize = cs->pixelSize();
-    KisHLineIteratorSP dstIt = device->createHLineIteratorNG(rect.x(), rect.y(), rect.width());
 
     quint16 labColorSrc[4];
     quint16 labColorDst[4];
@@ -182,29 +183,28 @@ void KisUnsharpFilter::processLightnessOnly(KisPaintDeviceSP device,
 
     const qreal factorInv = 1.0 / factor;
 
-    for (int j = 0; j < rect.height(); j++) {
-        do {
-            quint8 diff = cs->differenceA(dstIt->oldRawData(), dstIt->rawDataConst());
-            if (diff > threshold) {
-                cs->toLabA16(dstIt->oldRawData(), (quint8*)labColorSrc, 1);
-                cs->toLabA16(dstIt->rawDataConst(), (quint8*)labColorDst, 1);
+    KisSequentialIteratorProgress dstIt(device, rect, progressUpdater);
 
-                qint32 valueL = (labColorSrc[posL] * weights[0] + labColorDst[posL] * weights[1]) * factorInv;
-                labColorSrc[posL] = CLAMP(valueL,
+    while (dstIt.nextPixel()) {
+        quint8 diff = cs->differenceA(dstIt.oldRawData(), dstIt.rawDataConst());
+        if (diff >= threshold) {
+            cs->toLabA16(dstIt.oldRawData(), (quint8*)labColorSrc, 1);
+            cs->toLabA16(dstIt.rawDataConst(), (quint8*)labColorDst, 1);
+
+            qint32 valueL = (labColorSrc[posL] * weights[0] + labColorDst[posL] * weights[1]) * factorInv;
+            labColorSrc[posL] = CLAMP(valueL,
+                                      KoColorSpaceMathsTraits<quint16>::min,
+                                      KoColorSpaceMathsTraits<quint16>::max);
+
+            qint32 valueAlpha = (labColorSrc[posAplha] * weights[0] + labColorDst[posAplha] * weights[1]) * factorInv;
+            labColorSrc[posAplha] = CLAMP(valueAlpha,
                                           KoColorSpaceMathsTraits<quint16>::min,
                                           KoColorSpaceMathsTraits<quint16>::max);
 
-                qint32 valueAlpha = (labColorSrc[posAplha] * weights[0] + labColorDst[posAplha] * weights[1]) * factorInv;
-                labColorSrc[posAplha] = CLAMP(valueAlpha,
-                                              KoColorSpaceMathsTraits<quint16>::min,
-                                              KoColorSpaceMathsTraits<quint16>::max);
-
-                cs->fromLabA16((quint8*)labColorSrc, dstIt->rawData(), 1);
-            } else {
-                memcpy(dstIt->rawData(), dstIt->oldRawData(), pixelSize);
-            }
-        } while (dstIt->nextPixel());
-        dstIt->nextRow();
+            cs->fromLabA16((quint8*)labColorSrc, dstIt.rawData(), 1);
+        } else {
+            memcpy(dstIt.rawData(), dstIt.oldRawData(), pixelSize);
+        }
     }
 }
 

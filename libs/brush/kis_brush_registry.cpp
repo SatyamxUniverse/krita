@@ -56,13 +56,12 @@ KisBrushRegistry* KisBrushRegistry::instance()
         s_instance->add(new KisTextBrushFactory());
         s_instance->add(new KisPredefinedBrushFactory("png_brush"));
         s_instance->add(new KisPredefinedBrushFactory("svg_brush"));
-        KoPluginLoader::instance()->load("Krita/Brush", "Type == 'Service' and ([X-Krita-Version] == 28)");
     }
     return s_instance;
 }
 
 
-KisBrushSP KisBrushRegistry::getOrCreateBrush(const QDomElement& element, bool forceCopy)
+KisBrushSP KisBrushRegistry::createBrush(const QDomElement& element)
 {
     QString brushType = element.attribute("type");
 
@@ -71,7 +70,6 @@ KisBrushSP KisBrushRegistry::getOrCreateBrush(const QDomElement& element, bool f
     KisBrushFactory* factory = get(brushType);
     if (!factory) return 0;
 
-    KisBrushSP brush = factory->getOrCreateBrush(element, forceCopy);
-    return brush;
+    return factory->createBrush(element);
 }
 

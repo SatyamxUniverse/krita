@@ -139,14 +139,6 @@ public:
     bool isClipped(const KoShape *child) const;
 
     /**
-     * Return whether the child has the effective state of being locked for user modifications.
-     * This method is deferred to the model, which should call the KoShape::isGeometryProtected() on the child.
-     * @param child the shape that the user wants to move.
-     */
-    bool isChildLocked(const KoShape *child) const;
-
-
-    /**
      * Set the shape to inherit the container transform.
      *
      * A shape that inherits the transform of the parent container will have its
@@ -185,6 +177,7 @@ public:
      *
      * @param painter used for painting the shape
      * @param converter to convert between internal and view coordinates.
+     * @param paintcontext the painting context
      * @see applyConversion()
      */
     virtual void paintComponent(QPainter &painter, const KoViewConverter &converter, KoShapePaintingContext &paintcontext) = 0;
@@ -204,6 +197,18 @@ public:
      */
     KoShapeContainerModel *model() const;
 
+protected:
+
+    /**
+     * set the model for this container
+     */
+    void setModel(KoShapeContainerModel *model);
+    /**
+     * set the model, and take control of all its children
+     */
+    void setModelInit(KoShapeContainerModel *model);
+
+public:
 
     /**
      * A special interface for KoShape to use during setParent call. Don't use
@@ -239,6 +244,8 @@ public:
     ShapeInterface* shapeInterface();
 
 protected:
+    KoShapeContainer(const KoShapeContainer &rhs);
+
     /**
      * This hook is for inheriting classes that need to do something on adding/removing
      * of children.
@@ -249,11 +256,9 @@ protected:
 
     void shapeChanged(ChangeType type, KoShape *shape = 0) override;
 
-    /// constructor
-    KoShapeContainer(KoShapeContainerPrivate *);
-
 private:
-    Q_DECLARE_PRIVATE(KoShapeContainer)
+    class Private;
+    QScopedPointer<Private> d;
 };
 
 #endif

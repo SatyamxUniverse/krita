@@ -51,7 +51,7 @@
 // * Renamed KShortcutsDialog/Editor to KisShortcutsDialog/Editor
 // * Add export macro
 // * Split apart kshortcutseditor_p
-// * Copied KShortcutsEditorPrivate::itemFromIndex() implmentation from
+// * Copied KShortcutsEditorPrivate::itemFromIndex() implementation from
 //   KF5 XmlGui's kshortcutseditor.cpp to begin of KisShortcutsEditorItem.cpp
 
 /**
@@ -105,6 +105,7 @@ public:
     /**
      * Constructs a KisShortcutsDialog. Mostly UI boilerplate.
      *
+     * @param types the action types 
      * @param allowLetterShortcuts set to KisShortcutsEditor::LetterShortcutsDisallowed if unmodified alphanumeric
      *  keys ('A', '1', etc.) are not permissible shortcuts.
      *
@@ -124,6 +125,7 @@ public:
      * Add all actions of the collection to the ones displayed and configured
      * by the dialog. This is where the business happens.
      *
+     * @param collection the action collection.
      * @param title the title associated with the collection.
      */
     void addCollection(KActionCollection *, const QString &title = QString());

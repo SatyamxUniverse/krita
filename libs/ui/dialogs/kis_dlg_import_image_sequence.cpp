@@ -24,21 +24,32 @@
 #include "kis_image_animation_interface.h"
 #include "KisImportExportManager.h"
 #include "KoFileDialog.h"
-#include <QDesktopServices>
+#include <QStandardPaths>
+#include <QRegExp>
 
 
 class KisDlgImportImageSequence::ListItem : QListWidgetItem {
 
 public:
     ListItem(const QString &text, QListWidget *view, QCollator *collator)
-        : QListWidgetItem(text, view),
-       collator(collator)
+        : QListWidgetItem(text, view)
+        , collator(collator)
     {}
 
     bool operator <(const QListWidgetItem &other) const override
     {
-        int cmp = collator->compare(this->text(), other.text());
-        return cmp < 0;
+        if (collator->numericMode()) {
+            const QRegExp rx(QLatin1Literal("[^0-9]+"));
+            QStringList ours = text().split(rx, QString::SkipEmptyParts);
+            QStringList theirs = other.text().split(rx, QString::SkipEmptyParts);
+
+            // Let's compare the last numbers -- they are most likely to be the serial numbers
+            if (ours.size() > 0 && theirs.size() > 0) {
+                return (ours.last().toInt() < theirs.last().toInt());
+            }
+
+        }
+        return collator->compare(this->text(), other.text()) < 0;
     }
 
 private:
@@ -120,8 +131,8 @@ void KisDlgImportImageSequence::slotAddFiles()
 QStringList KisDlgImportImageSequence::showOpenFileDialog()
 {
     KoFileDialog dialog(this, KoFileDialog::ImportFiles, "OpenDocument");
-    dialog.setDefaultDir(QDesktopServices::storageLocation(QDesktopServices::PicturesLocation));
-    dialog.setMimeTypeFilters(KisImportExportManager::mimeFilter(KisImportExportManager::Import));
+    dialog.setDefaultDir(QStandardPaths::writableLocation(QStandardPaths::PicturesLocation));
+    dialog.setMimeTypeFilters(KisImportExportManager::supportedMimeTypes(KisImportExportManager::Import));
     dialog.setCaption(i18n("Import Images"));
 
     return dialog.filenames();

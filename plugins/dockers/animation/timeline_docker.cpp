@@ -32,6 +32,7 @@
 #include "timeline_frames_model.h"
 #include "timeline_frames_view.h"
 #include "kis_animation_frame_cache.h"
+#include "kis_image_animation_interface.h"
 #include "kis_signal_auto_connection.h"
 #include "kis_node_manager.h"
 
@@ -77,6 +78,11 @@ struct NodeManagerInterface : TimelineFramesModel::NodeManipulationInterface
         m_manager->removeSingleNode(node);
     }
 
+    bool setNodeProperties(KisNodeSP node, KisImageSP image, KisBaseNode::PropertyList properties) const override
+    {
+        return m_manager->trySetNodeProperties(node, image, properties);
+    }
+
 private:
     KisNodeManager *m_manager;
 };
@@ -87,7 +93,7 @@ void TimelineDocker::setCanvas(KoCanvasBase * canvas)
 
     if (m_d->model->hasConnectionToCanvas()) {
         m_d->canvasConnections.clear();
-        m_d->model->setDummiesFacade(0, 0);
+        m_d->model->setDummiesFacade(0, 0, 0);
         m_d->model->setFrameCache(0);
         m_d->model->setAnimationPlayer(0);
         m_d->model->setNodeManipulationInterface(0);
@@ -103,9 +109,11 @@ void TimelineDocker::setCanvas(KoCanvasBase * canvas)
     if(m_d->canvas) {
         KisDocument *doc = static_cast<KisDocument*>(m_d->canvas->imageView()->document());
         KisShapeController *kritaShapeController = dynamic_cast<KisShapeController*>(doc->shapeController());
-        m_d->model->setDummiesFacade(kritaShapeController, m_d->canvas->image());
+        m_d->model->setDummiesFacade(kritaShapeController,
+                                     m_d->canvas->image(),
+                                     m_d->canvas->viewManager()->nodeManager()->nodeDisplayModeAdapter());
 
-        m_d->model->setFrameCache(m_d->canvas->frameCache());
+        slotUpdateFrameCache();
         m_d->model->setAnimationPlayer(m_d->canvas->animationPlayer());
 
         m_d->model->setNodeManipulationInterface(
@@ -120,7 +128,28 @@ void TimelineDocker::setCanvas(KoCanvasBase * canvas)
             m_d->canvas->viewManager()->nodeManager(), SLOT(slotNonUiActivatedNode(KisNodeSP)));
 
         m_d->model->slotCurrentNodeChanged(m_d->canvas->viewManager()->activeNode());
+
+        m_d->canvasConnections.addConnection(
+                    m_d->canvas->viewManager()->mainWindow(), SIGNAL(themeChanged()),
+                    this, SLOT(slotUpdateIcons()));
+
+        m_d->canvasConnections.addConnection(
+                    m_d->canvas, SIGNAL(sigCanvasEngineChanged()),
+                    this, SLOT(slotUpdateFrameCache()));
     }
+
+}
+
+void TimelineDocker::slotUpdateIcons()
+{
+    if (m_d->view) {
+        m_d->view->slotUpdateIcons();
+    }
+}
+
+void TimelineDocker::slotUpdateFrameCache()
+{
+    m_d->model->setFrameCache(m_d->canvas->frameCache());
 }
 
 void TimelineDocker::unsetCanvas()
@@ -128,16 +157,10 @@ void TimelineDocker::unsetCanvas()
     setCanvas(0);
 }
 
-void TimelineDocker::setMainWindow(KisViewManager *view)
+void TimelineDocker::setViewManager(KisViewManager *view)
 {
     KisActionManager *actionManager = view->actionManager();
 
-    QMap<QString, KisAction*> actions = m_d->view->globalActions();
-
-    QMap<QString, KisAction*>::const_iterator it = actions.constBegin();
-    QMap<QString, KisAction*>::const_iterator end = actions.constEnd();
-
-    for (; it != end; ++it) {
-        actionManager->addAction(it.key(), it.value());
-    }
+    m_d->view->setShowInTimeline(actionManager->actionByName("show_in_timeline"));
+    m_d->view->setActionManager(actionManager);
 }

@@ -57,7 +57,7 @@ CSVLoader::~CSVLoader()
 {
 }
 
-KisImageBuilder_Result CSVLoader::decode(QIODevice *io, const QString &filename)
+KisImportExportErrorCode CSVLoader::decode(QIODevice *io, const QString &filename)
 {
     QString     field;
     int         idx;
@@ -91,36 +91,39 @@ KisImageBuilder_Result CSVLoader::decode(QIODevice *io, const QString &filename)
     //according to the QT docs, the slash is a universal directory separator
     path.append(".frames/");
 
-    KisImageBuilder_Result retval = KisImageBuilder_RESULT_OK;
+    KisImportExportErrorCode retval = ImportExportCodes::OK;
 
     dbgFile << "pos:" << io->pos();
 
     CSVReadLine readLine;
     QScopedPointer<KisDocument> importDoc(KisPart::instance()->createDocument());
-    importDoc->setAutoSaveDelay(0);
+    importDoc->setInfiniteAutoSaveInterval();
     importDoc->setFileBatchMode(true);
 
     KisView *setView(0);
 
     if (!m_batchMode) {
-        //show the statusbar message even if no view
-        Q_FOREACH (KisView* view, KisPart::instance()->views()) {
-            if (view && view->document() == m_doc) {
-                setView = view;
-                break;
-            }
-        }
+        // TODO: use other systems of progress reporting (KisViewManager::createUnthreadedUpdater()
 
-        if (!setView) {
-            QStatusBar *sb = KisPart::instance()->currentMainwindow()->statusBar();
-            if (sb) {
-                sb->showMessage(i18n("Loading CSV file..."));
-            }
-        } else {
-            emit m_doc->statusBarMessage(i18n("Loading CSV file..."));
-        }
-        emit m_doc->sigProgress(0);
-        connect(m_doc, SIGNAL(sigProgressCanceled()), this, SLOT(cancel()));
+//        //show the statusbar message even if no view
+//        Q_FOREACH (KisView* view, KisPart::instance()->views()) {
+//            if (view && view->document() == m_doc) {
+//                setView = view;
+//                break;
+//            }
+//        }
+
+//        if (!setView) {
+//            QStatusBar *sb = KisPart::instance()->currentMainwindow()->statusBar();
+//            if (sb) {
+//                sb->showMessage(i18n("Loading CSV file..."));
+//            }
+//        } else {
+//            emit m_doc->statusBarMessage(i18n("Loading CSV file..."));
+//        }
+
+//        emit m_doc->sigProgress(0);
+//        connect(m_doc, SIGNAL(sigProgressCanceled()), this, SLOT(cancel()));
     }
     int step = 0;
 
@@ -128,14 +131,13 @@ KisImageBuilder_Result CSVLoader::decode(QIODevice *io, const QString &filename)
         qApp->processEvents();
 
         if (m_stop) {
-            retval = KisImageBuilder_RESULT_CANCEL;
+            retval = ImportExportCodes::Cancelled;
             break;
         }
 
         if ((idx = readLine.nextLine(io)) <= 0) {
             if ((idx < 0) ||(step < 5))
-                retval = KisImageBuilder_RESULT_FAILURE;
-
+                retval = ImportExportCodes::FileFormatIncorrect;
             break;
         }
         field = readLine.nextField(); //first field of the line
@@ -203,7 +205,7 @@ KisImageBuilder_Result CSVLoader::decode(QIODevice *io, const QString &filename)
             }
 
             if ((width < 1) || (height < 1)) {
-               retval = KisImageBuilder_RESULT_FAILURE;
+               retval = ImportExportCodes::Failure;
                break;
             }
 
@@ -220,7 +222,7 @@ KisImageBuilder_Result CSVLoader::decode(QIODevice *io, const QString &filename)
             readLine.rewind();
             field = readLine.nextField();
             step = 4;
-            //no break!
+            Q_FALLTHROUGH();
 
         case 4 :    //level header
 
@@ -263,7 +265,7 @@ KisImageBuilder_Result CSVLoader::decode(QIODevice *io, const QString &filename)
 
             step = 5;
 
-            //no break!
+            Q_FALLTHROUGH();
 
         case 5 :    //frames
 
@@ -274,8 +276,8 @@ KisImageBuilder_Result CSVLoader::decode(QIODevice *io, const QString &filename)
 
                 if (layer->last != field) {
                     if (!m_batchMode) {
-                        emit m_doc->sigProgress((frame * layers.size() + idx) * 100 /
-                                                (frameCount * layers.size()));
+                        //emit m_doc->sigProgress((frame * layers.size() + idx) * 100 /
+                        //                        (frameCount * layers.size()));
                     }
                     retval = setLayer(layer, importDoc.data(), path);
                     layer->last = field;
@@ -285,11 +287,11 @@ KisImageBuilder_Result CSVLoader::decode(QIODevice *io, const QString &filename)
             frame++;
             break;
         }
-    } while (retval == KisImageBuilder_RESULT_OK);
+    } while (retval.isOk());
 
     //finish the layers
 
-    if (retval == KisImageBuilder_RESULT_OK) {
+    if (retval.isOk()) {
         if (m_image) {
             KisImageAnimationInterface *animation = m_image->animationInterface();
 
@@ -307,7 +309,7 @@ KisImageBuilder_Result CSVLoader::decode(QIODevice *io, const QString &filename)
             if ((layer->frame > 0) || !layer->last.isEmpty()) {
                 retval = setLayer(layer, importDoc.data(), path);
 
-                if (retval != KisImageBuilder_RESULT_OK)
+                if (!retval.isOk())
                     break;
             }
         }
@@ -328,8 +330,8 @@ KisImageBuilder_Result CSVLoader::decode(QIODevice *io, const QString &filename)
     io->close();
 
     if (!m_batchMode) {
-        disconnect(m_doc, SIGNAL(sigProgressCanceled()), this, SLOT(cancel()));
-        emit m_doc->sigProgress(100);
+        // disconnect(m_doc, SIGNAL(sigProgressCanceled()), this, SLOT(cancel()));
+        // emit m_doc->sigProgress(100);
 
         if (!setView) {
             QStatusBar *sb = KisPart::instance()->currentMainwindow()->statusBar();
@@ -358,7 +360,7 @@ QString CSVLoader::convertBlending(const QString &blending)
     if (blending == "Multiply") return COMPOSITE_MULT;
     if (blending == "Screen") return COMPOSITE_SCREEN;
     // "Replace"
-    // "Subtitute"
+    // "Substitute"
     if (blending == "Difference") return COMPOSITE_DIFF;
     if (blending == "Divide") return COMPOSITE_DIVIDE;
     if (blending == "Overlay") return COMPOSITE_OVERLAY;
@@ -405,7 +407,7 @@ QString CSVLoader::validPath(const QString &path,const QString &base)
     return QString(); //NULL string
 }
 
-KisImageBuilder_Result CSVLoader::setLayer(CSVLayerRecord* layer, KisDocument *importDoc, const QString &path)
+KisImportExportErrorCode CSVLoader::setLayer(CSVLayerRecord* layer, KisDocument *importDoc, const QString &path)
 {
     bool result = true;
 
@@ -441,7 +443,7 @@ KisImageBuilder_Result CSVLoader::setLayer(CSVLayerRecord* layer, KisDocument *i
         filename.append(layer->last);
 
         result = importDoc->openUrl(QUrl::fromLocalFile(filename),
-                                    KisDocument::OPEN_URL_FLAG_DO_NOT_ADD_TO_RECENT_FILES);
+                                    KisDocument::DontAddToRecent);
         if (result)
             layer->channel->importFrame(layer->frame, importDoc->image()->projection(), 0);
 
@@ -449,10 +451,10 @@ KisImageBuilder_Result CSVLoader::setLayer(CSVLayerRecord* layer, KisDocument *i
         //blank
         layer->channel->addKeyframe(layer->frame);
     }
-    return (result) ? KisImageBuilder_RESULT_OK : KisImageBuilder_RESULT_FAILURE;
+    return (result) ? ImportExportCodes::OK : ImportExportCodes::Failure;
 }
 
-KisImageBuilder_Result CSVLoader::createNewImage(int width, int height, float ratio, const QString &name)
+KisImportExportErrorCode CSVLoader::createNewImage(int width, int height, float ratio, const QString &name)
 {
     //the CSV is RGBA 8bits, sRGB
 
@@ -462,15 +464,15 @@ KisImageBuilder_Result CSVLoader::createNewImage(int width, int height, float ra
 
         if (cs) m_image = new KisImage(m_doc->createUndoStore(), width, height, cs, name);
 
-        if (!m_image) return KisImageBuilder_RESULT_FAILURE;
+        if (!m_image) return ImportExportCodes::Failure;
 
         m_image->setResolution(ratio, 1.0);
         m_image->lock();
     }
-    return KisImageBuilder_RESULT_OK;
+    return ImportExportCodes::OK;
 }
 
-KisImageBuilder_Result CSVLoader::buildAnimation(QIODevice *io, const QString &filename)
+KisImportExportErrorCode CSVLoader::buildAnimation(QIODevice *io, const QString &filename)
 {
     return decode(io, filename);
 }

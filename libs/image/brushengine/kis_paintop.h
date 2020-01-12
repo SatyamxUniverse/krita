@@ -34,6 +34,7 @@ class KoColorSpace;
 
 class KisPainter;
 class KisPaintInformation;
+class KisRunnableStrokeJobData;
 
 /**
  * KisPaintOp are use by tools to draw on a paint device. A paintop takes settings
@@ -77,7 +78,7 @@ public:
      * painted along the line using the spacing setting.
      *
      * @return the drag distance, that is the remains of the distance
-     * between p1 and p2 not covered because the currenlty set brush
+     * between p1 and p2 not covered because the currently set brush
      * has a spacing greater than that distance.
      */
     virtual void paintLine(const KisPaintInformation &pi1,
@@ -89,7 +90,7 @@ public:
      * If savedDist is less than zero, the brush is painted at pos1 before being
      * painted along the curve using the spacing setting.
      * @return the drag distance, that is the remains of the distance between p1 and p2 not covered
-     * because the currenlty set brush has a spacing greater than that distance.
+     * because the currently set brush has a spacing greater than that distance.
      */
     virtual void paintBezierCurve(const KisPaintInformation &pi1,
                                   const QPointF &control1,
@@ -110,6 +111,15 @@ public:
      * Split the coordinate into whole + fraction, where fraction is always >= 0.
      */
     static void splitCoordinate(qreal coordinate, qint32 *whole, qreal *fraction);
+
+    /**
+     * If the preset supports asynchronous updates, then the stroke execution core will
+     * call this method with a desired frame rate. The jobs that should be run to prepare the update
+     * are returned via \p jobs
+     *
+     * @return a pair of <the desired FPS rate (period of updates); are there any unprocessed update jobs left?>
+     */
+    virtual std::pair<int, bool> doAsyncronousUpdate(QVector<KisRunnableStrokeJobData*> &jobs);
 
 protected:
     friend class KisPaintInformation;

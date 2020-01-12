@@ -75,7 +75,7 @@ KisPaintOpPresetSP KisPaintOpPreset::clone() const
     if (settings()) {
         preset->setSettings(settings()); // the settings are cloned inside!
     }
-    preset->setPresetDirty(isPresetDirty());
+    preset->setDirty(isDirty());
     // only valid if we could clone the settings
     preset->setValid(settings());
 
@@ -88,12 +88,12 @@ KisPaintOpPresetSP KisPaintOpPreset::clone() const
 
     return preset;
 }
-void KisPaintOpPreset::setPresetDirty(bool value)
+void KisPaintOpPreset::setDirty(bool value)
 {
     m_d->dirtyPreset = value;
 }
 
-bool KisPaintOpPreset::isPresetDirty() const
+bool KisPaintOpPreset::isDirty() const
 {
     return m_d->dirtyPreset;
 }
@@ -107,7 +107,7 @@ void KisPaintOpPreset::setPaintOp(const KoID & paintOp)
 KoID KisPaintOpPreset::paintOp() const
 {
     Q_ASSERT(m_d->settings);
-    return KoID(m_d->settings->getString("paintop"), name());
+    return KoID(m_d->settings->getString("paintop"));
 }
 
 void KisPaintOpPreset::setOptionsWidget(KisPaintOpConfigWidget* widget)
@@ -142,8 +142,8 @@ void KisPaintOpPreset::setSettings(KisPaintOpSettingsSP settings)
         m_d->settings->setPreset(KisPaintOpPresetWSP(this));
 
         if (oldOptionsWidget) {
-            m_d->settings->setOptionsWidget(oldOptionsWidget);
             oldOptionsWidget->setConfigurationSafe(m_d->settings);
+            m_d->settings->setOptionsWidget(oldOptionsWidget);
         }
     }
 
@@ -219,7 +219,7 @@ bool KisPaintOpPreset::load()
     delete dev;
 
     setValid(res);
-    setPresetDirty(false);
+    setDirty(false);
     return res;
 
 }
@@ -387,6 +387,26 @@ KisPaintopSettingsUpdateProxy* KisPaintOpPreset::updateProxyNoCreate() const
 QList<KisUniformPaintOpPropertySP> KisPaintOpPreset::uniformProperties()
 {
     return m_d->settings->uniformProperties(m_d->settings);
+}
+
+bool KisPaintOpPreset::hasMaskingPreset() const
+{
+    return m_d->settings && m_d->settings->hasMaskingSettings();
+}
+
+KisPaintOpPresetSP KisPaintOpPreset::createMaskingPreset() const
+{
+    KisPaintOpPresetSP result;
+
+    if (m_d->settings && m_d->settings->hasMaskingSettings()) {
+        result = new KisPaintOpPreset();
+        result->setSettings(m_d->settings->createMaskingSettings());
+        if (!result->valid()) {
+            result.clear();
+        }
+    }
+
+    return result;
 }
 
 KisPaintOpPreset::UpdatedPostponer::UpdatedPostponer(KisPaintOpPreset *preset)

@@ -3,7 +3,8 @@
  *
  *  This library is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
- *  the Free Software Foundation; version 2.1 of the License.
+ *  the Free Software Foundation; version 2 of the License, or
+ *  (at your option) any later version.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -31,7 +32,6 @@ public:
     KisDynamicSensorFade();
     ~KisDynamicSensorFade() override { }
     qreal value(const KisPaintInformation&) override;
-    void reset() override;
     QWidget* createConfigurationWidget(QWidget* parent, QWidget*) override;
 public Q_SLOTS:
     virtual void setPeriodic(bool periodic);
@@ -41,7 +41,6 @@ public Q_SLOTS:
     void toXML(QDomDocument&, QDomElement&) const override;
     void fromXML(const QDomElement&) override;
 private:
-    int m_counter;
     bool m_periodic;
 };
 

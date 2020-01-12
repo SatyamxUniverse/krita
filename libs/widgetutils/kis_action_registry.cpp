@@ -117,6 +117,7 @@ public:
     void loadActionFiles();
     void loadCustomShortcuts(QString filename = QStringLiteral("kritashortcutsrc"));
 
+    // XXX: this adds a default item for the given name to the list of actioninfo objects!
     ActionInfoItem &actionInfo(const QString &name) {
         if (!actionInfoList.contains(name)) {
             dbgAction << "Tried to look up info for unknown action" << name;
@@ -133,7 +134,15 @@ Q_GLOBAL_STATIC(KisActionRegistry, s_instance)
 
 KisActionRegistry *KisActionRegistry::instance()
 {
+    if (!s_instance.exists()) {
+        dbgRegistry << "initializing KoActionRegistry";
+    }
     return s_instance;
+}
+
+bool KisActionRegistry::hasAction(const QString &name) const
+{
+    return d->actionInfoList.contains(name);
 }
 
 
@@ -144,6 +153,10 @@ KisActionRegistry::KisActionRegistry()
     QString schemeName = cg.readEntry("Current Scheme", "Default");
     loadShortcutScheme(schemeName);
     loadCustomShortcuts();
+}
+
+KisActionRegistry::~KisActionRegistry()
+{
 }
 
 KisActionRegistry::ActionCategory KisActionRegistry::fetchActionCategory(const QString &name) const
@@ -184,7 +197,8 @@ QAction * KisActionRegistry::makeQAction(const QString &name, QObject *parent)
 {
     QAction * a = new QAction(parent);
     if (!d->actionInfoList.contains(name)) {
-        dbgAction << "Warning: requested data for unknown action" << name;
+        qWarning() << "Warning: requested data for unknown action" << name;
+        a->setObjectName(name);
         return a;
     }
 
@@ -205,10 +219,11 @@ void KisActionRegistry::settingsPageSaved()
 void KisActionRegistry::applyShortcutScheme(const KConfigBase *config)
 {
     // First, update the things in KisActionRegistry
+    d->actionInfoList.clear();
+    d->loadActionFiles();
+
     if (config == 0) {
         // Use default shortcut scheme. Simplest just to reload everything.
-        d->actionInfoList.clear();
-        d->loadActionFiles();
         loadCustomShortcuts();
     } else {
         const auto schemeEntries = config->group(QStringLiteral("Shortcuts")).entryMap();
@@ -244,7 +259,7 @@ QList<QString> KisActionRegistry::registeredShortcutIds() const
 bool KisActionRegistry::propertizeAction(const QString &name, QAction * a)
 {
     if (!d->actionInfoList.contains(name)) {
-        qDebug() << "No XML data found for action" << name;
+        warnAction << "No XML data found for action" << name;
         return false;
     }
 
@@ -265,7 +280,9 @@ bool KisActionRegistry::propertizeAction(const QString &name, QAction * a)
         bool isCheckable  = getChildContent(actionXml, "isCheckable") == QString("true");
 
         a->setObjectName(name); // This is helpful, should be added more places in Krita
-        a->setIcon(KisIconUtils::loadIcon(icon.toLatin1()));
+        if (!icon.isEmpty()) {
+            a->setIcon(KisIconUtils::loadIcon(icon.toLatin1()));
+        }
         a->setText(text);
         a->setObjectName(name);
         a->setWhatsThis(whatsthis);
@@ -339,7 +356,7 @@ void KisActionRegistry::Private::loadActionFiles()
                     }
 
                     else if (actionInfoList.contains(name)) {
-                        errAction << "NOT COOL: Duplicated action name from xml data: " << name;
+                        qWarning() << "NOT COOL: Duplicated action name from xml data: " << name;
                     }
 
                     else {

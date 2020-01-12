@@ -20,6 +20,8 @@
 #define __KIS_CACHED_PAINT_DEVICE_H
 
 #include "tiles3/kis_lockless_stack.h"
+#include "kis_paint_device.h"
+#include "kis_selection.h"
 
 class KisCachedPaintDevice
 {
@@ -37,8 +39,33 @@ public:
 
     void putDevice(KisPaintDeviceSP device) {
         device->clear();
+        device->setDefaultBounds(new KisDefaultBounds());
         m_stack.push(device);
     }
+
+    bool isEmpty() const {
+        return m_stack.isEmpty();
+    }
+
+    struct Guard {
+        Guard(KisPaintDeviceSP prototype, KisCachedPaintDevice &parent)
+            : m_parent(parent)
+        {
+            m_device = m_parent.getDevice(prototype);
+        }
+
+        ~Guard() {
+            m_parent.putDevice(m_device);
+        }
+
+        KisPaintDeviceSP device() const {
+            return m_device;
+        }
+
+        private:
+        KisCachedPaintDevice &m_parent;
+        KisPaintDeviceSP m_device;
+    };
 
 private:
     KisLocklessStack<KisPaintDeviceSP> m_stack;
@@ -51,7 +78,7 @@ public:
         KisSelectionSP selection;
 
         if(!m_stack.pop(selection)) {
-            selection = new KisSelection();
+            selection = new KisSelection(new KisSelectionEmptyBounds(0));
         }
 
         return selection;
@@ -59,8 +86,34 @@ public:
 
     void putSelection(KisSelectionSP selection) {
         selection->clear();
+        selection->setDefaultBounds(new KisSelectionEmptyBounds(0));
+        selection->pixelSelection()->moveTo(QPoint());
         m_stack.push(selection);
     }
+
+    bool isEmpty() const {
+        return m_stack.isEmpty();
+    }
+
+    struct Guard {
+        Guard(KisCachedSelection &parent)
+            : m_parent(parent)
+        {
+            m_selection = m_parent.getSelection();
+        }
+
+        ~Guard() {
+            m_parent.putSelection(m_selection);
+        }
+
+        KisSelectionSP selection() const {
+            return m_selection;
+        }
+
+        private:
+        KisCachedSelection &m_parent;
+        KisSelectionSP m_selection;
+    };
 
 private:
     KisLocklessStack<KisSelectionSP> m_stack;

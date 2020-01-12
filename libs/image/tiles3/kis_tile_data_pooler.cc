@@ -43,7 +43,7 @@ const qint32 KisTileDataPooler::TIMEOUT_FACTOR = 2;
 
 #define RUNTIME_SANITY_CHECK(td) do {                                   \
         if(td->m_usersCount < td->m_refCount) {                         \
-            qDebug("**** Suspicious tiledata: 0x%X (clones: %d, users: %d, refs: %d) ****", \
+            qInfo("**** Suspicious tiledata: 0x%X (clones: %d, users: %d, refs: %d) ****", \
                    td, td->m_clonesStack.size(),                         \
                    (int)td->m_usersCount, (int)td->m_refCount);         \
         }                                                               \
@@ -99,8 +99,7 @@ KisTileDataPooler::KisTileDataPooler(KisTileDataStore *store, qint32 memoryLimit
         m_memoryLimit = memoryLimit;
     }
     else {
-        KisImageConfig config;
-        m_memoryLimit = MiB_TO_METRIC(config.poolLimit());
+        m_memoryLimit = MiB_TO_METRIC(KisImageConfig(true).poolLimit());
     }
 }
 
@@ -219,6 +218,31 @@ void KisTileDataPooler::run()
         DEBUG_TILE_STATISTICS();
         DEBUG_SIMPLE_ACTION("cycle finished");
     }
+}
+
+void KisTileDataPooler::forceUpdateMemoryStats()
+{
+    KIS_SAFE_ASSERT_RECOVER_RETURN(!isRunning());
+
+    KisTileDataStoreReverseIterator *iter = m_store->beginReverseIteration();
+    QList<KisTileData*> beggers;
+    QList<KisTileData*> donors;
+    qint32 memoryOccupied;
+
+    qint32 statRealMemory;
+    qint32 statHistoricalMemory;
+
+
+    getLists(iter, beggers, donors,
+             memoryOccupied,
+             statRealMemory,
+             statHistoricalMemory);
+
+    m_lastPoolMemoryMetric = memoryOccupied;
+    m_lastRealMemoryMetric = statRealMemory;
+    m_lastHistoricalMemoryMetric = statHistoricalMemory;
+
+    m_store->endIteration(iter);
 }
 
 qint64 KisTileDataPooler::lastPoolMemoryMetric() const
@@ -392,6 +416,5 @@ void KisTileDataPooler::debugTileStatistics()
 
 void KisTileDataPooler::testingRereadConfig()
 {
-    KisImageConfig config;
-    m_memoryLimit = MiB_TO_METRIC(config.poolLimit());
+    m_memoryLimit = MiB_TO_METRIC(KisImageConfig(true).poolLimit());
 }

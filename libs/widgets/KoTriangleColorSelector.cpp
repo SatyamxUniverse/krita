@@ -101,7 +101,7 @@ KoTriangleColorSelector::KoTriangleColorSelector(const KoColorDisplayRendererInt
       d(new Private(this, displayRenderer))
 {
     d->init();
-    connect(displayRenderer, SIGNAL(displayConfigurationChanged()), this, SLOT(configurationChanged()));
+    connect(displayRenderer, SIGNAL(displayConfigurationChanged()), this, SLOT(configurationChanged()), Qt::UniqueConnection);
 }
 
 KoTriangleColorSelector::~KoTriangleColorSelector()
@@ -262,11 +262,6 @@ void KoTriangleColorSelector::slotSetColor(const KoColor & color)
         d->invalidTriangle = true;
         d->updateTimer.start();
     }
-}
-
-QColor KoTriangleColorSelector::color() const
-{
-    return getCurrentColor().toQColor();
 }
 
 void KoTriangleColorSelector::resizeEvent( QResizeEvent * event )

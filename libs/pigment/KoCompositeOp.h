@@ -25,6 +25,8 @@
 #include <QMultiMap>
 #include <QBitArray>
 
+#include <boost/optional.hpp>
+
 #include "kritapigment_export.h"
 
 class KoColorSpace;
@@ -40,6 +42,8 @@ public:
     static QString categoryColor();
 
     static QString categoryArithmetic();
+    static QString categoryBinary();
+    static QString categoryModulo();
     static QString categoryNegative();
     static QString categoryLight();
     static QString categoryDark();
@@ -48,7 +52,8 @@ public:
     static QString categoryHSL();
     static QString categoryHSV();
     static QString categoryMix();
-    static QString categoryMisc();
+    static QString categoryMisc();    
+    static QString categoryQuadratic();
 
     struct KRITAPIGMENT_EXPORT ParameterInfo
     {
@@ -56,19 +61,21 @@ public:
         ParameterInfo(const ParameterInfo &rhs);
         ParameterInfo& operator=(const ParameterInfo &rhs);
 
-        quint8*       dstRowStart;
-        qint32        dstRowStride;
-        const quint8* srcRowStart;
-        qint32        srcRowStride;
-        const quint8* maskRowStart;
-        qint32        maskRowStride;
-        qint32        rows;
-        qint32        cols;
-        float         opacity;
-        float         flow;
-        float         _lastOpacityData;
-        float*        lastOpacity;
+        quint8*       dstRowStart {0};
+        qint32        dstRowStride {0};
+        const quint8* srcRowStart {0};
+        qint32        srcRowStride {0};
+        const quint8* maskRowStart {0};
+        qint32        maskRowStride {0};
+        qint32        rows {0};
+        qint32        cols {0};
+        float         opacity {0.0};
+        float         flow {0.0};
+        float         _lastOpacityData {0.0};
+        float*        lastOpacity {0};
         QBitArray     channelFlags;
+
+        void setOpacityAndAverage(float _opacity, float _averageOpacity);
 
         void updateOpacityAndAverage(float value);
     private:

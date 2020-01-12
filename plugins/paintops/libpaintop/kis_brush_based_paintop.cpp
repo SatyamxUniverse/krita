@@ -43,9 +43,9 @@ TextBrushInitializationWorkaround *TextBrushInitializationWorkaround::instance()
 
 void TextBrushInitializationWorkaround::preinitialize(KisPropertiesConfigurationSP settings)
 {
-    if (KisBrushOption::isTextBrush(settings.data())) {
-        KisBrushOption brushOption;
-        brushOption.readOptionSettingForceCopy(settings);
+    if (KisBrushOptionProperties::isTextBrush(settings.data())) {
+        KisBrushOptionProperties brushOption;
+        brushOption.readOptionSetting(settings);
         m_brush = brushOption.brush();
         m_settings = settings;
     }
@@ -89,8 +89,8 @@ KisBrushBasedPaintOp::KisBrushBasedPaintOp(const KisPropertiesConfigurationSP se
 #endif /* HAVE_THREADED_TEXT_RENDERING_WORKAROUND */
 
     if (!m_brush) {
-        KisBrushOption brushOption;
-        brushOption.readOptionSettingForceCopy(settings);
+        KisBrushOptionProperties brushOption;
+        brushOption.readOptionSetting(settings);
         m_brush = brushOption.brush();
     }
 
@@ -105,6 +105,10 @@ KisBrushBasedPaintOp::KisBrushBasedPaintOp(const KisPropertiesConfigurationSP se
 
     m_textureProperties.fillProperties(settings);
     m_dabCache->setTexturePostprocessing(&m_textureProperties);
+
+    m_precisionOption.setHasImprecisePositionOptions(
+        m_precisionOption.hasImprecisePositionOptions() |
+        m_mirrorOption.isChecked() | m_textureProperties.m_enabled);
 }
 
 KisBrushBasedPaintOp::~KisBrushBasedPaintOp()
@@ -136,7 +140,7 @@ KisSpacingInformation KisBrushBasedPaintOp::effectiveSpacing(qreal scale, qreal 
 }
 
 KisSpacingInformation KisBrushBasedPaintOp::effectiveSpacing(qreal scale, qreal rotation,
-                                                             const KisAirbrushOption *airbrushOption,
+                                                             const KisAirbrushOptionProperties *airbrushOption,
                                                              const KisPressureSpacingOption *spacingOption,
                                                              const KisPaintInformation &pi) const
 {

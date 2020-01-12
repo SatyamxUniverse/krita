@@ -21,7 +21,7 @@
 
 #include <KoDialog.h>
 #include <kis_global.h>
-
+#include <QDebug>
 #include "ui_wdg_offsetimage.h"
 
 class KisDocumentAwareSpinBoxUnitManager;
@@ -42,11 +42,16 @@ class DlgOffsetImage: public KoDialog
     Q_OBJECT
 
 public:
+
+    static const QString PARAM_PREFIX;
+    static const QString PARAM_XOFFSET_UNIT;
+    static const QString PARAM_YOFFSET_UNIT;
+
     DlgOffsetImage(QWidget * parent = 0, const char* name = 0, QSize imageSize = QSize());
     ~DlgOffsetImage() override;
 
-    int offsetX() const { return m_offsetX;}
-    int offsetY() const { return m_offsetY;}
+    int offsetX() const { return m_offsetX; }
+    int offsetY() const { return m_offsetY; }
 
 
 private Q_SLOTS:

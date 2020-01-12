@@ -20,6 +20,7 @@
 #define __KIS_TOOL_FREEHAND_HELPER_H
 
 #include <QObject>
+#include <QVector>
 
 #include "kis_types.h"
 #include "kritaui_export.h"
@@ -27,30 +28,26 @@
 #include "kis_default_bounds.h"
 #include <brushengine/kis_paintop_settings.h>
 #include "kis_smoothing_options.h"
-#include "strokes/freehand_stroke.h"
+#include "kundo2magicstring.h"
+
 
 class KoPointerEvent;
-class KoCanvasResourceManager;
+class KoCanvasResourceProvider;
 class KisPaintingInformationBuilder;
-class KisRecordingAdapter;
 class KisStrokesFacade;
 class KisPostExecutionUndoAdapter;
 class KisPaintOp;
+class KisFreehandStrokeInfo;
 
 
 class KRITAUI_EXPORT KisToolFreehandHelper : public QObject
 {
     Q_OBJECT
 
-protected:
-
-    typedef FreehandStrokeStrategy::PainterInfo PainterInfo;
-
 public:
 
     KisToolFreehandHelper(KisPaintingInformationBuilder *infoBuilder,
                           const KUndo2MagicString &transactionText = KUndo2MagicString(),
-                          KisRecordingAdapter *recordingAdapter = 0,
                           KisSmoothingOptions *smoothingOptions = 0);
     ~KisToolFreehandHelper() override;
 
@@ -62,11 +59,18 @@ public:
     void cursorMoved(const QPointF &cursorPos);
 
     /**
-     * @param pixelCoords - The position of the KoPointerEvent, in pixel coordinates.
+     * @param event The event
+     * @param pixelCoords The position of the KoPointerEvent, in pixel coordinates.
+     * @param resourceManager The canvas resource manager
+     * @param image The image
+     * @param currentNode The current node
+     * @param strokesFacade The strokes facade
+     * @param overrideNode The override node
+     * @param bounds The bounds
      */
     void initPaint(KoPointerEvent *event,
                    const QPointF &pixelCoords,
-                   KoCanvasResourceManager *resourceManager,
+                   KoCanvasResourceProvider *resourceManager,
                    KisImageWSP image,
                    KisNodeSP currentNode,
                    KisStrokesFacade *strokesFacade,
@@ -75,15 +79,11 @@ public:
     void paintEvent(KoPointerEvent *event);
     void endPaint();
 
-    const KisPaintOp* currentPaintOp() const;
     QPainterPath paintOpOutline(const QPointF &savedCursorPos,
                                 const KoPointerEvent *event,
                                 const KisPaintOpSettingsSP globalSettings,
                                 KisPaintOpSettings::OutlineMode mode) const;
-    int canvasRotation();
-    void setCanvasRotation(int rotation = 0);
-    bool canvasMirroredH();
-    void setCanvasHorizontalMirrorState (bool mirrored = false);
+
 Q_SIGNALS:
     /**
      * The signal is emitted when the outline should be updated
@@ -99,7 +99,7 @@ protected:
 
     void initPaintImpl(qreal startAngle,
                        const KisPaintInformation &pi,
-                       KoCanvasResourceManager *resourceManager,
+                       KoCanvasResourceProvider *resourceManager,
                        KisImageWSP image,
                        KisNodeSP node,
                        KisStrokesFacade *strokesFacade,
@@ -108,18 +108,18 @@ protected:
 
 protected:
 
-    virtual void createPainters(QVector<PainterInfo*> &painterInfos,
+    virtual void createPainters(QVector<KisFreehandStrokeInfo*> &strokeInfos,
                                 const KisDistanceInformation &startDist);
 
     // lo-level methods for painting primitives
 
-    void paintAt(int painterInfoId, const KisPaintInformation &pi);
+    void paintAt(int strokeInfoId, const KisPaintInformation &pi);
 
-    void paintLine(int painterInfoId,
+    void paintLine(int strokeInfoId,
                    const KisPaintInformation &pi1,
                    const KisPaintInformation &pi2);
 
-    void paintBezierCurve(int painterInfoId,
+    void paintBezierCurve(int strokeInfoId,
                           const KisPaintInformation &pi1,
                           const QPointF &control1,
                           const QPointF &control2,
@@ -149,10 +149,10 @@ private:
     int computeAirbrushTimerInterval() const;
 
 private Q_SLOTS:
-
     void finishStroke();
     void doAirbrushing();
     void stabilizerPollAndPaint();
+    void slotSmoothingTypeChanged();
 
 private:
     struct Private;

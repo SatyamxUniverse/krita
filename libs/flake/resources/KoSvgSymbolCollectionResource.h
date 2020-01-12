@@ -24,15 +24,19 @@
 #include <QVector>
 #include <QScopedPointer>
 #include <QImage>
+#include <QPainter>
 
 #include <resources/KoResource.h>
 
 #include <KoShape.h>
-
+#include <KoShapeGroup.h>
+#include <KoShapeManager.h>
+#include <KoViewConverter.h>
+#include <KoShapePaintingContext.h>
 
 #include "kritaflake_export.h"
 
-struct KoSvgSymbol {
+struct KRITAFLAKE_EXPORT KoSvgSymbol {
     KoSvgSymbol() {}
     KoSvgSymbol(const QString &_title)
         : title(_title) {}
@@ -45,7 +49,7 @@ struct KoSvgSymbol {
     QString id;
     QString title;
     KoShape *shape;
-    QImage icon;
+    QImage icon();
 
     bool operator==(const KoSvgSymbol& rhs) const {
         return title == rhs.title;

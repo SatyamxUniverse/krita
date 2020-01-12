@@ -22,16 +22,15 @@
 #include <QObject>
 #include "kis_types.h"
 
-
-
 class KisSafeDocumentLoader : public QObject
 {
     Q_OBJECT
-public:
+private:
+    friend class KisFileLayer;
+
     KisSafeDocumentLoader(const QString &path = "", QObject *parent = 0);
     ~KisSafeDocumentLoader() override;
 
-public:
     void setPath(const QString &path);
     void reloadImage();
 private Q_SLOTS:

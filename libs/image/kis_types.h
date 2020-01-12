@@ -133,6 +133,10 @@ class KisGroupLayer;
 typedef KisSharedPtr<KisGroupLayer> KisGroupLayerSP;
 typedef KisWeakSharedPtr<KisGroupLayer> KisGroupLayerWSP;
 
+class KisFileLayer;
+typedef KisSharedPtr<KisFileLayer> KisFileLayerSP;
+typedef KisWeakSharedPtr<KisFileLayer> KisFileLayerWSP;
+
 class KisSelection;
 typedef KisSharedPtr<KisSelection> KisSelectionSP;
 typedef KisWeakSharedPtr<KisSelection> KisSelectionWSP;
@@ -176,6 +180,10 @@ typedef KisWeakSharedPtr<KisAnimationFrameCache> KisAnimationFrameCacheWSP;
 class KisPaintingAssistant;
 typedef QSharedPointer<KisPaintingAssistant> KisPaintingAssistantSP;
 typedef QWeakPointer<KisPaintingAssistant> KisPaintingAssistantWSP;
+
+class KisReferenceImage;
+typedef QSharedPointer<KisReferenceImage> KisReferenceImageSP;
+typedef QWeakPointer<KisReferenceImage> KisReferenceImageWSP;
 
 // Repeat iterators
 class KisHLineIterator2;
@@ -290,6 +298,9 @@ class KisLayerComposition;
 typedef QSharedPointer<KisLayerComposition> KisLayerCompositionSP;
 typedef QWeakPointer<KisLayerComposition> KisLayerCompositionWSP;
 
+class KisMirrorAxis;
+typedef KisSharedPtr<KisMirrorAxis> KisMirrorAxisSP;
+typedef KisWeakSharedPtr<KisMirrorAxis> KisMirrorAxisWSP;
 
 
 #include <QSharedPointer>

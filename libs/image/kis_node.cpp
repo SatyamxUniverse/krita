@@ -44,9 +44,11 @@ typedef KisSafeReadList<KisNodeSP> KisSafeReadNodeList;
 #include "kis_projection_leaf.h"
 #include "kis_undo_adapter.h"
 #include "kis_keyframe_channel.h"
+#include "kis_image.h"
+#include "kis_layer_utils.h"
 
 /**
- *The link between KisProjection ans KisImageUpdater
+ *The link between KisProjection and KisImageUpdater
  *uses queued signals with an argument of KisNodeSP type,
  *so we should register it beforehand
  */
@@ -174,8 +176,9 @@ void KisNode::Private::processDuplicatedClones(const KisNode *srcDuplicationRoot
     }
 }
 
-KisNode::KisNode()
-        : m_d(new Private(this))
+KisNode::KisNode(KisImageWSP image)
+        : KisBaseNode(image),
+          m_d(new Private(this))
 {
     m_d->parent = 0;
     m_d->graphListener = 0;
@@ -189,6 +192,13 @@ KisNode::KisNode(const KisNode & rhs)
     m_d->parent = 0;
     m_d->graphListener = 0;
     moveToThread(qApp->thread());
+
+    // HACK ALERT: we create opacity channel in KisBaseNode, but we cannot
+    //             initialize its node from there! So workaround it here!
+    QMap<QString, KisKeyframeChannel*> channels = keyframeChannels();
+    for (auto it = channels.begin(); it != channels.end(); ++it) {
+        it.value()->setNode(this);
+    }
 
     // NOTE: the nodes are not supposed to be added/removed while
     // creation of another node, so we do *no* locking here!
@@ -242,6 +252,10 @@ QRect KisNode::accessRect(const QRect &rect, PositionToFilthy pos) const
     return rect;
 }
 
+void KisNode::childNodeChanged(KisNodeSP /*changedChildNode*/)
+{
+}
+
 KisAbstractProjectionPlaneSP KisNode::projectionPlane() const
 {
     KIS_ASSERT_RECOVER_NOOP(0 && "KisNode::projectionPlane() is not defined!");
@@ -254,6 +268,21 @@ KisAbstractProjectionPlaneSP KisNode::projectionPlane() const
 KisProjectionLeafSP KisNode::projectionLeaf() const
 {
     return m_d->projectionLeaf;
+}
+
+void KisNode::setImage(KisImageWSP image)
+{
+    KisBaseNode::setImage(image);
+
+    KisNodeSP node = firstChild();
+    while (node) {
+        KisLayerUtils::recursiveApplyNodes(node,
+                                           [image] (KisNodeSP node) {
+                                               node->setImage(image);
+                                           });
+
+        node = node->nextSibling();
+    }
 }
 
 bool KisNode::accept(KisNodeVisitor &v)
@@ -320,6 +349,7 @@ void KisNode::baseNodeChangedCallback()
 {
     if(m_d->graphListener) {
         m_d->graphListener->nodeChanged(this);
+        emit sigNodeChangedInternal();
     }
 }
 
@@ -327,6 +357,13 @@ void KisNode::baseNodeInvalidateAllFramesCallback()
 {
     if(m_d->graphListener) {
         m_d->graphListener->invalidateAllFrames();
+    }
+}
+
+void KisNode::baseNodeCollapsedChangedCallback()
+{
+    if(m_d->graphListener) {
+        m_d->graphListener->nodeCollapsedChanged(this);
     }
 }
 
@@ -464,13 +501,11 @@ KisNodeSP KisNode::findChildByName(const QString &name)
 
 bool KisNode::add(KisNodeSP newNode, KisNodeSP aboveThis)
 {
-    Q_ASSERT(newNode);
-
-    if (!newNode) return false;
-    if (aboveThis && aboveThis->parent().data() != this) return false;
-    if (!allowAsChild(newNode)) return false;
-    if (newNode->parent()) return false;
-    if (index(newNode) >= 0) return false;
+    KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(newNode, false);
+    KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(!aboveThis || aboveThis->parent().data() == this, false);
+    KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(allowAsChild(newNode), false);
+    KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(!newNode->parent(), false);
+    KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(index(newNode) < 0, false);
 
     int idx = aboveThis ? this->index(aboveThis) + 1 : 0;
 
@@ -498,6 +533,7 @@ bool KisNode::add(KisNodeSP newNode, KisNodeSP aboveThis)
         m_d->graphListener->nodeHasBeenAdded(this, idx);
     }
 
+    childNodeChanged(newNode);
 
     return true;
 }
@@ -524,6 +560,8 @@ bool KisNode::remove(quint32 index)
         if (m_d->graphListener) {
             m_d->graphListener->nodeHasBeenRemoved(this, index);
         }
+
+        childNodeChanged(removedNode);
 
         return true;
     }
@@ -573,8 +611,8 @@ void KisNode::setDirty()
 
 void KisNode::setDirty(const QVector<QRect> &rects)
 {
-    Q_FOREACH (const QRect &rc, rects) {
-        setDirty(rc);
+    if(m_d->graphListener) {
+        m_d->graphListener->requestProjectionUpdate(this, rects, true);
     }
 }
 
@@ -583,17 +621,25 @@ void KisNode::setDirty(const QRegion &region)
     setDirty(region.rects());
 }
 
-void KisNode::setDirtyDontResetAnimationCache()
-{
-    if(m_d->graphListener) {
-        m_d->graphListener->requestProjectionUpdate(this, extent(), false);
-    }
-}
-
 void KisNode::setDirty(const QRect & rect)
 {
+    setDirty(QVector<QRect>({rect}));
+}
+
+void KisNode::setDirtyDontResetAnimationCache()
+{
+    setDirtyDontResetAnimationCache(QVector<QRect>({extent()}));
+}
+
+void KisNode::setDirtyDontResetAnimationCache(const QRect &rect)
+{
+    setDirtyDontResetAnimationCache(QVector<QRect>({rect}));
+}
+
+void KisNode::setDirtyDontResetAnimationCache(const QVector<QRect> &rects)
+{
     if(m_d->graphListener) {
-        m_d->graphListener->requestProjectionUpdate(this, rect, true);
+        m_d->graphListener->requestProjectionUpdate(this, rects, false);
     }
 }
 

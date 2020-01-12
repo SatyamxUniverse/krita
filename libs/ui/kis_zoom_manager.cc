@@ -24,7 +24,6 @@
 
 #include <kactioncollection.h>
 #include <ktoggleaction.h>
-#include <ktoggleaction.h>
 #include <kis_debug.h>
 
 #include <KisView.h>
@@ -33,7 +32,6 @@
 #include <KoZoomHandler.h>
 #include <KoZoomController.h>
 #include <KoCanvasControllerWidget.h>
-#include <KoRulerController.h>
 #include <KoUnit.h>
 #include <KoDpi.h>
 
@@ -48,21 +46,25 @@
 #include "kis_canvas_resource_provider.h"
 #include "kis_lod_transform.h"
 #include "kis_snap_line_strategy.h"
+#include "kis_guides_config.h"
+#include "kis_guides_manager.h"
 
 
 class KisZoomController : public KoZoomController
 {
 public:
-    KisZoomController(KoCanvasController *co, KisCoordinatesConverter *zh, KActionCollection *actionCollection, KoZoomAction::SpecialButtons specialButtons, QObject *parent)
-        : KoZoomController(co, zh, actionCollection, specialButtons, parent),
+    KisZoomController(KoCanvasController *co, KisCoordinatesConverter *zh, KActionCollection *actionCollection, QObject *parent)
+        : KoZoomController(co, zh, actionCollection, parent),
           m_converter(zh)
     {
     }
 
 protected:
-    QSize documentToViewport(const QSizeF &size) override {
+    QSizeF documentToViewport(const QSizeF &size) override {
         QRectF docRect(QPointF(), size);
-        return m_converter->documentToWidget(docRect).toRect().size();
+        QSizeF viewport = m_converter->documentToWidget(docRect).size();
+        QPointF adjustedViewport = m_converter->snapToDevicePixel(QPointF(viewport.width(), viewport.height()));
+        return QSizeF(adjustedViewport.x(), adjustedViewport.y());
     }
 
 private:
@@ -79,6 +81,9 @@ KisZoomManager::KisZoomManager(QPointer<KisView> view, KoZoomHandler * zoomHandl
         , m_verticalRuler(0)
         , m_zoomAction(0)
         , m_zoomActionWidget(0)
+        , m_physicalDpiX(72.0)
+        , m_physicalDpiY(72.0)
+        , m_devicePixelRatio(1.0)
 {
 }
 
@@ -89,18 +94,39 @@ KisZoomManager::~KisZoomManager()
     }
 }
 
+void KisZoomManager::updateScreenResolution(QWidget *parentWidget)
+{
+    if (qFuzzyCompare(parentWidget->physicalDpiX(), m_physicalDpiX) &&
+        qFuzzyCompare(parentWidget->physicalDpiY(), m_physicalDpiY) &&
+        qFuzzyCompare(parentWidget->devicePixelRatioF(), m_devicePixelRatio)) {
+
+        return;
+    }
+
+    m_physicalDpiX = parentWidget->physicalDpiX();
+    m_physicalDpiY = parentWidget->physicalDpiY();
+    m_devicePixelRatio = parentWidget->devicePixelRatioF();
+
+    KisCoordinatesConverter *converter =
+        dynamic_cast<KisCoordinatesConverter*>(m_zoomHandler);
+
+    converter->setDevicePixelRatio(m_devicePixelRatio);
+
+    changeAspectMode(m_aspectMode);
+}
+
 void KisZoomManager::setup(KActionCollection * actionCollection)
 {
 
     KisImageWSP image = m_view->image();
     if (!image) return;
 
-    connect(image, SIGNAL(sigSizeChanged(const QPointF &, const QPointF &)), this, SLOT(setMinMaxZoom()));
+    connect(image, SIGNAL(sigSizeChanged(QPointF,QPointF)), this, SLOT(setMinMaxZoom()));
 
     KisCoordinatesConverter *converter =
         dynamic_cast<KisCoordinatesConverter*>(m_zoomHandler);
 
-    m_zoomController = new KisZoomController(m_canvasController, converter, actionCollection, KoZoomAction::AspectMode, this);
+    m_zoomController = new KisZoomController(m_canvasController, converter, actionCollection, this);
     m_zoomHandler->setZoomMode(KoZoomMode::ZOOM_PIXELS);
     m_zoomHandler->setZoom(1.0);
 
@@ -133,11 +159,18 @@ void KisZoomManager::setup(KActionCollection * actionCollection)
     m_verticalRuler->setVisible(false);
 
 
+    QAction *rulerAction = actionCollection->action("ruler_pixel_multiple2");
+    if (m_view->document()->guidesConfig().rulersMultiple2()) {
+        m_horizontalRuler->setUnitPixelMultiple2(true);
+        m_verticalRuler->setUnitPixelMultiple2(true);
+    }
     QList<QAction*> unitActions = m_view->createChangeUnitActions(true);
+    unitActions.append(rulerAction);
     m_horizontalRuler->setPopupActionList(unitActions);
     m_verticalRuler->setPopupActionList(unitActions);
 
-    connect(m_view->document(), SIGNAL(unitChanged(const KoUnit&)), SLOT(applyRulersUnit(const KoUnit&)));
+    connect(m_view->document(), SIGNAL(unitChanged(KoUnit)), SLOT(applyRulersUnit(KoUnit)));
+    connect(rulerAction, SIGNAL(toggled(bool)), SLOT(setRulersPixelMultiple2(bool)));
 
     layout->addWidget(m_horizontalRuler, 0, 1);
     layout->addWidget(m_verticalRuler, 1, 0);
@@ -149,8 +182,8 @@ void KisZoomManager::setup(KActionCollection * actionCollection)
     connect(m_canvasController->proxyObject, SIGNAL(canvasOffsetYChanged(int)),
             this, SLOT(pageOffsetChanged()));
 
-    connect(m_zoomController, SIGNAL(zoomChanged(KoZoomMode::Mode, qreal)),
-            this, SLOT(slotZoomChanged(KoZoomMode::Mode, qreal)));
+    connect(m_zoomController, SIGNAL(zoomChanged(KoZoomMode::Mode,qreal)),
+            this, SLOT(slotZoomChanged(KoZoomMode::Mode,qreal)));
 
     connect(m_zoomController, SIGNAL(aspectModeChanged(bool)),
             this, SLOT(changeAspectMode(bool)));
@@ -198,10 +231,10 @@ void KisZoomManager::updateMouseTrackingConnections()
     m_mouseTrackingConnections.clear();
 
     if (value) {
-        connect(m_canvasController->proxyObject,
-                SIGNAL(canvasMousePositionChanged(const QPoint &)),
-                SLOT(mousePositionChanged(const QPoint &)));
-
+        m_mouseTrackingConnections.addConnection(m_canvasController->proxyObject,
+                SIGNAL(canvasMousePositionChanged(QPoint)),
+                this,
+                SLOT(mousePositionChanged(QPoint)));
     }
 }
 
@@ -220,7 +253,6 @@ qreal KisZoomManager::zoom() const
     qreal zoomX;
     qreal zoomY;
     m_zoomHandler->zoom(&zoomX, &zoomY);
-    qDebug() << zoomX << zoomY;
     return zoomX;
 }
 
@@ -251,6 +283,18 @@ void KisZoomManager::applyRulersUnit(const KoUnit &baseUnit)
     if (m_view && m_view->image()) {
         m_horizontalRuler->setUnit(KoUnit(baseUnit.type(), m_view->image()->xRes()));
         m_verticalRuler->setUnit(KoUnit(baseUnit.type(), m_view->image()->yRes()));
+    }
+    if (m_view->viewManager()) {
+        m_view->viewManager()->guidesManager()->setUnitType(baseUnit.type());
+    }
+}
+
+void KisZoomManager::setRulersPixelMultiple2(bool enabled)
+{
+    m_horizontalRuler->setUnitPixelMultiple2(enabled);
+    m_verticalRuler->setUnitPixelMultiple2(enabled);
+    if (m_view->viewManager()) {
+        m_view->viewManager()->guidesManager()->setRulersMultiple2(enabled);
     }
 }
 
@@ -318,16 +362,22 @@ void KisZoomManager::changeAspectMode(bool aspectMode)
 {
     KisImageWSP image = m_view->image();
 
-    KoZoomMode::Mode newMode = KoZoomMode::ZOOM_CONSTANT;
-    qreal newZoom = m_zoomHandler->zoom();
+    // changeAspectMode is called with the same aspectMode when the window is
+    // moved across screens. Preserve the old zoomMode if this is the case.
+    const KoZoomMode::Mode newMode =
+            aspectMode == m_aspectMode ? m_zoomHandler->zoomMode() : KoZoomMode::ZOOM_CONSTANT;
+    const qreal newZoom = m_zoomHandler->zoom();
 
-    qreal resolutionX = aspectMode ? image->xRes() : POINT_TO_INCH(static_cast<qreal>(KoDpi::dpiX()));
-    qreal resolutionY = aspectMode ? image->yRes() : POINT_TO_INCH(static_cast<qreal>(KoDpi::dpiY()));
+    const qreal resolutionX =
+        aspectMode ? image->xRes() / m_devicePixelRatio : POINT_TO_INCH(m_physicalDpiX);
 
+    const qreal resolutionY =
+        aspectMode ? image->yRes() / m_devicePixelRatio : POINT_TO_INCH(m_physicalDpiY);
+
+    m_aspectMode = aspectMode;
     m_zoomController->setZoom(newMode, newZoom, resolutionX, resolutionY);
     m_view->canvasBase()->notifyZoomChanged();
 }
-
 
 void KisZoomManager::pageOffsetChanged()
 {

@@ -26,12 +26,13 @@ class KRITAIMAGE_EXPORT KisScalarKeyframeChannel : public KisKeyframeChannel
     Q_OBJECT
 
 public:
-    struct AddKeyframeCommand : public KisReplaceKeyframeCommand
+    struct KRITAIMAGE_EXPORT AddKeyframeCommand : public KisReplaceKeyframeCommand
     {
         AddKeyframeCommand(KisScalarKeyframeChannel *channel, int time, qreal value, KUndo2Command *parentCommand);
     };
 
     KisScalarKeyframeChannel(const KoID& id, qreal minValue, qreal maxValue, KisDefaultBoundsBaseSP defaultBounds, KisKeyframe::InterpolationMode defaultInterpolation=KisKeyframe::Constant);
+    KisScalarKeyframeChannel(const KisScalarKeyframeChannel &rhs, KisNode *newParentNode);
     ~KisScalarKeyframeChannel() override;
 
     bool hasScalarValue() const override;

@@ -58,7 +58,7 @@ KisPaintOpSettingsWidget::KisPaintOpSettingsWidget(QWidget * parent)
     setObjectName("KisPaintOpPresetsWidget");
 
     m_d->model       = new KisPaintOpOptionListModel(this);
-    m_d->optionsList = new KisCategorizedListView(false, this);
+    m_d->optionsList = new KisCategorizedListView(this);
     m_d->optionsList->setModel(m_d->model);
     m_d->optionsList->setItemDelegate(new KisCategorizedItemDelegate(m_d->optionsList));
     m_d->optionsList->setSizeAdjustPolicy(QAbstractScrollArea::AdjustToContents);
@@ -67,7 +67,7 @@ KisPaintOpSettingsWidget::KisPaintOpSettingsWidget(QWidget * parent)
     QSizePolicy policy =  QSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
     m_d->optionsList->setSizePolicy(policy);
 
-    m_d->optionsList->setMinimumWidth(130); // this should be just big enough to show all of the setting names
+    m_d->optionsList->setMinimumWidth(140); // this should be just big enough to show all of the setting names
 
     m_d->optionsStack = new QStackedWidget(this);
     policy = QSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
@@ -82,12 +82,12 @@ KisPaintOpSettingsWidget::KisPaintOpSettingsWidget(QWidget * parent)
 
     m_saveLockedOption = false;
 
-    connect(m_d->optionsList, SIGNAL(activated(const QModelIndex&)), this, SLOT(changePage(const QModelIndex&)));
-    connect(m_d->optionsList, SIGNAL(clicked(QModelIndex)), this, SLOT(changePage(const QModelIndex&)));
-    connect(m_d->optionsList, SIGNAL(doubleClicked(QModelIndex)), this, SLOT(lockProperties(const QModelIndex&)));
+    connect(m_d->optionsList, SIGNAL(activated(QModelIndex)), this, SLOT(changePage(QModelIndex)));
+    connect(m_d->optionsList, SIGNAL(clicked(QModelIndex)), this, SLOT(changePage(QModelIndex)));
     connect(m_d->optionsList, SIGNAL(rightClickedMenuDropSettingsTriggered()), this, SLOT(slotLockPropertiesDrop()));
     connect(m_d->optionsList, SIGNAL(rightClickedMenuSaveSettingsTriggered()), this, SLOT(slotLockPropertiesSave()));
     connect(m_d->optionsList, SIGNAL(sigEntryChecked(QModelIndex)), this, SLOT(slotEntryChecked(QModelIndex)));
+    connect (m_d->optionsList, SIGNAL(lockAreaTriggered(QModelIndex)), this, SLOT(lockProperties(QModelIndex)));
 
 }
 
@@ -100,12 +100,16 @@ KisPaintOpSettingsWidget::~KisPaintOpSettingsWidget()
 
 void KisPaintOpSettingsWidget::addPaintOpOption(KisPaintOpOption *option, const QString &label)
 {
+    addPaintOpOption(option, label, option->category());
+}
+
+void KisPaintOpSettingsWidget::addPaintOpOption(KisPaintOpOption *option, const QString &label, KisPaintOpOption::PaintopCategory category)
+{
     if (!option->configurationPage()) return;
-    m_d->model->addPaintOpOption(option, m_d->optionsStack->count(), label);
+    m_d->model->addPaintOpOption(option, m_d->optionsStack->count(), label, category);
     connect(option, SIGNAL(sigSettingChanged()), SIGNAL(sigConfigurationItemChanged()));
     m_d->optionsStack->addWidget(option->configurationPage());
     m_d->paintOpOptions << option;
-
 }
 
 void KisPaintOpSettingsWidget::setConfiguration(const KisPropertiesConfigurationSP  config)
@@ -177,6 +181,15 @@ void KisPaintOpSettingsWidget::changePage(const QModelIndex& index)
 
     if(m_d->model->entryAt(info, index)) {
         m_d->optionsStack->setCurrentIndex(info.index);
+
+        // disable the widget if a setting area is not active and not being used
+       if (info.option->isCheckable() ) {
+            m_d->optionsStack->setEnabled(info.option->isChecked());
+       } else {
+           m_d->optionsStack->setEnabled(true); // option is not checkable, so always enable
+       }
+
+
     }
 
     notifyPageChanged();
@@ -198,11 +211,13 @@ void KisPaintOpSettingsWidget::lockProperties(const QModelIndex& index)
             KisLockedPropertiesServer::instance()->addToLockedProperties(p);
             info.option->setLocked(true);
             m_d->model->categoriesMapper()->itemFromRow(index.row())->setLocked(true);
+
         }
         else {
             KisLockedPropertiesServer::instance()->removeFromLockedProperties(p);
             info.option->setLocked(false);
             m_d->model->categoriesMapper()->itemFromRow(index.row())->setLocked(false);
+
             if (m_saveLockedOption){
                 emit sigSaveLockedConfig(p);
             }

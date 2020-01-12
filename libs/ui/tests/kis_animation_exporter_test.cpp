@@ -17,7 +17,8 @@
  */
 
 #include "kis_animation_exporter_test.h"
-#include "kis_animation_exporter.h"
+
+#include "dialogs/KisAsyncAnimationFramesSaveDialog.h"
 
 #include <QTest>
 #include <testutil.h>
@@ -26,9 +27,10 @@
 #include "KisDocument.h"
 #include "kis_image_animation_interface.h"
 #include "KoColor.h"
+#include <KoUpdater.h>
 #include "kis_time_range.h"
 #include "kis_keyframe_channel.h"
-
+#include <kistest.h>
 
 void KisAnimationExporterTest::testAnimationExport()
 {
@@ -63,37 +65,37 @@ void KisAnimationExporterTest::testAnimationExport()
     dev->fill(fillRect, KoColor(Qt::blue, cs));
     QImage frame2 = dev->convertToQImage(0, rect);
 
-    KisAnimationExportSaver exporter(document, "export-test.png", 0, 2);
-    QSignalSpy spy(document, SIGNAL(sigProgress(int)));
-    QVERIFY(spy.isValid());
+    KisAsyncAnimationFramesSaveDialog exporter(document->image(),
+                                               KisTimeRange::fromTime(0,2),
+                                               "export-test.png",
+                                               0,
+                                               0);
 
-    exporter.exportAnimation();
 
-    // If we had Qt5 already:
-    // spy.wait(100);
-    // spy.wait(100);
-    // spy.wait(100);
-    // But in the meanwhile...
+
+    exporter.setBatchMode(true);
+    exporter.regenerateRange(0);
+
     QTest::qWait(1000);
-
-
-    //QCOMPARE(spy.count(), 3);
-    //QCOMPARE(spy.at(0).at(0).value<int>(), 0);
-    //QCOMPARE(spy.at(1).at(0).value<int>(), 1);
-    //QCOMPARE(spy.at(2).at(0).value<int>(), 2);
-
-    // FIXME: Export doesn't seem to work from unit tests
 
     QImage exported;
 
+    QPoint errpoint;
     exported.load("export-test0000.png");
-    QCOMPARE(exported, frame0);
+    qDebug() << exported.size() << frame0.size();
+    if (!TestUtil::compareQImages(errpoint, exported, frame0)) {
+        QFAIL(QString("Failed to export identical frame0, first different pixel: %1,%2 \n").arg(errpoint.x()).arg(errpoint.y()).toLatin1());
+    }
 
     exported.load("export-test0001.png");
-    QCOMPARE(exported, frame1);
+    if (!TestUtil::compareQImages(errpoint, exported, frame1)) {
+        QFAIL(QString("Failed to export identical frame1, first different pixel: %1,%2 \n").arg(errpoint.x()).arg(errpoint.y()).toLatin1());
+    }
 
     exported.load("export-test0002.png");
-    QCOMPARE(exported, frame2);
+    if (!TestUtil::compareQImages(errpoint, exported, frame2)) {
+        QFAIL(QString("Failed to export identical frame2, first different pixel: %1,%2 \n").arg(errpoint.x()).arg(errpoint.y()).toLatin1());
+    }
 }
 
-QTEST_MAIN(KisAnimationExporterTest)
+KISTEST_MAIN(KisAnimationExporterTest)

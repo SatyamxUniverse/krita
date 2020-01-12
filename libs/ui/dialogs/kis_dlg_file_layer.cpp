@@ -21,7 +21,7 @@
 
 #include <QLineEdit>
 #include <QCheckBox>
-#include <QDesktopServices>
+#include <QStandardPaths>
 
 #include <klocalizedstring.h>
 
@@ -43,7 +43,8 @@ KisDlgFileLayer::KisDlgFileLayer(const QString &basePath, const QString & name, 
     setDefaultButton(Ok);
     QWidget * page = new QWidget(this);
     dlgWidget.setupUi(page);
-    dlgWidget.wdgUrlRequester->setMimeTypeFilters(KisImportExportManager::mimeFilter(KisImportExportManager::Import));
+    QStringList mimes = KisImportExportManager::supportedMimeTypes(KisImportExportManager::Import);
+    dlgWidget.wdgUrlRequester->setMimeTypeFilters(mimes);
     setMainWidget(page);
 
     //dlgWidget.wdgUrlRequester->setBasePath(m_basePath);
@@ -51,8 +52,8 @@ KisDlgFileLayer::KisDlgFileLayer(const QString &basePath, const QString & name, 
 
     dlgWidget.txtLayerName->setText(name);
 
-    connect(dlgWidget.wdgUrlRequester, SIGNAL(textChanged(const QString &)),
-            SLOT(slotNameChanged(const QString &)));
+    connect(dlgWidget.wdgUrlRequester, SIGNAL(textChanged(QString)),
+            SLOT(slotNameChanged(QString)));
 
     enableButtonOk(false);
 }
@@ -77,6 +78,25 @@ KisFileLayer::ScalingMethod KisDlgFileLayer::scaleToImageResolution() const
     }
     else {
         return KisFileLayer::ToImagePPI;
+    }
+}
+
+void KisDlgFileLayer::setFileName(QString fileName)
+{
+    dlgWidget.wdgUrlRequester->setFileName(fileName);
+}
+
+void KisDlgFileLayer::setScalingMethod(KisFileLayer::ScalingMethod method)
+{
+    dlgWidget.radioDontScale->setChecked(false);
+    dlgWidget.radioScaleToImageSize->setChecked(false);
+    dlgWidget.radioScalePPI->setChecked(false);
+    if (method == KisFileLayer::None) {
+        dlgWidget.radioDontScale->setChecked(true);
+    } else if (method == KisFileLayer::ToImageSize) {
+        dlgWidget.radioScaleToImageSize->setChecked(true);
+    } else {
+        dlgWidget.radioScalePPI->setChecked(true);
     }
 }
 

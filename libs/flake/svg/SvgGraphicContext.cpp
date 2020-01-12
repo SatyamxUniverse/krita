@@ -24,35 +24,21 @@
 
 
 SvgGraphicsContext::SvgGraphicsContext()
+: stroke(toQShared(new KoShapeStroke()))
+, textProperties(KoSvgTextProperties::defaultProperties())
 {
-    strokeType = None;
-
-    stroke = toQShared(new KoShapeStroke());
     stroke->setLineStyle(Qt::NoPen, QVector<qreal>());   // default is no stroke
     stroke->setLineWidth(1.0);
     stroke->setCapStyle(Qt::FlatCap);
     stroke->setJoinStyle(Qt::MiterJoin);
+}
 
-    fillType = Solid;
-    fillRule = Qt::WindingFill;
-    fillColor = QColor(Qt::black);   // default is black fill as per svg spec
-
-    opacity = 1.0;
-
-    currentColor = Qt::black;
-    forcePercentage = false;
-
-    display = true;
-    visible = true;
-
-    clipRule = Qt::WindingFill;
-    preserveWhitespace = false;
-
-    letterSpacing = 0.0;
-    wordSpacing = 0.0;
-    pixelsPerInch = 72.0;
-
-    autoFillMarkers = false;
+SvgGraphicsContext::SvgGraphicsContext(const SvgGraphicsContext &gc)
+    : stroke(toQShared(new KoShapeStroke(*(gc.stroke.data()))))
+{
+    KoShapeStrokeSP newStroke = stroke;
+    *this = gc;
+    this->stroke = newStroke;
 }
 
 void SvgGraphicsContext::workaroundClearInheritedFillProperties()

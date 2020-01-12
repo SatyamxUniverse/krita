@@ -39,6 +39,7 @@
 #include "KoIntegerMaths.h"
 #include <KoUpdater.h>
 
+#include <filter/kis_filter_category_ids.h>
 #include <filter/kis_filter_registry.h>
 #include <filter/kis_filter.h>
 #include <kis_global.h>
@@ -53,11 +54,11 @@
 
 
 KisRainDropsFilter::KisRainDropsFilter()
-    : KisFilter(id(), KisFilter::categoryArtistic(), i18n("&Raindrops..."))
+    : KisFilter(id(), FiltersCategoryArtisticId, i18n("&Raindrops..."))
 {
     setSupportsPainting(false);
     setSupportsThreading(false);
-    setSupportsAdjustmentLayers(true);
+    setSupportsAdjustmentLayers(false);
 }
 
 // This method have been ported from Pieter Z. Voloshyn algorithm code.
@@ -72,7 +73,7 @@ KisRainDropsFilter::KisRainDropsFilter()
  * fishEyes            => FishEye coefficient
  *
  * Theory           => This functions does several math's functions and the engine
- *                     is simple to undestand, but a little hard to implement. A
+ *                     is simple to understand, but a little hard to implement. A
  *                     control will indicate if there is or not a raindrop in that
  *                     area, if not, a fisheye effect with a random size (max=DropSize)
  *                     will be applied, after this, a shadow will be applied too.
@@ -93,11 +94,6 @@ void KisRainDropsFilter::processImpl(KisPaintDeviceSP device,
     quint32 number = config->getInt("number", 80);
     quint32 fishEyes = config->getInt("fishEyes", 30);
     qsrand(config->getInt("seed"));
-
-    if (progressUpdater) {
-        progressUpdater->setRange(0, applyRect.width() * applyRect.height());
-    }
-    int count = 0;
 
     if (fishEyes <= 0) fishEyes = 1;
 
@@ -128,17 +124,18 @@ void KisRainDropsFilter::processImpl(KisPaintDeviceSP device,
 
     const KoColorSpace * cs = device->colorSpace();
 
-    // Init booleen Matrix.
+    // Init boolean Matrix.
 
-    for (i = 0 ; (i < Width) && !(progressUpdater && progressUpdater->interrupted()) ; ++i) {
-        for (j = 0 ; (j < Height) && !(progressUpdater && progressUpdater->interrupted()); ++j) {
+    for (i = 0 ; i < Width; ++i) {
+        for (j = 0 ; j < Height; ++j) {
             BoolMatrix[i][j] = false;
         }
     }
 
+    progressUpdater->setRange(0, number);
     KisRandomAccessorSP dstAccessor = device->createRandomAccessorNG(srcTopLeft.x(), srcTopLeft.y());
     
-    for (uint NumBlurs = 0; (NumBlurs <= number) && !(progressUpdater && progressUpdater->interrupted()); ++NumBlurs) {
+    for (uint NumBlurs = 0; NumBlurs <= number; ++NumBlurs) {
         NewSize = (int)(qrand() * ((double)(DropSize - 5) / RAND_MAX) + 5);
         halfSize = NewSize / 2;
         Radius = halfSize;
@@ -154,22 +151,22 @@ void KisRainDropsFilter::processImpl(KisPaintDeviceSP device,
             if (BoolMatrix[y][x])
                 FindAnother = true;
             else
-                for (i = x - halfSize ; (i <= x + halfSize) && !(progressUpdater && progressUpdater->interrupted()); i++)
-                    for (j = y - halfSize ; (j <= y + halfSize) && !(progressUpdater && progressUpdater->interrupted()); j++)
+                for (i = x - halfSize ; i <= x + halfSize; i++)
+                    for (j = y - halfSize ; j <= y + halfSize; j++)
                         if ((i >= 0) && (i < Height) && (j >= 0) && (j < Width))
                             if (BoolMatrix[j][i])
                                 FindAnother = true;
 
             Counter++;
-        } while ((FindAnother && (Counter < 10000) && !(progressUpdater && progressUpdater->interrupted())));
+        } while (FindAnother && Counter < 10000);
 
         if (Counter >= 10000) {
             NumBlurs = number;
             break;
         }
 
-        for (i = -1 * halfSize ; (i < NewSize - halfSize) && !(progressUpdater && progressUpdater->interrupted()); i++) {
-            for (j = -1 * halfSize ; (j < NewSize - halfSize) && !(progressUpdater && progressUpdater->interrupted()); j++) {
+        for (i = -1 * halfSize ; i < NewSize - halfSize; i++) {
+            for (j = -1 * halfSize ; j < NewSize - halfSize; j++) {
                 r = sqrt((double)i * i + j * j);
                 a = atan2(static_cast<double>(i), static_cast<double>(j));
 
@@ -267,10 +264,8 @@ void KisRainDropsFilter::processImpl(KisPaintDeviceSP device,
 
         BlurRadius = NewSize / 25 + 1;
 
-        for (i = -1 * halfSize - BlurRadius ; (i < NewSize - halfSize + BlurRadius) && !(progressUpdater && progressUpdater->interrupted()) ; i++) {
-            for (j = -1 * halfSize - BlurRadius;
-                    ((j < NewSize - halfSize + BlurRadius) && !(progressUpdater && progressUpdater->interrupted()));
-                    ++j) {
+        for (i = -1 * halfSize - BlurRadius ; i < NewSize - halfSize + BlurRadius; i++) {
+            for (j = -1 * halfSize - BlurRadius; j < NewSize - halfSize + BlurRadius; ++j) {
                 r = sqrt((double)i * i + j * j);
 
                 if (r <= Radius * 1.1) {
@@ -308,7 +303,7 @@ void KisRainDropsFilter::processImpl(KisPaintDeviceSP device,
             }
         }
 
-        if (progressUpdater) progressUpdater->setValue(++count);
+        progressUpdater->setValue(NumBlurs);
     }
 
     FreeBoolArray(BoolMatrix, Width);
@@ -316,12 +311,12 @@ void KisRainDropsFilter::processImpl(KisPaintDeviceSP device,
 
 // This method have been ported from Pieter Z. Voloshyn algorithm code.
 
-/* Function to free a dinamic boolean array
+/* Function to free a dynamic boolean array
  *
  * lpbArray          => Dynamic boolean array
  * Columns           => The array bidimension value
  *
- * Theory            => An easy to undestand 'for' statement
+ * Theory            => An easy to understand 'for' statement
  */
 void KisRainDropsFilter::FreeBoolArray(bool** lpbArray, uint Columns) const
 {
@@ -331,13 +326,13 @@ void KisRainDropsFilter::FreeBoolArray(bool** lpbArray, uint Columns) const
     free(lpbArray);
 }
 
-/* Function to create a bidimentional dinamic boolean array
+/* Function to create a bidimentional dynamic boolean array
  *
  * Columns           => Number of columns
  * Rows              => Number of rows
  *
- * Theory            => Using 'for' statement, we can alloc multiple dinamic arrays
- *                      To create more dimentions, just add some 'for's, ok?
+ * Theory            => Using 'for' statement, we can alloc multiple dynamic arrays
+ *                      To create more dimensions, just add some 'for's, ok?
  */
 bool** KisRainDropsFilter::CreateBoolArray(uint Columns, uint Rows) const
 {
@@ -362,11 +357,11 @@ bool** KisRainDropsFilter::CreateBoolArray(uint Columns, uint Rows) const
 
 /* This function limits the RGB values
  *
- * ColorValue        => Here, is an RGB value to be analized
+ * ColorValue        => Here, is an RGB value to be analyzed
  *
  * Theory            => A color is represented in RGB value (e.g. 0xFFFFFF is
- *                      white color). But R, G and B values has 256 values to be used
- *                      so, this function analize the value and limits to this range
+ *                      white color). But R, G and B values have 256 values to be used
+ *                      so, this function analyzes the value and limits to this range
  */
 
 uchar KisRainDropsFilter::LimitValues(int ColorValue) const
@@ -378,20 +373,20 @@ uchar KisRainDropsFilter::LimitValues(int ColorValue) const
     return ((uchar) ColorValue);
 }
 
-KisConfigWidget * KisRainDropsFilter::createConfigurationWidget(QWidget* parent, const KisPaintDeviceSP) const
+KisConfigWidget * KisRainDropsFilter::createConfigurationWidget(QWidget* parent, const KisPaintDeviceSP, bool) const
 {
     vKisIntegerWidgetParam param;
     param.push_back(KisIntegerWidgetParam(1, 200, 80, i18n("Drop size"), "dropsize"));
-    param.push_back(KisIntegerWidgetParam(1, 500, 80, i18n("Number"), "number"));
+    param.push_back(KisIntegerWidgetParam(1, 500, 80, i18n("Number of drops"), "number"));
     param.push_back(KisIntegerWidgetParam(1, 100, 30, i18n("Fish eyes"), "fishEyes"));
     KisMultiIntegerFilterWidget * w = new KisMultiIntegerFilterWidget(id().id(), parent, id().id(), param);
-    w->setConfiguration(factoryConfiguration());
+    w->setConfiguration(defaultConfiguration());
     return w;
 }
 
-KisFilterConfigurationSP KisRainDropsFilter::factoryConfiguration() const
+KisFilterConfigurationSP KisRainDropsFilter::defaultConfiguration() const
 {
-    KisFilterConfigurationSP config = new KisFilterConfiguration("raindrops", 2);
+    KisFilterConfigurationSP config = factoryConfiguration();
     config->setProperty("dropsize", 80);
     config->setProperty("number", 80);
     config->setProperty("fishEyes", 30);

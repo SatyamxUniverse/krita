@@ -29,6 +29,7 @@
 #include <kis_filter_mask.h>
 #include <kis_node.h>
 #include <kis_layer.h>
+#include <kis_paint_layer.h>
 #include <KisViewManager.h>
 #include <kis_config.h>
 
@@ -36,13 +37,16 @@
 #include "kis_node_commands_adapter.h"
 #include "kis_filter_manager.h"
 #include "ui_wdgfilterdialog.h"
+#include "kis_canvas2.h"
 
 
 struct KisDlgFilter::Private {
-    Private()
+    Private(KisFilterManager *_filterManager, KisViewManager *_view)
             : currentFilter(0)
             , resizeCount(0)
-            , view(0)
+            , view(_view)
+            , filterManager(_filterManager)
+            , blockModifyingActionsGuard(new KisInputActionGroupsMaskGuard(view->canvasBase(), ViewTransformActionGroup))
     {
     }
 
@@ -52,24 +56,27 @@ struct KisDlgFilter::Private {
     int resizeCount;
     KisViewManager *view;
     KisFilterManager *filterManager;
+
+    // a special guard object that blocks all the painting input actions while the
+    // dialog is open
+    QScopedPointer<KisInputActionGroupsMaskGuard> blockModifyingActionsGuard;
 };
 
 KisDlgFilter::KisDlgFilter(KisViewManager *view, KisNodeSP node, KisFilterManager *filterManager, QWidget *parent) :
         QDialog(parent),
-        d(new Private)
+        d(new Private(filterManager, view))
 {
     setModal(false);
 
     d->uiFilterDialog.setupUi(this);
     d->node = node;
-    d->view = view;
-    d->filterManager = filterManager;
 
     d->uiFilterDialog.filterSelection->setView(view);
-    d->uiFilterDialog.filterSelection->showFilterGallery(KisConfig().showFilterGallery());
+    d->uiFilterDialog.filterSelection->showFilterGallery(KisConfig(true).showFilterGallery());
 
     d->uiFilterDialog.pushButtonCreateMaskEffect->show();
     connect(d->uiFilterDialog.pushButtonCreateMaskEffect, SIGNAL(pressed()), SLOT(createMask()));
+    connect(d->uiFilterDialog.pushButtonCreateMaskEffect,SIGNAL(pressed()),SLOT(close()));
 
     d->uiFilterDialog.filterGalleryToggle->setChecked(d->uiFilterDialog.filterSelection->isFilterGalleryVisible());
     d->uiFilterDialog.filterGalleryToggle->setIcon(QPixmap(":/pics/sidebaricon.png"));
@@ -96,13 +103,13 @@ KisDlgFilter::KisDlgFilter(KisViewManager *view, KisNodeSP node, KisFilterManage
     KConfigGroup group( KSharedConfig::openConfig(), "filterdialog");
     d->uiFilterDialog.checkBoxPreview->setChecked(group.readEntry("showPreview", true));
 
-    restoreGeometry(KisConfig().readEntry("filterdialog/geometry", QByteArray()));
+    restoreGeometry(KisConfig(true).readEntry("filterdialog/geometry", QByteArray()));
 
 }
 
 KisDlgFilter::~KisDlgFilter()
 {
-    KisConfig().writeEntry("filterdialog/geometry", saveGeometry());
+    KisConfig(false).writeEntry("filterdialog/geometry", saveGeometry());
     delete d;
 }
 
@@ -125,8 +132,8 @@ void KisDlgFilter::startApplyingFilter(KisFilterConfigurationSP config)
 {
     if (!d->uiFilterDialog.filterSelection->configuration()) return;
 
-    if (d->node->inherits("KisLayer")) {
-        config->setChannelFlags(qobject_cast<KisLayer*>(d->node.data())->channelFlags());
+    if (d->node->inherits("KisPaintLayer")) {
+        config->setChannelFlags(qobject_cast<KisPaintLayer*>(d->node.data())->channelLockFlags());
     }
 
     d->filterManager->apply(config);
@@ -134,8 +141,11 @@ void KisDlgFilter::startApplyingFilter(KisFilterConfigurationSP config)
 
 void KisDlgFilter::updatePreview()
 {
-    if (!d->uiFilterDialog.filterSelection->configuration()) return;
+    KisFilterConfigurationSP config = d->uiFilterDialog.filterSelection->configuration();
+    if (!config) return;
 
+    bool maskCreationAllowed = !d->currentFilter || d->currentFilter->configurationAllowedForMask(config);
+    d->uiFilterDialog.pushButtonCreateMaskEffect->setEnabled(maskCreationAllowed);
 
     if (d->uiFilterDialog.checkBoxPreview->isChecked()) {
         KisFilterConfigurationSP config(d->uiFilterDialog.filterSelection->configuration());
@@ -161,11 +171,12 @@ void KisDlgFilter::slotOnAccept()
         KisFilterConfigurationSP config(d->uiFilterDialog.filterSelection->configuration());
         startApplyingFilter(config);
     }
+
     d->filterManager->finish();
 
     d->uiFilterDialog.buttonBox->button(QDialogButtonBox::Ok)->setEnabled(false);
 
-    KisConfig().setShowFilterGallery(d->uiFilterDialog.filterSelection->isFilterGalleryVisible());
+    KisConfig(false).setShowFilterGallery(d->uiFilterDialog.filterSelection->isFilterGalleryVisible());
 }
 
 void KisDlgFilter::slotOnReject()
@@ -174,7 +185,7 @@ void KisDlgFilter::slotOnReject()
         d->filterManager->cancel();
     }
 
-    KisConfig().setShowFilterGallery(d->uiFilterDialog.filterSelection->isFilterGalleryVisible());
+    KisConfig(false).setShowFilterGallery(d->uiFilterDialog.filterSelection->isFilterGalleryVisible());
 }
 
 void KisDlgFilter::createMask()
@@ -195,7 +206,6 @@ void KisDlgFilter::createMask()
 
     KisNodeCommandsAdapter adapter(d->view);
     adapter.addNode(mask, layer, layer->lastChild());
-    accept();
 }
 
 void KisDlgFilter::enablePreviewToggled(bool state)
@@ -216,6 +226,7 @@ void KisDlgFilter::filterSelectionChanged()
 {
     KisFilterSP filter = d->uiFilterDialog.filterSelection->currentFilter();
     setDialogTitle(filter);
+    d->currentFilter = filter;
     d->uiFilterDialog.pushButtonCreateMaskEffect->setEnabled(filter.isNull() ? false : filter->supportsAdjustmentLayers());
     updatePreview();
 }
@@ -225,7 +236,7 @@ void KisDlgFilter::resizeEvent(QResizeEvent* event)
 {
     QDialog::resizeEvent(event);
 
-//    // Workaround, after the initalisation don't center the dialog anymore
+//    // Workaround, after the initialisation don't center the dialog anymore
 //    if(d->resizeCount < 2) {
 //        QWidget* canvas = d->view->canvas();
 //        QRect rect(canvas->mapToGlobal(canvas->geometry().topLeft()), size());

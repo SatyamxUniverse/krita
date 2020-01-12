@@ -20,15 +20,20 @@
 
 #include <klocalizedstring.h>
 #include <kis_debug.h>
+#include <opengl/kis_opengl.h>
+#include <KritaVersionWrapper.h>
 #include <QSysInfo>
-#include <QOpenGLContext>
-#include <QOpenGLFunctions>
-#include <QWindow>
-
+#include <kis_image_config.h>
 #include <QDesktopWidget>
 #include <QClipboard>
+#include <QThread>
+#include <QFile>
+#include <QFileInfo>
+#include <QSettings>
+#include <QStandardPaths>
 
 #include "kis_document_aware_spin_box_unit_manager.h"
+#include <QScreen>
 
 DlgBugInfo::DlgBugInfo(QWidget *parent)
     : KoDialog(parent)
@@ -44,55 +49,60 @@ DlgBugInfo::DlgBugInfo(QWidget *parent)
 
     setMainWidget(m_page);
 
-    // OS information
     QString info;
-    info.append("OS Information");
-    info.append("\n  Build ABI: ").append(QSysInfo::buildAbi());
-    info.append("\n  Build CPU: ").append(QSysInfo::buildCpuArchitecture());
-    info.append("\n  CPU: ").append(QSysInfo::currentCpuArchitecture());
-    info.append("\n  Kernel Type: ").append(QSysInfo::kernelType());
-    info.append("\n  Kernel Version: ").append(QSysInfo::kernelVersion());
-    info.append("\n  Pretty Productname: ").append(QSysInfo::prettyProductName());
-    info.append("\n  Product Type: ").append(QSysInfo::productType());
-    info.append("\n  Product Version: ").append(QSysInfo::productVersion());
-    info.append("\n");
 
-    // OpenGL information
-    // we need a QSurface active to get our GL functions from the context
-    QWindow  surface;
-    surface.setSurfaceType( QSurface::OpenGLSurface );
-    surface.create();
+    const QString configPath = QStandardPaths::writableLocation(QStandardPaths::GenericConfigLocation);
+    QSettings kritarc(configPath + QStringLiteral("/kritadisplayrc"), QSettings::IniFormat);
 
-    QOpenGLContext context;
-    context.create();
-    if (!context.isValid()) return;
+    if (!kritarc.value("LogUsage", true).toBool() || !QFileInfo(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/krita.log").exists()) {
 
-    context.makeCurrent( &surface );
+        // NOTE: This is intentionally not translated!
 
-    QOpenGLFunctions  *funcs = context.functions();
-    funcs->initializeOpenGLFunctions();
+        // Krita version info
+        info.append("Krita");
+        info.append("\n  Version: ").append(KritaVersionWrapper::versionString(true));
+        info.append("\n\n");
 
-#ifndef GL_RENDERER
-#  define GL_RENDERER 0x1F01
-#endif
-    QString Renderer = QString((const char*)funcs->glGetString(GL_RENDERER));
-    info.append("\nOpenGL Info");
-    info.append("\n  Vendor: ").append(reinterpret_cast<const char *>(funcs->glGetString(GL_VENDOR)));
-    info.append("\n  Renderer: ").append(Renderer);
-    info.append("\n  Version: ").append(reinterpret_cast<const char *>(funcs->glGetString(GL_VERSION)));
-    info.append("\n  Shading language: ").append(reinterpret_cast<const char *>(funcs->glGetString(GL_SHADING_LANGUAGE_VERSION)));
+        info.append("Qt");
+        info.append("\n  Version (compiled): ").append(QT_VERSION_STR);
+        info.append("\n  Version (loaded): ").append(qVersion());
+        info.append("\n\n");
 
-    int glMajorVersion = context.format().majorVersion();
-    int glMinorVersion = context.format().minorVersion();
-    bool supportsDeprecatedFunctions = (context.format().options() & QSurfaceFormat::DeprecatedFunctions);
+        // OS information
+        info.append("OS Information");
+        info.append("\n  Build ABI: ").append(QSysInfo::buildAbi());
+        info.append("\n  Build CPU: ").append(QSysInfo::buildCpuArchitecture());
+        info.append("\n  CPU: ").append(QSysInfo::currentCpuArchitecture());
+        info.append("\n  Kernel Type: ").append(QSysInfo::kernelType());
+        info.append("\n  Kernel Version: ").append(QSysInfo::kernelVersion());
+        info.append("\n  Pretty Productname: ").append(QSysInfo::prettyProductName());
+        info.append("\n  Product Type: ").append(QSysInfo::productType());
+        info.append("\n  Product Version: ").append(QSysInfo::productVersion());
+        info.append("\n\n");
 
-    info.append(QString("\n   Version: %1.%2").arg(glMajorVersion).arg(glMinorVersion));
-    info.append(QString("\n     Supports deprecated functions: %1").arg(supportsDeprecatedFunctions ? "true" : "false"));
+        // OpenGL information
+        info.append("\n").append(KisOpenGL::getDebugText());
+        info.append("\n\n");
+        // Hardware information
+        info.append("Hardware Information");
+        info.append(QString("\n Memory: %1").arg(KisImageConfig(true).totalRAM() / 1024)).append(" Gb");
+        info.append(QString("\n Cores: %1").arg(QThread::idealThreadCount()));
+        info.append("\n Swap: ").append(KisImageConfig(true).swapDir());
+    }
+    else {
 
+        QFile sysinfo(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/krita-sysinfo.log");
+        sysinfo.open(QFile::ReadOnly | QFile::Text);
+        info = QString::fromUtf8(sysinfo.readAll());
+        sysinfo.close();
 
+        info += "\n\n";
 
-    // Installation information
-
+        QFile log(QStandardPaths::writableLocation(QStandardPaths::GenericDataLocation) + "/krita.log");
+        log.open(QFile::ReadOnly | QFile::Text);
+        info += QString::fromUtf8(log.readAll());
+        log.close();
+    }
     // calculate a default height for the widget
     int wheight = m_page->sizeHint().height();
     m_page->txtBugInfo->setText(info);
@@ -100,12 +110,14 @@ DlgBugInfo::DlgBugInfo(QWidget *parent)
     QFontMetrics fm = m_page->txtBugInfo->fontMetrics();
     int target_height = fm.height() * info.split('\n').size() + wheight;
 
-    QDesktopWidget dw;
-    QRect screen_rect = dw.availableGeometry(dw.primaryScreen());
+    QRect screen_rect = QGuiApplication::primaryScreen()->availableGeometry();
 
-    resize(sizeHint().width(), target_height > screen_rect.height() ? screen_rect.height() : target_height);
+    resize(m_page->size().width(), target_height > screen_rect.height() ? screen_rect.height() : target_height);
 
-    connect(this, &KoDialog::user1Clicked, this, [this](){ QGuiApplication::clipboard()->setText(m_page->txtBugInfo->toPlainText()); });
+    connect(this, &KoDialog::user1Clicked, this, [this](){
+        QGuiApplication::clipboard()->setText(m_page->txtBugInfo->toPlainText());
+        m_page->txtBugInfo->selectAll(); // feedback
+    });
 }
 
 DlgBugInfo::~DlgBugInfo()

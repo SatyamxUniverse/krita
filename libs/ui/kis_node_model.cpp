@@ -48,20 +48,32 @@
 #include "kis_model_index_converter_show_all.h"
 #include "kis_node_selection_adapter.h"
 #include "kis_node_insertion_adapter.h"
+#include "kis_node_manager.h"
+#include <KisSelectionActionsAdapter.h>
+#include <KisNodeDisplayModeAdapter.h>
 
 #include "kis_config.h"
 #include "kis_config_notifier.h"
-#include <QTimer>
+#include "kis_signal_auto_connection.h"
+#include "kis_signal_compressor.h"
 
 
 struct KisNodeModel::Private
 {
+    Private() : updateCompressor(100, KisSignalCompressor::FIRST_ACTIVE) {}
+
     KisImageWSP image;
     KisShapeController *shapeController = 0;
     KisNodeSelectionAdapter *nodeSelectionAdapter = 0;
     KisNodeInsertionAdapter *nodeInsertionAdapter = 0;
+    KisSelectionActionsAdapter *selectionActionsAdapter = 0;
+    KisNodeDisplayModeAdapter *nodeDisplayModeAdapter = 0;
+    KisNodeManager *nodeManager = 0;
+
+    KisSignalAutoConnectionsStore nodeDisplayModeAdapterConnections;
+
     QList<KisNodeDummy*> updateQueue;
-    QTimer updateTimer;
+    KisSignalCompressor updateCompressor;
 
     KisModelIndexConverterBase *indexConverter = 0;
     QPointer<KisDummiesFacadeBase> dummiesFacade = 0;
@@ -72,17 +84,15 @@ struct KisNodeModel::Private
     QPersistentModelIndex activeNodeIndex;
 
     QPointer<KisNodeDummy> parentOfRemovedNode = 0;
+
+    QSet<quintptr> dropEnabled;
 };
 
 KisNodeModel::KisNodeModel(QObject * parent)
         : QAbstractItemModel(parent)
         , m_d(new Private)
 {
-    updateSettings();
-    connect(KisConfigNotifier::instance(), SIGNAL(configChanged()), this, SLOT(updateSettings()));
-
-    m_d->updateTimer.setSingleShot(true);
-    connect(&m_d->updateTimer, SIGNAL(timeout()), SLOT(processUpdateQueue()));
+    connect(&m_d->updateCompressor, SIGNAL(timeout()), SLOT(processUpdateQueue()));
 }
 
 KisNodeModel::~KisNodeModel()
@@ -173,27 +183,29 @@ void KisNodeModel::slotIsolatedModeChanged()
 
 bool KisNodeModel::showGlobalSelection() const
 {
-    KisConfig cfg;
-    return cfg.showGlobalSelection();
+    return m_d->nodeDisplayModeAdapter ?
+        m_d->nodeDisplayModeAdapter->showGlobalSelectionMask() :
+        false;
 }
 
 void KisNodeModel::setShowGlobalSelection(bool value)
 {
-    KisConfig cfg;
-    cfg.setShowGlobalSelection(value);
-    updateSettings();
+    if (m_d->nodeDisplayModeAdapter) {
+        m_d->nodeDisplayModeAdapter->setShowGlobalSelectionMask(value);
+    }
 }
 
-void KisNodeModel::updateSettings()
+void KisNodeModel::slotNodeDisplayModeChanged(bool showRootNode, bool showGlobalSelectionMask)
 {
-    KisConfig cfg;
-    bool oldShowRootLayer = m_d->showRootLayer;
-    bool oldShowGlobalSelection = m_d->showGlobalSelection;
-    m_d->showRootLayer = cfg.showRootLayer();
-    m_d->showGlobalSelection = cfg.showGlobalSelection();
+    const bool oldShowRootLayer = m_d->showRootLayer;
+    const bool oldShowGlobalSelection = m_d->showGlobalSelection;
+    m_d->showRootLayer = showRootNode;
+    m_d->showGlobalSelection = showGlobalSelectionMask;
+
     if (m_d->showRootLayer != oldShowRootLayer || m_d->showGlobalSelection != oldShowGlobalSelection) {
         resetIndexConverter();
-        reset();
+        beginResetModel();
+        endResetModel();
     }
 }
 
@@ -249,14 +261,32 @@ void KisNodeModel::connectDummies(KisNodeDummy *dummy, bool needConnect)
     }
 }
 
-void KisNodeModel::setDummiesFacade(KisDummiesFacadeBase *dummiesFacade, KisImageWSP image, KisShapeController *shapeController, KisNodeSelectionAdapter *nodeSelectionAdapter, KisNodeInsertionAdapter *nodeInsertionAdapter)
+void KisNodeModel::setDummiesFacade(KisDummiesFacadeBase *dummiesFacade,
+                                    KisImageWSP image,
+                                    KisShapeController *shapeController,
+                                    KisSelectionActionsAdapter *selectionActionsAdapter,
+                                    KisNodeManager *nodeManager)
 {
     QPointer<KisDummiesFacadeBase> oldDummiesFacade(m_d->dummiesFacade);
     KisShapeController  *oldShapeController = m_d->shapeController;
 
     m_d->shapeController = shapeController;
-    m_d->nodeSelectionAdapter = nodeSelectionAdapter;
-    m_d->nodeInsertionAdapter = nodeInsertionAdapter;
+    m_d->nodeManager = nodeManager;
+    m_d->nodeSelectionAdapter = nodeManager ? nodeManager->nodeSelectionAdapter() : nullptr;
+    m_d->nodeInsertionAdapter = nodeManager ? nodeManager->nodeInsertionAdapter() : nullptr;
+    m_d->selectionActionsAdapter = selectionActionsAdapter;
+
+    m_d->nodeDisplayModeAdapterConnections.clear();
+    m_d->nodeDisplayModeAdapter = nodeManager ? nodeManager->nodeDisplayModeAdapter() : nullptr;
+    if (m_d->nodeDisplayModeAdapter) {
+        m_d->nodeDisplayModeAdapterConnections.addConnection(
+            m_d->nodeDisplayModeAdapter, SIGNAL(sigNodeDisplayModeChanged(bool,bool)),
+            this, SLOT(slotNodeDisplayModeChanged(bool,bool)));
+
+        // cold initialization
+        m_d->showGlobalSelection = m_d->nodeDisplayModeAdapter->showGlobalSelectionMask();
+        m_d->showRootLayer = false;
+    }
 
     if (oldDummiesFacade && m_d->image) {
         m_d->image->disconnect(this);
@@ -293,7 +323,8 @@ void KisNodeModel::setDummiesFacade(KisDummiesFacadeBase *dummiesFacade, KisImag
     }
 
     if (m_d->dummiesFacade != oldDummiesFacade || m_d->shapeController != oldShapeController) {
-        reset();
+        beginResetModel();
+        endResetModel();
     }
 }
 
@@ -327,7 +358,7 @@ void KisNodeModel::slotBeginRemoveDummy(KisNodeDummy *dummy)
     if (!dummy) return;
 
     // FIXME: is it really what we want?
-    m_d->updateTimer.stop();
+    m_d->updateCompressor.stop();
     m_d->updateQueue.clear();
 
     m_d->parentOfRemovedNode = dummy->parent();
@@ -359,18 +390,18 @@ void KisNodeModel::slotDummyChanged(KisNodeDummy *dummy)
     if (!m_d->updateQueue.contains(dummy)) {
         m_d->updateQueue.append(dummy);
     }
-    m_d->updateTimer.start(1000);
+    m_d->updateCompressor.start();
 }
 
-void addChangedIndex(const QModelIndex &index, QSet<QModelIndex> *indexes)
+void addChangedIndex(const QModelIndex &idx, QSet<QModelIndex> *indexes)
 {
-    if (!index.isValid() || indexes->contains(index)) return;
+    if (!idx.isValid() || indexes->contains(idx)) return;
 
-    indexes->insert(index);
+    indexes->insert(idx);
 
-    const int rowCount = index.model()->rowCount(index);
+    const int rowCount = idx.model()->rowCount(idx);
     for (int i = 0; i < rowCount; i++) {
-        addChangedIndex(index.child(i, 0), indexes);
+        addChangedIndex(idx.model()->index(i, 0, idx), indexes);
     }
 }
 
@@ -445,10 +476,10 @@ QVariant KisNodeModel::data(const QModelIndex &index, int role) const
     case Qt::SizeHintRole: return m_d->image->size(); // FIXME
     case Qt::TextColorRole:
         return belongsToIsolatedGroup(node) &&
-            !node->projectionLeaf()->isDroppedMask() ? QVariant() : QVariant(QColor(Qt::gray));
+            !node->projectionLeaf()->isDroppedNode() ? QVariant() : QVariant(QColor(Qt::gray));
     case Qt::FontRole: {
         QFont baseFont;
-        if (node->projectionLeaf()->isDroppedMask()) {
+        if (node->projectionLeaf()->isDroppedNode()) {
             baseFont.setStrikeOut(true);
         }
         if (m_d->activeNodeIndex == index) {
@@ -470,6 +501,18 @@ QVariant KisNodeModel::data(const QModelIndex &index, int role) const
     }
     case KisNodeModel::ColorLabelIndexRole: {
         return node->colorLabelIndex();
+    }
+    case KisNodeModel::DropReasonRole: {
+        QString result;
+        KisProjectionLeaf::NodeDropReason reason = node->projectionLeaf()->dropReason();
+
+        if (reason == KisProjectionLeaf::DropPassThroughMask) {
+            result = i18nc("@info:tooltip", "Disabled: masks on pass-through groups are not supported!");
+        } else if (reason == KisProjectionLeaf::DropPassThroughClone) {
+            result = i18nc("@info:tooltip", "Disabled: cloning pass-through groups is not supported!");
+        }
+
+        return result;
     }
     default:
         if (role >= int(KisNodeModel::BeginThumbnailRole) && belongsToIsolatedGroup(node)) {
@@ -496,12 +539,20 @@ Qt::ItemFlags KisNodeModel::flags(const QModelIndex &index) const
 {
     if(!m_d->dummiesFacade || !index.isValid()) return Qt::ItemIsDropEnabled;
 
-    Qt::ItemFlags flags = Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled | Qt::ItemIsEditable | Qt::ItemIsDropEnabled;
+    Qt::ItemFlags flags = Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled | Qt::ItemIsEditable;
+    if (m_d->dropEnabled.contains(index.internalId())) {
+        flags |= Qt::ItemIsDropEnabled;
+    }
     return flags;
 }
 
 bool KisNodeModel::setData(const QModelIndex &index, const QVariant &value, int role)
 {
+    if (role == KisNodeModel::DropEnabled) {
+        const QMimeData *mimeData = static_cast<const QMimeData*>(value.value<void*>());
+        setDropEnabled(mimeData);
+        return true;
+    }
 
     if (role == KisNodeModel::ActiveRole || role == KisNodeModel::AlternateActiveRole) {
         QModelIndex parentIndex;
@@ -546,28 +597,36 @@ bool KisNodeModel::setData(const QModelIndex &index, const QVariant &value, int 
     if(!m_d->dummiesFacade || !index.isValid()) return false;
 
     bool result = true;
+    bool shouldUpdate = true;
     bool shouldUpdateRecursively = false;
     KisNodeSP node = nodeFromIndex(index);
 
     switch (role) {
     case Qt::DisplayRole:
     case Qt::EditRole:
-        node->setName(value.toString());
+        m_d->nodeManager->setNodeName(node, value.toString());
         break;
     case KisNodeModel::PropertiesRole:
         {
             // don't record undo/redo for visibility, locked or alpha locked changes
             KisBaseNode::PropertyList proplist = value.value<KisBaseNode::PropertyList>();
-            KisNodePropertyListCommand::setNodePropertiesNoUndo(node, m_d->image, proplist);
+            m_d->nodeManager->trySetNodeProperties(node, m_d->image, proplist);
             shouldUpdateRecursively = true;
 
             break;
         }
+    case KisNodeModel::SelectOpaqueRole:
+        if (node && m_d->selectionActionsAdapter) {
+            SelectionAction action = SelectionAction(value.toInt());
+            m_d->selectionActionsAdapter->selectOpaqueOnNode(node, action);
+        }
+        shouldUpdate = false;
+        break;
     default:
         result = false;
     }
 
-    if(result) {
+    if (result && shouldUpdate) {
         if (shouldUpdateRecursively) {
             QSet<QModelIndex> indexes;
             addChangedIndex(index, &indexes);
@@ -644,3 +703,51 @@ bool KisNodeModel::dropMimeData(const QMimeData * data, Qt::DropAction action, i
                                          m_d->nodeInsertionAdapter);
 }
 
+bool KisNodeModel::canDropMimeData(const QMimeData *data, Qt::DropAction action, int row, int column, const QModelIndex &parent) const {
+    if (parent.isValid()) {
+        // drop occurred on an item. always return true as returning false will mess up
+        // QT5's drag handling (see KisNodeModel::setDropEnabled).
+        return true;
+    } else {
+        return QAbstractItemModel::canDropMimeData(data, action, row, column, parent);
+    }
+}
+
+void KisNodeModel::setDropEnabled(const QMimeData *data) {
+    // what happens here should really happen in KisNodeModel::canDropMimeData(), but QT5
+    // will mess up if an item's Qt::ItemIsDropEnabled does not match what is returned by
+    // canDropMimeData; specifically, if we set the flag, but decide in canDropMimeData()
+    // later on that an "onto" drag is not allowed, QT will display an drop indicator for
+    // insertion, but not perform any drop when the mouse is released.
+
+    // the only robust implementation seems to set all flags correctly, which is done here.
+
+    bool copyNode = false;
+    KisNodeList nodes = KisMimeData::loadNodesFast(data, m_d->image, m_d->shapeController, copyNode);
+    m_d->dropEnabled.clear();
+    updateDropEnabled(nodes);
+}
+
+void KisNodeModel::updateDropEnabled(const QList<KisNodeSP> &nodes, QModelIndex parent) {
+    for (int r = 0; r < rowCount(parent); r++) {
+        QModelIndex idx = index(r, 0, parent);
+
+        KisNodeSP target = nodeFromIndex(idx);
+
+        bool dropEnabled = true;
+        Q_FOREACH (const KisNodeSP &node, nodes) {
+            if (!target->allowAsChild(node)) {
+                dropEnabled = false;
+                break;
+            }
+        }
+        if (dropEnabled) {
+            m_d->dropEnabled.insert(idx.internalId());
+        }
+        emit dataChanged(idx, idx); // indicate to QT that flags() have changed
+
+        if (hasChildren(idx)) {
+            updateDropEnabled(nodes, idx);
+        }
+    }
+}

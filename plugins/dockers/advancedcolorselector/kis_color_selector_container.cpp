@@ -32,6 +32,8 @@
 
 #include <kactioncollection.h>
 
+#include <KisDocument.h>
+#include <KisGamutMaskToolbar.h>
 #include "KisViewManager.h"
 #include "kis_canvas2.h"
 #include "kis_canvas_resource_provider.h"
@@ -47,16 +49,26 @@ KisColorSelectorContainer::KisColorSelectorContainer(QWidget *parent) :
     m_myPaintShadeSelector(new KisMyPaintShadeSelector(this)),
     m_minimalShadeSelector(new KisMinimalShadeSelector(this)),
     m_shadeSelector(m_myPaintShadeSelector),
+    m_gamutMaskToolbar(new KisGamutMaskToolbar(this)),
+    m_showColorSelector(true),
     m_canvas(0)
 {
     m_widgetLayout = new QBoxLayout(QBoxLayout::TopToBottom, this);
     m_widgetLayout->setSpacing(0);
     m_widgetLayout->setMargin(0);
 
+    m_gamutMaskToolbar->setContentsMargins(0, 0, 0, 5);
+    m_gamutMaskToolbar->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Minimum);
+    m_colorSelector->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    m_myPaintShadeSelector->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    m_minimalShadeSelector->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+
+    m_widgetLayout->addWidget(m_gamutMaskToolbar);
     m_widgetLayout->addWidget(m_colorSelector);
     m_widgetLayout->addWidget(m_myPaintShadeSelector);
     m_widgetLayout->addWidget(m_minimalShadeSelector);
 
+    m_gamutMaskToolbar->hide();
     m_myPaintShadeSelector->hide();
     m_minimalShadeSelector->hide();
 
@@ -81,10 +93,30 @@ KisColorSelectorContainer::KisColorSelectorContainer(QWidget *parent) :
 
 void KisColorSelectorContainer::unsetCanvas()
 {
+    m_colorSelector->hasAtLeastOneDocument(doesAtleastOneDocumentExist());
+
     m_colorSelector->unsetCanvas();
     m_myPaintShadeSelector->unsetCanvas();
     m_minimalShadeSelector->unsetCanvas();
     m_canvas = 0;
+}
+
+bool KisColorSelectorContainer::doesAtleastOneDocumentExist()
+{
+    if (m_canvas && m_canvas->viewManager() && m_canvas->viewManager()->document() ) {
+        if (m_canvas->viewManager()->document()->image()->height() == 0) {
+            return false;
+        } else {
+           return true;
+        }
+    } else {
+        return false;
+    }
+}
+
+void KisColorSelectorContainer::slotUpdateIcons()
+{
+    m_colorSelector->updateIcons();
 }
 
 void KisColorSelectorContainer::setCanvas(KisCanvas2* canvas)
@@ -104,10 +136,25 @@ void KisColorSelectorContainer::setCanvas(KisCanvas2* canvas)
     m_myPaintShadeSelector->setCanvas(canvas);
     m_minimalShadeSelector->setCanvas(canvas);
 
+
+    m_colorSelector->hasAtLeastOneDocument(doesAtleastOneDocumentExist());
+
+
     if (m_canvas && m_canvas->viewManager()) {
-        if (m_canvas->viewManager()->nodeManager()) {
-            connect(m_canvas->viewManager()->nodeManager(), SIGNAL(sigLayerActivated(KisLayerSP)), SLOT(reactOnLayerChange()), Qt::UniqueConnection);
-        }
+
+        connect(m_canvas->viewManager()->canvasResourceProvider(), SIGNAL(sigGamutMaskChanged(KoGamutMask*)),
+                m_colorSelector, SLOT(slotGamutMaskSet(KoGamutMask*)), Qt::UniqueConnection);
+
+        connect(m_canvas->viewManager()->canvasResourceProvider(), SIGNAL(sigGamutMaskUnset()),
+                m_colorSelector, SLOT(slotGamutMaskUnset()), Qt::UniqueConnection);
+
+        connect(m_canvas->viewManager()->canvasResourceProvider(), SIGNAL(sigGamutMaskPreviewUpdate()),
+                m_colorSelector, SLOT(slotGamutMaskPreviewUpdate()), Qt::UniqueConnection);
+
+        connect(m_canvas->viewManager()->canvasResourceProvider(), SIGNAL(sigGamutMaskDeactivated()),
+                m_colorSelector, SLOT(slotGamutMaskDeactivate()), Qt::UniqueConnection);
+
+        m_gamutMaskToolbar->connectMaskSignals(m_canvas->viewManager()->canvasResourceProvider());
 
         KActionCollection* actionCollection = canvas->viewManager()->actionCollection();
         actionCollection->addAction("show_color_selector", m_colorSelAction);
@@ -120,6 +167,20 @@ void KisColorSelectorContainer::updateSettings()
 {
     KConfigGroup cfg =  KSharedConfig::openConfig()->group("advancedColorSelector");
     m_onDockerResizeSetting =  (int)cfg.readEntry("onDockerResize", 0);
+    m_showColorSelector = (bool) cfg.readEntry("showColorSelector", true);
+
+    if (m_showColorSelector) {
+        m_colorSelector->show();
+
+        if (m_colorSelector->configuration().mainType == KisColorSelectorConfiguration::Wheel) {
+            m_gamutMaskToolbar->show();
+        } else {
+            m_gamutMaskToolbar->hide();
+        }
+    } else {
+        m_colorSelector->hide();
+        m_gamutMaskToolbar->hide();
+    }
 
     QString type = cfg.readEntry("shadeSelectorType", "Minimal");
 
@@ -140,28 +201,8 @@ void KisColorSelectorContainer::updateSettings()
 
     if(m_shadeSelector!=0)
         m_shadeSelector->show();
-
 }
 
-void KisColorSelectorContainer::reactOnLayerChange()
-{
-    if (m_canvas) {
-        KisNodeSP node = m_canvas->viewManager()->resourceProvider()->currentNode();
-        if (node) {
-            KisPaintDeviceSP device = node->paintDevice();
-            if (device) {
-                m_colorSelAction->setEnabled(true);
-                m_mypaintAction->setEnabled(true);
-                m_minimalAction->setEnabled(true);
-            }
-            else {
-                //            m_colorSelAction->setEnabled(false);
-                //            m_mypaintAction->setEnabled(false);
-                //            m_minimalAction->setEnabled(false);
-            }
-        }
-    }
-}
 
 void KisColorSelectorContainer::resizeEvent(QResizeEvent * e)
 {

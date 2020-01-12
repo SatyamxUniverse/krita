@@ -29,14 +29,14 @@
 #include "kactioncollection.h"
 
 #include <QAction>
-#include <QtCore/QDir>
-#include <QtXml/QDomDocument>
-#include <QtCore/QFile>
-#include <QtCore/QCoreApplication>
-#include <QtCore/QTextStream>
+#include <QDir>
+#include <QDomDocument>
+#include <QFile>
+#include <QCoreApplication>
+#include <QTextStream>
 #include <QWidget>
-#include <QtCore/QDate>
-#include <QtCore/QVariant>
+#include <QDate>
+#include <QVariant>
 #include <QTextCodec>
 #include <QStandardPaths>
 #include <QDebug>
@@ -148,7 +148,7 @@ QString KXMLGUIFactory::readConfigFile(const QString &filename, const QString &_
         }
 
         if (warn) {
-            qWarning() << "KXMLGUI file found at deprecated location" << xml_file << "-- please use ${KXMLGUI_INSTALL_DIR} to install these files instead.";
+            qWarning() << "kxmlguifactory: KXMLGUI file found at deprecated location" << xml_file << "-- please use ${KXMLGUI_INSTALL_DIR} to install these files instead.";
         }
     }
 

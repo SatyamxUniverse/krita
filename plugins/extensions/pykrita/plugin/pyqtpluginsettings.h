@@ -1,5 +1,5 @@
 /*
- *  Copyright (c) 2014 Boudewijn Rempt <boud@kogmbh.com>
+ *  Copyright (c) 2014 Boudewijn Rempt <boud@valdyas.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
@@ -18,7 +18,6 @@
 #define PYQTPLUGINSETTINGS_H
 
 #include "kis_preference_set_registry.h"
-#include "engine.h"
 
 namespace Ui
 {
@@ -26,13 +25,14 @@ class ManagerPage;
 }
 
 class QIcon;
+class PythonPluginManager;
 
 class PyQtPluginSettings : public KisPreferenceSet
 {
     Q_OBJECT
 public:
 
-    PyQtPluginSettings(PyKrita::Engine *engine, QWidget *parent = 0);
+    PyQtPluginSettings(PythonPluginManager *pluginManager, QWidget *parent = 0);
     ~PyQtPluginSettings();
 
     virtual QString id();
@@ -48,8 +48,14 @@ public Q_SLOTS:
 Q_SIGNALS:
     void settingsChanged() const;
 
+private Q_SLOTS:
+
+    void updateManual(const QModelIndex &index);
+
 private:
-    Ui::ManagerPage *m_manager;
+    PythonPluginManager *m_pluginManager;
+    Ui::ManagerPage *m_page;
+
 };
 
 
@@ -71,12 +77,12 @@ class PyQtPluginSettingsFactory : public KisAbstractPreferenceSetFactory
 {
 public:
 
-    PyQtPluginSettingsFactory(PyKrita::Engine *engine) {
-        m_engine = engine;
+    PyQtPluginSettingsFactory(PythonPluginManager *engine) {
+        m_pluginManager = engine;
     }
 
     KisPreferenceSet* createPreferenceSet() {
-        PyQtPluginSettings* ps = new PyQtPluginSettings(m_engine);
+        PyQtPluginSettings* ps = new PyQtPluginSettings(m_pluginManager);
         QObject::connect(ps, SIGNAL(settingsChanged()), &repeater, SLOT(updateSettings()), Qt::UniqueConnection);
         return ps;
     }
@@ -84,7 +90,7 @@ public:
         return "PyQtSettings";
     }
     PyQtPluginSettingsUpdateRepeater repeater;
-    PyKrita::Engine *m_engine;
+    PythonPluginManager *m_pluginManager;
 };
 
 

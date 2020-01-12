@@ -5,7 +5,7 @@
  * Copyright (C) 2009 Pierre Stirnweiss <pstirnweiss@googlemail.com>
  * Copyright (C) 2010 Benjamin Port <port.benjamin@gmail.com>
  * Copyright (C) 2011 Pierre Ducroquet <pinaraf@pinaraf.info>
- * Copyright (C) 2011 Boudewijn Rempt <boud@kogmbh.com>
+ * Copyright (C) 2011 Boudewijn Rempt <boud@valdyas.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -145,15 +145,13 @@ void KoTextWriter::write(const QTextDocument *document, int from, int to)
             }
 
             // save the whole list if all list-items are selected
-            if (currentList) {
-                int fromindex = currentList->itemNumber(fromblock);
-                int toindex = currentList->itemNumber(toblock);
-                if ((fromcursor.isNull() || fromcursor.currentList() != currentList) &&
-                    (toCursor.isNull() || toCursor.currentList() != currentList) &&
-                    fromindex <= 0 && (toindex < 0 || toindex == currentList->count()-1)
+            int fromindex = currentList->itemNumber(fromblock);
+            int toindex = currentList->itemNumber(toblock);
+            if ((fromcursor.isNull() || fromcursor.currentList() != currentList) &&
+                (toCursor.isNull() || toCursor.currentList() != currentList) &&
+                fromindex <= 0 && (toindex < 0 || toindex == currentList->count()-1)
                 ) {
-                    currentList = 0;
-                }
+                currentList = 0;
             }
         }
     }

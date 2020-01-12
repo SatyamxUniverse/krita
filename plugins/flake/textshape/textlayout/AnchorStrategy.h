@@ -37,7 +37,7 @@ public:
     /**
      * Moves the subject to it's right position.
      *
-     * @return true if subject was moved to a new position (or it it couldn't be calculated yet)
+     * @return true if subject was moved to a new position (or if it couldn't be calculated yet)
      */
     virtual bool moveSubject() = 0;
 
@@ -45,7 +45,7 @@ public:
 
     /**
      * Reparent the anchored shape under the rootArea's container this AnchorStrategy acts for
-    .*
+     *
      * If needed changes the parent KoShapeContainerModel and KoShapeContainer of the anchored shape.
      * It is changed so the anchored shape is now under the rootArea
      */

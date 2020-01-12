@@ -80,6 +80,10 @@ public:
         return m_lod;
     }
 
+    QString debugName() const override {
+        return "KisNoopSpontaneousJob";
+    }
+
 private:
     bool m_overridesEverything;
     int m_lod;
@@ -101,7 +105,8 @@ public:
         globalExecutedDabs << m_name;
     }
 
-    QString name() {
+    virtual QString name(KisStrokeJobData *data) const {
+        Q_UNUSED(data);
         return m_name;
     }
 
@@ -113,6 +118,10 @@ public:
         return m_isMarked;
     }
 
+    QString debugId() const override {
+        return "KisNoopDabStrategy";
+    }
+
 private:
     QString m_name;
     bool m_isMarked;
@@ -122,13 +131,18 @@ class KisTestingStrokeJobData : public KisStrokeJobData
 {
 public:
     KisTestingStrokeJobData(Sequentiality sequentiality = SEQUENTIAL,
-                             Exclusivity exclusivity = NORMAL)
-        : KisStrokeJobData(sequentiality, exclusivity)
+                            Exclusivity exclusivity = NORMAL,
+                            bool addMutatedJobs = false,
+                            const QString &customSuffix = QString())
+        : KisStrokeJobData(sequentiality, exclusivity),
+          m_addMutatedJobs(addMutatedJobs),
+          m_customSuffix(customSuffix)
     {
     }
 
     KisTestingStrokeJobData(const KisTestingStrokeJobData &rhs)
-        : KisStrokeJobData(rhs)
+        : KisStrokeJobData(rhs),
+          m_addMutatedJobs(rhs.m_addMutatedJobs)
     {
     }
 
@@ -136,12 +150,60 @@ public:
         Q_UNUSED(levelOfDetail);
         return new KisTestingStrokeJobData(*this);
     }
+
+    bool m_addMutatedJobs = false;
+    bool m_isMutated = false;
+    QString m_customSuffix;
 };
+
+class KisMutatableDabStrategy : public KisNoopDabStrategy
+{
+public:
+    KisMutatableDabStrategy(const QString &name, KisStrokeStrategy *parentStrokeStrategy)
+        : KisNoopDabStrategy(name),
+          m_parentStrokeStrategy(parentStrokeStrategy)
+    {
+    }
+
+    void run(KisStrokeJobData *data) override {
+        KisTestingStrokeJobData *td = dynamic_cast<KisTestingStrokeJobData*>(data);
+
+        if (td && td->m_isMutated) {
+            globalExecutedDabs << QString("%1_mutated").arg(name(data));
+        } else if (td && td->m_addMutatedJobs) {
+            globalExecutedDabs << name(data);
+
+            for (int i = 0; i < 3; i++) {
+                KisTestingStrokeJobData *newData =
+                    new KisTestingStrokeJobData(td->sequentiality(), td->exclusivity(), false);
+                newData->m_isMutated = true;
+                m_parentStrokeStrategy->addMutatedJob(newData);
+            }
+        } else {
+            globalExecutedDabs << name(data);
+        }
+    }
+
+    virtual QString name(KisStrokeJobData *data) const override {
+        const QString baseName = KisNoopDabStrategy::name(data);
+
+        KisTestingStrokeJobData *td = dynamic_cast<KisTestingStrokeJobData*>(data);
+        return !td || td->m_customSuffix.isEmpty() ? baseName : QString("%1_%2").arg(baseName).arg(td->m_customSuffix);
+    }
+
+    QString debugId() const override {
+        return "KisMutatableDabStrategy";
+    }
+
+private:
+    KisStrokeStrategy *m_parentStrokeStrategy = 0;
+};
+
 
 class KisTestingStrokeStrategy : public KisStrokeStrategy
 {
 public:
-    KisTestingStrokeStrategy(const QString &prefix = QString(),
+    KisTestingStrokeStrategy(const QLatin1String &prefix = QLatin1String(),
                              bool exclusive = false,
                              bool inhibitServiceJobs = false,
                              bool forceAllowInitJob = false,
@@ -182,7 +244,7 @@ public:
     }
 
     KisStrokeJobStrategy* createDabStrategy() override {
-        return new KisNoopDabStrategy(m_prefix + "dab");
+        return new KisMutatableDabStrategy(m_prefix + "dab", this);
     }
 
     KisStrokeStrategy* createLodClone(int levelOfDetail) override {
@@ -214,9 +276,9 @@ private:
 inline QString getJobName(KisStrokeJob *job) {
     KisNoopDabStrategy *pointer =
         dynamic_cast<KisNoopDabStrategy*>(job->testingGetDabStrategy());
-    Q_ASSERT(pointer);
+    KIS_ASSERT(pointer);
 
-    return pointer->name();
+    return pointer->name(job->testingGetDabData());
 }
 
 inline int cancelSeqNo(KisStrokeJob *job) {

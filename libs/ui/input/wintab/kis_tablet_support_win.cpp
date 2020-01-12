@@ -23,19 +23,18 @@
 
 #include "kis_tablet_support_win_p.h"
 
-#include <input/kis_tablet_event.h>
 #include "kis_tablet_support_win.h"
-// #include "kis_tablet_support.h"
 
 #include <kis_debug.h>
 #include <QApplication>
 #include <QGuiApplication>
 #include <QDesktopWidget>
 
-#include <qpa/qwindowsysteminterface.h>
-#include <qpa/qplatformscreen.h>
-#include <private/qguiapplication_p.h>
+// #include <qpa/qwindowsysteminterface.h>
+// #include <qpa/qplatformscreen.h>
+// #include <private/qguiapplication_p.h>
 
+#include <QPointer>
 #include <QScreen>
 #include <QWidget>
 #include <QLibrary>
@@ -161,11 +160,11 @@ static QPoint mousePosition()
 
 QWindowsWinTab32DLL QWindowsTabletSupport::m_winTab32DLL;
 
-void KisTabletSupportWin::init()
+bool KisTabletSupportWin::init()
 {
     if (!QWindowsTabletSupport::m_winTab32DLL.init()) {
         qWarning() << "Failed to initialize Wintab";
-        return;
+        return false;
     }
 
     QTAB = QWindowsTabletSupport::create();
@@ -176,6 +175,7 @@ void KisTabletSupportWin::init()
                          delete QTAB;
                          QTAB = QWindowsTabletSupport::create();
                      });
+    return true;
 }
 
 
@@ -297,17 +297,17 @@ struct DefaultButtonsConverter
                 if (convertedButton == Qt::NoButton) {
 
                     /**
-                     * Sometimes the driver-handled sortcuts are just
+                     * Sometimes the driver-handled shortcuts are just
                      * keyboard modifiers, so ideally we should handle
                      * them as well. The problem is that we cannot
                      * know if the shortcut was a pan/zoom action or a
-                     * shortcut. So here we use a "hackish" approash.
+                     * shortcut. So here we use a "hackish" approach.
                      * We just check if any modifier has been pressed
                      * and, if so, pass the button to Krita. Of
                      * course, if the driver uses some really complex
                      * shortcuts like "Shift + stylus btn" to generate
                      * some recorded shortcut, it will not work. But I
-                     * guess it will be ok for th emost of the
+                     * guess it will be ok for the most of the
                      * usecases.
                      *
                      * WARNING: this hack will *not* work if you bind
@@ -403,7 +403,7 @@ inline QPointF QWindowsTabletDeviceData::scaleCoordinates(int coordX, int coordY
 
 
 /*!
-  \class QWindowsWinTab32DLL QWindowsTabletSupport
+  \class QWindowsWinTab32DLL
   \brief Functions from wintabl32.dll shipped with WACOM tablets used by QWindowsTabletSupport.
 
   \internal
@@ -415,7 +415,7 @@ bool QWindowsWinTab32DLL::init()
         return true;
     QLibrary library(QStringLiteral("wintab32"));
     if (!library.load()) {
-        qWarning() << "Could not load wintab32 dll";
+        qWarning() << QString("Could not load wintab32 dll: %1").arg(library.errorString());
         return false;
     }
     wTOpen         = (PtrWTOpen)         library.resolve("WTOpenW");
@@ -536,7 +536,7 @@ QString QWindowsTabletSupport::description() const
     const unsigned size = m_winTab32DLL.wTInfo(WTI_INTERFACE, IFC_WINTABID, 0);
     if (!size)
         return QString();
-    QScopedPointer<TCHAR> winTabId(new TCHAR[size + 1]);
+    QVarLengthArray<TCHAR> winTabId(size + 1);
     m_winTab32DLL.wTInfo(WTI_INTERFACE, IFC_WINTABID, winTabId.data());
     WORD implementationVersion = 0;
     m_winTab32DLL.wTInfo(WTI_INTERFACE, IFC_IMPLVERSION, &implementationVersion);
@@ -645,19 +645,21 @@ QWindowsTabletDeviceData QWindowsTabletSupport::tabletInit(const quint64 uniqueI
     result.minTanPressure = int(axis.axMin);
     result.maxTanPressure = int(axis.axMax);
 
-    LOGCONTEXT defaultLc;
+    result.minX = int(lc.lcOutOrgX);
+    result.maxX = int(lc.lcOutExtX) + int(lc.lcOutOrgX);
+    result.minY = int(lc.lcOutOrgY);
+    result.maxY = -int(lc.lcOutExtY) + int(lc.lcOutOrgY);
+    // These are set to 0 when we opened the tablet context in QWindowsTabletSupport::create
+    KIS_SAFE_ASSERT_RECOVER_NOOP(lc.lcOutOrgX == 0);
+    KIS_SAFE_ASSERT_RECOVER_NOOP(lc.lcOutOrgY == 0);
 
-    /* get default region */
-    QWindowsTabletSupport::m_winTab32DLL.wTInfo(WTI_DEFCONTEXT, 0, &defaultLc);
-    result.maxX = int(defaultLc.lcInExtX) - int(defaultLc.lcInOrgX);
-    result.maxY = int(defaultLc.lcInExtY) - int(defaultLc.lcInOrgY);
-    result.maxZ = int(defaultLc.lcInExtZ) - int(defaultLc.lcInOrgZ);
+    result.maxZ = int(lc.lcOutExtZ) - int(lc.lcOutOrgZ);
     result.currentDevice = deviceType(cursorType);
 
     // Define a rectangle representing the whole screen as seen by Wintab.
     QRect qtDesktopRect = QApplication::desktop()->geometry();
-    QRect wintabDesktopRect(defaultLc.lcSysOrgX, defaultLc.lcSysOrgY,
-                            defaultLc.lcSysExtX, defaultLc.lcSysExtY);
+    QRect wintabDesktopRect(lc.lcSysOrgX, lc.lcSysOrgY,
+                            lc.lcSysExtX, lc.lcSysExtY);
     qDebug() << ppVar(qtDesktopRect);
     qDebug() << ppVar(wintabDesktopRect);
 
@@ -682,9 +684,10 @@ QWindowsTabletDeviceData QWindowsTabletSupport::tabletInit(const quint64 uniqueI
         result.virtualDesktopArea = dlg.screenRect();
         dialogOpen = false;
     } else {
-        // this branch is really improbable and most probably means
-        // a bug in the tablet driver. Anyway, we just shouldn't show
-        // hundreds of tablet initialization dialogs
+        // This branch should've been explicitly prevented.
+        KIS_SAFE_ASSERT_RECOVER_NOOP(!dialogOpen);
+        warnTablet << "Trying to init a WinTab device while screen resolution dialog is active, this should not happen!";
+        warnTablet << "Tablet coordinates could be wrong as a result.";
         result.virtualDesktopArea = qtDesktopRect;
     }
 
@@ -696,7 +699,12 @@ QWindowsTabletDeviceData QWindowsTabletSupport::tabletInit(const quint64 uniqueI
 
 bool QWindowsTabletSupport::translateTabletProximityEvent(WPARAM /* wParam */, LPARAM lParam)
 {
-
+    if (dialogOpen) {
+        // tabletInit(...) may show the screen resolution dialog and is blocking.
+        // During this period, don't process any tablet events at all.
+        dbgTablet << "WinTab screen resolution dialog is active, ignoring WinTab proximity event";
+        return false;
+    }
     auto sendProximityEvent = [&](QEvent::Type type) {
         QPointF emptyPos;
         qreal zero = 0.0;
@@ -791,10 +799,13 @@ bool QWindowsTabletSupport::translateTabletPacketEvent()
 
         const int z = currentDevice == QTabletEvent::FourDMouse ? int(packet.pkZ) : 0;
 
-        // This code is to delay the tablet data one cycle to sync with the mouse location.
-        QPointF globalPosF = m_oldGlobalPosF / dpr; // Convert from "native" to "device independent pixels."
-        m_oldGlobalPosF = tabletData.scaleCoordinates(packet.pkX, packet.pkY,
-                                                      tabletData.virtualDesktopArea);
+        // NOTE: we shouldn't postpone the tablet events like Qt does, because we
+        //       don't support mouse mode (which was the reason for introducing this
+        //       postponing). See bug 363284.
+        QPointF globalPosF =
+            tabletData.scaleCoordinates(packet.pkX, packet.pkY,
+                                        tabletData.virtualDesktopArea);
+        globalPosF /= dpr; // Convert from "native" to "device independent pixels."
 
         QPoint globalPos = globalPosF.toPoint();
 
@@ -927,7 +938,7 @@ void QWindowsTabletSupport::tabletUpdateCursor(const int pkCursor)
 #ifdef UNICODE
     if (!isSurfacePro3) {
         /**
-         * Some really "nice" tablet drivers don't know that trhey are
+         * Some really "nice" tablet drivers don't know that they are
          * supposed to return their name length when the buffer is
          * null and they try to write into it effectively causing a
          * suicide. So we cannot rely on it :(

@@ -71,20 +71,6 @@ class KRITAWIDGETUTILS_EXPORT KEditToolBar : public QDialog
     Q_OBJECT
 public:
     /**
-     * Old constructor for apps that do not use components.
-     * This constructor is somewhat deprecated, since it doesn't work
-     * with any KXMLGuiClient being added to the mainwindow.
-     * You really want to use the other constructor.
-     *
-     * You @em must pass along your collection of actions (some of which appear in your toolbars).
-     *
-     * @param collection The collection of actions to work on.
-     * @param parent The parent of the dialog.
-     */
-    explicit KEditToolBar(KActionCollection *collection,
-                          QWidget *parent = 0);
-
-    /**
      * Main constructor.
      *
      * The main parameter, @p factory, is a pointer to the
@@ -130,7 +116,7 @@ public:
      * false is if your application does not use the global resource
      * file at all (very rare).
      *
-     * @param xmlfile The application's local resource file.
+     * @param file The application's local resource file.
      * @param global If @p true, then the global resource file will also
      *               be parsed.
      */
@@ -140,7 +126,7 @@ public:
      * Sets the default toolbar which will be auto-selected for all
      * KEditToolBar instances. Can be overridden on a per-dialog basis
      * by calling setDefaultToolBar( const QString& ) on the dialog.
-     *   @param  toolbarName  the name of the tool bar
+     *   @param  toolBarName  the name of the tool bar
      */
     static void setGlobalDefaultToolBar(const char *toolBarName); // TODO should be const QString&
 

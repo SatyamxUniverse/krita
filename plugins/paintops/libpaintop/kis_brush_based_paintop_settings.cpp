@@ -19,13 +19,15 @@
 #include "kis_brush_based_paintop_settings.h"
 
 #include <kis_paint_action_type_option.h>
-#include <kis_airbrush_option.h>
+#include <kis_airbrush_option_widget.h>
 #include "kis_brush_based_paintop_options_widget.h"
 #include <kis_boundary.h>
 #include "kis_brush_server.h"
 #include <QLineF>
 #include "kis_signals_blocker.h"
 #include "kis_brush_option.h"
+#include <KisPaintopSettingsIds.h>
+#include <brushengine/kis_paintop_preset.h>
 
 struct BrushReader {
     BrushReader(const KisBrushBasedPaintOpSettings *parent)
@@ -39,7 +41,7 @@ struct BrushReader {
     }
 
     const KisBrushBasedPaintOpSettings *m_parent;
-    KisBrushOption m_option;
+    KisBrushOptionProperties m_option;
 };
 
 struct BrushWriter {
@@ -58,14 +60,16 @@ struct BrushWriter {
     }
 
     KisBrushBasedPaintOpSettings *m_parent;
-    KisBrushOption m_option;
+    KisBrushOptionProperties m_option;
 };
 
 
 KisBrushBasedPaintOpSettings::KisBrushBasedPaintOpSettings()
     : KisOutlineGenerationPolicy<KisPaintOpSettings>(KisCurrentOutlineFetcher::SIZE_OPTION |
             KisCurrentOutlineFetcher::ROTATION_OPTION |
-            KisCurrentOutlineFetcher::MIRROR_OPTION)
+            KisCurrentOutlineFetcher::MIRROR_OPTION |
+            KisCurrentOutlineFetcher::SHARPNESS_OPTION)
+
 {
 }
 
@@ -81,7 +85,7 @@ KisPaintOpSettingsSP KisBrushBasedPaintOpSettings::clone() const
 {
     KisPaintOpSettingsSP _settings = KisOutlineGenerationPolicy<KisPaintOpSettings>::clone();
     KisBrushBasedPaintOpSettingsSP settings = dynamic_cast<KisBrushBasedPaintOpSettings*>(_settings.data());
-    settings->m_savedBrush = this->brush();
+    settings->m_savedBrush = 0;
     return settings;
 }
 
@@ -99,58 +103,60 @@ KisBrushSP KisBrushBasedPaintOpSettings::brush() const
 }
 
 QPainterPath KisBrushBasedPaintOpSettings::brushOutlineImpl(const KisPaintInformation &info,
-                                                            OutlineMode mode,
-                                                            qreal additionalScale,
-                                                            bool forceOutline)
+                                                            const OutlineMode &mode,
+                                                            qreal additionalScale)
 {
     QPainterPath path;
 
-    if (forceOutline || mode == CursorIsOutline || mode == CursorIsCircleOutline || mode == CursorTiltOutline) {
+    if (mode.isVisible) {
         KisBrushSP brush = this->brush();
         if (!brush) return path;
         qreal finalScale = brush->scale() * additionalScale;
 
         QPainterPath realOutline = brush->outline();
 
-        if (mode == CursorIsCircleOutline || mode == CursorTiltOutline ||
-            (forceOutline && mode == CursorNoOutline)) {
+        if (mode.forceCircle) {
 
             QPainterPath ellipse;
             ellipse.addEllipse(realOutline.boundingRect());
             realOutline = ellipse;
         }
 
-        path = outlineFetcher()->fetchOutline(info, this, realOutline, finalScale, brush->angle());
+        path = outlineFetcher()->fetchOutline(info, this, realOutline, mode, finalScale, brush->angle());
 
-        if (mode == CursorTiltOutline) {
-            QPainterPath tiltLine = makeTiltIndicator(info,
+        if (mode.showTiltDecoration) {
+            const QPainterPath tiltLine = makeTiltIndicator(info,
                 realOutline.boundingRect().center(),
                 realOutline.boundingRect().width() * 0.5,
                 3.0);
-            path.addPath(outlineFetcher()->fetchOutline(info, this, tiltLine, finalScale, 0.0, true, realOutline.boundingRect().center().x(), realOutline.boundingRect().center().y()));
+            path.addPath(outlineFetcher()->fetchOutline(info, this, tiltLine, mode, finalScale, 0.0, true, realOutline.boundingRect().center().x(), realOutline.boundingRect().center().y()));
         }
     }
 
     return path;
 }
 
-QPainterPath KisBrushBasedPaintOpSettings::brushOutline(const KisPaintInformation &info, OutlineMode mode)
+QPainterPath KisBrushBasedPaintOpSettings::brushOutline(const KisPaintInformation &info, const OutlineMode &mode)
 {
     return brushOutlineImpl(info, mode, 1.0);
 }
 
 bool KisBrushBasedPaintOpSettings::isValid() const
 {
-    QString filename = getString("requiredBrushFile", QString());
-    if (!filename.isEmpty()) {
-        KisBrushSP brush = KisBrushServer::instance()->brushServer()->resourceByFilename(filename);
-        if (!brush) {
-            return false;
+    QStringList files = getStringList(KisPaintOpUtils::RequiredBrushFilesListTag);
+    files << getString(KisPaintOpUtils::RequiredBrushFileTag);
+
+    Q_FOREACH (const QString &file, files) {
+        if (!file.isEmpty()) {
+            KisBrushSP brush = KisBrushServer::instance()->brushServer()->resourceByFilename(file);
+            if (!brush) {
+                return false;
+            }
         }
     }
+
     return true;
 }
-
 bool KisBrushBasedPaintOpSettings::isLoadable()
 {
     return (KisBrushServer::instance()->brushServer()->resources().count() > 0);
@@ -298,20 +304,22 @@ QList<KisUniformPaintOpPropertySP> KisBrushBasedPaintOpSettings::uniformProperti
                 [](KisUniformPaintOpProperty *prop) {
                     KisBrushBasedPaintOpSettings *s =
                         dynamic_cast<KisBrushBasedPaintOpSettings*>(prop->settings().data());
-
-                    const qreal value = s->autoSpacingActive() ?
-                        s->autoSpacingCoeff() : s->spacing();
-                    prop->setValue(value);
+                    if (s) {
+                        const qreal value = s->autoSpacingActive() ?
+                            s->autoSpacingCoeff() : s->spacing();
+                        prop->setValue(value);
+                    }
                 });
             prop->setWriteCallback(
                 [](KisUniformPaintOpProperty *prop) {
                     KisBrushBasedPaintOpSettings *s =
                         dynamic_cast<KisBrushBasedPaintOpSettings*>(prop->settings().data());
-
-                    if (s->autoSpacingActive()) {
-                        s->setAutoSpacing(true, prop->value().toReal());
-                    } else {
-                        s->setSpacing(prop->value().toReal());
+                    if (s) {
+                        if (s->autoSpacingActive()) {
+                            s->setAutoSpacing(true, prop->value().toReal());
+                        } else {
+                            s->setSpacing(prop->value().toReal());
+                        }
                     }
                 });
 

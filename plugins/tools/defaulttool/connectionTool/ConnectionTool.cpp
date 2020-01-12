@@ -83,51 +83,51 @@ ConnectionTool::ConnectionTool(KoCanvasBase *canvas)
     KisActionRegistry *actionRegistry = KisActionRegistry::instance();
     m_editConnectionPoint = actionRegistry->makeQAction("toggle-edit-mode", this);
     m_editConnectionPoint->setCheckable(true);
-    addAction("toggle-edit-mode", m_editConnectionPoint);
+//    addAction("toggle-edit-mode", m_editConnectionPoint);
 
     m_alignPercent = actionRegistry->makeQAction("align-relative", this);
     m_alignPercent->setCheckable(true);
-    addAction("align-relative", m_alignPercent);
+//    addAction("align-relative", m_alignPercent);
     m_alignLeft = actionRegistry->makeQAction("align-left", this);
     m_alignLeft->setCheckable(true);
-    addAction("align-left", m_alignLeft);
+//    addAction("align-left", m_alignLeft);
     m_alignCenterH = actionRegistry->makeQAction("align-centerh", this);
     m_alignCenterH->setCheckable(true);
-    addAction("align-centerh", m_alignCenterH);
+//    addAction("align-centerh", m_alignCenterH);
     m_alignRight = actionRegistry->makeQAction("align-right", this);
     m_alignRight->setCheckable(true);
-    addAction("align-right", m_alignRight);
+//    addAction("align-right", m_alignRight);
     m_alignTop = actionRegistry->makeQAction("align-top", this);
     m_alignTop->setCheckable(true);
-    addAction("align-top", m_alignTop);
+//    addAction("align-top", m_alignTop);
     m_alignCenterV = actionRegistry->makeQAction("align-centerv", this);
     m_alignCenterV->setCheckable(true);
-    addAction("align-centerv", m_alignCenterV);
+//    addAction("align-centerv", m_alignCenterV);
     m_alignBottom = actionRegistry->makeQAction("align-bottom", this);
     m_alignBottom->setCheckable(true);
-    addAction("align-bottom", m_alignBottom);
+//    addAction("align-bottom", m_alignBottom);
 
     m_escapeAll = actionRegistry->makeQAction("escape-all", this);
     m_escapeAll->setCheckable(true);
-    addAction("escape-all", m_escapeAll);
+//    addAction("escape-all", m_escapeAll);
     m_escapeHorizontal = actionRegistry->makeQAction("escape-horizontal", this);
     m_escapeHorizontal->setCheckable(true);
-    addAction("escape-horizontal", m_escapeHorizontal);
+//    addAction("escape-horizontal", m_escapeHorizontal);
     m_escapeVertical = actionRegistry->makeQAction("escape-vertical", this);
     m_escapeVertical->setCheckable(true);
-    addAction("escape-vertical", m_escapeVertical);
+//    addAction("escape-vertical", m_escapeVertical);
     m_escapeLeft = actionRegistry->makeQAction("escape-left", this);
     m_escapeLeft->setCheckable(true);
-    addAction("escape-left", m_escapeLeft);
+//    addAction("escape-left", m_escapeLeft);
     m_escapeRight = actionRegistry->makeQAction("escape-right", this);
     m_escapeRight->setCheckable(true);
-    addAction("escape-right", m_escapeRight);
+//    addAction("escape-right", m_escapeRight);
     m_escapeUp = actionRegistry->makeQAction("escape-up", this);
     m_escapeUp->setCheckable(true);
-    addAction("escape-up", m_escapeUp);
+//    addAction("escape-up", m_escapeUp);
     m_escapeDown = actionRegistry->makeQAction("escape-down", this);
     m_escapeDown->setCheckable(true);
-    addAction("escape-down", m_escapeDown);
+//    addAction("escape-down", m_escapeDown);
 
     m_alignHorizontal = new QActionGroup(this);
     m_alignHorizontal->setExclusive(true);
@@ -237,7 +237,7 @@ void ConnectionTool::repaintDecorations()
         repaintRect = m_currentShape->boundingRect();
         canvas()->updateCanvas(repaintRect.adjusted(-radius, -radius, radius, radius));
         KoConnectionShape *connectionShape = dynamic_cast<KoConnectionShape *>(m_currentShape);
-        if (!m_resetPaint && m_currentShape->isVisible(true) && !connectionShape) {
+        if (!m_resetPaint && m_currentShape->isVisible() && !connectionShape) {
             // only paint connection points of textShapes not inside a tos container and other shapes
             if (!(m_currentShape->shapeId() == TextShape_SHAPEID &&
                   dynamic_cast<KoTosContainer *>(m_currentShape->parent()))) {
@@ -445,7 +445,7 @@ void ConnectionTool::mouseReleaseEvent(KoPointerEvent *event)
                 return;
             } else {
                 // finalize adding the new connection shape with an undo command
-                KUndo2Command *cmd = canvas()->shapeController()->addShape(m_currentShape);
+                KUndo2Command *cmd = canvas()->shapeController()->addShape(m_currentShape, 0);
                 canvas()->addCommand(cmd);
                 setEditMode(EditConnection, m_currentShape, KoConnectionShape::StartHandle);
             }
@@ -548,7 +548,7 @@ KoShape *ConnectionTool::findShapeAtPosition(const QPointF &position) const
 {
     QList<KoShape *> shapes = canvas()->shapeManager()->shapesAt(handleGrabRect(position));
     if (!shapes.isEmpty()) {
-        qSort(shapes.begin(), shapes.end(), KoShape::compareShapeZIndex);
+        std::sort(shapes.begin(), shapes.end(), KoShape::compareShapeZIndex);
         // we want to priorize connection shape handles, even if the connection shape
         // is not at the top of the shape stack at the mouse position
         KoConnectionShape *connectionShape = nearestConnectionShape(shapes, position);
@@ -572,7 +572,7 @@ KoShape *ConnectionTool::findNonConnectionShapeAtPosition(const QPointF &positio
 {
     QList<KoShape *> shapes = canvas()->shapeManager()->shapesAt(handleGrabRect(position));
     if (!shapes.isEmpty()) {
-        qSort(shapes.begin(), shapes.end(), KoShape::compareShapeZIndex);
+        std::sort(shapes.begin(), shapes.end(), KoShape::compareShapeZIndex);
         for (QList<KoShape *>::const_iterator end = shapes.constEnd() - 1; end >= shapes.constBegin(); --end) {
             KoShape *shape = *end;
             if (!dynamic_cast<KoConnectionShape *>(shape) && shape->shapeId() != TextShape_SHAPEID) {

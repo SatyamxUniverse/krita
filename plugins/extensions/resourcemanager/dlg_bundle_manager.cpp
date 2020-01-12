@@ -31,7 +31,9 @@
 
 #include <kis_icon.h>
 #include "kis_action.h"
-#include <kis_resource_server_provider.h>
+#include <KisResourceServerProvider.h>
+#include <kconfiggroup.h>
+#include <ksharedconfig.h>
 
 #define ICON_SIZE 48
 
@@ -92,7 +94,7 @@ DlgBundleManager::DlgBundleManager(ResourceManager *resourceManager, KisActionMa
 
 void DlgBundleManager::refreshListData()
 {
-    KoResourceServer<KisResourceBundle> *bundleServer = KisResourceServerProvider::instance()->resourceBundleServer();
+    KoResourceServer<KisResourceBundle> *bundleServer = KisResourceBundleServerProvider::instance()->resourceBundleServer();
 
     m_ui->listInactive->clear();
     m_ui->listActive->clear();
@@ -117,11 +119,12 @@ void DlgBundleManager::refreshListData()
 
 void DlgBundleManager::accept()
 {
-    KoResourceServer<KisResourceBundle> *bundleServer = KisResourceServerProvider::instance()->resourceBundleServer();
+    KoResourceServer<KisResourceBundle> *bundleServer = KisResourceBundleServerProvider::instance()->resourceBundleServer();
 
     for (int i = 0; i < m_ui->listActive->count(); ++i) {
         QListWidgetItem *item = m_ui->listActive->item(i);
         QByteArray ba = item->data(Qt::UserRole).toByteArray();
+        QString name = item->text();
         KisResourceBundle *bundle = bundleServer->resourceByMD5(ba);
         QMessageBox bundleFeedback;
         bundleFeedback.setIcon(QMessageBox::Warning);
@@ -138,30 +141,42 @@ void DlgBundleManager::accept()
         }
 
         if (bundle) {
-            if(!bundle->isInstalled()){
-                bundle->install();
-                //this removes the bundle from the blacklist and add it to the server without saving or putting it in front//
-                if(!bundleServer->addResource(bundle, false, false)){
-
-                    feedback = i18n("Couldn't add bundle to resource server");
-                    bundleFeedback.setText(feedback);
-                    bundleFeedback.exec();
-                }
-                if(!bundleServer->removeFromBlacklist(bundle)){
-                    feedback = i18n("Couldn't remove bundle from blacklist");
-                    bundleFeedback.setText(feedback);
-                    bundleFeedback.exec();
-                }
+            bool isKrita3Bundle = false;
+            if (bundle->filename().endsWith("Krita_3_Default_Resources.bundle")) {
+                isKrita3Bundle = true;
+                KConfigGroup group = KSharedConfig::openConfig()->group("BundleHack");
+                group.writeEntry("HideKrita3Bundle", false);
             }
             else {
-            bundleServer->removeFromBlacklist(bundle);
-            //let's asume that bundles who exist and are installed have to be removed from the blacklist, and if they were already this returns false, so that's not a problem.
+                if (!bundle->isInstalled()) {
+                    bundle->install();
+                    //this removes the bundle from the blacklist and add it to the server without saving or putting it in front//
+                    if (!bundleServer->addResource(bundle, false, false)){
+
+                        feedback = i18n("Couldn't add bundle \"%1\" to resource server", name);
+                        bundleFeedback.setText(feedback);
+                        bundleFeedback.exec();
+                    }
+                    if (!isKrita3Bundle) {
+                        if (!bundleServer->removeFromBlacklist(bundle)) {
+                            feedback = i18n("Couldn't remove bundle \"%1\" from blacklist", name);
+                            bundleFeedback.setText(feedback);
+                            bundleFeedback.exec();
+                        }
+                    }
+                }
+                else {
+                    if (!isKrita3Bundle) {
+                        bundleServer->removeFromBlacklist(bundle);
+                    }
+                    //let's assume that bundles that exist and are installed have to be removed from the blacklist, and if they were already this returns false, so that's not a problem.
+                }
             }
         }
         else{
-        QString feedback = i18n("Bundle doesn't exist!");
-        bundleFeedback.setText(feedback);
-        bundleFeedback.exec();
+            QString feedback = i18n("Bundle \"%1\" doesn't exist!", name);
+            bundleFeedback.setText(feedback);
+            bundleFeedback.exec();
 
         }
     }
@@ -170,11 +185,19 @@ void DlgBundleManager::accept()
         QListWidgetItem *item = m_ui->listInactive->item(i);
         QByteArray ba = item->data(Qt::UserRole).toByteArray();
         KisResourceBundle *bundle = bundleServer->resourceByMD5(ba);
-
-
-        if (bundle && bundle->isInstalled()) {
-            bundle->uninstall();
-            bundleServer->removeResourceAndBlacklist(bundle);
+        bool isKrits3Bundle = false;
+        if (bundle) {
+            if (bundle->filename().contains("Krita_3_Default_Resources.bundle")) {
+                isKrits3Bundle = true;
+                KConfigGroup group = KSharedConfig::openConfig()->group("BundleHack");
+                group.writeEntry("HideKrita3Bundle", true);
+            }
+            if (bundle->isInstalled()) {
+                bundle->uninstall();
+                if (!isKrits3Bundle) {
+                    bundleServer->removeResourceAndBlacklist(bundle);
+                }
+            }
         }
     }
 
@@ -184,7 +207,6 @@ void DlgBundleManager::accept()
 
 void DlgBundleManager::addSelected()
 {
-
     Q_FOREACH (QListWidgetItem *item, m_ui->listActive->selectedItems()) {
         m_ui->listInactive->addItem(m_ui->listActive->takeItem(m_ui->listActive->row(item)));
     }
@@ -217,7 +239,7 @@ void DlgBundleManager::itemSelected(QListWidgetItem *current, QListWidgetItem *)
     else {
 
         QByteArray ba = current->data(Qt::UserRole).toByteArray();
-        KoResourceServer<KisResourceBundle> *bundleServer = KisResourceServerProvider::instance()->resourceBundleServer();
+        KoResourceServer<KisResourceBundle> *bundleServer = KisResourceBundleServerProvider::instance()->resourceBundleServer();
         KisResourceBundle *bundle = bundleServer->resourceByMD5(ba);
 
         if (!bundle) {
@@ -232,18 +254,31 @@ void DlgBundleManager::itemSelected(QListWidgetItem *current, QListWidgetItem *)
 
 
         if (bundle) {
+            QFontMetrics metrics(this->font());
 
             m_currentBundle = bundle;
             m_ui->bnEditBundle->setEnabled(true);
 
             m_ui->lblName->setText(bundle->name());
-            m_ui->lblAuthor->setText(bundle->getMeta("author"));
-            m_ui->lblEmail->setText(bundle->getMeta("email"));
-            m_ui->lblLicense->setText(bundle->getMeta("license"));
-            m_ui->lblWebsite->setText(bundle->getMeta("website"));
+            m_ui->lblAuthor->setText(metrics.elidedText(bundle->getMeta("author"), Qt::ElideRight, m_ui->lblAuthor->width()));
+            m_ui->lblAuthor->setToolTip(bundle->getMeta("author"));
+            m_ui->lblEmail->setText(metrics.elidedText(bundle->getMeta("email"), Qt::ElideRight, m_ui->lblEmail->width()));
+            m_ui->lblEmail->setToolTip(bundle->getMeta("email"));
+            m_ui->lblLicense->setText(metrics.elidedText(bundle->getMeta("license"), Qt::ElideRight, m_ui->lblLicense->width()));
+            m_ui->lblLicense->setToolTip(bundle->getMeta("license"));
+            m_ui->lblWebsite->setText(metrics.elidedText(bundle->getMeta("website"), Qt::ElideRight, m_ui->lblWebsite->width()));
+            m_ui->lblWebsite->setToolTip(bundle->getMeta("website"));
             m_ui->lblDescription->setPlainText(bundle->getMeta("description"));
-            m_ui->lblCreated->setText(bundle->getMeta("created"));
-            m_ui->lblUpdated->setText(bundle->getMeta("updated"));
+            if (QDateTime::fromString(bundle->getMeta("created"), Qt::ISODate).isValid()) {
+                m_ui->lblCreated->setText(QDateTime::fromString(bundle->getMeta("created"), Qt::ISODate).toLocalTime().toString(Qt::DefaultLocaleShortDate));
+            } else {
+                m_ui->lblCreated->setText(QDate::fromString(bundle->getMeta("created"), "dd/MM/yyyy").toString(Qt::DefaultLocaleShortDate));
+            }
+            if (QDateTime::fromString(bundle->getMeta("updated"), Qt::ISODate).isValid()) {
+                m_ui->lblUpdated->setText(QDateTime::fromString(bundle->getMeta("updated"), Qt::ISODate).toLocalTime().toString(Qt::DefaultLocaleShortDate));
+            } else {
+                m_ui->lblUpdated->setText(QDate::fromString(bundle->getMeta("updated"), "dd/MM/yyyy").toString(Qt::DefaultLocaleShortDate));
+            }
             m_ui->lblPreview->setPixmap(QPixmap::fromImage(bundle->image().scaled(128, 128, Qt::KeepAspectRatio, Qt::SmoothTransformation)));
             m_ui->listBundleContents->clear();
 
@@ -268,6 +303,10 @@ void DlgBundleManager::itemSelected(QListWidgetItem *current, QListWidgetItem *)
                 else if (resType  == "paintoppresets") {
                     toplevel->setText(0, i18n("Brush Presets"));
                 }
+                else if (resType  == "gamutmasks") {
+                    toplevel->setText(0, i18n("Gamut Masks"));
+                }
+
 
                 m_ui->listBundleContents->addTopLevelItem(toplevel);
 

@@ -47,14 +47,6 @@ SvgShapeFactory::~SvgShapeFactory()
 
 }
 
-void SvgShapeFactory::addToRegistry()
-{
-    KoShapeRegistry *registry = KoShapeRegistry::instance();
-    if (!registry->contains(QString(SVGSHAPEFACTORYID))) {
-        registry->addFactory(new SvgShapeFactory);
-    }
-}
-
 bool SvgShapeFactory::supports(const KoXmlElement &element, KoShapeLoadingContext &context) const
 {
     if (element.localName() == "image" && element.namespaceURI() == KoXmlNS::draw) {
@@ -117,32 +109,66 @@ KoShape *SvgShapeFactory::createShapeFromOdf(const KoXmlElement &element, KoShap
             return 0;
         }
 
-        SvgParser parser(context.documentResourceManager());
+        const int zIndex = calculateZIndex(element, context);
 
-        QList<KoShape*> shapes = parser.parseSvg(xmlDoc.documentElement());
-        if (shapes.isEmpty())
-            return 0;
 
-        int zIndex = 0;
-        if (element.hasAttributeNS(KoXmlNS::draw, "z-index")) {
-            zIndex = element.attributeNS(KoXmlNS::draw, "z-index").toInt();
-        } else {
-            zIndex = context.zIndex();
-        }
+        /**
+         * In Krita 3.x we used hardcoded values for shape resolution and font resolution.
+         * Override them here explicitly, because ODF-based files can be created only in
+         * Krita 3.x.
+         *
+         * NOTE: don't ask me why they differ...
+         */
+        const qreal hardcodedImageResolution = 90.0;
+        const qreal hardcodedFontResolution = 96.0;
 
-        if (shapes.count() == 1) {
-            KoShape *shape = shapes.first();
-            shape->setZIndex(zIndex);
-            return shape;
-        }
-
-        KoShapeGroup *svgGroup = new KoShapeGroup;
-        KoShapeGroupCommand cmd(svgGroup, shapes);
-        cmd.redo();
-        svgGroup->setZIndex(zIndex);
-
-        return svgGroup;
+        return createShapeFromSvgDirect(xmlDoc.documentElement(), QRect(0,0,300,300),
+                                        hardcodedImageResolution,
+                                        hardcodedFontResolution, zIndex, context);
     }
 
     return 0;
+}
+
+int SvgShapeFactory::calculateZIndex(const KoXmlElement &element, KoShapeLoadingContext &context)
+{
+    int zIndex = 0;
+
+    if (element.hasAttributeNS(KoXmlNS::draw, "z-index")) {
+        zIndex = element.attributeNS(KoXmlNS::draw, "z-index").toInt();
+    } else {
+        zIndex = context.zIndex();
+    }
+
+    return zIndex;
+}
+
+KoShape *SvgShapeFactory::createShapeFromSvgDirect(const KoXmlElement &root,
+                                                   const QRectF &boundsInPixels,
+                                                   const qreal pixelsPerInch,
+                                                   const qreal forcedFontSizeResolution,
+                                                   int zIndex,
+                                                   KoShapeLoadingContext &context,
+                                                   QSizeF *fragmentSize)
+{
+    SvgParser parser(context.documentResourceManager());
+    parser.setResolution(boundsInPixels, pixelsPerInch);
+    parser.setForcedFontSizeResolution(forcedFontSizeResolution);
+
+    QList<KoShape*> shapes = parser.parseSvg(root, fragmentSize);
+    if (shapes.isEmpty())
+        return 0;
+
+    if (shapes.count() == 1) {
+        KoShape *shape = shapes.first();
+        shape->setZIndex(zIndex);
+        return shape;
+    }
+
+    KoShapeGroup *svgGroup = new KoShapeGroup;
+    KoShapeGroupCommand cmd(svgGroup, shapes);
+    cmd.redo();
+    svgGroup->setZIndex(zIndex);
+
+    return svgGroup;
 }

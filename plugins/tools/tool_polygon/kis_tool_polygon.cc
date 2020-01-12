@@ -4,7 +4,7 @@
  *  Copyright (c) 2004 Michael Thaler <michael.thaler@physik.tu-muenchen.de>
  *  Copyright (c) 2009 Lukáš Tvrdý <lukast.dev@gmail.com>
  *  Copyright (c) 2010 Cyrille Berger <cberger@cberger.net>
- * Copyright (C) 2010 Boudewijn Rempt <boud@kogmbh.com>
+ * Copyright (C) 2010 Boudewijn Rempt <boud@valdyas.org>
  *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
@@ -31,12 +31,6 @@
 #include <brushengine/kis_paintop_registry.h>
 #include "kis_figure_painting_tool_helper.h"
 
-#include <recorder/kis_action_recorder.h>
-#include <recorder/kis_recorded_path_paint_action.h>
-#include <recorder/kis_node_query_path.h>
-
-
-
 KisToolPolygon::KisToolPolygon(KoCanvasBase *canvas)
         : KisToolPolylineBase(canvas,  KisToolPolylineBase::PAINT, KisCursor::load("tool_polygon_cursor.png", 6, 6))
 {
@@ -56,18 +50,10 @@ void KisToolPolygon::resetCursorStyle()
 
 void KisToolPolygon::finishPolyline(const QVector<QPointF>& points)
 {
-    if (!blockUntilOperationsFinished()) return;
+    const KisToolShape::ShapeAddInfo info =
+        shouldAddShape(currentNode());
 
-    if (image()) {
-        KisRecordedPathPaintAction linePaintAction(KisNodeQueryPath::absolutePath(currentNode()),
-                                                   currentPaintOpPreset(),
-                                                   KisDistanceInitInfo());
-        setupPaintAction(&linePaintAction);
-        linePaintAction.addPolyLine(points.toList());
-        linePaintAction.addLine(KisPaintInformation(points.last()), KisPaintInformation(points.first()));
-        image()->actionRecorder()->addAction(linePaintAction);
-    }
-    if (!currentNode()->inherits("KisShapeLayer")) {
+    if (!info.shouldAddShape) {
         KisFigurePaintingToolHelper helper(kundo2_i18n("Draw Polygon"),
                                            image(),
                                            currentNode(),
@@ -76,19 +62,23 @@ void KisToolPolygon::finishPolyline(const QVector<QPointF>& points)
                                            fillStyle());
         helper.paintPolygon(points);
     } else {
+        // remove the last point if it overlaps with the first
+        QVector<QPointF> newPoints = points;
+        if (newPoints.size() > 1 && newPoints.first() == newPoints.last()) {
+            newPoints.removeLast();
+        }
         KoPathShape* path = new KoPathShape();
         path->setShapeId(KoPathShapeId);
 
         QTransform resolutionMatrix;
         resolutionMatrix.scale(1 / currentImage()->xRes(), 1 / currentImage()->yRes());
-        path->moveTo(resolutionMatrix.map(points[0]));
-        for (int i = 1; i < points.count(); i++)
-            path->lineTo(resolutionMatrix.map(points[i]));
+        path->moveTo(resolutionMatrix.map(newPoints[0]));
+        for (int i = 1; i < newPoints.size(); i++)
+            path->lineTo(resolutionMatrix.map(newPoints[i]));
         path->close();
         path->normalize();
 
-        KoShapeStrokeSP border(new KoShapeStroke(currentStrokeWidth(), currentFgColor().toQColor()));
-        path->setStroke(border);
+        info.markAsSelectionShapeIfNeeded(path);
 
         addShape(path);
     }

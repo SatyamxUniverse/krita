@@ -25,7 +25,7 @@
 
 class ManagedColor;
 class Resource;
-
+class Node;
 class KisView;
 
 /**
@@ -57,6 +57,11 @@ public Q_SLOTS:
     Document* document() const;
 
     /**
+     * Reset the view to show @p document.
+     */
+    void setDocument(Document *document);
+
+    /**
      * @return true if the current view is visible, false if not.
      */
     bool visible() const;
@@ -79,10 +84,10 @@ public Q_SLOTS:
     void activateResource(Resource *resource);
 
     /**
-     * @brief foreGroundColor allows access to the currently active color.
+     * @brief foregroundColor allows access to the currently active color.
      * This is nominally per canvas/view, but in practice per mainwindow.
      * @code
-color = Application.activeWindow().activeView().foreGroundColor()
+color = Application.activeWindow().activeView().foregroundColor()
 components = color.components()
 components[0] = 1.0
 components[1] = 0.6
@@ -91,10 +96,10 @@ color.setComponents(components)
 Application.activeWindow().activeView().setForeGroundColor(color)
      * @endcode
      */
-    ManagedColor *foreGroundColor() const;
+    ManagedColor *foregroundColor() const;
     void setForeGroundColor(ManagedColor *color);
 
-    ManagedColor *backGroundColor() const;
+    ManagedColor *backgroundColor() const;
     void setBackGroundColor(ManagedColor *color);
 
     Resource *currentBrushPreset() const;
@@ -123,6 +128,23 @@ Application.activeWindow().activeView().setForeGroundColor(color)
 
     qreal paintingFlow() const;
     void setPaintingFlow(qreal flow);
+
+    /**
+     * @brief selectedNodes returns a list of Nodes that are selected in this view.
+     *
+     *
+@code
+from krita import *
+w = Krita.instance().activeWindow()
+v = w.activeView()
+selected_nodes = v.selectedNodes()
+print(selected_nodes)
+@endcode
+     *
+     *
+     * @return a list of Node objects which may be empty.
+     */
+    QList<Node *> selectedNodes() const;
 
 private:
 

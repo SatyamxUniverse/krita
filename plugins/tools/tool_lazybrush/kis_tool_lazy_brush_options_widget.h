@@ -29,6 +29,9 @@ class KisCanvasResourceProvider;
 class KoColor;
 
 
+/**
+ * @brief The KisToolLazyBrushOptionsWidget class
+ */
 class KisToolLazyBrushOptionsWidget : public QWidget
 {
     Q_OBJECT
@@ -49,6 +52,13 @@ private Q_SLOTS:
     void slotSetAutoUpdates(bool value);
     void slotSetShowKeyStrokes(bool value);
     void slotSetShowOutput(bool value);
+
+    void slotUseEdgeDetectionChanged(bool value);
+    void slotEdgeDetectionSizeChanged(int value);
+    void slotRadiusChanged(int value);
+    void slotCleanUpChanged(int value);
+    void slotLimitToDeviceChanged(bool value);
+
 
     void slotUpdateNodeProperties();
 

@@ -834,8 +834,8 @@ bool KoTextLayoutArea::layoutBlock(FrameIterator *cursor)
     if (cursor->lineTextStart == -1) {
         // first remove any drop-caps related formatting that's already there in the layout.
         // we'll do it all afresh now.
-        QList<QTextLayout::FormatRange> formatRanges = layout->additionalFormats();
-        for (QList< QTextLayout::FormatRange >::Iterator iter = formatRanges.begin();
+        QVector<QTextLayout::FormatRange> formatRanges = layout->formats();
+        for (QVector< QTextLayout::FormatRange >::Iterator iter = formatRanges.begin();
                 iter != formatRanges.end(); ) {
             if (iter->format.boolProperty(DropCapsAdditionalFormattingId)) {
                 iter = formatRanges.erase(iter);
@@ -843,8 +843,8 @@ bool KoTextLayoutArea::layoutBlock(FrameIterator *cursor)
                 ++iter;
             }
         }
-        if (formatRanges.count() != layout->additionalFormats().count())
-            layout->setAdditionalFormats(formatRanges);
+        if (formatRanges.count() != layout->formats().count())
+            layout->setFormats(formatRanges);
         bool dropCaps = pStyle.dropCaps();
         int dropCapsLength = pStyle.dropCapsLength();
         int dropCapsLines = pStyle.dropCapsLines();
@@ -935,7 +935,7 @@ bool KoTextLayoutArea::layoutBlock(FrameIterator *cursor)
                 dropCapsFormatRange.start = 0;
                 dropCapsFormatRange.length = dropCapsLength;
                 formatRanges.append(dropCapsFormatRange);
-                layout->setAdditionalFormats(formatRanges);
+                layout->setFormats(formatRanges);
 
                 d->dropCapsNChars = dropCapsLength;
                 dropCapsAffectsNMoreLines = (d->dropCapsNChars > 0) ? dropCapsLines : 0;
@@ -949,7 +949,7 @@ bool KoTextLayoutArea::layoutBlock(FrameIterator *cursor)
     qreal startMargin = block.blockFormat().leftMargin();
     qreal endMargin = block.blockFormat().rightMargin();
     if (d->isRtl) {
-        qSwap(startMargin, endMargin);
+        std::swap(startMargin, endMargin);
     }
     d->indent = textIndent(block, textList, pStyle) + d->extraTextIndent;
 
@@ -1102,7 +1102,7 @@ bool KoTextLayoutArea::layoutBlock(FrameIterator *cursor)
 
     // We need to sort as the MaximumTabPos may be converted to a value that really
     // should be in the middle, and listtab needs to be sorted in too
-    qSort(qTabs.begin(), qTabs.end(), compareTab);
+    std::sort(qTabs.begin(), qTabs.end(), compareTab);
 
     // Regular interval tabs. Since Qt doesn't handle regular interval tabs offset
     // by a fixed number we need to create the regular tabs ourselves.
@@ -1618,8 +1618,7 @@ qreal KoTextLayoutArea::addLine(QTextLine &line, FrameIterator *cursor, KoTextBl
                 || !d->documentLayout->changeTracker()->containsInlineChanges(fragment.charFormat())
                 || !d->documentLayout->changeTracker()->elementById(fragment.charFormat().property(KoCharacterStyle::ChangeTrackerId).toInt())
                 || !d->documentLayout->changeTracker()->elementById(fragment.charFormat().property(KoCharacterStyle::ChangeTrackerId).toInt())->isEnabled()
-                || (d->documentLayout->changeTracker()->elementById(fragment.charFormat().property(KoCharacterStyle::ChangeTrackerId).toInt())->getChangeType() != KoGenChange::DeleteChange)
-                || d->documentLayout->changeTracker()->displayChanges()) {
+                || (d->documentLayout->changeTracker()->elementById(fragment.charFormat().property(KoCharacterStyle::ChangeTrackerId).toInt())->getChangeType() != KoGenChange::DeleteChange)) {
                 qreal fontStretch = 1;
                 if (useFontProperties) {
                     //stretch line height to powerpoint size

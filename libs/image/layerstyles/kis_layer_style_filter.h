@@ -27,6 +27,7 @@
 
 class KisLayerStyleFilterEnvironment;
 class KisMultipleProjection;
+class KisLayerStyleKnockoutBlower;
 
 class KRITAIMAGE_EXPORT KisLayerStyleFilter : public KisShared
 {
@@ -39,8 +40,11 @@ public:
      */
     QString id() const;
 
+    virtual KisLayerStyleFilter* clone() const = 0;
+
     virtual void processDirectly(KisPaintDeviceSP src,
                                  KisMultipleProjection *dst,
+                                 KisLayerStyleKnockoutBlower *blower,
                                  const QRect &applyRect,
                                  KisPSDLayerStyleSP style,
                                  KisLayerStyleFilterEnvironment *env) const = 0;
@@ -58,6 +62,9 @@ public:
      * might be bigger. Use this function to determine that rect.
      */
     virtual QRect changedRect(const QRect & rect, KisPSDLayerStyleSP style, KisLayerStyleFilterEnvironment *env) const = 0;
+
+protected:
+    KisLayerStyleFilter(const KisLayerStyleFilter &rhs);
 
 private:
     struct Private;

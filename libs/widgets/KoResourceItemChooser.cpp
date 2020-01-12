@@ -27,7 +27,6 @@
 
 #include <QGridLayout>
 #include <QButtonGroup>
-#include <QPushButton>
 #include <QHeaderView>
 #include <QAbstractProxyModel>
 #include <QLabel>
@@ -38,6 +37,7 @@
 #include <QSplitter>
 #include <QToolButton>
 #include <QWheelEvent>
+#include <QLineEdit>
 
 #include <klocalizedstring.h>
 
@@ -53,6 +53,9 @@
 #include "KoTagFilterWidget.h"
 #include "KoTagChooserWidget.h"
 #include "KoResourceItemChooserSync.h"
+#include "kis_assert.h"
+#include <KisKineticScroller.h>
+
 
 class Q_DECL_HIDDEN KoResourceItemChooser::Private
 {
@@ -102,7 +105,7 @@ KoResourceItemChooser::KoResourceItemChooser(QSharedPointer<KoAbstractResourceSe
     d->splitter = new QSplitter(this);
 
     d->model = new KoResourceModel(resourceAdapter, this);
-    connect(d->model, SIGNAL(beforeResourcesLayoutReset(KoResource *)), SLOT(slotBeforeResourcesLayoutReset(KoResource *)));
+    connect(d->model, SIGNAL(beforeResourcesLayoutReset(KoResource*)), SLOT(slotBeforeResourcesLayoutReset(KoResource*)));
     connect(d->model, SIGNAL(afterResourcesLayoutReset()), SLOT(slotAfterResourcesLayoutReset()));
 
     d->view = new KoResourceItemView(this);
@@ -135,10 +138,15 @@ KoResourceItemChooser::KoResourceItemChooser(QSharedPointer<KoAbstractResourceSe
         if (d->splitter->count() == 2) {
             d->splitter->setSizes(QList<int>() << 280 << 160);
         }
+
+        QScroller* scroller = KisKineticScroller::createPreconfiguredScroller(d->previewScroller);
+        if (scroller) {
+            connect(scroller, SIGNAL(stateChanged(QScroller::State)), this, SLOT(slotScrollerStateChanged(QScroller::State)));
+        }
     }
 
     d->splitter->setSizePolicy(QSizePolicy::MinimumExpanding, QSizePolicy::MinimumExpanding);
-    connect(d->splitter, SIGNAL(splitterMoved(int, int)), SIGNAL(splitterMoved()));
+    connect(d->splitter, SIGNAL(splitterMoved(int,int)), SIGNAL(splitterMoved()));
 
     d->buttonGroup = new QButtonGroup(this);
     d->buttonGroup->setExclusive(false);
@@ -147,19 +155,18 @@ KoResourceItemChooser::KoResourceItemChooser(QSharedPointer<KoAbstractResourceSe
 
     d->buttonLayout = new QGridLayout();
 
-    QPushButton *button = new QPushButton(this);
-    button->setIcon(koIcon("document-open"));
-    button->setToolTip(i18nc("@info:tooltip", "Import resource"));
-    button->setEnabled(true);
-    d->buttonGroup->addButton(button, Button_Import);
-    d->buttonLayout->addWidget(button, 0, 0);
+    importButton = new QPushButton(this);
 
-    button = new QPushButton(this);
-    button->setIcon(koIcon("trash-empty"));
-    button->setToolTip(i18nc("@info:tooltip", "Delete resource"));
-    button->setEnabled(false);
-    d->buttonGroup->addButton(button, Button_Remove);
-    d->buttonLayout->addWidget(button, 0, 1);
+    importButton->setToolTip(i18nc("@info:tooltip", "Import resource"));
+    importButton->setEnabled(true);
+    d->buttonGroup->addButton(importButton, Button_Import);
+    d->buttonLayout->addWidget(importButton, 0, 0);
+
+    deleteButton = new QPushButton(this);
+    deleteButton->setToolTip(i18nc("@info:tooltip", "Delete resource"));
+    deleteButton->setEnabled(false);
+    d->buttonGroup->addButton(deleteButton, Button_Remove);
+    d->buttonLayout->addWidget(deleteButton, 0, 1);
 
     connect(d->buttonGroup, SIGNAL(buttonClicked(int)), this, SLOT(slotButtonClicked(int)));
 
@@ -170,7 +177,6 @@ KoResourceItemChooser::KoResourceItemChooser(QSharedPointer<KoAbstractResourceSe
     d->buttonLayout->setMargin(0);
 
     d->viewModeButton = new QToolButton(this);
-    d->viewModeButton->setIcon(koIcon("view-choose"));
     d->viewModeButton->setPopupMode(QToolButton::InstantPopup);
     d->viewModeButton->setVisible(false);
 
@@ -184,6 +190,9 @@ KoResourceItemChooser::KoResourceItemChooser(QSharedPointer<KoAbstractResourceSe
     layout->addLayout(d->buttonLayout, 3, 0, 1, 2);
     layout->setMargin(0);
     layout->setSpacing(0);
+
+    updateView();
+
     updateButtonState();
     showTaggingBar(false);
     activated(d->model->index(0, 0));
@@ -357,9 +366,20 @@ void KoResourceItemChooser::setProxyModel(QAbstractProxyModel *proxyModel)
     d->view->setModel(proxyModel);
 }
 
-void KoResourceItemChooser::activated(const QModelIndex &/*index*/)
+void KoResourceItemChooser::activated(const QModelIndex &index)
 {
-    KoResource *resource = currentResource();
+    if (!index.isValid()) return;
+
+    KoResource *resource = 0;
+
+    if (index.isValid()) {
+        resource = resourceFromModelIndex(index);
+    }
+
+    KIS_SAFE_ASSERT_RECOVER (resource) {
+        resource = currentResource();
+    }
+
     if (resource) {
         d->updatesBlocked = true;
         emit resourceSelected(resource);
@@ -404,8 +424,8 @@ void KoResourceItemChooser::updatePreview(KoResource *resource)
 
     QImage image = resource->image();
 
-    if (image.format() != QImage::Format_RGB32 ||
-        image.format() != QImage::Format_ARGB32 ||
+    if (image.format() != QImage::Format_RGB32 &&
+        image.format() != QImage::Format_ARGB32 &&
         image.format() != QImage::Format_ARGB32_Premultiplied) {
 
         image = image.convertToFormat(QImage::Format_ARGB32_Premultiplied);
@@ -490,7 +510,7 @@ void KoResourceItemChooser::setSynced(bool sync)
     d->synced = sync;
     KoResourceItemChooserSync *chooserSync = KoResourceItemChooserSync::instance();
     if (sync) {
-        connect(chooserSync, SIGNAL(baseLenghtChanged(int)), SLOT(baseLengthChanged(int)));
+        connect(chooserSync, SIGNAL(baseLengthChanged(int)), SLOT(baseLengthChanged(int)));
         baseLengthChanged(chooserSync->baseLength());
     } else {
         chooserSync->disconnect(this);
@@ -502,12 +522,12 @@ void KoResourceItemChooser::baseLengthChanged(int length)
     if (d->synced) {
         int resourceCount = d->model->resourcesCount();
         int width = d->view->width();
-        int maxColums = width / length;
+        int maxColumns = width / length;
         int cols = width / (2 * length) + 1;
-        while (cols <= maxColums) {
+        while (cols <= maxColumns) {
             int size = width / cols;
             int rows = ceil(resourceCount / (double)cols);
-            if (rows * size < (d->view->height() - 5)) {
+            if (rows * size < (d->view->height())) {
                 break;
             }
             cols++;
@@ -551,4 +571,9 @@ void KoResourceItemChooser::updateView()
         KoResourceItemChooserSync *chooserSync = KoResourceItemChooserSync::instance();
         baseLengthChanged(chooserSync->baseLength());
     }
+
+    /// helps to set icons here in case the theme is changed
+    d->viewModeButton->setIcon(koIcon("view-choose"));
+    importButton->setIcon(koIcon("document-open"));
+    deleteButton->setIcon(koIcon("trash-empty"));
 }

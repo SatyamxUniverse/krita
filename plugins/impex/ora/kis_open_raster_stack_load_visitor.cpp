@@ -148,7 +148,7 @@ void KisOpenRasterStackLoadVisitor::loadLayerInfo(const QDomElement& elem, KisLa
         if (compop == "svg:src-atop") layer->disableAlphaChannel(true);
         //dst-atop
         if (compop == "svg:dst-atop") layer->setCompositeOpId(COMPOSITE_DESTINATION_ATOP);
-        //plus is svg standard's way of saying addtion... photoshop calls this linear dodge, btw, maybe make a similar alias?
+        //plus is svg standard's way of saying addition... photoshop calls this linear dodge, btw, maybe make a similar alias?
         if (compop == "svg:plus") layer->setCompositeOpId(COMPOSITE_ADD);
         if (compop == "svg:multiply") layer->setCompositeOpId(COMPOSITE_MULT);
         if (compop == "svg:screen") layer->setCompositeOpId(COMPOSITE_SCREEN);
@@ -215,8 +215,7 @@ void KisOpenRasterStackLoadVisitor::loadGroupLayer(const QDomElement& elem, KisG
             } else if (node.nodeName() == "layer") {
                 QString filename = subelem.attribute("src");
                 if (!filename.isNull()) {
-                    double opacity = 1.0;
-                    opacity = KisDomUtils::toDouble(subelem.attribute("opacity", "1.0"));
+                    const qreal opacity = KisDomUtils::toDouble(subelem.attribute("opacity", "1.0"));
                     KisImageSP pngImage = d->loadContext->loadDeviceData(filename);
                     if (pngImage) {
                         // If ORA doesn't have resolution info, load the default value(75 ppi) else fetch from stack.xml
@@ -238,7 +237,7 @@ void KisOpenRasterStackLoadVisitor::loadGroupLayer(const QDomElement& elem, KisG
                 if (filterTypeSplit[0] == "applications" && filterTypeSplit[1] == "krita") {
                     f = KisFilterRegistry::instance()->value(filterTypeSplit[2]);
                 }
-                KisFilterConfigurationSP  kfc = f->defaultConfiguration();
+                KisFilterConfigurationSP  kfc = f->factoryConfiguration();
                 KisAdjustmentLayerSP layer = new KisAdjustmentLayer(groupLayer->image() , "", kfc, KisSelectionSP(0));
                 d->image->addNode(layer.data(), groupLayer.data(), 0);
                 loadAdjustmentLayer(subelem, layer);

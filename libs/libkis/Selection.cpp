@@ -25,7 +25,6 @@
 #include <kis_selection_filters.h>
 #include <kis_painter.h>
 #include <kis_clipboard.h>
-#include <kis_painter.h>
 #include <QByteArray>
 
 #include <Node.h>
@@ -65,6 +64,12 @@ bool Selection::operator!=(const Selection &other) const
     return !(operator==(other));
 }
 
+Selection *Selection::duplicate() const
+{
+    return new Selection(d->selection ? new KisSelection(*d->selection)
+                         : new KisSelection());
+}
+
 int Selection::width() const
 {
     if (!d->selection) return 0;
@@ -80,13 +85,21 @@ int Selection::height() const
 int Selection::x() const
 {
     if (!d->selection) return 0;
-    return d->selection->x();
+    int xPos = d->selection->x();
+    if (d->selection->hasPixelSelection()) {
+        xPos = d->selection->selectedExactRect().x();
+    }
+    return xPos;
 }
 
 int Selection::y() const
 {
     if (!d->selection) return 0;
-    return d->selection->y();
+    int yPos = d->selection->y();
+    if (d->selection->hasPixelSelection()) {
+        yPos = d->selection->selectedExactRect().y();
+    }
+    return yPos;
 }
 
 void Selection::move(int x, int y)
@@ -182,7 +195,7 @@ void Selection::erode()
 {
     if (!d->selection) return;
     KisErodeSelectionFilter esf;
-    QRect rc = esf.changeRect(d->selection->selectedExactRect());
+    QRect rc = esf.changeRect(d->selection->selectedExactRect(), d->selection->pixelSelection()->defaultBounds());
     esf.process(d->selection->pixelSelection(), rc);
 }
 
@@ -190,7 +203,7 @@ void Selection::dilate()
 {
     if (!d->selection) return;
     KisDilateSelectionFilter dsf;
-    QRect rc = dsf.changeRect(d->selection->selectedExactRect());
+    QRect rc = dsf.changeRect(d->selection->selectedExactRect(), d->selection->pixelSelection()->defaultBounds());
     dsf.process(d->selection->pixelSelection(), rc);
 }
 
@@ -198,7 +211,7 @@ void Selection::border(int xRadius, int yRadius)
 {
     if (!d->selection) return;
     KisBorderSelectionFilter sf(xRadius, yRadius);
-    QRect rc = sf.changeRect(d->selection->selectedExactRect());
+    QRect rc = sf.changeRect(d->selection->selectedExactRect(), d->selection->pixelSelection()->defaultBounds());
     sf.process(d->selection->pixelSelection(), rc);
 }
 
@@ -206,7 +219,7 @@ void Selection::feather(int radius)
 {
     if (!d->selection) return;
     KisFeatherSelectionFilter fsf(radius);
-    QRect rc = fsf.changeRect(d->selection->selectedExactRect());
+    QRect rc = fsf.changeRect(d->selection->selectedExactRect(), d->selection->pixelSelection()->defaultBounds());
     fsf.process(d->selection->pixelSelection(), rc);
 }
 
@@ -214,7 +227,7 @@ void Selection::grow(int xradius, int yradius)
 {
     if (!d->selection) return;
     KisGrowSelectionFilter gsf(xradius, yradius);
-    QRect rc = gsf.changeRect(d->selection->selectedExactRect());
+    QRect rc = gsf.changeRect(d->selection->selectedExactRect(), d->selection->pixelSelection()->defaultBounds());
     gsf.process(d->selection->pixelSelection(), rc);
 }
 
@@ -223,7 +236,7 @@ void Selection::shrink(int xRadius, int yRadius, bool edgeLock)
 {
     if (!d->selection) return;
     KisShrinkSelectionFilter sf(xRadius, yRadius, edgeLock);
-    QRect rc = sf.changeRect(d->selection->selectedExactRect());
+    QRect rc = sf.changeRect(d->selection->selectedExactRect(), d->selection->pixelSelection()->defaultBounds());
     sf.process(d->selection->pixelSelection(), rc);
 }
 
@@ -231,7 +244,7 @@ void Selection::smooth()
 {
     if (!d->selection) return;
     KisSmoothSelectionFilter sf;
-    QRect rc = sf.changeRect(d->selection->selectedExactRect());
+    QRect rc = sf.changeRect(d->selection->selectedExactRect(), d->selection->pixelSelection()->defaultBounds());
     sf.process(d->selection->pixelSelection(), rc);
 }
 
@@ -240,7 +253,7 @@ void Selection::invert()
 {
     if (!d->selection) return;
     KisInvertSelectionFilter sf;
-    QRect rc = sf.changeRect(d->selection->selectedExactRect());
+    QRect rc = sf.changeRect(d->selection->selectedExactRect(), d->selection->pixelSelection()->defaultBounds());
     sf.process(d->selection->pixelSelection(), rc);
 }
 
@@ -284,6 +297,12 @@ void Selection::intersect(Selection *selection)
 {
     if (!d->selection) return;
     d->selection->pixelSelection()->applySelection(selection->selection()->pixelSelection(), SELECTION_INTERSECT);
+}
+
+void Selection::symmetricdifference(Selection *selection)
+{
+    if (!d->selection) return;
+    d->selection->pixelSelection()->applySelection(selection->selection()->pixelSelection(), SELECTION_SYMMETRICDIFFERENCE);
 }
 
 

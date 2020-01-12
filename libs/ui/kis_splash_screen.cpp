@@ -20,9 +20,12 @@
 #include <QApplication>
 #include <QDesktopWidget>
 #include <QPixmap>
+#include <QPainter>
 #include <QCheckBox>
 #include <kis_debug.h>
 #include <QFile>
+#include <QScreen>
+#include <QWindow>
 
 #include <KisPart.h>
 #include <KisApplication.h>
@@ -35,7 +38,7 @@
 #include <kconfiggroup.h>
 #include <QIcon>
 
-KisSplashScreen::KisSplashScreen(const QString &version, const QPixmap &pixmap, bool themed, QWidget *parent, Qt::WindowFlags f)
+KisSplashScreen::KisSplashScreen(const QString &version, const QPixmap &pixmap, const QPixmap &pixmap_x2, bool themed, QWidget *parent, Qt::WindowFlags f)
     : QWidget(parent, Qt::SplashScreen | Qt::FramelessWindowHint
 #ifdef Q_OS_LINUX
               | Qt::WindowStaysOnTopHint
@@ -45,15 +48,56 @@ KisSplashScreen::KisSplashScreen(const QString &version, const QPixmap &pixmap, 
 {
 
     setupUi(this);
-    setWindowIcon(KisIconUtils::loadIcon("calligrakrita"));
+    setWindowIcon(KisIconUtils::loadIcon("krita"));
+
+    QImage img;
+
+    if (devicePixelRatioF() > 1.01) {
+        img = pixmap_x2.toImage();
+        img.setDevicePixelRatio(devicePixelRatioF());
+
+        // actual size : image size (x1)
+        m_scaleFactor = 2 / devicePixelRatioF();
+    } else {
+        img = pixmap.toImage();
+        m_scaleFactor = 1;
+    }
+
+    setFixedWidth(pixmap.width() * m_scaleFactor);
+    setFixedHeight(pixmap.height() * m_scaleFactor);
+    lblSplash->setFixedWidth(pixmap.width() * m_scaleFactor);
+    lblSplash->setFixedHeight(pixmap.height() * m_scaleFactor);
+
+    QFont font = this->font();
+    font.setPointSize(11);
+    font.setBold(true);
+    QFontMetrics metrics(font);
+
+    QPainter p(&img);
+    p.setFont(font);
+    p.setRenderHint(QPainter::Antialiasing);
+
+    // positioning of the text over the image (version)
+    // also see setLoadingText() for positiong (loading progress text)
+    qreal leftEdge = 475 * m_scaleFactor - metrics.width(version);
+    qreal topEdge = 58 * m_scaleFactor + metrics.ascent();
+
+    //draw shadow
+    QPen pen(QColor(0, 0, 0, 80));
+    p.setPen(pen);
+    p.drawText(QPointF(leftEdge+1, topEdge+1), version);
+    //draw main text
+    p.setPen(QPen(QColor(255, 255, 255, 255)));
+    p.drawText(QPointF(leftEdge, topEdge), version);
+    p.end();
+
+
+    //get this to have the loading text painted on later.
+    m_splashImage = img;
+    m_textTop = topEdge+metrics.height();
 
     // Maintain the aspect ratio on high DPI screens when scaling
-    lblSplash->setPixmap(pixmap);
-    setFixedWidth(pixmap.width());
-
-    QString color = colorString();
-    lblVersion->setText(i18n("Version: %1", version));
-    lblVersion->setStyleSheet("color:" + color);
+    lblSplash->setPixmap(QPixmap::fromImage(img));
 
     bnClose->hide();
     connect(bnClose, SIGNAL(clicked()), this, SLOT(close()));
@@ -68,9 +112,8 @@ KisSplashScreen::KisSplashScreen(const QString &version, const QPixmap &pixmap, 
     connect(&m_timer, SIGNAL(timeout()), SLOT(raise()));
 
     // hide these labels by default
-    lblLinks->setVisible(false);
-    lblRecent->setVisible(false);
-    line->setVisible(false);
+    displayLinks(false);
+    displayRecentFiles(false);
 
     m_timer.setSingleShot(true);
     m_timer.start(10);
@@ -124,37 +167,73 @@ void KisSplashScreen::updateText()
     lblRecent->setText(recent);
 }
 
-void KisSplashScreen::displayLinks() {
+void KisSplashScreen::displayLinks(bool show) {
 
-    QString color = colorString();
-    lblLinks->setTextFormat(Qt::RichText);
-    lblLinks->setText(i18n("<html>"
-                           "<head/>"
-                           "<body>"
-                           "<p><span style=\" color:%1;\"><b>Links</b></span></p>"
+    if (show) {
+        QString color = colorString();
+        lblLinks->setTextFormat(Qt::RichText);
+        lblLinks->setText(i18n("<html>"
+                               "<head/>"
+                               "<body>"
+                               "<p><span style=\" color:%1;\"><b>Links</b></span></p>"
 
-                           "<p><a href=\"https://krita.org/support-us/\"><span style=\" text-decoration: underline; color:%1;\">Support Krita</span></a></p>"
+                               "<p><a href=\"https://krita.org/support-us/\"><span style=\" text-decoration: underline; color:%1;\">Support Krita</span></a></p>"
 
-                           "<p><a href=\"https://docs.krita.org/Category:Getting_Started\"><span style=\" text-decoration: underline; color:%1;\">Getting Started</span></a></p>"
-                           "<p><a href=\"https://docs.krita.org/\"><span style=\" text-decoration: underline; color:%1;\">Manual</span></a></p>"
-                           "<p><a href=\"https://krita.org/\"><span style=\" text-decoration: underline; color:%1;\">Krita Website</span></a></p>"
-                           "<p><a href=\"https://forum.kde.org/viewforum.php?f=136\"><span style=\" text-decoration: underline; color:%1;\">User Community</span></a></p>"
+                               "<p><a href=\"https://docs.krita.org/en/user_manual/getting_started.html\"><span style=\" text-decoration: underline; color:%1;\">Getting Started</span></a></p>"
+                               "<p><a href=\"https://docs.krita.org/\"><span style=\" text-decoration: underline; color:%1;\">Manual</span></a></p>"
+                               "<p><a href=\"https://krita.org/\"><span style=\" text-decoration: underline; color:%1;\">Krita Website</span></a></p>"
+                               "<p><a href=\"https://forum.kde.org/viewforum.php?f=136\"><span style=\" text-decoration: underline; color:%1;\">User Community</span></a></p>"
 
-                           "<p><a href=\"https://quickgit.kde.org/?p=krita.git\"><span style=\" text-decoration: underline; color:%1;\">Source Code</span></a></p>"
+                               "<p><a href=\"https://phabricator.kde.org/source/krita/\"><span style=\" text-decoration: underline; color:%1;\">Source Code</span></a></p>"
 
-                           "<p><a href=\"https://store.steampowered.com/app/280680/\"><span style=\" text-decoration: underline; color:%1;\">Krita on Steam</span></a></p>"
-                           "</body>"
-                           "</html>", color));
+                               "</body>"
+                               "</html>", color));
 
-    lblLinks->setVisible(true);
+        filesLayout->setContentsMargins(10,10,10,10);
+        actionControlsLayout->setContentsMargins(5,5,5,5);
+
+    } else {
+        // eliminating margins here allows for the splash screen image to take the entire area with nothing underneath
+        filesLayout->setContentsMargins(0,0,0,0);
+        actionControlsLayout->setContentsMargins(0,0,0,0);
+    }
+
+    lblLinks->setVisible(show);
 
     updateText();
 }
 
 
-void KisSplashScreen::displayRecentFiles() {
-    lblRecent->setVisible(true);
-    line->setVisible(true);
+void KisSplashScreen::displayRecentFiles(bool show) {
+    lblRecent->setVisible(show);
+    line->setVisible(show);
+}
+
+void KisSplashScreen::setLoadingText(QString text)
+{
+    QFont font = this->font();
+    font.setPointSize(10);
+    font.setItalic(true);
+
+    QImage img = m_splashImage;
+    QPainter p(&img);
+    QFontMetrics metrics(font);
+    p.setFont(font);
+    p.setRenderHint(QPainter::Antialiasing);
+
+    // position text for loading text
+    qreal leftEdge = 475 *  m_scaleFactor - metrics.width(text);
+    qreal topEdge = m_textTop;
+
+    //draw shadow
+    QPen pen(QColor(0, 0, 0, 80));
+    p.setPen(pen);
+    p.drawText(QPointF(leftEdge+1, topEdge+1), text);
+    //draw main text
+    p.setPen(QPen(QColor(255, 255, 255, 255)));
+    p.drawText(QPointF(leftEdge, topEdge), text);
+    p.end();
+    lblSplash->setPixmap(QPixmap::fromImage(img));
 }
 
 
@@ -173,14 +252,24 @@ QString KisSplashScreen::colorString() const
 void KisSplashScreen::repaint()
 {
     QWidget::repaint();
-    QApplication::flush();
+    qApp->sendPostedEvents();
 }
 
 void KisSplashScreen::show()
 {
     QRect r(QPoint(), sizeHint());
     resize(r.size());
-    move(QApplication::desktop()->availableGeometry().center() - r.center());
+    if (!this->parentWidget()) {
+        this->winId(); // Force creation of native window
+        if (this->windowHandle()) {
+            // At least on Windows, the window may be created on a non-primary
+            // screen with a different scale factor. If we don't explicitly
+            // move it to the primary screen, the position will be scaled with
+            // the wrong factor and the splash will be offset.
+            this->windowHandle()->setScreen(QApplication::primaryScreen());
+        }
+    }
+    move(QApplication::primaryScreen()->availableGeometry().center() - r.center());
     if (isVisible()) {
         repaint();
     }

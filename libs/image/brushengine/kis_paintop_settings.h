@@ -61,7 +61,7 @@ const QString SPACING_USE_UPDATES = "PaintOpSettings/updateSpacingBetweenDabs";
  * between two creations. There is one KisPaintOpSettings per input device (mouse, tablet,
  * etc...).
  *
- * The settings may be stored in a preset or a recorded brush stroke. Note that if your
+ * The settings may be stored in a preset. Note that if your
  * paintop's settings subclass has data that is not stored as a property, that data is not
  * saved and restored.
  *
@@ -81,21 +81,34 @@ public:
     /**
      *
      */
-    virtual void setOptionsWidget(KisPaintOpConfigWidget* widget);
+    void setOptionsWidget(KisPaintOpConfigWidget* widget);
 
     /**
      * This function is called by a tool when the mouse is pressed. It's useful if
      * the paintop needs mouse interaction for instance in the case of the clone op.
-     * If the tool is supposed to ignore the event, the paint op should return false
-     * and if the tool is supposed to use the event, return true.
+     * If the tool is supposed to ignore the event, the paint op should return true
+     * and if the tool is supposed to use the event, return false.
+     * See kis_tool_freehand:tryPickByPaintOp()
      */
     virtual bool mousePressEvent(const KisPaintInformation &paintInformation, Qt::KeyboardModifiers modifiers, KisNodeWSP currentNode);
-
+    /**
+     * This function is called by a tool when the mouse is released. It's useful if
+     * the paintop needs mouse interaction for instance in the case of the clone op.
+     * If the tool is supposed to ignore the event, the paint op should return true
+     * and if the tool is supposed to use the event, return false.
+     */
+    virtual bool mouseReleaseEvent();
     /**
      * Clone the current settings object. Override this if your settings instance doesn't
      * store everything as properties.
      */
     virtual KisPaintOpSettingsSP clone() const;
+
+    /**
+     * Removes all the settings from the object while keeping the paintop id,
+     * which is loaded to the object by the factory
+     */
+    void resetSettings(const QStringList &preserveProperties = QStringList());
 
     /**
      * @return the node the paintop is working on.
@@ -152,14 +165,19 @@ public:
     virtual bool useSpacingUpdates() const;
 
     /**
-     * This enum defines the current mode for painting an outline.
+     * Indicates if the tool should call paintOp->doAsynchronousUpdate() inbetween
+     * paintAt() calls to do the asynchronous rendering
      */
-    enum OutlineMode {
-        CursorIsOutline = 1, ///< When this mode is set, an outline is painted around the cursor
-        CursorIsCircleOutline,
-        CursorNoOutline,
-        CursorTiltOutline,
-        CursorColorOutline
+    virtual bool needsAsynchronousUpdates() const;
+
+    /**
+     * This structure defines the current mode for painting an outline.
+     */
+    struct OutlineMode {
+        bool isVisible = false;
+        bool forceCircle = false;
+        bool showTiltDecoration = false;
+        bool forceFullSize = false;
     };
 
     /**
@@ -167,7 +185,7 @@ public:
      * Outline mode has to be passed to the paintop which builds the outline as some paintops have to paint outline
      * always like clone paintop indicating the duplicate position
      */
-    virtual QPainterPath brushOutline(const KisPaintInformation &info, OutlineMode mode);
+    virtual QPainterPath brushOutline(const KisPaintInformation &info, const OutlineMode &mode);
 
     /**
     * Helpers for drawing the brush outline
@@ -265,15 +283,6 @@ public:
     virtual bool isLoadable();
 
     /**
-     * These methods are populating properties with runtime
-     * information about canvas rotation/mirroring. This information
-     * is set directly by KisToolFreehand. Later the data is accessed
-     * by the pressure options to make a final decision.
-     */
-    void setCanvasRotation(qreal angle);
-    void setCanvasMirroring(bool xAxisMirrored, bool yAxisMirrored);
-
-    /**
      * Overrides the method in KisPropertiesCofiguration to allow
      * onPropertyChanged() callback
      */
@@ -283,6 +292,11 @@ public:
 
     static bool isLodUserAllowed(const KisPropertiesConfigurationSP config);
     static void setLodUserAllowed(KisPropertiesConfigurationSP config, bool value);
+
+    virtual bool lodSizeThresholdSupported() const;
+
+    qreal lodSizeThreshold() const;
+    void setLodSizeThreshold(qreal value);
 
     /**
     * @return the option widget of the paintop (can be 0 is no option widgets is set)
@@ -296,6 +310,26 @@ public:
      *
      */
     virtual void setRandomOffset(const KisPaintInformation &paintInformation);
+
+    /**
+     * @return true if this preset demands a secondary masked brush running
+     *         alongside it
+     */
+    bool hasMaskingSettings() const;
+
+    /**
+     * @return a newly created settings object representing a preset of the masking
+     *         brush that should be run alongside the current brush
+     */
+    KisPaintOpSettingsSP createMaskingSettings() const;
+
+    /**
+     * @return a composite op id of the masked brush rendering algorithm.
+     *
+     * Please take into account that the brush itself always paints in alpha-
+     * darken mode, but the final result is combined with this composite op.
+     */
+    QString maskingBrushCompositeOp() const;
 
 protected:
 

@@ -18,9 +18,10 @@
 
 #include "kis_node_manager.h"
 
-#include <QDesktopServices>
+#include <QStandardPaths>
 #include <QMessageBox>
-#include <QSignalMapper>
+#include <KisSignalMapper.h>
+#include <QApplication>
 
 #include <kactioncollection.h>
 
@@ -36,7 +37,6 @@
 #include <KoToolManager.h>
 #include <KoProperties.h>
 
-
 #include <KoColorSpace.h>
 #include <KoColorSpaceRegistry.h>
 #include <KoColorModelStandardIds.h>
@@ -51,6 +51,7 @@
 #include <kis_painter.h>
 #include <kis_paint_layer.h>
 #include <KisMimeDatabase.h>
+#include <KisReferenceImagesLayer.h>
 
 #include "KisPart.h"
 #include "canvas/kis_canvas2.h"
@@ -71,14 +72,20 @@
 #include "kis_node_selection_adapter.h"
 #include "kis_node_insertion_adapter.h"
 #include "kis_node_juggler_compressed.h"
+#include "KisNodeDisplayModeAdapter.h"
 #include "kis_clipboard.h"
 #include "kis_node_dummies_graph.h"
 #include "kis_mimedata.h"
 #include "kis_layer_utils.h"
 #include "krita_utils.h"
+#include "kis_shape_layer.h"
 
 #include "processing/kis_mirror_processing_visitor.h"
 #include "KisView.h"
+
+#include <kis_signals_blocker.h>
+#include <libs/image/kis_layer_properties_icons.h>
+#include <libs/image/commands/kis_node_property_list_command.h>
 
 struct KisNodeManager::Private {
 
@@ -91,6 +98,8 @@ struct KisNodeManager::Private {
         , commandsAdapter(v)
         , nodeSelectionAdapter(new KisNodeSelectionAdapter(q))
         , nodeInsertionAdapter(new KisNodeInsertionAdapter(q))
+        , nodeDisplayModeAdapter(new KisNodeDisplayModeAdapter())
+        , lastRequestedIsolatedModeStatus(false)
     {
     }
 
@@ -102,6 +111,9 @@ struct KisNodeManager::Private {
     KisNodeCommandsAdapter commandsAdapter;
     QScopedPointer<KisNodeSelectionAdapter> nodeSelectionAdapter;
     QScopedPointer<KisNodeInsertionAdapter> nodeInsertionAdapter;
+    QScopedPointer<KisNodeDisplayModeAdapter> nodeDisplayModeAdapter;
+
+    KisAction *showInTimeline;
 
     KisNodeList selectedNodes;
     QPointer<KisNodeJugglerCompressed> nodeJuggler;
@@ -110,8 +122,10 @@ struct KisNodeManager::Private {
 
     bool activateNodeImpl(KisNodeSP node);
 
-    QSignalMapper nodeCreationSignalMapper;
-    QSignalMapper nodeConversionSignalMapper;
+    KisSignalMapper nodeCreationSignalMapper;
+    KisSignalMapper nodeConversionSignalMapper;
+
+    bool lastRequestedIsolatedModeStatus;
 
     void saveDeviceAsImage(KisPaintDeviceSP device,
                            const QString &defaultName,
@@ -162,8 +176,8 @@ bool KisNodeManager::Private::activateNodeImpl(KisNodeSP node)
         //if (!shapeLayer) return false;
         KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(shapeLayer, false);
 
-//         shapeLayer->setGeometryProtected(node->userLocked());
-//         shapeLayer->setVisible(node->visible());
+        //         shapeLayer->setGeometryProtected(node->userLocked());
+        //         shapeLayer->setVisible(node->visible());
         selection->setActiveLayer(shapeLayer);
 
         imageView->setCurrentNode(node);
@@ -175,7 +189,6 @@ bool KisNodeManager::Private::activateNodeImpl(KisNodeSP node)
             // XXX_NODE: for now, masks cannot be nested.
             layerManager.activateLayer(static_cast<KisLayer*>(node->parent().data()));
         }
-
     }
     return true;
 }
@@ -183,8 +196,6 @@ bool KisNodeManager::Private::activateNodeImpl(KisNodeSP node)
 KisNodeManager::KisNodeManager(KisViewManager *view)
     : m_d(new Private(this, view))
 {
-
-    connect(&m_d->layerManager, SIGNAL(sigLayerActivated(KisLayerSP)), SIGNAL(sigLayerActivated(KisLayerSP)));
 }
 
 KisNodeManager::~KisNodeManager()
@@ -210,29 +221,29 @@ void KisNodeManager::setView(QPointer<KisView>imageView)
         KisShapeController *shapeController = dynamic_cast<KisShapeController*>(m_d->imageView->document()->shapeController());
         Q_ASSERT(shapeController);
         connect(shapeController, SIGNAL(sigActivateNode(KisNodeSP)), SLOT(slotNonUiActivatedNode(KisNodeSP)));
-        connect(m_d->imageView->image(), SIGNAL(sigIsolatedModeChanged()),this, SLOT(slotUpdateIsolateModeAction()));
-        connect(m_d->imageView->image(), SIGNAL(sigRequestNodeReselection(KisNodeSP, const KisNodeList&)),this, SLOT(slotImageRequestNodeReselection(KisNodeSP, const KisNodeList&)));
+        connect(m_d->imageView->image(), SIGNAL(sigIsolatedModeChanged()),this, SLOT(slotUpdateIsolateModeActionImageStatusChange()));
+        connect(m_d->imageView->image(), SIGNAL(sigRequestNodeReselection(KisNodeSP,KisNodeList)),this, SLOT(slotImageRequestNodeReselection(KisNodeSP,KisNodeList)));
         m_d->imageView->resourceProvider()->slotNodeActivated(m_d->imageView->currentNode());
     }
 
 }
 
 #define NEW_LAYER_ACTION(id, layerType)                                 \
-    {                                                                   \
-        action = actionManager->createAction(id);                       \
-        m_d->nodeCreationSignalMapper.setMapping(action, layerType);    \
-        connect(action, SIGNAL(triggered()),                            \
-                &m_d->nodeCreationSignalMapper, SLOT(map()));           \
+{                                                                   \
+    action = actionManager->createAction(id);                       \
+    m_d->nodeCreationSignalMapper.setMapping(action, layerType);    \
+    connect(action, SIGNAL(triggered()),                            \
+    &m_d->nodeCreationSignalMapper, SLOT(map()));           \
     }
 
 #define CONVERT_NODE_ACTION_2(id, layerType, exclude)                   \
-    {                                                                   \
-        action = actionManager->createAction(id);                       \
-        action->setExcludedNodeTypes(QStringList(exclude));             \
-        actionManager->addAction(id, action);                           \
-        m_d->nodeConversionSignalMapper.setMapping(action, layerType);  \
-        connect(action, SIGNAL(triggered()),                            \
-                &m_d->nodeConversionSignalMapper, SLOT(map()));         \
+{                                                                   \
+    action = actionManager->createAction(id);                       \
+    action->setExcludedNodeTypes(QStringList(exclude));             \
+    actionManager->addAction(id, action);                           \
+    m_d->nodeConversionSignalMapper.setMapping(action, layerType);  \
+    connect(action, SIGNAL(triggered()),                            \
+    &m_d->nodeConversionSignalMapper, SLOT(map()));         \
     }
 
 #define CONVERT_NODE_ACTION(id, layerType)              \
@@ -243,11 +254,19 @@ void KisNodeManager::setup(KActionCollection * actionCollection, KisActionManage
     m_d->layerManager.setup(actionManager);
     m_d->maskManager.setup(actionCollection, actionManager);
 
-    KisAction * action  = actionManager->createAction("mirrorNodeX");
+    KisAction * action = 0;
+
+    action = actionManager->createAction("mirrorNodeX");
     connect(action, SIGNAL(triggered()), this, SLOT(mirrorNodeX()));
 
     action  = actionManager->createAction("mirrorNodeY");
     connect(action, SIGNAL(triggered()), this, SLOT(mirrorNodeY()));
+
+    action = actionManager->createAction("mirrorAllNodesX");
+    connect(action, SIGNAL(triggered()), this, SLOT(mirrorAllNodesX()));
+
+    action  = actionManager->createAction("mirrorAllNodesY");
+    connect(action, SIGNAL(triggered()), this, SLOT(mirrorAllNodesY()));
 
     action = actionManager->createAction("activateNextLayer");
     connect(action, SIGNAL(triggered()), this, SLOT(activateNextNode()));
@@ -260,6 +279,10 @@ void KisNodeManager::setup(KActionCollection * actionCollection, KisActionManage
 
     action  = actionManager->createAction("save_node_as_image");
     connect(action, SIGNAL(triggered()), this, SLOT(saveNodeAsImage()));
+
+    action  = actionManager->createAction("save_vector_node_to_svg");
+    connect(action, SIGNAL(triggered()), this, SLOT(saveVectorLayerAsImage()));
+    action->setActivationFlags(KisAction::ACTIVE_SHAPE_LAYER);
 
     action = actionManager->createAction("duplicatelayer");
     connect(action, SIGNAL(triggered()), this, SLOT(duplicateActiveNode()));
@@ -300,6 +323,11 @@ void KisNodeManager::setup(KActionCollection * actionCollection, KisActionManage
     action = actionManager->createAction("new_from_visible");
     connect(action, SIGNAL(triggered()), this, SLOT(createFromVisible()));
 
+    action = actionManager->createAction("show_in_timeline");
+    action->setCheckable(true);
+    connect(action, SIGNAL(toggled(bool)), this, SLOT(slotShowHideTimeline(bool)));
+    m_d->showInTimeline = action;
+
     NEW_LAYER_ACTION("add_new_paint_layer", "KisPaintLayer");
 
     NEW_LAYER_ACTION("add_new_group_layer", "KisGroupLayer");
@@ -324,8 +352,8 @@ void KisNodeManager::setup(KActionCollection * actionCollection, KisActionManage
 
     NEW_LAYER_ACTION("add_new_selection_mask", "KisSelectionMask");
 
-    connect(&m_d->nodeCreationSignalMapper, SIGNAL(mapped(const QString &)),
-            this, SLOT(createNode(const QString &)));
+    connect(&m_d->nodeCreationSignalMapper, SIGNAL(mapped(QString)),
+            this, SLOT(createNode(QString)));
 
     CONVERT_NODE_ACTION("convert_to_paint_layer", "KisPaintLayer");
 
@@ -337,23 +365,25 @@ void KisNodeManager::setup(KActionCollection * actionCollection, KisActionManage
 
     CONVERT_NODE_ACTION("convert_to_animated", "animated");
 
-    connect(&m_d->nodeConversionSignalMapper, SIGNAL(mapped(const QString &)),
-            this, SLOT(convertNode(const QString &)));
+    CONVERT_NODE_ACTION_2("convert_to_file_layer", "KisFileLayer", QStringList() << "KisFileLayer" << "KisCloneLayer");
+
+    connect(&m_d->nodeConversionSignalMapper, SIGNAL(mapped(QString)),
+            this, SLOT(convertNode(QString)));
 
     action = actionManager->createAction("isolate_layer");
     connect(action, SIGNAL(triggered(bool)), this, SLOT(toggleIsolateMode(bool)));
 
-    action = actionManager->createAction("toggle_layer_lock");
-    connect(action, SIGNAL(triggered()), this, SLOT(toggleLock()));
-
     action = actionManager->createAction("toggle_layer_visibility");
     connect(action, SIGNAL(triggered()), this, SLOT(toggleVisibility()));
 
-    action = actionManager->createAction("toggle_layer_alpha_lock");
-    connect(action, SIGNAL(triggered()), this, SLOT(toggleAlphaLock()));
+    action = actionManager->createAction("toggle_layer_lock");
+    connect(action, SIGNAL(triggered()), this, SLOT(toggleLock()));
 
     action = actionManager->createAction("toggle_layer_inherit_alpha");
     connect(action, SIGNAL(triggered()), this, SLOT(toggleInheritAlpha()));
+
+    action = actionManager->createAction("toggle_layer_alpha_lock");
+    connect(action, SIGNAL(triggered()), this, SLOT(toggleAlphaLock()));
 
     action  = actionManager->createAction("split_alpha_into_mask");
     connect(action, SIGNAL(triggered()), this, SLOT(slotSplitAlphaIntoMask()));
@@ -366,7 +396,7 @@ void KisNodeManager::setup(KActionCollection * actionCollection, KisActionManage
     connect(action, SIGNAL(triggered()), this, SLOT(slotSplitAlphaSaveMerged()));
 
     connect(this, SIGNAL(sigNodeActivated(KisNodeSP)), SLOT(slotUpdateIsolateModeAction()));
-    connect(this, SIGNAL(sigNodeActivated(KisNodeSP)), SLOT(slotTryFinishIsolatedMode()));
+    connect(this, SIGNAL(sigNodeActivated(KisNodeSP)), SLOT(slotTryRestartIsolatedMode()));
 }
 
 void KisNodeManager::updateGUI()
@@ -408,9 +438,9 @@ void KisNodeManager::moveNodeAt(KisNodeSP node, KisNodeSP parent, int index)
         if (node->inherits("KisSelectionMask") && parent->inherits("KisLayer")) {
             KisSelectionMask *m = dynamic_cast<KisSelectionMask*>(node.data());
             KisLayer *l = qobject_cast<KisLayer*>(parent.data());
-            KisSelectionMaskSP selMask = l->selectionMask();
-            if (m && m->active() && l && l->selectionMask())
-                selMask->setActive(false);
+            if (m && m->active() && l && l->selectionMask()) {
+                l->selectionMask()->setActive(false);
+            }
         }
         m_d->commandsAdapter.moveNode(node, parent, index);
     }
@@ -454,19 +484,33 @@ void KisNodeManager::toggleIsolateMode(bool checked)
 {
     KisImageWSP image = m_d->view->image();
 
-    if (checked) {
-        KisNodeSP activeNode = this->activeNode();
+    KisNodeSP activeNode = this->activeNode();
+    if (checked && activeNode) {
+
         // Transform and colorize masks don't have pixel data...
         if (activeNode->inherits("KisTransformMask") ||
-            activeNode->inherits("KisColorizeMask")) return;
+                activeNode->inherits("KisColorizeMask")) return;
 
-        KIS_ASSERT_RECOVER_RETURN(activeNode);
         if (!image->startIsolatedMode(activeNode)) {
             KisAction *action = m_d->view->actionManager()->actionByName("isolate_layer");
             action->setChecked(false);
         }
     } else {
         image->stopIsolatedMode();
+    }
+
+    m_d->lastRequestedIsolatedModeStatus = checked;
+}
+
+void KisNodeManager::slotUpdateIsolateModeActionImageStatusChange()
+{
+    slotUpdateIsolateModeAction();
+
+    KisNodeSP isolatedRootNode = m_d->view->image()->isolatedModeRoot();
+    if (this->activeNode() &&
+            bool(isolatedRootNode) != m_d->lastRequestedIsolatedModeStatus) {
+
+        slotTryRestartIsolatedMode();
     }
 }
 
@@ -481,18 +525,24 @@ void KisNodeManager::slotUpdateIsolateModeAction()
     action->setChecked(isolatedRootNode && isolatedRootNode == activeNode);
 }
 
-void KisNodeManager::slotTryFinishIsolatedMode()
+void KisNodeManager::slotTryRestartIsolatedMode()
 {
+    /**
+     * It might be that we have multiple Krita windows open. In such a case
+     * only the currently active one should restart isolated mode
+     */
+    if (!m_d->view->mainWindow()->isActiveWindow()) return;
+
     KisNodeSP isolatedRootNode = m_d->view->image()->isolatedModeRoot();
-    if (!isolatedRootNode) return;
+    if (!isolatedRootNode && !m_d->lastRequestedIsolatedModeStatus) return;
 
     this->toggleIsolateMode(true);
 }
 
-void KisNodeManager::createNode(const QString & nodeType, bool quiet, KisPaintDeviceSP copyFrom)
+KisNodeSP  KisNodeManager::createNode(const QString & nodeType, bool quiet, KisPaintDeviceSP copyFrom)
 {
     if (!m_d->view->blockUntilOperationsFinished(m_d->view->image())) {
-        return;
+        return 0;
     }
 
     KisNodeSP activeNode = this->activeNode();
@@ -500,36 +550,42 @@ void KisNodeManager::createNode(const QString & nodeType, bool quiet, KisPaintDe
         activeNode = m_d->view->image()->root();
     }
 
-    KIS_ASSERT_RECOVER_RETURN(activeNode);
+    KIS_ASSERT_RECOVER_RETURN_VALUE(activeNode, 0);
 
     // XXX: make factories for this kind of stuff,
     //      with a registry
 
     if (nodeType == "KisPaintLayer") {
-        m_d->layerManager.addLayer(activeNode);
+        return m_d->layerManager.addPaintLayer(activeNode);
     } else if (nodeType == "KisGroupLayer") {
-        m_d->layerManager.addGroupLayer(activeNode);
+        return m_d->layerManager.addGroupLayer(activeNode);
     } else if (nodeType == "KisAdjustmentLayer") {
-        m_d->layerManager.addAdjustmentLayer(activeNode);
+        return m_d->layerManager.addAdjustmentLayer(activeNode);
     } else if (nodeType == "KisGeneratorLayer") {
-        m_d->layerManager.addGeneratorLayer(activeNode);
+        return m_d->layerManager.addGeneratorLayer(activeNode);
     } else if (nodeType == "KisShapeLayer") {
-        m_d->layerManager.addShapeLayer(activeNode);
+        return m_d->layerManager.addShapeLayer(activeNode);
     } else if (nodeType == "KisCloneLayer") {
-        m_d->layerManager.addCloneLayer(activeNode);
+        KisNodeList nodes = selectedNodes();
+        if (nodes.isEmpty()) {
+            nodes.append(activeNode);
+        }
+
+        return m_d->layerManager.addCloneLayer(nodes);
     } else if (nodeType == "KisTransparencyMask") {
-        m_d->maskManager.createTransparencyMask(activeNode, copyFrom, false);
+        return m_d->maskManager.createTransparencyMask(activeNode, copyFrom, false);
     } else if (nodeType == "KisFilterMask") {
-        m_d->maskManager.createFilterMask(activeNode, copyFrom, quiet, false);
+        return m_d->maskManager.createFilterMask(activeNode, copyFrom, quiet, false);
     } else if (nodeType == "KisColorizeMask") {
-        m_d->maskManager.createColorizeMask(activeNode);
+        return m_d->maskManager.createColorizeMask(activeNode);
     } else if (nodeType == "KisTransformMask") {
-        m_d->maskManager.createTransformMask(activeNode);
+        return m_d->maskManager.createTransformMask(activeNode);
     } else if (nodeType == "KisSelectionMask") {
-        m_d->maskManager.createSelectionMask(activeNode, copyFrom, false);
+        return m_d->maskManager.createSelectionMask(activeNode, copyFrom, false);
     } else if (nodeType == "KisFileLayer") {
-        m_d->layerManager.addFileLayer(activeNode);
+        return m_d->layerManager.addFileLayer(activeNode);
     }
+    return 0;
 }
 
 void KisNodeManager::createFromVisible()
@@ -537,18 +593,25 @@ void KisNodeManager::createFromVisible()
     KisLayerUtils::newLayerFromVisible(m_d->view->image(), m_d->view->image()->root()->lastChild());
 }
 
+void KisNodeManager::slotShowHideTimeline(bool value)
+{
+    Q_FOREACH (KisNodeSP node, selectedNodes()) {
+        node->setUseInTimeline(value);
+    }
+}
+
 KisLayerSP KisNodeManager::createPaintLayer()
 {
-    KisNodeSP activeNode = this->activeNode();
-    if (!activeNode) {
-        activeNode = m_d->view->image()->root();
-    }
-
-    return m_d->layerManager.addLayer(activeNode);
+    KisNodeSP node = createNode("KisPaintLayer");
+    return dynamic_cast<KisLayer*>(node.data());
 }
 
 void KisNodeManager::convertNode(const QString &nodeType)
 {
+    if (!m_d->view->blockUntilOperationsFinished(m_d->view->image())) {
+        return;
+    }
+
     KisNodeSP activeNode = this->activeNode();
     if (!activeNode) return;
 
@@ -559,21 +622,29 @@ void KisNodeManager::convertNode(const QString &nodeType)
                nodeType == "KisTransparencyMask") {
 
         KisPaintDeviceSP copyFrom = activeNode->paintDevice() ?
-            activeNode->paintDevice() : activeNode->projection();
+                    activeNode->paintDevice() : activeNode->projection();
 
         m_d->commandsAdapter.beginMacro(kundo2_i18n("Convert to a Selection Mask"));
 
+        bool result = false;
+
         if (nodeType == "KisSelectionMask") {
-            m_d->maskManager.createSelectionMask(activeNode, copyFrom, true);
+            result = !m_d->maskManager.createSelectionMask(activeNode, copyFrom, true).isNull();
         } else if (nodeType == "KisFilterMask") {
-            m_d->maskManager.createFilterMask(activeNode, copyFrom, false, true);
+            result = !m_d->maskManager.createFilterMask(activeNode, copyFrom, false, true).isNull();
         } else if (nodeType == "KisTransparencyMask") {
-            m_d->maskManager.createTransparencyMask(activeNode, copyFrom, true);
+            result = !m_d->maskManager.createTransparencyMask(activeNode, copyFrom, true).isNull();
         }
 
-        m_d->commandsAdapter.removeNode(activeNode);
         m_d->commandsAdapter.endMacro();
 
+        if (!result) {
+            m_d->view->blockUntilOperationsFinishedForced(m_d->imageView->image());
+            m_d->commandsAdapter.undoLastCommand();
+        }
+
+    } else if (nodeType == "KisFileLayer") {
+        m_d->layerManager.convertLayerToFileLayer(activeNode);
     } else {
         warnKrita << "Unsupported node conversion type:" << nodeType;
     }
@@ -581,6 +652,14 @@ void KisNodeManager::convertNode(const QString &nodeType)
 
 void KisNodeManager::slotSomethingActivatedNodeImpl(KisNodeSP node)
 {
+    KisDummiesFacadeBase *dummiesFacade = dynamic_cast<KisDummiesFacadeBase*>(m_d->imageView->document()->shapeController());
+    KIS_SAFE_ASSERT_RECOVER_RETURN(dummiesFacade);
+
+    const bool nodeVisible = !isNodeHidden(node, !m_d->nodeDisplayModeAdapter->showGlobalSelectionMask());
+    if (!nodeVisible) {
+        return;
+    }
+
     KIS_ASSERT_RECOVER_RETURN(node != activeNode());
     if (m_d->activateNodeImpl(node)) {
         emit sigUiNeedChangeActiveNode(node);
@@ -597,7 +676,14 @@ void KisNodeManager::slotSomethingActivatedNodeImpl(KisNodeSP node)
 
 void KisNodeManager::slotNonUiActivatedNode(KisNodeSP node)
 {
+    // the node must still be in the graph, some asynchronous
+    // signals may easily break this requirement
+    if (node && !node->graphListener()) {
+        node = 0;
+    }
+
     if (node == activeNode()) return;
+
     slotSomethingActivatedNodeImpl(node);
 
     if (node) {
@@ -610,9 +696,11 @@ void KisNodeManager::slotNonUiActivatedNode(KisNodeSP node)
 
 void KisNodeManager::slotUiActivatedNode(KisNodeSP node)
 {
-    if (node == activeNode()) return;
-
-    slotSomethingActivatedNodeImpl(node);
+    // the node must still be in the graph, some asynchronous
+    // signals may easily break this requirement
+    if (node && !node->graphListener()) {
+        node = 0;
+    }
 
     if (node) {
         QStringList vectorTools = QStringList()
@@ -630,7 +718,12 @@ void KisNodeManager::slotUiActivatedNode(KisNodeSP node)
                 << "KritaFill/KisToolFill"
                 << "KritaFill/KisToolGradient";
 
-        if (node->inherits("KisShapeLayer")) {
+
+        KisSelectionMask *selectionMask = dynamic_cast<KisSelectionMask*>(node.data());
+        const bool nodeHasVectorAbilities = node->inherits("KisShapeLayer") ||
+                (selectionMask && selectionMask->selection()->hasShapeSelection());
+
+        if (nodeHasVectorAbilities) {
             if (pixelTools.contains(KoToolManager::instance()->activeToolId())) {
                 KoToolManager::instance()->switchToolRequested("InteractionTool");
             }
@@ -641,6 +734,10 @@ void KisNodeManager::slotUiActivatedNode(KisNodeSP node)
             }
         }
     }
+
+    if (node == activeNode()) return;
+
+    slotSomethingActivatedNodeImpl(node);
 }
 
 void KisNodeManager::nodesUpdated()
@@ -654,22 +751,32 @@ void KisNodeManager::nodesUpdated()
     m_d->view->updateGUI();
     m_d->view->selectionManager()->selectionChanged();
 
+    {
+        KisSignalsBlocker b(m_d->showInTimeline);
+        m_d->showInTimeline->setChecked(node->useInTimeline());
+    }
 }
 
 KisPaintDeviceSP KisNodeManager::activePaintDevice()
 {
     return m_d->maskManager.activeMask() ?
-        m_d->maskManager.activeDevice() :
-        m_d->layerManager.activeDevice();
+                m_d->maskManager.activeDevice() :
+                m_d->layerManager.activeDevice();
 }
 
 void KisNodeManager::nodeProperties(KisNodeSP node)
 {
-    if (selectedNodes().size() > 1 || node->inherits("KisLayer")) {
+    if ((selectedNodes().size() > 1 && node->inherits("KisLayer")) || node->inherits("KisLayer")) {
         m_d->layerManager.layerProperties();
-    } else if (node->inherits("KisMask")) {
+    }
+    else if (node->inherits("KisMask")) {
         m_d->maskManager.maskProperties();
     }
+}
+
+void KisNodeManager::changeCloneSource()
+{
+    m_d->layerManager.changeCloneSource();
 }
 
 qint32 KisNodeManager::convertOpacityToInt(qreal opacity)
@@ -682,18 +789,21 @@ qint32 KisNodeManager::convertOpacityToInt(qreal opacity)
     return qMin(255, int(opacity * 2.55 + 0.5));
 }
 
-void KisNodeManager::setNodeOpacity(KisNodeSP node, qint32 opacity,
-                                    bool finalChange)
+void KisNodeManager::setNodeName(KisNodeSP node, const QString &name)
+{
+    if (!node) return;
+    if (node->name() == name) return;
+
+    m_d->commandsAdapter.setNodeName(node, name);
+
+}
+
+void KisNodeManager::setNodeOpacity(KisNodeSP node, qint32 opacity)
 {
     if (!node) return;
     if (node->opacity() == opacity) return;
 
-    if (!finalChange) {
-        node->setOpacity(opacity);
-        node->setDirty();
-    } else {
-        m_d->commandsAdapter.setOpacity(node, opacity);
-    }
+    m_d->commandsAdapter.setOpacity(node, opacity);
 }
 
 void KisNodeManager::setNodeCompositeOp(KisNodeSP node,
@@ -736,11 +846,50 @@ KisNodeInsertionAdapter* KisNodeManager::nodeInsertionAdapter() const
     return m_d->nodeInsertionAdapter.data();
 }
 
-void KisNodeManager::nodeOpacityChanged(qreal opacity, bool finalChange)
+KisNodeDisplayModeAdapter *KisNodeManager::nodeDisplayModeAdapter() const
+{
+    return m_d->nodeDisplayModeAdapter.data();
+}
+
+bool KisNodeManager::isNodeHidden(KisNodeSP node, bool isGlobalSelectionHidden)
+{
+    if (node && node->isFakeNode()) {
+        return true;
+    }
+
+    if (isGlobalSelectionHidden && dynamic_cast<KisSelectionMask *>(node.data()) &&
+            (!node->parent() || !node->parent()->parent())) {
+        return true;
+    }
+
+    return false;
+}
+
+bool KisNodeManager::trySetNodeProperties(KisNodeSP node, KisImageSP image, KisBaseNode::PropertyList properties) const
+{
+    const KisPaintLayer *paintLayer = dynamic_cast<KisPaintLayer*>(node.data());
+    if (paintLayer) {
+        const auto onionSkinOn = KisLayerPropertiesIcons::getProperty(KisLayerPropertiesIcons::onionSkins, true);
+
+        if (properties.contains(onionSkinOn)) {
+            const KisPaintDeviceSP &paintDevice = paintLayer->paintDevice();
+            if (paintDevice && paintDevice->defaultPixel().opacityU8() == 255) {
+                m_d->view->showFloatingMessage(i18n("Onion skins require a layer with transparent background."), QIcon());
+                return false;
+            }
+        }
+    }
+
+    KisNodePropertyListCommand::setNodePropertiesNoUndo(node, image, properties);
+
+    return true;
+}
+
+void KisNodeManager::nodeOpacityChanged(qreal opacity)
 {
     KisNodeSP node = activeNode();
 
-    setNodeOpacity(node, convertOpacityToInt(opacity), finalChange);
+    setNodeOpacity(node, convertOpacityToInt(opacity));
 }
 
 void KisNodeManager::nodeCompositeOpChanged(const KoCompositeOp* op)
@@ -762,8 +911,9 @@ KisNodeJugglerCompressed* KisNodeManager::Private::lazyGetJuggler(const KUndo2Ma
     KisImageWSP image = view->image();
 
     if (!nodeJuggler ||
-        (nodeJuggler &&
-         !nodeJuggler->canMergeAction(actionName))) {
+            (nodeJuggler &&
+             (nodeJuggler->isEnded() ||
+              !nodeJuggler->canMergeAction(actionName)))) {
 
         nodeJuggler = new KisNodeJugglerCompressed(actionName, image, q, 750);
         nodeJuggler->setAutoDelete(true);
@@ -819,7 +969,7 @@ void KisNodeManager::mirrorNodeX()
     } else if (node->inherits("KisMask")) {
         commandName = kundo2_i18n("Mirror Mask X");
     }
-    mirrorNode(node, commandName, Qt::Horizontal);
+    mirrorNode(node, commandName, Qt::Horizontal, m_d->view->selection());
 }
 
 void KisNodeManager::mirrorNodeY()
@@ -832,11 +982,21 @@ void KisNodeManager::mirrorNodeY()
     } else if (node->inherits("KisMask")) {
         commandName = kundo2_i18n("Mirror Mask Y");
     }
-    mirrorNode(node, commandName, Qt::Vertical);
+    mirrorNode(node, commandName, Qt::Vertical, m_d->view->selection());
 }
 
-inline bool checkForGlobalSelection(KisNodeSP node) {
-    return dynamic_cast<KisSelectionMask*>(node.data()) && node->parent() && !node->parent()->parent();
+void KisNodeManager::mirrorAllNodesX()
+{
+    KisNodeSP node = m_d->view->image()->root();
+    mirrorNode(node, kundo2_i18n("Mirror All Layers X"),
+               Qt::Horizontal, m_d->view->selection());
+}
+
+void KisNodeManager::mirrorAllNodesY()
+{
+    KisNodeSP node = m_d->view->image()->root();
+    mirrorNode(node, kundo2_i18n("Mirror All Layers Y"),
+               Qt::Vertical, m_d->view->selection());
 }
 
 void KisNodeManager::activateNextNode()
@@ -847,14 +1007,14 @@ void KisNodeManager::activateNextNode()
     KisNodeSP node = activeNode->nextSibling();
 
     while (node && node->childCount() > 0) {
-           node = node->firstChild();
+        node = node->firstChild();
     }
 
     if (!node && activeNode->parent() && activeNode->parent()->parent()) {
         node = activeNode->parent();
     }
 
-    while(node && checkForGlobalSelection(node)) {
+    while(node && isNodeHidden(node, m_d->nodeDisplayModeAdapter->showGlobalSelectionMask())) {
         node = node->nextSibling();
     }
 
@@ -882,7 +1042,7 @@ void KisNodeManager::activatePreviousNode()
         activeNode = activeNode->parent();
     }
 
-    while(node && checkForGlobalSelection(node)) {
+    while(node && isNodeHidden(node, m_d->nodeDisplayModeAdapter->showGlobalSelectionMask())) {
         node = node->prevSibling();
     }
 
@@ -898,56 +1058,10 @@ void KisNodeManager::switchToPreviouslyActiveNode()
     }
 }
 
-void KisNodeManager::rotate(double radians)
-{
-    if(!m_d->view->image()) return;
-
-    KisNodeSP node = activeNode();
-    if (!node) return;
-
-    if (!m_d->view->blockUntilOperationsFinished(m_d->view->image())) return;
-
-    m_d->view->image()->rotateNode(node, radians);
-}
-
-void KisNodeManager::rotate180()
-{
-    rotate(M_PI);
-}
-
-void KisNodeManager::rotateLeft90()
-{
-   rotate(-M_PI / 2);
-}
-
-void KisNodeManager::rotateRight90()
-{
-    rotate(M_PI / 2);
-}
-
-void KisNodeManager::shear(double angleX, double angleY)
-{
-    if (!m_d->view->image()) return;
-
-    KisNodeSP node = activeNode();
-    if (!node) return;
-
-    if(!m_d->view->blockUntilOperationsFinished(m_d->view->image())) return;
-
-    m_d->view->image()->shearNode(node, angleX, angleY);
-}
-
-void KisNodeManager::scale(double sx, double sy, KisFilterStrategy *filterStrategy)
-{
-    KisNodeSP node = activeNode();
-    KIS_ASSERT_RECOVER_RETURN(node);
-
-    m_d->view->image()->scaleNode(node, sx, sy, filterStrategy);
-
-    nodesUpdated();
-}
-
-void KisNodeManager::mirrorNode(KisNodeSP node, const KUndo2MagicString& actionName, Qt::Orientation orientation)
+void KisNodeManager::mirrorNode(KisNodeSP node,
+                                const KUndo2MagicString& actionName,
+                                Qt::Orientation orientation,
+                                KisSelectionSP selection)
 {
     KisImageSignalVector emitSignals;
     emitSignals << ModifiedSignal;
@@ -956,10 +1070,20 @@ void KisNodeManager::mirrorNode(KisNodeSP node, const KUndo2MagicString& actionN
                                        KisProcessingApplicator::RECURSIVE,
                                        emitSignals, actionName);
 
-    KisProcessingVisitorSP visitor =
-        new KisMirrorProcessingVisitor(m_d->view->image()->bounds(), orientation);
+    KisProcessingVisitorSP visitor;
 
-    applicator.applyVisitor(visitor, KisStrokeJobData::CONCURRENT);
+    if (selection) {
+        visitor = new KisMirrorProcessingVisitor(selection, orientation);
+    } else {
+        visitor = new KisMirrorProcessingVisitor(m_d->view->image()->bounds(), orientation);
+    }
+
+    if (!selection) {
+        applicator.applyVisitorAllFrames(visitor, KisStrokeJobData::CONCURRENT);
+    } else {
+        applicator.applyVisitor(visitor, KisStrokeJobData::CONCURRENT);
+    }
+
     applicator.end();
 
     nodesUpdated();
@@ -974,8 +1098,8 @@ void KisNodeManager::Private::saveDeviceAsImage(KisPaintDeviceSP device,
 {
     KoFileDialog dialog(view->mainWindow(), KoFileDialog::SaveFile, "savenodeasimage");
     dialog.setCaption(i18n("Export \"%1\"", defaultName));
-    dialog.setDefaultDir(QDesktopServices::storageLocation(QDesktopServices::PicturesLocation));
-    dialog.setMimeTypeFilters(KisImportExportManager::mimeFilter(KisImportExportManager::Export));
+    dialog.setDefaultDir(QStandardPaths::writableLocation(QStandardPaths::PicturesLocation));
+    dialog.setMimeTypeFilters(KisImportExportManager::supportedMimeTypes(KisImportExportManager::Export));
     QString filename = dialog.filename();
 
     if (filename.isEmpty()) return;
@@ -984,7 +1108,7 @@ void KisNodeManager::Private::saveDeviceAsImage(KisPaintDeviceSP device,
 
     if (url.isEmpty()) return;
 
-    QString mimefilter = KisMimeDatabase::mimeTypeForFile(filename);;
+    QString mimefilter = KisMimeDatabase::mimeTypeForFile(filename, false);
 
     QScopedPointer<KisDocument> doc(KisPart::instance()->createDocument());
 
@@ -1001,8 +1125,13 @@ void KisNodeManager::Private::saveDeviceAsImage(KisPaintDeviceSP device,
 
     dst->initialRefreshGraph();
 
-    doc->setOutputMimeType(mimefilter.toLatin1());
-    doc->exportDocument(url);
+    if (!doc->exportDocumentSync(url, mimefilter.toLatin1())) {
+        QMessageBox::warning(0,
+                             i18nc("@title:window", "Krita"),
+                             i18n("Could not save the layer. %1", doc->errorMessage().toUtf8().data()),
+                             QMessageBox::Ok);
+
+    }
 }
 
 void KisNodeManager::saveNodeAsImage()
@@ -1017,15 +1146,45 @@ void KisNodeManager::saveNodeAsImage()
     KisImageWSP image = m_d->view->image();
     QRect saveRect = image->bounds() | node->exactBounds();
 
-    KisPaintDeviceSP device = node->paintDevice();
-    if (!device) {
-        device = node->projection();
-    }
-
-    m_d->saveDeviceAsImage(device, node->name(),
+    m_d->saveDeviceAsImage(node->projection(),
+                           node->name(),
                            saveRect,
                            image->xRes(), image->yRes(),
                            node->opacity());
+}
+
+#include "SvgWriter.h"
+
+void KisNodeManager::saveVectorLayerAsImage()
+{
+    KisShapeLayerSP shapeLayer = qobject_cast<KisShapeLayer*>(activeNode().data());
+    if (!shapeLayer) {
+        return;
+    }
+
+    KoFileDialog dialog(m_d->view->mainWindow(), KoFileDialog::SaveFile, "savenodeasimage");
+    dialog.setCaption(i18nc("@title:window", "Export to SVG"));
+    dialog.setDefaultDir(QStandardPaths::writableLocation(QStandardPaths::PicturesLocation));
+    dialog.setMimeTypeFilters(QStringList() << "image/svg+xml", "image/svg+xml");
+    QString filename = dialog.filename();
+
+    if (filename.isEmpty()) return;
+
+    QUrl url = QUrl::fromLocalFile(filename);
+
+    if (url.isEmpty()) return;
+
+    const QSizeF sizeInPx = m_d->view->image()->bounds().size();
+    const QSizeF sizeInPt(sizeInPx.width() / m_d->view->image()->xRes(),
+                          sizeInPx.height() / m_d->view->image()->yRes());
+
+    QList<KoShape*> shapes = shapeLayer->shapes();
+    std::sort(shapes.begin(), shapes.end(), KoShape::compareShapeZIndex);
+
+    SvgWriter writer(shapes);
+    if (!writer.save(filename, sizeInPt, true)) {
+        QMessageBox::warning(qApp->activeWindow(), i18nc("@title:window", "Krita"), i18n("Could not save to svg: %1", filename));
+    }
 }
 
 void KisNodeManager::slotSplitAlphaIntoMask()
@@ -1038,11 +1197,11 @@ void KisNodeManager::slotSplitAlphaIntoMask()
     KisPaintDeviceSP srcDevice = node->paintDevice();
     const KoColorSpace *srcCS = srcDevice->colorSpace();
     const QRect processRect =
-        srcDevice->exactBounds() |
-        srcDevice->defaultBounds()->bounds();
+            srcDevice->exactBounds() |
+            srcDevice->defaultBounds()->bounds();
 
     KisPaintDeviceSP selectionDevice =
-        new KisPaintDevice(KoColorSpaceRegistry::instance()->alpha8());
+            new KisPaintDevice(KoColorSpaceRegistry::instance()->alpha8());
 
     m_d->commandsAdapter.beginMacro(kundo2_i18n("Split Alpha into a Mask"));
     KisTransaction transaction(kundo2_noi18n("__split_alpha_channel__"), srcDevice);
@@ -1050,13 +1209,13 @@ void KisNodeManager::slotSplitAlphaIntoMask()
     KisSequentialIterator srcIt(srcDevice, processRect);
     KisSequentialIterator dstIt(selectionDevice, processRect);
 
-    do {
+    while (srcIt.nextPixel() && dstIt.nextPixel()) {
         quint8 *srcPtr = srcIt.rawData();
         quint8 *alpha8Ptr = dstIt.rawData();
 
         *alpha8Ptr = srcCS->opacityU8(srcPtr);
         srcCS->setOpacity(srcPtr, OPACITY_OPAQUE_U8, 1);
-    } while (srcIt.nextPixel() && dstIt.nextPixel());
+    }
 
     m_d->commandsAdapter.addExtraCommand(transaction.endAndTake());
 
@@ -1074,10 +1233,10 @@ void KisNodeManager::Private::mergeTransparencyMaskAsAlpha(bool writeToLayers)
 
     if (writeToLayers && !parentNode->hasEditablePaintDevice()) {
         QMessageBox::information(view->mainWindow(),
-                                 i18nc("@title:window", "Layer %1 is not editable").arg(parentNode->name()),
+                                 i18nc("@title:window", "Layer %1 is not editable", parentNode->name()),
                                  i18n("Cannot write alpha channel of "
                                       "the parent layer \"%1\".\n"
-                                      "The operation will be cancelled.").arg(parentNode->name()));
+                                      "The operation will be cancelled.", parentNode->name()));
         return;
     }
 
@@ -1099,9 +1258,9 @@ void KisNodeManager::Private::mergeTransparencyMaskAsAlpha(bool writeToLayers)
     KIS_ASSERT_RECOVER_RETURN(selectionDevice->colorSpace()->pixelSize() == 1);
 
     const QRect processRect =
-        selectionDevice->exactBounds() |
-        dstDevice->exactBounds() |
-        selectionDevice->defaultBounds()->bounds();
+            selectionDevice->exactBounds() |
+            dstDevice->exactBounds() |
+            selectionDevice->defaultBounds()->bounds();
 
     QScopedPointer<KisTransaction> transaction;
 
@@ -1113,12 +1272,12 @@ void KisNodeManager::Private::mergeTransparencyMaskAsAlpha(bool writeToLayers)
     KisSequentialIterator srcIt(selectionDevice, processRect);
     KisSequentialIterator dstIt(dstDevice, processRect);
 
-    do {
+    while (srcIt.nextPixel() && dstIt.nextPixel()) {
         quint8 *alpha8Ptr = srcIt.rawData();
         quint8 *dstPtr = dstIt.rawData();
 
         dstCS->setOpacity(dstPtr, *alpha8Ptr, 1);
-    } while (srcIt.nextPixel() && dstIt.nextPixel());
+    }
 
     if (writeToLayers) {
         commandsAdapter.addExtraCommand(transaction->endAndTake());
@@ -1277,6 +1436,8 @@ void KisNodeManager::createQuickGroupImpl(KisNodeJugglerCompressed *juggler,
     KisNodeList nodes2;
     nodes2 = KisLayerUtils::sortMergableNodes(image->root(), selectedNodes());
     KisLayerUtils::filterMergableNodes(nodes2);
+
+    if (nodes2.size() == 0) return;
 
     if (KisLayerUtils::checkIsChildOf(active, nodes2)) {
         active = nodes2.first();

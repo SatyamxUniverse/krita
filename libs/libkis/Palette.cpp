@@ -18,7 +18,10 @@
 
 #include "Palette.h"
 #include <KoColorSet.h>
+#include <KisSwatch.h>
+#include <KisSwatchGroup.h>
 #include <ManagedColor.h>
+#include <KisPaletteModel.h>
 
 struct Palette::Private {
     KoColorSet *palette {0};
@@ -36,7 +39,7 @@ Palette::~Palette()
 int Palette::numberOfEntries() const
 {
     if (!d->palette) return 0;
-    return d->palette->nColors();
+    return d->palette->colorCount();
 }
 
 int Palette::columnCount()
@@ -57,7 +60,13 @@ QString Palette::comment()
     return d->palette->comment();
 }
 
-QStringList Palette::groupNames()
+void Palette::setComment(QString comment)
+{
+    if (!d->palette) return;
+    return d->palette->setComment(comment);
+}
+
+QStringList Palette::groupNames() const
 {
     if (!d->palette) return QStringList();
     return d->palette->getGroupNames();
@@ -75,28 +84,72 @@ bool Palette::removeGroup(QString name, bool keepColors)
     return d->palette->removeGroup(name, keepColors);
 }
 
-int Palette::colorsCountGroup(QString name)
+int Palette::colorsCountTotal()
 {
     if (!d->palette) return 0;
-    return d->palette->nColorsGroup(name);
+    return d->palette->colorCount();
 }
 
-KoColorSetEntry Palette::colorSetEntryByIndex(int index)
+Swatch *Palette::colorSetEntryByIndex(int index)
 {
-    if (!d->palette) return KoColorSetEntry();
-    return d->palette->getColorGlobal(index);
+    if (!d->palette) return new Swatch();
+    int col = index % columnCount();
+    int row = (index - col) / columnCount();
+    return new Swatch(d->palette->getColorGlobal(col, row));
 }
 
-KoColorSetEntry Palette::colorSetEntryFromGroup(int index, const QString &groupName)
+Swatch *Palette::colorSetEntryFromGroup(int index, const QString &groupName)
 {
-    if (!d->palette) return KoColorSetEntry();
-
-    return d->palette->getColorGroup(index, groupName);
+    if (!d->palette) return new Swatch();
+    int row = index % columnCount();
+    return new Swatch(d->palette->getColorGroup((index - row) / columnCount(), row, groupName));
 }
 
-ManagedColor *Palette::colorForEntry(KoColorSetEntry entry)
+void Palette::addEntry(Swatch entry, QString groupName)
 {
-    if (!d->palette) return 0;
-    ManagedColor *color = new ManagedColor(entry.color);
-    return color;
+    d->palette->add(entry.kisSwatch(), groupName);
+}
+
+void Palette::removeEntry(int index, const QString &/*groupName*/)
+{
+    int col = index % columnCount();
+    int tmp = index;
+    int row = (index - col) / columnCount();
+    KisSwatchGroup *groupFoundIn = 0;
+    Q_FOREACH(const QString &name, groupNames()) {
+        KisSwatchGroup *g = d->palette->getGroup(name);
+        tmp -= g->rowCount() * columnCount();
+        if (tmp < 0) {
+            groupFoundIn = g;
+            break;
+        }
+        row -= g->rowCount();
+
+    }
+    if (!groupFoundIn) { return; }
+    groupFoundIn->removeEntry(col, row);
+}
+
+bool Palette::changeGroupName(QString oldGroupName, QString newGroupName)
+{
+    return d->palette->changeGroupName(oldGroupName, newGroupName);
+}
+
+bool Palette::moveGroup(const QString &groupName, const QString &groupNameInsertBefore)
+{
+    return d->palette->moveGroup(groupName, groupNameInsertBefore);
+}
+
+bool Palette::save()
+{
+    if (d->palette->filename().size()>0) {
+        return d->palette->save();
+    }
+    //if there's no filename the palette proly doesn't even exist...
+    return false;
+}
+
+KoColorSet *Palette::colorSet()
+{
+    return d->palette;
 }

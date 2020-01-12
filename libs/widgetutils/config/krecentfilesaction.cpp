@@ -28,11 +28,12 @@
 #include "krecentfilesaction.h"
 #include "krecentfilesaction_p.h"
 
-#include <QtCore/QFile>
-#include <QDesktopWidget>
+#include <QFile>
+#include <QGuiApplication>
 #include <QDir>
 #include <QMenu>
 #include <QComboBox>
+#include <QScreen>
 
 #include <kconfig.h>
 #include <kconfiggroup.h>
@@ -123,19 +124,18 @@ static QString titleWithSensibleWidth(const QString &nameValue, const QString &v
     // action titles to be bigger than that
     // Since we do not know in which screen we are going to show
     // we choose the min of all the screens
-    const QDesktopWidget desktopWidget;
     int maxWidthForTitles = INT_MAX;
-    for (int i = 0; i < desktopWidget.screenCount(); ++i) {
-        maxWidthForTitles = qMin(maxWidthForTitles, desktopWidget.availableGeometry(i).width() * 3 / 4);
+    Q_FOREACH(const QScreen *screen, QGuiApplication::screens()) {
+        maxWidthForTitles = qMin(maxWidthForTitles, screen->availableGeometry().width() * 3 / 4);
     }
     const QFontMetrics fontMetrics = QFontMetrics(QFont());
 
     QString title = nameValue + " [" + value + ']';
-    if (fontMetrics.width(title) > maxWidthForTitles) {
+    if (fontMetrics.boundingRect(title).width() > maxWidthForTitles) {
         // If it does not fit, try to cut only the whole path, though if the
         // name is too long (more than 3/4 of the whole text) we cut it a bit too
         const int nameValueMaxWidth = maxWidthForTitles * 3 / 4;
-        const int nameWidth = fontMetrics.width(nameValue);
+        const int nameWidth = fontMetrics.boundingRect(nameValue).width();
         QString cutNameValue, cutValue;
         if (nameWidth > nameValueMaxWidth) {
             cutNameValue = fontMetrics.elidedText(nameValue, Qt::ElideMiddle, nameValueMaxWidth);
@@ -233,8 +233,13 @@ void KRecentFilesAction::removeUrl(const QUrl &url)
 
 QList<QUrl> KRecentFilesAction::urls() const
 {
-    Q_D(const KRecentFilesAction);
-    return d->m_urls.values();
+    // switch order so last opened file is first
+    QList<QUrl> sortedList;
+    for (int i=(d_urls.length()-1); i >= 0; i--) {
+            sortedList.append(d_urls[i]);
+    }
+
+    return sortedList;
 }
 
 void KRecentFilesAction::clear()
@@ -253,6 +258,8 @@ void KRecentFilesAction::clearEntries()
     d->clearSeparator->setVisible(false);
     d->clearAction->setVisible(false);
     setEnabled(false);
+
+    d_urls.clear();
 }
 
 void KRecentFilesAction::loadEntries(const KConfigGroup &_config)
@@ -281,6 +288,7 @@ void KRecentFilesAction::loadEntries(const KConfigGroup &_config)
             continue;
         }
         url = QUrl::fromUserInput(value);
+        d_urls.append(QUrl(url)); // will be used to retrieve on the welcome screen
 
         // Don't restore if file doesn't exist anymore
         if (url.isLocalFile() && !QFile::exists(url.toLocalFile())) {

@@ -33,15 +33,12 @@
 #include "KisDocument.h"
 #include "kis_clipboard.h"
 #include <kis_image_animation_interface.h>
+#include "kis_config.h"
 
+#include <QMenu>
 #include "QFile"
 #include <QDomDocument>
 #include <QDomElement>
-
-#include "QFile"
-#include <QDomDocument>
-#include <QDomElement>
-
 
 class Q_DECL_HIDDEN KisActionManager::Private {
 
@@ -58,7 +55,7 @@ public:
     KisViewManager* viewManager;
     KActionCollection *actionCollection;
 
-    QList<KisAction*> actions;
+    QList<QPointer<KisAction>> actions;
     KoGenericRegistry<KisOperationUIFactory*> uiRegistry;
     KisOperationRegistry operationRegistry;
 
@@ -103,7 +100,7 @@ KisActionManager::~KisActionManager()
            addElement("toolTip" , action->toolTip());
            addElement("iconText" , action->iconText());
            addElement("shortcut" , action->shortcut().toString());
-           addElement("activationFlags" , QString::number(action->activationFlags(),2));;
+           addElement("activationFlags" , QString::number(action->activationFlags(),2));
            addElement("activationConditions" , QString::number(action->activationConditions(),2));
            addElement("defaultShortcut" , action->defaultShortcut().toString());
            addElement("isCheckable" , QString((action->isChecked() ? "true" : "false")));
@@ -206,12 +203,13 @@ void KisActionManager::updateGUI()
     KisImageWSP image;
     KisNodeSP node;
     KisLayerSP layer;
-    KisPaintDeviceSP device;
-    KisDocument* document = 0;
-    KisSelectionManager* selectionManager = 0;
+    KisSelectionManager *selectionManager = 0;
+
     KisAction::ActivationConditions conditions = KisAction::NO_CONDITION;
 
     if (d->viewManager) {
+        node = d->viewManager->activeNode();
+        selectionManager = d->viewManager->selectionManager();
 
         // if there are no views, that means no document is open.
         // we cannot have nodes (selections), devices, or documents without a view
@@ -224,28 +222,27 @@ void KisActionManager::updateGUI()
                 flags |= KisAction::IMAGE_HAS_ANIMATION;
             }
 
-            node = d->viewManager->activeNode();
-            device = d->viewManager->activeDevice();
-            document = d->viewManager->document();
-            selectionManager = d->viewManager->selectionManager();
-
             if (d->viewManager->viewCount() > 1) {
                 flags |= KisAction::MULTIPLE_IMAGES;
             }
 
-            if (document && document->isModified()) {
+            if (d->viewManager->document() && d->viewManager->document()->isModified()) {
                 flags |= KisAction::CURRENT_IMAGE_MODIFIED;
             }
 
-            if (device) {
+            if (d->viewManager->activeDevice()) {
                 flags |= KisAction::ACTIVE_DEVICE;
             }
+        }
+
+        if (d->viewManager->selectionEditable()) {
+            conditions |= KisAction::SELECTION_EDITABLE;
         }
 
     }
 
     // is there a selection/mask?
-    // you have to have at least one view(document) open for this to be true
+    // you have to have at least one view (document) open for this to be true
     if (node) {
 
         // if a node exists, we know there is an active layer as well
@@ -269,8 +266,8 @@ void KisActionManager::updateGUI()
             flags |= KisAction::LAYERS_IN_CLIPBOARD;
         }
 
-        if (selectionManager)
-        {
+        if (selectionManager) {
+
             if (selectionManager->havePixelsSelected()) {
                 flags |= KisAction::PIXELS_SELECTED;
             }
@@ -279,7 +276,15 @@ void KisActionManager::updateGUI()
                 flags |= KisAction::SHAPES_SELECTED;
             }
 
-            if (selectionManager->havePixelSelectionWithPixels()) {
+            if (selectionManager->haveAnySelectionWithPixels()) {
+                flags |= KisAction::ANY_SELECTION_WITH_PIXELS;
+            }
+
+            if (selectionManager->haveShapeSelectionWithShapes()) {
+                flags |= KisAction::SHAPE_SELECTION_WITH_SHAPES;
+            }
+
+            if (selectionManager->haveRasterSelectionWithPixels()) {
                 flags |= KisAction::PIXEL_SELECTION_WITH_PIXELS;
             }
 
@@ -299,37 +304,37 @@ void KisActionManager::updateGUI()
         if (node->hasEditablePaintDevice()) {
             conditions |= KisAction::ACTIVE_NODE_EDITABLE_PAINT_DEVICE;
         }
-
-        if (d->viewManager->selectionEditable()) {
-            conditions |= KisAction::SELECTION_EDITABLE;
-        }
     }
 
-
+    KisConfig cfg(true);
+    if (cfg.useOpenGL()) {
+        conditions |= KisAction::OPENGL_ENABLED;
+    }
 
     // loop through all actions in action manager and determine what should be enabled
-    Q_FOREACH (KisAction* action, d->actions) {
+    Q_FOREACH (QPointer<KisAction> action, d->actions) {
         bool enable;
+        if (action) {
+            if (action->activationFlags() == KisAction::NONE) {
+                enable = true;
+            }
+            else {
+                enable = action->activationFlags() & flags; // combine action flags with updateGUI flags
+            }
 
-        if (action->activationFlags() == KisAction::NONE) {
-            enable = true;
-        }
-        else {
-            enable = action->activationFlags() & flags; // combine action flags with updateGUI flags
-        }
+            enable = enable && (int)(action->activationConditions() & conditions) == (int)action->activationConditions();
 
-        enable = enable && (int)(action->activationConditions() & conditions) == (int)action->activationConditions();
-
-        if (node && enable) {
-            Q_FOREACH (const QString &type, action->excludedNodeTypes()) {
-                if (node->inherits(type.toLatin1())) {
-                    enable = false;
-                    break;
+            if (node && enable) {
+                Q_FOREACH (const QString &type, action->excludedNodeTypes()) {
+                    if (node->inherits(type.toLatin1())) {
+                        enable = false;
+                        break;
+                    }
                 }
             }
-        }
 
-        action->setActionEnabled(enable);
+            action->setActionEnabled(enable);
+        }
     }
 }
 
@@ -372,6 +377,16 @@ KisAction *KisActionManager::createStandardAction(KStandardAction::StandardActio
     addAction(standardAction->objectName(), action);
     delete standardAction;
     return action;
+}
+
+void KisActionManager::safePopulateMenu(QMenu *menu, const QString &actionId, KisActionManager *actionManager)
+{
+    KIS_SAFE_ASSERT_RECOVER_RETURN(actionManager);
+
+    KisAction *action = actionManager->actionByName(actionId);
+    KIS_SAFE_ASSERT_RECOVER_RETURN(action);
+
+    menu->addAction(action);
 }
 
 void KisActionManager::registerOperationUIFactory(KisOperationUIFactory* factory)
@@ -447,8 +462,8 @@ void KisActionManager::dumpActionFlags()
             if (flags & KisAction::SHAPES_SELECTED) {
                 out << "    Shapes selected\n";
             }
-            if (flags & KisAction::PIXEL_SELECTION_WITH_PIXELS) {
-                out << "    Pixel selection with pixels\n";
+            if (flags & KisAction::ANY_SELECTION_WITH_PIXELS) {
+                out << "    Any selection with pixels\n";
             }
             if (flags & KisAction::PIXELS_IN_CLIPBOARD) {
                 out << "    Pixels in clipboard\n";
@@ -474,6 +489,9 @@ void KisActionManager::dumpActionFlags()
             }
             if (conditions & KisAction::SELECTION_EDITABLE) {
                 out << "    Selection is editable\n";
+            }
+            if (conditions & KisAction::OPENGL_ENABLED) {
+                out << "    OpenGL is enabled\n";
             }
             out << "\n\n";
         }

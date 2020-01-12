@@ -20,91 +20,20 @@
 
 
 #include <QTest>
-#include <svg/SvgParser.h>
-#include <kis_debug.h>
-#include <kis_global.h>
-#include <KoDocumentResourceManager.h>
-#include <KoShape.h>
-#include <KoShapeGroup.h>
 #include <svg/SvgUtil.h>
-#include <KoViewConverter.h>
-#include <KoShapePaintingContext.h>
-#include <QPainter>
 #include <KoShapeStrokeModel.h>
-#include <KoShapePainter.h>
-
-#include "kis_algebra_2d.h"
-
-struct SvgTester
-{
-    SvgTester (const QString &data)
-        :  parser(&resourceManager)
-    {
-        QVERIFY(doc.setContent(data.toLatin1()));
-        root = doc.documentElement();
-
-        parser.setXmlBaseDir("./");
 
 
-        savedData = data;
-        //printf("%s", savedData.toLatin1().data());
+#include "SvgParserTestingUtils.h"
 
-    }
+#include "../../sdk/tests/qimage_test_util.h"
 
-    ~SvgTester ()
-    {
-        qDeleteAll(shapes);
-    }
+#ifdef USE_ROUND_TRIP
+#include "SvgWriter.h"
+#include <QBuffer>
+#include <QDomDocument>
+#endif
 
-    void run() {
-        shapes = parser.parseSvg(root, &fragmentSize);
-    }
-
-    KoShape* findShape(const QString &name, KoShape *parent = 0) {
-        if (parent && parent->name() == name) {
-            return parent;
-        }
-
-        QList<KoShape*> children;
-
-        if (!parent) {
-            children = shapes;
-        } else {
-            KoShapeContainer *cont = dynamic_cast<KoShapeContainer*>(parent);
-            if (cont) {
-                children = cont->shapes();
-            }
-        }
-
-        Q_FOREACH (KoShape *shape, children) {
-            KoShape *result = findShape(name, shape);
-            if (result) {
-                return result;
-            }
-        }
-
-        return 0;
-    }
-
-    KoShapeGroup* findGroup(const QString &name) {
-        KoShapeGroup *group = 0;
-        KoShape *shape = findShape(name);
-        if (shape) {
-            group = dynamic_cast<KoShapeGroup*>(shape);
-        }
-        return group;
-    }
-
-
-
-    KoDocumentResourceManager resourceManager;
-    SvgParser parser;
-    KoXmlDocument doc;
-    KoXmlElement root;
-    QSizeF fragmentSize;
-    QList<KoShape*> shapes;
-    QString savedData;
-};
 
 void TestSvgParser::testUnitPx()
 {
@@ -563,7 +492,7 @@ void TestSvgParser::testScalingViewportTransform()
 {
     /**
      * Note: 'transform' affects all the attributes of the *current*
-     * element, while 'viewBox' affects only the decendants!
+     * element, while 'viewBox' affects only the descendants!
      */
 
     const QString data =
@@ -694,105 +623,7 @@ void TestSvgParser::testTransformRotation2()
     QCOMPARE(shape->absolutePosition(KoFlake::BottomRight), QPointF(25,5));
 }
 
-#include "../../sdk/tests/qimage_test_util.h"
 
-#ifdef USE_ROUND_TRIP
-#include "SvgWriter.h"
-#include <QBuffer>
-#include <QDomDocument>
-#endif
-
-struct SvgRenderTester : public SvgTester
-{
-    SvgRenderTester(const QString &data)
-        : SvgTester(data),
-          m_fuzzyThreshold(0)
-    {
-    }
-
-    void setFuzzyThreshold(int fuzzyThreshold) {
-        m_fuzzyThreshold = fuzzyThreshold;
-    }
-
-    static void testRender(KoShape *shape, const QString &prefix, const QString &testName, const QSize canvasSize, int fuzzyThreshold = 0) {
-        QImage canvas(canvasSize, QImage::Format_ARGB32);
-        canvas.fill(0);
-        KoViewConverter converter;
-        QPainter painter(&canvas);
-
-        KoShapePainter p;
-        p.setShapes({shape});
-        painter.setClipRect(canvas.rect());
-        p.paint(painter, converter);
-
-        QVERIFY(TestUtil::checkQImage(canvas, "svg_render", prefix, testName, fuzzyThreshold));
-    }
-
-    void test_standard_30px_72ppi(const QString &testName, bool verifyGeometry = true, const QSize &canvasSize = QSize(30,30)) {
-        parser.setResolution(QRectF(0, 0, 30, 30) /* px */, 72 /* ppi */);
-        run();
-
-#ifdef USE_CLONED_SHAPES
-        {
-            QList<KoShape*> newShapes;
-            Q_FOREACH (KoShape *shape, shapes) {
-                KoShape *clonedShape = shape->cloneShape();
-                KIS_ASSERT(clonedShape);
-
-                newShapes << clonedShape;
-            }
-
-            qDeleteAll(shapes);
-            shapes = newShapes;
-        }
-
-#endif /* USE_CLONED_SHAPES */
-
-#ifdef USE_ROUND_TRIP
-
-        const QSizeF sizeInPt(30,30);
-        QBuffer writeBuf;
-        writeBuf.open(QIODevice::WriteOnly);
-
-        {
-            SvgWriter writer(shapes);
-            writer.save(writeBuf, sizeInPt);
-        }
-
-        QDomDocument prettyDoc;
-        prettyDoc.setContent(savedData);
-
-
-        qDebug();
-        printf("\n=== Original: ===\n\n%s\n", prettyDoc.toByteArray(4).data());
-        printf("\n=== Saved: ===\n\n%s\n", writeBuf.data().data());
-        qDebug();
-
-        QVERIFY(doc.setContent(writeBuf.data()));
-        root = doc.documentElement();
-        run();
-#endif /* USE_ROUND_TRIP */
-
-        KoShape *shape = findShape("testRect");
-        KIS_ASSERT(shape);
-
-        if (verifyGeometry) {
-            QCOMPARE(shape->absolutePosition(KoFlake::TopLeft), QPointF(5,5));
-
-            const QPointF bottomRight= shape->absolutePosition(KoFlake::BottomRight);
-            const QPointF expectedBottomRight(15,25);
-
-            if (KisAlgebra2D::norm(bottomRight - expectedBottomRight) > 0.0001 ) {
-                QCOMPARE(bottomRight, expectedBottomRight);
-            }
-        }
-
-        testRender(shape, "load", testName, canvasSize, m_fuzzyThreshold);
-    }
-
-private:
-    int m_fuzzyThreshold;
-};
 
 void TestSvgParser::testRenderStrokeNone()
 {
@@ -1266,7 +1097,7 @@ void TestSvgParser::testRenderDisplayInheritance()
     QVERIFY(shape);
 
     QCOMPARE(shape->isVisible(false), true);
-    QEXPECT_FAIL("", "TODO: Fix 'display' attribute not to be inherited in shapes heirarchy!", Continue);
+    QEXPECT_FAIL("", "TODO: Fix 'display' attribute not to be inherited in shapes hierarchy!", Continue);
     QCOMPARE(shape->isVisible(true), true);
 }
 
@@ -1368,6 +1199,7 @@ void TestSvgParser::testRenderFillLinearGradientUserCoord()
 {
     const QString data =
             "<svg width=\"30px\" height=\"30px\" viewBox=\"60 70 60 90\""
+            "        preserveAspectRatio=\"none meet\""
             "    xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\">"
 
             "<linearGradient id=\"testGrad\" x1=\"70\" y1=\"115\" x2=\"90\" y2=\"115\""
@@ -1431,6 +1263,7 @@ void TestSvgParser::testRenderFillLinearGradientTransformUserCoord()
 {
     const QString data =
             "<svg width=\"30px\" height=\"30px\" viewBox=\"60 70 60 90\""
+            "        preserveAspectRatio=\"none meet\""
             "    xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\">"
 
             "<linearGradient id=\"testGrad\" x1=\"70\" y1=\"115\" x2=\"90\" y2=\"115\""
@@ -1483,6 +1316,7 @@ void TestSvgParser::testRenderFillLinearGradientRotatedShapeUserCoord()
 
     const QString data =
             "<svg width=\"30px\" height=\"30px\" viewBox=\"60 70 60 90\""
+            "        preserveAspectRatio=\"none meet\""
             "    xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\">"
 
             "<linearGradient id=\"testGrad\" x1=\"70\" y1=\"115\" x2=\"90\" y2=\"115\""
@@ -1540,6 +1374,7 @@ void TestSvgParser::testRenderFillRadialGradientUserCoord()
             "</svg>";
 
     SvgRenderTester t (data);
+    t.setFuzzyThreshold(1);
     t.test_standard_30px_72ppi("fill_gradient_radial_in_user");
 }
 
@@ -1547,6 +1382,7 @@ void TestSvgParser::testRenderFillLinearGradientUserCoordPercent()
 {
     const QString data =
             "<svg width=\"30px\" height=\"30px\" viewBox=\"60 70 60 90\""
+            "        preserveAspectRatio=\"none meet\""
             "    xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\">"
 
             "<linearGradient id=\"testGrad\" x1=\"116.667%\" y1=\"127.778%\" x2=\"150%\" y2=\"127.778%\""
@@ -2046,6 +1882,7 @@ void TestSvgParser::testRenderPattern_r_User_c_View()
             "<defs>"
             "    <pattern id=\"TestPattern\" patternUnits=\"userSpaceOnUse\""
             "        viewBox=\"10 10 60 90\""
+            "        preserveAspectRatio=\"none meet\""
             "        x=\"60\" y=\"0\" width=\"30\" height=\"20\">"
 
             "        <g id=\"patternRect\">"
@@ -2117,6 +1954,7 @@ void TestSvgParser::testRenderPattern_r_User_c_View_Rotated()
             "<defs>"
             "    <pattern id=\"TestPattern\" patternUnits=\"userSpaceOnUse\""
             "        viewBox=\"10 10 60 90\""
+            "        preserveAspectRatio=\"none meet\""
             "        x=\"60\" y=\"0\" width=\"30\" height=\"20\""
             "        patternTransform=\"translate(40 10) rotate(90)\">"
 
@@ -2161,6 +1999,7 @@ void TestSvgParser::testRenderPattern_r_Obb_c_View_Rotated()
             "<defs>"
             "    <pattern id=\"TestPattern\" patternUnits=\"objectBoundingBox\""
             "        viewBox=\"10 10 60 90\""
+            "        preserveAspectRatio=\"none meet\""
             "        x=\"0\" y=\"0\" width=\"0.5\" height=\"0.333\""
             "        patternTransform=\"translate(0 0) rotate(90)\">"
 
@@ -2224,7 +2063,7 @@ void TestSvgParser::testKoClipPathRendering()
     {
         QList<KoShape*> shapes({shape1.take(), shape2.take()});
 
-        KoShapeGroupCommand cmd(group.data(), shapes, false, true, false);
+        KoShapeGroupCommand cmd(group.data(), shapes, false);
         cmd.redo();
     }
 
@@ -2268,7 +2107,7 @@ void TestSvgParser::testKoClipPathRelativeRendering()
     {
         QList<KoShape*> shapes({shape1.take(), shape2.take()});
 
-        KoShapeGroupCommand cmd(group.data(), shapes, false, true, false);
+        KoShapeGroupCommand cmd(group.data(), shapes, false);
         cmd.redo();
     }
 
@@ -2574,6 +2413,7 @@ void TestSvgParser::testRenderImage_AspectNone()
             "</svg>";
 
     SvgRenderTester t (data);
+    t.setFuzzyThreshold(5);
     t.parser.setFileFetcher(fileFetcherFunc);
 
     t.test_standard_30px_72ppi("image_aspect_none", false);
@@ -3131,7 +2971,7 @@ void TestSvgParser::testMarkersOnClosedPath()
 }
 
 
-void TestSvgParser::testGradientRecoveringTrasnform()
+void TestSvgParser::testGradientRecoveringTransform()
 {
     // used for experimenting purposes only!
 
@@ -3151,12 +2991,12 @@ void TestSvgParser::testGradientRecoveringTrasnform()
     gradient.setColorAt(0.0, Qt::red);
     gradient.setColorAt(1.0, Qt::blue);
 
-    QTransform gradientTrasnform;
-    gradientTrasnform.shear(0.2, 0);
+    QTransform gradientTransform;
+    gradientTransform.shear(0.2, 0);
 
     {
         QBrush brush(gradient);
-        brush.setTransform(gradientTrasnform);
+        brush.setTransform(gradientTransform);
         painter.setBrush(brush);
     }
 
@@ -3184,7 +3024,7 @@ void TestSvgParser::testGradientRecoveringTrasnform()
     {
         gradient.setCoordinateMode(QGradient::LogicalMode);
         QBrush brush(gradient);
-        brush.setTransform(gradientTrasnform * gradientToUser * smallShapeTransform.inverted());
+        brush.setTransform(gradientTransform * gradientToUser * smallShapeTransform.inverted());
         painter.setBrush(brush);
         painter.setPen(Qt::NoPen);
     }

@@ -168,7 +168,7 @@ public:
     /**
      * setDefaultStyle(true) marks a given style as being the default style.
      * This means we expect that you will call writeStyle( ...,"style:default-style"),
-     * and its name will be ommitted in the output.
+     * and its name will be omitted in the output.
      */
     void setDefaultStyle(bool b) {
         m_defaultStyle = b;
@@ -349,7 +349,7 @@ public:
      *  (unlike QString::number and setNum, which default to 6 digits),
      *  and the unit name ("pt") is appended to it.
      */
-    void addAttributePt(const QString &attrName, qreal attrValue);
+    void addAttribute(const QString &attrName, qreal attrValue);
 
     /**
      * Add an attribute that represents a percentage value as defined in ODF
@@ -540,7 +540,7 @@ private:
 
     bool m_autoStyleInStylesDotXml;
     bool m_defaultStyle;
-    short m_unused2;
+    short m_unused2 {0};
 
     // For insert()
     friend class KoGenStyles;

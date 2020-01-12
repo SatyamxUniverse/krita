@@ -231,7 +231,7 @@ void FilterEffectScene::layoutConnections()
         connectionIndex++;
     }
 
-    qSort(sortedConnections);
+    std::sort(sortedConnections.begin(), sortedConnections.end());
     qreal distance = ConnectionDistance;
     int lastSize = -1;
     int connectionCount = sortedConnections.count();
@@ -297,7 +297,7 @@ QList<ConnectionSource> FilterEffectScene::selectedEffectItems() const
 
     Q_FOREACH (QGraphicsItem *item, selectedGraphicsItems) {
         EffectItemBase *effectItem = dynamic_cast<EffectItemBase *>(item);
-        if (!item) {
+        if (!effectItem) {
             continue;
         }
 

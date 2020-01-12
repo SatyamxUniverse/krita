@@ -27,8 +27,10 @@
 #define KO_RESOURCE_ITEM_CHOOSER
 
 #include <QWidget>
+#include <KisKineticScroller.h>
 
 #include "kritawidgets_export.h"
+#include <QPushButton>
 
 class QModelIndex;
 class QAbstractProxyModel;
@@ -93,7 +95,7 @@ public:
     /// shows the preview converted to grayscale
     void setGrayscalePreview(bool grayscale);
 
-    /// sets the visibilty of tagging KlineEdits.
+    /// sets the visibility of tagging KlineEdits.
     void showTaggingBar(bool show);
 
     ///Set a proxy model with will be used to filter the resources
@@ -119,17 +121,16 @@ Q_SIGNALS:
     void splitterMoved();
 public Q_SLOTS:
     void slotButtonClicked(int button);
+    void slotScrollerStateChanged(QScroller::State state){ KisKineticScroller::updateCursor(this, state); }
 
 private Q_SLOTS:
     void activated(const QModelIndex &index);
     void clicked(const QModelIndex &index);
     void contextMenuRequested(const QPoint &pos);
     void baseLengthChanged(int length);
-
+    void updateView();
     void slotBeforeResourcesLayoutReset(KoResource *activateAfterReset);
     void slotAfterResourcesLayoutReset();
-
-    void updateView();
 
 protected:
     void showEvent(QShowEvent *event) override;
@@ -148,6 +149,10 @@ private:
 
     class Private;
     Private *const d;
+
+   QPushButton *importButton;
+   QPushButton *deleteButton;
+
 };
 
 #endif // KO_RESOURCE_ITEM_CHOOSER

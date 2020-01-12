@@ -1,14 +1,16 @@
+from __future__ import print_function
+
 import pykrita
 import os
 import sys
-
-import signal
-signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 from .api import *
 from .decorators import *
 from .dockwidgetfactory import *
 from PyKrita import krita
+
+import signal
+signal.signal(signal.SIGINT, signal.SIG_DFL)
 
 krita_path = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, krita_path)
@@ -22,15 +24,19 @@ except ImportError:
     print("Please make sure, that the needed packages are installed.", file=sys.stderr)
     raise
 
-# Shows nice looking error dialog if an unhandled exception occures.
+# Shows nice looking error dialog if an unhandled exception occurs.
 import excepthook
 excepthook.install()
 
-import builtins
-builtins.i18n = lambda s: unicode(QCoreApplication.translate("PyKrita", s))
+if sys.version_info[0] > 2:
+    import builtins
+else:
+    import __builtin__ as builtins
+builtins.i18n = Krita.krita_i18n
 builtins.Scripter = Krita.instance()
 builtins.Application = Krita.instance()
 builtins.Krita = Krita.instance()
+
 
 def qDebug(text):
     '''Use KDE way to show debug info
@@ -69,4 +75,3 @@ def on_pykrita_loaded():
 def on_pykrita_unloading():
     qDebug('UNLOADING PYKRITA')
     return True
-

@@ -34,7 +34,7 @@ class KoPointerEvent;
 class KoViewConverter;
 class KoToolSelection;
 class KoToolBasePrivate;
-class KoShapeBasedDocumentBase;
+class KoShapeControllerBase;
 
 class QAction;
 class QKeyEvent;
@@ -110,15 +110,9 @@ public:
     QList<QPointer<QWidget> > optionWidgets();
 
     /**
-     * Retrieves the entire collection of actions for the tool.
-     */
-    QHash<QString, QAction *> actions() const;
-
-    /**
      * Retrieve an action by name.
      */
     QAction *action(const QString &name) const;
-
 
     /**
      * Called when (one of) the mouse or stylus buttons is pressed.
@@ -134,6 +128,14 @@ public:
      * @param event state and reason of this mouse or stylus press
      */
     virtual void mouseDoubleClickEvent(KoPointerEvent *event);
+
+    /**
+     * Called when (one of) the mouse or stylus buttons is triple clicked.
+     * Implementors should call event->ignore() if they do not actually use the event.
+     * Default implementation ignores this event.
+     * @param event state and reason of this mouse or stylus press
+     */
+    virtual void mouseTripleClickEvent(KoPointerEvent *event);
 
     /**
      * Called when the mouse or stylus moved over the canvas.
@@ -177,7 +179,7 @@ public:
      * able to support complex input method operations as support for surrounding
      * text and reconversions.
      * Default implementation returns simple defaults, for tools that want to provide
-     * a more responsive text entry experience for CJK languages it would be good to reimplemnt.
+     * a more responsive text entry experience for CJK languages it would be good to reimplement.
      * @param query specifies which property is queried.
      * @param converter the view converter for the current canvas.
      */
@@ -301,7 +303,7 @@ public:
     virtual void dropEvent(QDropEvent *event, const QPointF &point);
 
     /**
-     * @return a menu with context-aware actions for the currect selection. If
+     * @return a menu with context-aware actions for the current selection. If
      *         the returned value is null, no context menu is shown.
      */
     virtual QMenu* popupActionsMenu();
@@ -360,7 +362,7 @@ public Q_SLOTS:
      * @param shapes the set of shapes that are selected or suggested for editing by a
      *      selected shape for the tool to work on.  Not all shapes will be meant for this
      *      tool.
-     * @param toolActivation if TemporaryActivation, this tool is only temporarily actived
+     * @param toolActivation if TemporaryActivation, this tool is only temporarily activated
      *                  and should emit done when it is done.
      * @see deactivate()
      */
@@ -452,19 +454,6 @@ protected:
     virtual QWidget *createOptionWidget();
     virtual QList<QPointer<QWidget> > createOptionWidgets();
 
-    /**
-     * Add an action under the given name to the collection.
-     *
-     * Inserting an action under a name that is already used for another action will replace
-     * the other action in the collection.
-     *
-     * @param name The name by which the action be retrieved again from the collection.
-     * @param action The action to add.
-     * @param readWrite set this to ReadOnlyAction to keep the action available on
-     *      read-only documents
-     */
-    void addAction(const QString &name, QAction *action);
-
     /// Convenience function to get the current handle radius
     uint handleRadius() const;
 
@@ -523,8 +512,6 @@ private:
      * @see KoToolFactoryBase::id()
      */
     void setToolId(const QString &id);
-
-
 
     KoToolBase();
     KoToolBase(const KoToolBase&);

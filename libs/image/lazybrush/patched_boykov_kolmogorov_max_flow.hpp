@@ -27,7 +27,7 @@
 //
 //    Distributed under the Boost Software License, Version 1.0.
 //    (See accompanying file LICENSE_1_0.txt or copy at
-//    http://www.boost.org/LICENSE_1_0.txt)
+//    https://www.boost.org/LICENSE_1_0.txt)
 
 #ifndef BOOST_BOYKOV_KOLMOGOROV_MAX_FLOW_HPP
 #define BOOST_BOYKOV_KOLMOGOROV_MAX_FLOW_HPP
@@ -186,7 +186,7 @@ class bk_max_flow {
               set_edge_to_parent(current_node, from_source);
               put(m_dist_map, current_node, 1);
               put(m_time_map, current_node, 1);
-              // add stuff to flow and update residuals. we dont need to
+              // add stuff to flow and update residuals. we don't need to
               // update reverse_edges, as incoming/outgoing edges to/from
               // source/sink don't count for max-flow
               put(m_res_cap_map, from_source, get(m_res_cap_map, from_source) - cap_to_sink);
@@ -198,7 +198,7 @@ class bk_max_flow {
               set_edge_to_parent(current_node, to_sink);
               put(m_dist_map, current_node, 1);
               put(m_time_map, current_node, 1);
-              // add stuff to flow and update residuals. we dont need to update
+              // add stuff to flow and update residuals. we don't need to update
               // reverse_edges, as incoming/outgoing edges to/from source/sink
               // don't count for max-flow
               put(m_res_cap_map, to_sink, get(m_res_cap_map, to_sink) - cap_from_source);
@@ -208,7 +208,7 @@ class bk_max_flow {
           } else if(get(m_res_cap_map, from_source)){
             // there is no sink connect, so we can't augment this path, but to
             // avoid adding m_source to the active nodes, we just activate this
-            // node and set the approciate things
+            // node and set the appropriate things
             set_tree(current_node, tColorTraits::black());
             set_edge_to_parent(current_node, from_source);
             put(m_dist_map, current_node, 1);
@@ -256,7 +256,7 @@ class bk_max_flow {
               if(get(m_res_cap_map, out_edge) > 0){ //check if we have capacity left on this edge
                 vertex_descriptor other_node = target(out_edge, m_g);
                 if(get_tree(other_node) == tColorTraits::gray()){ //it's a free node
-                  set_tree(other_node, tColorTraits::black()); //aquire other node to our search tree
+                  set_tree(other_node, tColorTraits::black()); //acquire other node to our search tree
                   set_edge_to_parent(other_node, out_edge);   //set us as parent
                   put(m_dist_map, other_node, get(m_dist_map, current_node) + 1);  //and update the distance-heuristic
                   put(m_time_map, other_node, get(m_time_map, current_node));
@@ -290,7 +290,7 @@ class bk_max_flow {
               if(get(m_res_cap_map, in_edge) > 0){ //check if there is capacity left
                 vertex_descriptor other_node = source(in_edge, m_g);
                 if(get_tree(other_node) == tColorTraits::gray()){ //it's a free node
-                  set_tree(other_node, tColorTraits::white());      //aquire that node to our search tree
+                  set_tree(other_node, tColorTraits::white());      //acquire that node to our search tree
                   set_edge_to_parent(other_node, in_edge);          //set us as parent
                   add_active_node(other_node);                      //activate that node
                   put(m_dist_map, other_node, get(m_dist_map, current_node) + 1); //set its distance
@@ -612,7 +612,7 @@ class bk_max_flow {
       }
 
       /**
-       * checks if vertex v has a connect to the sink-vertex (@var m_sink)
+       * checks if vertex v has a connect to the sink-vertex (@p m_sink)
        * @param v the vertex which is checked
        * @return true if a path to the sink was found, false if not
        */
@@ -649,7 +649,7 @@ class bk_max_flow {
       }
 
       /**
-       * checks if vertex v has a connect to the source-vertex (@var m_source)
+       * checks if vertex v has a connect to the source-vertex (@p m_source)
        * @param v the vertex which is checked
        * @return true if a path to the source was found, false if not
        */

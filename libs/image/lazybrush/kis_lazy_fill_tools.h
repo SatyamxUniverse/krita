@@ -34,9 +34,12 @@ namespace KisLazyFillTools
     KRITAIMAGE_EXPORT
     void normalizeAndInvertAlpha8Device(KisPaintDeviceSP dev, const QRect &rect);
 
+    KRITAIMAGE_EXPORT
+    void normalizeAlpha8Device(KisPaintDeviceSP dev, const QRect &rect);
+
     /**
      * Uses Boykov-Kolmogorov Max-Flow/Min-Cut algorithm to split the
-     * device \src into two parts. The first part is defined by \p
+     * device \p src into two parts. The first part is defined by \p
      * colorScribble and the second part --- by \p
      * backgroundScribble. In the result of the split the area defined
      * by \p colorScribble in \p resultDevice is filled with \p
@@ -76,6 +79,20 @@ namespace KisLazyFillTools
         KoColor color;
         bool isTransparent;
     };
-};
+
+    struct KRITAIMAGE_EXPORT FilteringOptions : public boost::equality_comparable<FilteringOptions>
+    {
+        FilteringOptions() = default;
+        FilteringOptions(bool _useEdgeDetection, qreal _edgeDetectionSize, qreal _fuzzyRadius, qreal _cleanUpAmount);
+
+        friend bool operator==(const FilteringOptions &t1, const FilteringOptions &t2);
+
+        // default values for filtering: disabled
+        bool useEdgeDetection = false;
+        qreal edgeDetectionSize = 4;
+        qreal fuzzyRadius = 0;
+        qreal cleanUpAmount = 0.0;
+    };
+}
 
 #endif /* __KIS_LAZY_FILL_TOOLS_H */

@@ -22,11 +22,13 @@
 #include <QThread>
 #include <QSemaphore>
 
+#include "kritaimage_export.h"
+
 class KisTileDataStore;
 class KisTileData;
 
 
-class KisTileDataPooler : public QThread
+class KRITAIMAGE_EXPORT KisTileDataPooler : public QThread
 {
     Q_OBJECT
 
@@ -43,6 +45,13 @@ public:
     qint64 lastPoolMemoryMetric() const;
     qint64 lastRealMemoryMetric() const;
     qint64 lastHistoricalMemoryMetric() const;
+
+
+    /**
+     * Is case the pooler thread is not running, the user might force
+     * recalculation of the memory statistics explicitly.
+     */
+    void forceUpdateMemoryStats();
 
 protected:
     static const qint32 MAX_NUM_CLONES;

@@ -279,11 +279,11 @@ void KoPathPoint::paint(KisHandlePainterHelper &handlesHelper, PointTypes types,
     // the point is lowest
     if (types & Node) {
         if (properties() & IsSmooth) {
-            handlesHelper.drawHandleRect(point());
-        } else if (properties() & IsSymmetric) {
-            handlesHelper.drawGradientHandle(point());
-        } else {
             handlesHelper.drawHandleCircle(point());
+        } else if (properties() & IsSymmetric) {
+            handlesHelper.drawHandleRect(point());
+        } else {
+            handlesHelper.drawGradientHandle(point());
         }
     }
 
@@ -326,8 +326,8 @@ QRectF KoPathPoint::boundingRect(bool active) const
 
 void KoPathPoint::reverse()
 {
-    qSwap(d->controlPoint1, d->controlPoint2);
-    qSwap(d->activeControlPoint1, d->activeControlPoint2);
+    std::swap(d->controlPoint1, d->controlPoint2);
+    std::swap(d->activeControlPoint1, d->activeControlPoint2);
     PointProperties newProps = Normal;
     newProps |= d->properties & IsSmooth;
     newProps |= d->properties & IsSymmetric;

@@ -103,7 +103,7 @@ public:
 
     /**
      * This method allows to perform custom operation when the visitor reaches a QTextTable
-     * @param visitedTable pointer to the currenlty visited table object
+     * @param visitedTable pointer to the currently visited table object
      * @param visitingMode flag, marks if the table is just partly visited or entirely
      */
     virtual void visitTable(QTextTable *visitedTable, ObjectVisitingMode visitingMode)
@@ -114,7 +114,7 @@ public:
 
     /**
      * This method allows to perform custom operation when the visitor reaches a QTextTableCell
-     * @param visitedTable pointer to the currenlty visited cell object
+     * @param visitedCell pointer to the currently visited cell object
      * @param visitingMode flag, marks if the cell is just partly visited or entirely
      */
     virtual void visitTableCell(QTextTableCell *visitedCell, ObjectVisitingMode visitingMode)
@@ -229,7 +229,7 @@ public:
 
                 QTextCursor cursor(block);
                 cursor.setPosition(fragment.position() + 1);
-                QTextCharFormat format = cursor.charFormat(); // this gets the format one char after the postion.
+                QTextCharFormat format = cursor.charFormat(); // this gets the format one char after the position.
                 visitor.visit(format);
 
                 if (registerChange && KoTextDocument(editor->document()).changeTracker() && KoTextDocument(editor->document()).changeTracker()->recordChanges()) {
@@ -247,7 +247,7 @@ public:
 
                 QTextCharFormat prevFormat(cursor.charFormat());
                 if (registerChange)
-                    editor->registerTrackedChange(cursor,KoGenChange::FormatChange,title, format, prevFormat, false); //this will lead to every fragment having a different change untill the change merging in registerTrackedChange checks also for formatChange or not?
+                    editor->registerTrackedChange(cursor,KoGenChange::FormatChange,title, format, prevFormat, false); //this will lead to every fragment having a different change until the change merging in registerTrackedChange checks also for formatChange or not?
 
                 ++iter;
             }

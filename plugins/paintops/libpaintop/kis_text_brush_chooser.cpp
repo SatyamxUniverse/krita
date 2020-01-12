@@ -37,7 +37,7 @@ KisTextBrushChooser::KisTextBrushChooser(QWidget *parent, const char* name, cons
     setupUi(this);
 
     setWindowTitle(caption);
-    connect((QObject*)lineEdit, SIGNAL(textChanged(const QString&)), this, SLOT(rebuildTextBrush()));
+    connect((QObject*)lineEdit, SIGNAL(textChanged(QString)), this, SLOT(rebuildTextBrush()));
     connect((QObject*)bnFont, SIGNAL(clicked()), this, SLOT(getFont()));
     connect(pipeModeChbox, SIGNAL(toggled(bool)), this, SLOT(rebuildTextBrush()));
     m_font = font();
@@ -51,7 +51,7 @@ KisTextBrushChooser::KisTextBrushChooser(QWidget *parent, const char* name, cons
 void KisTextBrushChooser::getFont()
 {
     bool ok = false;
-    QFont f = QFontDialog::getFont(&ok);
+    QFont f = QFontDialog::getFont(&ok, m_font);
     if (ok) {
         m_font = f;
         rebuildTextBrush();

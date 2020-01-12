@@ -26,6 +26,7 @@
 #include "kritaimage_export.h"
 #include <kis_distance_information.h>
 #include "kis_random_source.h"
+#include "KisPerStrokeRandomSource.h"
 #include "kis_spacing_information.h"
 #include "kis_timing_information.h"
 
@@ -70,6 +71,8 @@ public:
     {
     public:
         DistanceInformationRegistrar(KisPaintInformation *_p, KisDistanceInformation *distanceInfo);
+        DistanceInformationRegistrar(const DistanceInformationRegistrar &rhs) = delete;
+        DistanceInformationRegistrar(DistanceInformationRegistrar &&rhs);
         ~DistanceInformationRegistrar();
     private:
         KisPaintInformation *p;
@@ -113,6 +116,13 @@ public:
             DistanceInformationRegistrar r = registerDistanceInformation(distanceInfo);
             spacingInfo = op.paintAt(*this);
             timingInfo = op.updateTimingImpl(*this);
+
+            // Initiate the process of locking the drawing angle. The locked value will
+            // always be present in the internals, but it will be requested but the users
+            // with a special parameter of drawingAngle() only.
+            if (!this->isHoveringMode()) {
+                distanceInfo->lockCurrentDrawingAngle(*this);
+            }
         }
 
         distanceInfo->registerPaintedDab(*this, spacingInfo, timingInfo);
@@ -154,14 +164,7 @@ public:
      * WARNING: this method is available *only* inside paintAt() call,
      * that is when the distance information is registered.
      */
-    qreal drawingAngle() const;
-
-    /**
-     * Lock current drawing angle for the rest of the stroke. If some
-     * value has already been locked, \p alpha shown the coefficient
-     * with which the new velue should be blended in.
-     */
-    void lockCurrentDrawingAngle(qreal alpha) const;
+    qreal drawingAngle(bool considerLockedAngle = false) const;
 
     /**
      * Current brush direction vector computed from the cursor movement
@@ -199,12 +202,25 @@ public:
     /// Number of ms since the beginning of the stroke
     qreal currentTime() const;
 
+    /// Number of dabs painted since the beginning of the stroke
+    int currentDabSeqNo() const;
+
+    /// The length of the stroke **before** painting the current dab
+    qreal totalStrokeLength() const;
+
     // random source for generating in-stroke effects
     KisRandomSourceSP randomSource() const;
 
     // the stroke should initialize random source of all the used
     // paint info objects, otherwise it shows a warning
     void setRandomSource(KisRandomSourceSP value);
+
+    // random source for generating in-stroke effects, generates one(!) value per stroke
+    KisPerStrokeRandomSourceSP perStrokeRandomSource() const;
+
+    // the stroke should initialize per stroke random source of all the used
+    // paint info objects, otherwise it shows a warning
+    void setPerStrokeRandomSource(KisPerStrokeRandomSourceSP value);
 
     // set level of detail which info object has been generated for
     void setLevelOfDetail(int levelOfDetail);
@@ -237,30 +253,50 @@ public:
             qreal tangentialPressure = 0.0,
             qreal perspective = 1.0,
 	        qreal speed = 0.0,
-            int canvasrotation = 0,
-            bool canvasMirroredH = false);
-    /**
-     *Returns the canvas rotation if that has been given to the kispaintinformation.
-     */
-    int canvasRotation() const;
-    /**
-     *set the canvas rotation.
-     */
-    void setCanvasRotation(int rotation);
+            qreal canvasrotation = 0,
+            bool canvasMirroredH = false,
+            bool canvasMirroredV = false);
 
-    /*
-     *Whether the canvas is mirrored for the paint-operation.
+    /**
+     * Returns the canvas rotation if that has been given to the kispaintinformation.
+     */
+    qreal canvasRotation() const;
+
+    /**
+     * Set the canvas rotation.
+     */
+    void setCanvasRotation(qreal rotation);
+
+    /**
+     * Whether the canvas is horizontally mirrored for the paint-operation.
      */
     bool canvasMirroredH() const;
 
-    /*
-     *Set whether the canvas is mirrored for the paint-operation.
+    /**
+     * Set whether the canvas is horizontally mirrored for the paint-operation.
      */
-    void setCanvasHorizontalMirrorState(bool mir);
+    void setCanvasMirroredH(bool value);
+
+    /**
+     * Whether the canvas is vertically mirrored for the paint-operation.
+     */
+    bool canvasMirroredV() const;
+
+    /**
+     * Set whether the canvas is vertically mirrored for the paint-operation.
+     */
+    void setCanvasMirroredV(bool value);
 
     void toXML(QDomDocument&, QDomElement&) const;
 
     static KisPaintInformation fromXML(const QDomElement&);
+
+    // TODO: Refactor the static mix functions to non-static in-place mutation
+    //       versions like mixOtherOnlyPosition and mixOtherWithoutTime.
+    // Heap allocation on Windows is awfully slow and will fragment the memory
+    // badly. Since KisPaintInformation allocates on the heap, we should re-use
+    // existing instance whenever possible, especially in loops.
+    // Ref: https://phabricator.kde.org/D6578
 
     /// (1-t) * p1 + t * p2
     static KisPaintInformation mixOnlyPosition(qreal t, const KisPaintInformation& mixedPi, const KisPaintInformation& basePi);
@@ -268,11 +304,14 @@ public:
     static KisPaintInformation mix(qreal t, const KisPaintInformation& pi1, const KisPaintInformation& pi2);
     static KisPaintInformation mixWithoutTime(const QPointF &p, qreal t, const KisPaintInformation &p1, const KisPaintInformation &p2);
     static KisPaintInformation mixWithoutTime(qreal t, const KisPaintInformation &pi1, const KisPaintInformation &pi2);
+    void mixOtherOnlyPosition(qreal t, const KisPaintInformation& other);
+    void mixOtherWithoutTime(qreal t, const KisPaintInformation& other);
     static qreal tiltDirection(const KisPaintInformation& info, bool normalize = true);
     static qreal tiltElevation(const KisPaintInformation& info, qreal maxTiltX = 60.0, qreal maxTiltY = 60.0, bool normalize = true);
 
 private:
     static KisPaintInformation mixImpl(const QPointF &p, qreal t, const KisPaintInformation &p1, const KisPaintInformation &p2, bool posOnly, bool mixTime);
+    void mixOtherImpl(const QPointF &p, qreal t, const KisPaintInformation &other, bool posOnly, bool mixTime);
 
 private:
     struct Private;

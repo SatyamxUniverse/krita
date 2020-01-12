@@ -78,6 +78,10 @@ void KisNodeGraphListener::nodeChanged(KisNode * /*node*/)
 {
 }
 
+void KisNodeGraphListener::nodeCollapsedChanged(KisNode * /*node*/)
+{
+}
+
 void KisNodeGraphListener::invalidateAllFrames()
 {
 }
@@ -86,7 +90,7 @@ void KisNodeGraphListener::notifySelectionChanged()
 {
 }
 
-void KisNodeGraphListener::requestProjectionUpdate(KisNode * /*node*/, const QRect& /*rect*/, bool /*resetAnimationCache*/)
+void KisNodeGraphListener::requestProjectionUpdate(KisNode * /*node*/, const QVector<QRect> &/*rects*/, bool /*resetAnimationCache*/)
 {
 }
 
@@ -99,4 +103,9 @@ void KisNodeGraphListener::invalidateFrames(const KisTimeRange &range, const QRe
 void KisNodeGraphListener::requestTimeSwitch(int time)
 {
     Q_UNUSED(time);
+}
+
+KisNode *KisNodeGraphListener::graphOverlayNode() const
+{
+    return 0;
 }

@@ -17,12 +17,13 @@ Qt vs STD vs Boost:
 
 C++11 and C++14
 
-    Yes, but. Avoid lambdas. Avoid the new sig/slot connection syntax _unless_
-    you are porting all of Krita to the new syntax. Sure, it has some advantages,
-    but having two different ways of doing the same thing is begging for trouble
-    and comprehension problems. For now, keep using foreach, we're using it all
-    over the place. auto is fine, when using in for loops. Don't go overboard
-    using it in other places. 
+    Yes, but. Avoid lambdas (except when replacing the use of
+    QSignalMapper. Sigh.).  Avoid the new sig/slot connection syntax
+    _unless_ you are porting all of Krita to the new syntax. Sure, it
+    has some advantages, but having two different ways of doing the same
+    thing is begging for trouble and comprehension problems. For now,
+    keep using Q_FOREACH, we're using it all over the place. auto is fine,
+    when using in for loops. Don't go use it in other places.
 
     Before using other new features, discuss on #krita so we can expand this list.
 
@@ -42,13 +43,19 @@ Includes
 Initializers
 
 	Avoid as much as possible initializers in the body of the constructor. Use
-	initializer lists instead. Write the initializers as followed:
+	initializer lists instead. Write the initializers as follows
 
     Class(A a, B b)
         : Subclass(a)
         , m_b(b)
     {
     }
+
+    Note the location of the colon and comma.
+
+    It is also okay to use initializers like, and maybe even preferred where it works.
+
+    int m_something {0};
 
 Scope prefixes
 
@@ -57,7 +64,8 @@ Scope prefixes
 
 Shared pointers
 
-	Use shared pointers wherever possible.
+	Use shared pointers wherever possible. Prefer Qt's shared pointer classes
+    to our home-grown shared ppointer classes.
 
 Getter/setter
 
@@ -79,7 +87,7 @@ Function naming
 	If you encounter functions in c_style_like_this, feel free to rename. Also:
 	verbNoun -- i.e., rotateLayer, not layer_rotate. The latter is a true c-ism,
 	introduced by a language that needs to prefix the 'class' name to every function
-	in order to have something that not quite OO.
+	in order to have something that's not quite OO.
 
 Variable/Parameter names
 
@@ -124,3 +132,34 @@ Boolean operators
 
 
 Boudewijn Rempt
+
+
+With Krita now supporting Python scripting, we need guidelines for these as well.
+These guidelines are preliminary and may be further refined in the future.
+
+To keep it simple, we have chosen to follow the style guide suggested by Python: PEP8.
+
+All rules should be followed, except the max limit of 79 characters per line. As this
+can reduce readability in some cases, this rule is optional.
+
+The full PEP8 specification is available here: https://www.python.org/dev/peps/pep-0008/
+
+To check compliance you can run pep8.py against the code.
+You can also use autopep8.py to automatically fix detected compliance issues.
+
+pep8.py can be downloaded via Python's package manager (pip) [https://pypi.python.org/pypi/pep8],
+or your distribution's package manager.
+autopep8.py can also be downloaded via Python's package manager [https://pypi.python.org/pypi/autopep8],
+or your distribution's package manager.
+
+Both of these scripts come bundled with the PyDev plugin, which is available for Eclipse and other IDEs.
+The PyDev integration can be configured to visually highlight portions of the code which is not in compliance,
+as well as run autopep8 via shortcuts.
+
+pep8.py and autopep8.py can suppress select rules via the "--ignore" command line argument.
+To ignore the 79 characters per line rule, pep8.py can be called like this:
+
+pep8.py --ignore=E501
+
+You can read more about the error codes and what they mean here:
+http://pep8.readthedocs.io/en/release-1.7.x/intro.html#error-codes

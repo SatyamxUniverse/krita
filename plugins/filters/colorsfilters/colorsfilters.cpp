@@ -38,6 +38,7 @@
 #include "KoBasicHistogramProducers.h"
 #include <KoColorSpace.h>
 #include <KoColorTransformation.h>
+#include <filter/kis_filter_category_ids.h>
 #include <filter/kis_filter_configuration.h>
 #include <kis_paint_device.h>
 #include <kis_processing_information.h>
@@ -53,12 +54,12 @@
 #include <KoUpdater.h>
 #include <KoColorSpaceConstants.h>
 #include <KoCompositeOp.h>
-#include <kis_iterator_ng.h>
+#include <KisSequentialIteratorProgress.h>
 
 
 #include "kis_hsv_adjustment_filter.h"
-#include "kis_brightness_contrast_filter.h"
 #include "kis_perchannel_filter.h"
+#include "kis_cross_channel_filter.h"
 #include "kis_color_balance_filter.h"
 #include "kis_desaturate_filter.h"
 
@@ -68,9 +69,9 @@ ColorsFilters::ColorsFilters(QObject *parent, const QVariantList &)
         : QObject(parent)
 {
     KisFilterRegistry * manager = KisFilterRegistry::instance();
-    manager->add(new KisBrightnessContrastFilter());
     manager->add(new KisAutoContrast());
     manager->add(new KisPerChannelFilter());
+    manager->add(new KisCrossChannelFilter());
     manager->add(new KisDesaturateFilter());
     manager->add(new KisHSVAdjustmentFilter());
     manager->add(new KisColorBalanceFilter());
@@ -85,7 +86,7 @@ ColorsFilters::~ColorsFilters()
 //==================================================================
 
 
-KisAutoContrast::KisAutoContrast() : KisFilter(id(), categoryAdjust(), i18n("&Auto Contrast"))
+KisAutoContrast::KisAutoContrast() : KisFilter(id(), FiltersCategoryAdjustId, i18n("&Auto Contrast"))
 {
     setSupportsPainting(false);
     setSupportsThreading(false);
@@ -136,7 +137,7 @@ void KisAutoContrast::processImpl(KisPaintDeviceSP device,
     // build the transferfunction
     int diff = maxvalue - minvalue;
 
-    quint16* transfer = new quint16[256];
+    QScopedArrayPointer<quint16> transfer(new quint16[256]);
     for (int i = 0; i < 255; i++)
         transfer[i] = 0xFFFF;
 
@@ -156,24 +157,18 @@ void KisAutoContrast::processImpl(KisPaintDeviceSP device,
             transfer[i] = 0xFFFF;
     }
     // apply
-    KoColorTransformation *adj = device->colorSpace()->createBrightnessContrastAdjustment(transfer);
+    QScopedPointer<KoColorTransformation> adj(device->colorSpace()->createBrightnessContrastAdjustment(transfer.data()));
+    KIS_SAFE_ASSERT_RECOVER_RETURN(adj);
 
-    KisSequentialIterator it(device, applyRect);
+    KisSequentialIteratorProgress it(device, applyRect, progressUpdater);
 
-    qint32 totalCost = (applyRect.width() * applyRect.height()) / 100;
-    if (totalCost == 0) totalCost = 1;
-    qint32 pixelsProcessed = 0;
+    quint32 npix = it.nConseqPixels();
+    while(it.nextPixels(npix)) {
 
-    quint32 npix;
-    do {
-        npix = it.nConseqPixels();
         // adjust
+        npix = it.nConseqPixels();
         adj->transform(it.oldRawData(), it.rawData(), npix);
-        pixelsProcessed += npix;
-        if (progressUpdater) progressUpdater->setProgress(pixelsProcessed / totalCost);
-    } while(it.nextPixels(npix)  && !(progressUpdater && progressUpdater->interrupted()));
-    delete[] transfer;
-    delete adj;
+    }
 }
 
 #include "colorsfilters.moc"

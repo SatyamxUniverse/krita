@@ -40,6 +40,7 @@ const QString ICC_PROOFING_PATH = "/annotations/proofing/icc";
 const QString LAYER_STYLES_PATH = "/annotations/layerstyles.asl";
 const QString ASSISTANTS_PATH = "/assistants/";
 const QString LAYER_PATH = "/layers/";
+const QString PALETTE_PATH = "/palettes/";
 
 const QString ADJUSTMENT_LAYER = "adjustmentlayer";
 const QString CHANNEL_FLAGS = "channelflags";
@@ -90,6 +91,7 @@ const QString PROFILE = "profile";
 const QString ROTATION = "rotation";
 const QString SELECTION_MASK = "selectionmask";
 const QString SHAPE_LAYER = "shapelayer";
+const QString REFERENCE_IMAGES_LAYER = "referenceimages";
 const QString FILE_LAYER = "filelayer";
 const QString TRANSPARENCY_MASK = "transparencymask";
 const QString COLORIZE_MASK = "colorizemask";
@@ -100,6 +102,11 @@ const QString COLORIZE_KEYSTROKE_COLOR = "color";
 const QString COLORIZE_KEYSTROKE_IS_TRANSPARENT = "is-transparent";
 const QString COLORIZE_COLORING_DEVICE = "colorize-coloring";
 const QString COLORIZE_KEYSTROKES_SECTION = "keystrokes";
+const QString COLORIZE_USE_EDGE_DETECTION = "use-edge-detection";
+const QString COLORIZE_EDGE_DETECTION_SIZE = "edge-detection-size";
+const QString COLORIZE_FUZZY_RADIUS = "fuzzy-radius";
+const QString COLORIZE_CLEANUP = "cleanup";
+const QString COLORIZE_LIMIT_TO_DEVICE = "limit-to-device";
 const QString TRANSFORM_MASK = "transformmask";
 const QString UUID = "uuid";
 const QString VISIBLE = "visible";
@@ -127,6 +134,10 @@ const QString PROOFINGADAPTATIONSTATE = "proofing-adaptation-state";
 const QString ICCPROOFINGPROFILE ="icc-proofing-profile";
 const QString CANVASPROJECTIONCOLOR = "ProjectionBackgroundColor";
 const QString COLORBYTEDATA = "ColorData";
+const QString SIMPLECOLORDATA = "SimpleColorData"; // easier 8-bit color data that works well with XML
+const QString GLOBALASSISTANTSCOLOR = "GlobalAssistantsColor";
+const QString PALETTES = "Palettes";
+const QString MIRROR_AXIS = "MirrorAxis";
 }
 
 

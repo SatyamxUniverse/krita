@@ -1,5 +1,6 @@
 /*
  *  Copyright (c) 2014 Boudewijn Rempt <boud@valdyas.org>
+ *  Copyright (c) 2017 Victor Wåhlström <victor.wahlstrom@initiali.se>
  *
  *  This library is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
@@ -22,12 +23,9 @@
 #include <ctype.h>
 
 #include <QApplication>
-#include <QFile>
 #include <qendian.h>
-#include <QCursor>
 
 #include <kpluginfactory.h>
-#include <QFileInfo>
 #include <KoDialog.h>
 
 #include <KisImportExportManager.h>
@@ -47,9 +45,26 @@
 #include <kis_random_accessor_ng.h>
 #include <kis_config.h>
 
-#include "ui_kis_wdg_options_heightmap.h"
+#include "kis_wdg_options_heightmap.h"
+#include "kis_heightmap_utils.h"
 
 K_PLUGIN_FACTORY_WITH_JSON(HeightMapImportFactory, "krita_heightmap_import.json", registerPlugin<KisHeightMapImport>();)
+
+template<typename T>
+void fillData(KisPaintDeviceSP pd, int w, int h, QDataStream &stream) {
+    KIS_ASSERT_RECOVER_RETURN(pd);
+
+    T pixel;
+
+    for (int i = 0; i < h; ++i) {
+        KisHLineIteratorSP it = pd->createHLineIteratorNG(0, i, w);
+        do {
+            stream >> pixel;
+            KoGrayTraits<T>::setGray(it->rawData(), pixel);
+            KoGrayTraits<T>::setOpacity(it->rawData(), OPACITY_OPAQUE_F, 1);
+        } while(it->nextPixel());
+    }
+}
 
 KisHeightMapImport::KisHeightMapImport(QObject *parent, const QVariantList &) : KisImportExportFilter(parent)
 {
@@ -59,102 +74,131 @@ KisHeightMapImport::~KisHeightMapImport()
 {
 }
 
-KisImportExportFilter::ConversionStatus KisHeightMapImport::convert(KisDocument *document, QIODevice *io,  KisPropertiesConfigurationSP configuration)
+KisImportExportErrorCode KisHeightMapImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigurationSP configuration)
 {
     Q_UNUSED(configuration);
-    KoID depthId;
-    if (mimeType() == "image/x-r8") {
-        depthId = Integer8BitsColorDepthID;
+    KoID depthId = KisHeightmapUtils::mimeTypeToKoID(mimeType());
+    if (depthId.id().isNull()) {
+        document->setErrorMessage(i18n("Unknown file type"));
+        return ImportExportCodes::FileFormatIncorrect;
     }
-    else if (mimeType() == "image/x-r16") {
-        depthId = Integer16BitsColorDepthID;
-    }
-    else {
-        document->setErrorMessage(i18n("The file is not 8 or 16 bits raw"));
-        return KisImportExportFilter::WrongFormat;
-    }
-
-    QApplication::restoreOverrideCursor();
-
-    KoDialog* kdb = new KoDialog(0);
-    kdb->setWindowTitle(i18n("R16 HeightMap Import Options"));
-    kdb->setButtons(KoDialog::Ok | KoDialog::Cancel);
-
-    Ui::WdgOptionsHeightMap optionsHeightMap;
-
-    QWidget* wdg = new QWidget(kdb);
-    optionsHeightMap.setupUi(wdg);
-
-    kdb->setMainWidget(wdg);
-
-    QString filterConfig = KisConfig().exportConfiguration("HeightMap");
-    KisPropertiesConfigurationSP cfg(new KisPropertiesConfiguration);
-    cfg->fromXML(filterConfig);
 
     int w = 0;
     int h = 0;
 
-    optionsHeightMap.intSize->setValue(0);
-    int endianness = cfg->getInt("endianness", 0);
-    if (endianness == 0) {
-        optionsHeightMap.radioMac->setChecked(true);
+    KIS_ASSERT(io->isOpen());
+    const quint64 size = io->size();
+    if (size == 0) {
+        return ImportExportCodes::FileFormatIncorrect;
     }
-    else {
-        optionsHeightMap.radioPC->setChecked(true);
-    }
-
-    if (!batchMode()) {
-        if (kdb->exec() == QDialog::Rejected) {
-            return KisImportExportFilter::UserCancelled;
-        }
-    }
-
-    w = h = optionsHeightMap.intSize->value();
-
-//    if ((w * h * (mimeType() == "image/x-r16" ? 2 : 1)) != f.size()) {
-//        document->setErrorMessage(i18n("Source file is not the right size for the specified width and height."));
-//        return KisImportExportFilter::WrongFormat;
-//    }
 
     QDataStream::ByteOrder bo = QDataStream::LittleEndian;
-    cfg->setProperty("endianness", 1);
-    if (optionsHeightMap.radioMac->isChecked()) {
-        bo = QDataStream::BigEndian;
-        cfg->setProperty("endianness", 0);
+
+    if (!batchMode()) {
+        QApplication::restoreOverrideCursor();
+
+        KoDialog* kdb = new KoDialog(0);
+        kdb->setWindowTitle(i18n("Heightmap Import Options"));
+        kdb->setButtons(KoDialog::Ok | KoDialog::Cancel);
+
+        KisWdgOptionsHeightmap* wdg = new KisWdgOptionsHeightmap(kdb);
+
+        kdb->setMainWidget(wdg);
+
+        connect(wdg, SIGNAL(statusUpdated(bool)), kdb, SLOT(enableButtonOk(bool)));
+
+        KisConfig config(true);
+
+        QString filterConfig = config.importConfiguration(mimeType());
+        KisPropertiesConfigurationSP cfg(new KisPropertiesConfiguration);
+        cfg->fromXML(filterConfig);
+
+
+        int endianness = cfg->getInt("endianness", 1);
+        if (endianness == 0) {
+            wdg->radioBig->setChecked(true);
+        }
+        else {
+            wdg->radioLittle->setChecked(true);
+        }
+
+        wdg->fileSizeLabel->setText(QString::number(size));
+
+        if(depthId == Integer8BitsColorDepthID) {
+            wdg->bppLabel->setText(QString::number(8));
+            wdg->typeLabel->setText("Integer");
+        }
+        else if(depthId == Integer16BitsColorDepthID) {
+            wdg->bppLabel->setText(QString::number(16));
+            wdg->typeLabel->setText("Integer");
+        }
+        else if(depthId == Float32BitsColorDepthID) {
+            wdg->bppLabel->setText(QString::number(32));
+            wdg->typeLabel->setText("Float");
+        }
+        else {
+            KIS_ASSERT_RECOVER_RETURN_VALUE(true, ImportExportCodes::InternalError);
+            return ImportExportCodes::InternalError;
+        }
+
+        if (kdb->exec() == QDialog::Rejected) {
+            return ImportExportCodes::Cancelled;
+        }
+
+        cfg->setProperty("endianness", wdg->radioBig->isChecked() ? 0 : 1);
+
+        config.setImportConfiguration(mimeType(), cfg);
+
+        w = wdg->widthInput->value();
+        h = wdg->heightInput->value();
+
+        bo = QDataStream::LittleEndian;
+        cfg->setProperty("endianness", 1);
+        if (wdg->radioBig->isChecked()) {
+            bo = QDataStream::BigEndian;
+            cfg->setProperty("endianness", 0);
+        }
+        KisConfig(true).setExportConfiguration(mimeType(), cfg);
+
+    } else {
+        const int pixelSize =
+            depthId == Float32BitsColorDepthID ? 4 :
+            depthId == Integer16BitsColorDepthID ? 2 : 1;
+
+        const int numPixels = size / pixelSize;
+
+        w = std::sqrt(numPixels);
+        h = numPixels / w;
+        bo = QDataStream::LittleEndian;
     }
-    KisConfig().setExportConfiguration(mimeType(), cfg);
+
 
     QDataStream s(io);
     s.setByteOrder(bo);
+    // needed for 32bit float data
+    s.setFloatingPointPrecision(QDataStream::SinglePrecision);
 
-    const KoColorSpace *colorSpace = KoColorSpaceRegistry::instance()->colorSpace(GrayAColorModelID.id(), depthId.id(), 0);
+    const KoColorSpace *colorSpace = KoColorSpaceRegistry::instance()->colorSpace(GrayAColorModelID.id(), depthId.id(), "Gray-D50-elle-V2-srgbtrc.icc");
     KisImageSP image = new KisImage(document->createUndoStore(), w, h, colorSpace, "imported heightmap");
     KisPaintLayerSP layer = new KisPaintLayer(image, image->nextLayerName(), 255);
 
-    KisRandomAccessorSP it = layer->paintDevice()->createRandomAccessorNG(0, 0);
-    bool r16 = (depthId == Integer16BitsColorDepthID);
-    for (int i = 0; i < h; ++i) {
-        for (int j = 0; j < w; ++j) {
-            it->moveTo(i, j);
-
-            if (r16) {
-                quint16 pixel;
-                s >> pixel;
-                KoGrayU16Traits::setGray(it->rawData(), pixel);
-                KoGrayU16Traits::setOpacity(it->rawData(), OPACITY_OPAQUE_F, 1);
-            }
-            else {
-                quint8 pixel;
-                s >> pixel;
-                KoGrayU8Traits::setGray(it->rawData(), pixel);
-                KoGrayU8Traits::setOpacity(it->rawData(), OPACITY_OPAQUE_F, 1);
-            }
-        }
+    if (depthId == Float32BitsColorDepthID) {
+        fillData<float>(layer->paintDevice(), w, h, s);
+    }
+    else if (depthId == Integer16BitsColorDepthID) {
+        fillData<quint16>(layer->paintDevice(), w, h, s);
+    }
+    else if (depthId == Integer8BitsColorDepthID) {
+        fillData<quint8>(layer->paintDevice(), w, h, s);
+    }
+    else {
+        KIS_ASSERT_RECOVER_RETURN_VALUE(true, ImportExportCodes::InternalError);
+        return ImportExportCodes::InternalError;
     }
 
     image->addNode(layer.data(), image->rootLayer().data());
     document->setCurrentImage(image);
-    return KisImportExportFilter::OK;
+    return ImportExportCodes::OK;
 }
 
 #include "kis_heightmap_import.moc"

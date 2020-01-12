@@ -61,16 +61,30 @@ KisDocumentAwareSpinBoxUnitManager::KisDocumentAwareSpinBoxUnitManager(QObject *
 }
 
 
-qreal KisDocumentAwareSpinBoxUnitManager::getConversionFactor(int dim, QString symbol) const
+qreal KisDocumentAwareSpinBoxUnitManager::getConversionFactor(int dim, QString psymbol) const
 {
+    QString symbol = psymbol;
+
+    if (symbol == "%") { //percent can be seen as vw or vh depending of the reference side in the image.
+        if (pixDir == PIX_DIR_X) {
+            symbol = "vw";
+        } else {
+            symbol = "vh";
+        }
+    }
+
     qreal factor = KisSpinBoxUnitManager::getConversionFactor(dim, symbol);
 
     if (factor > 0) {
-        //no errors occured at a lower level, so the conversion factor has been get.
+        //no errors occurred at a lower level, so the conversion factor has been get.
         return factor;
     }
 
     factor = 1; //fall back to something natural in case document is unreachable (1 px = 1 pt = 1vw = 1vh). So a virtual document of 100x100 with a resolution of 1.
+
+    if (!KisPart::instance()->currentMainwindow()) {
+        return factor;
+    }
 
     KisView* view = KisPart::instance()->currentMainwindow()->activeView();
 
@@ -160,4 +174,14 @@ qreal KisDocumentAwareSpinBoxUnitManager::getConversionConstant(int dim, QString
     }
 
     return KisSpinBoxUnitManager::getConversionConstant(dim, symbol);
+}
+
+
+bool KisDocumentAwareSpinBoxUnitManager::hasPercent(int unitDim) const {
+
+    if (unitDim == IMLENGTH || unitDim == LENGTH) {
+        return true;
+    }
+
+    return KisSpinBoxUnitManager::hasPercent(unitDim);
 }

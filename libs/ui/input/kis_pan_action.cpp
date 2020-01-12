@@ -41,6 +41,7 @@ public:
     const int panDistance;
 
     QPointF lastPosition;
+    QPointF originalPreferredCenter;
 };
 
 KisPanAction::KisPanAction()
@@ -85,11 +86,27 @@ void KisPanAction::begin(int shortcut, QEvent *event)
 {
     KisAbstractInputAction::begin(shortcut, event);
 
+    bool overrideCursor = true;
+
     switch (shortcut) {
         case PanModeShortcut: {
             QTouchEvent *tevent = dynamic_cast<QTouchEvent*>(event);
-            if(tevent)
+            if (tevent) {
                 d->lastPosition = d->averagePoint(tevent);
+                break;
+            }
+
+            // Some QT wheel events are actually be touch pad pan events. From the QT docs:
+            // "Wheel events are generated for both mouse wheels and trackpad scroll gestures."
+            QWheelEvent *wheelEvent = dynamic_cast<QWheelEvent*>(event);
+            if (wheelEvent) {
+                inputManager()->canvas()->canvasController()->pan(-wheelEvent->pixelDelta());
+                overrideCursor = false;
+                break;
+            }
+
+            d->originalPreferredCenter = inputManager()->canvas()->canvasController()->preferredCenter();
+
             break;
         }
         case PanLeftShortcut:
@@ -105,7 +122,10 @@ void KisPanAction::begin(int shortcut, QEvent *event)
             inputManager()->canvas()->canvasController()->pan(QPoint(0, -d->panDistance));
             break;
     }
-    QApplication::setOverrideCursor(Qt::ClosedHandCursor);
+
+    if (overrideCursor) {
+        QApplication::setOverrideCursor(Qt::ClosedHandCursor);
+    }
 }
 
 void KisPanAction::end(QEvent *event)
@@ -144,10 +164,9 @@ void KisPanAction::inputEvent(QEvent *event)
     KisAbstractInputAction::inputEvent(event);
 }
 
-void KisPanAction::cursorMoved(const QPointF &lastPos, const QPointF &pos)
+void KisPanAction::cursorMovedAbsolute(const QPointF &startPos, const QPointF &pos)
 {
-    QPointF relMovement = -(pos - lastPos);
-    inputManager()->canvas()->canvasController()->pan(relMovement.toPoint());
+    inputManager()->canvas()->canvasController()->setPreferredCenter(-pos + startPos + d->originalPreferredCenter);
 }
 
 QPointF KisPanAction::Private::averagePoint( QTouchEvent* event )
@@ -172,4 +191,15 @@ QPointF KisPanAction::Private::averagePoint( QTouchEvent* event )
 bool KisPanAction::isShortcutRequired(int shortcut) const
 {
     return shortcut == PanModeShortcut;
+}
+
+KisInputActionGroup KisPanAction::inputActionGroup(int shortcut) const
+{
+    Q_UNUSED(shortcut);
+    return ViewTransformActionGroup;
+}
+
+bool KisPanAction::supportsHiResInputEvents() const
+{
+    return true;
 }

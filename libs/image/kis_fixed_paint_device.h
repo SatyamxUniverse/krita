@@ -25,7 +25,7 @@
 
 #include <QRect>
 #include <QImage>
-#include <QVector>
+#include "KisOptimizedByteArray.h"
 
 class KoColor;
 
@@ -41,7 +41,8 @@ class KRITAIMAGE_EXPORT KisFixedPaintDevice : public KisShared
 
 public:
 
-    KisFixedPaintDevice(const KoColorSpace* colorSpace);
+    KisFixedPaintDevice(const KoColorSpace* colorSpace,
+                        KisOptimizedByteArray::MemoryAllocatorSP allocator = KisOptimizedByteArray::MemoryAllocatorSP());
     virtual ~KisFixedPaintDevice();
 
     /**
@@ -58,7 +59,7 @@ public:
      * setRect sets the rect of the fixed paint device to rect.
      * This will _not_ create the associated data area.
      *
-     * @rect the bounds in pixels. The x,y of the rect represent the origin
+     * @param rc the bounds in pixels. The x,y of the rect represent the origin
      * of the fixed paint device.
      */
     void setRect(const QRect& rc);
@@ -93,9 +94,24 @@ public:
     bool initialize(quint8 defaultValue = 0);
 
     /**
+     * Changed the size of the internal buffer to accommodate the exact number of bytes
+     * needed to store area bounds(). The allocated data is *not* initialized!
+     */
+    void reallocateBufferWithoutInitialization();
+
+    /**
+     * If the size of the internal buffer is smaller than the one needed to accommodate
+     * bounds(), resize the buffer. Otherwise, do nothing. The allocated data is neither
+     * copying or initialized!
+     */
+    void lazyGrowBufferWithoutInitialization();
+
+    /**
      * @return a pointer to the beginning of the data associated with this fixed paint device.
      */
     quint8* data();
+
+    const quint8* constData() const;
 
     quint8* data() const;
 
@@ -117,9 +133,16 @@ public:
     void convertTo(const KoColorSpace * dstColorSpace = 0,
                    KoColorConversionTransformation::Intent renderingIntent = KoColorConversionTransformation::internalRenderingIntent(),
                    KoColorConversionTransformation::ConversionFlags conversionFlags = KoColorConversionTransformation::internalConversionFlags());
+
+    /**
+     * Set color profile for the device without converting actual pixel data
+     */
+    void setProfile(const KoColorProfile *profile);
+
     /**
      * Fill this paint device with the data from image
      *
+     * @param image the image
      * @param srcProfileName name of the RGB profile to interpret the image as. 0 is interpreted as sRGB
      */
     virtual void convertFromQImage(const QImage& image, const QString &srcProfileName);
@@ -127,13 +150,15 @@ public:
     /**
      * Create an RGBA QImage from a rectangle in the paint device.
      *
+     * @param dstProfile RGB profile to use in conversion. May be 0, in which
+     * case it's up to the color strategy to choose a profile (most
+     * like sRGB).
      * @param x Left coordinate of the rectangle
      * @param y Top coordinate of the rectangle
      * @param w Width of the rectangle in pixels
      * @param h Height of the rectangle in pixels
-     * @param dstProfile RGB profile to use in conversion. May be 0, in which
-     * case it's up to the color strategy to choose a profile (most
-     * like sRGB).
+     * @param renderingIntent Rendering intent
+     * @param conversionFlags Conversion flags
      */
     virtual QImage convertToQImage(const KoColorProfile *dstProfile, qint32 x, qint32 y, qint32 w, qint32 h,
                                    KoColorConversionTransformation::Intent renderingIntent = KoColorConversionTransformation::internalRenderingIntent(),
@@ -146,6 +171,8 @@ public:
      * @param dstProfile RGB profile to use in conversion. May be 0, in which
      * case it's up to the color strategy to choose a profile (most
      * like sRGB).
+     * @param renderingIntent The rendering intent of conversion.
+     * @param conversionFlags The conversion flags.
      */
     virtual QImage convertToQImage(const KoColorProfile *dstProfile,
                                    KoColorConversionTransformation::Intent renderingIntent = KoColorConversionTransformation::internalRenderingIntent(),
@@ -180,8 +207,7 @@ private:
 
     const KoColorSpace* m_colorSpace;
     QRect m_bounds;
-    QVector<quint8> m_data;
-
+    KisOptimizedByteArray m_data;
 };
 
 #endif

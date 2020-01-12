@@ -6,14 +6,13 @@ include_directories(
 )
 include_directories(SYSTEM
     ${EIGEN3_INCLUDE_DIR}
-    ${Boost_INCLUDE_DIRS}
 )
 
 
 set(LINK_VC_LIB)
 if(HAVE_VC)
   include_directories(${Vc_INCLUDE_DIR})
-#  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${Vc_DEFINITIONS}")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${Vc_DEFINITIONS}")
   set(LINK_VC_LIB ${Vc_LIBRARIES})
 endif()
 
@@ -36,9 +35,10 @@ set(kis_floodfill_benchmark_SRCS kis_floodfill_benchmark.cpp)
 set(kis_gradient_benchmark_SRCS kis_gradient_benchmark.cpp)
 set(kis_mask_generator_benchmark_SRCS kis_mask_generator_benchmark.cpp)
 set(kis_low_memory_benchmark_SRCS kis_low_memory_benchmark.cpp)
+set(KisAnimationRenderingBenchmark_SRCS KisAnimationRenderingBenchmark.cpp)
 set(kis_filter_selections_benchmark_SRCS kis_filter_selections_benchmark.cpp)
 if (UNIX)
-	#set(kis_composition_benchmark_SRCS kis_composition_benchmark.cpp)
+        set(kis_composition_benchmark_SRCS kis_composition_benchmark.cpp)
 endif()
 set(kis_thumbnail_benchmark_SRCS kis_thumbnail_benchmark.cpp)
 
@@ -57,9 +57,10 @@ krita_add_benchmark(KisFloodfillBenchmark TESTNAME krita-benchmarks-KisFloodFill
 krita_add_benchmark(KisGradientBenchmark TESTNAME krita-benchmarks-KisGradientFill ${kis_gradient_benchmark_SRCS})
 krita_add_benchmark(KisMaskGeneratorBenchmark TESTNAME krita-benchmarks-KisMaskGenerator ${kis_mask_generator_benchmark_SRCS})
 krita_add_benchmark(KisLowMemoryBenchmark TESTNAME krita-benchmarks-KisLowMemory ${kis_low_memory_benchmark_SRCS})
+krita_add_benchmark(KisAnimationRenderingBenchmark TESTNAME krita-benchmarks-KisAnimationRenderingBenchmark ${KisAnimationRenderingBenchmark_SRCS})
 krita_add_benchmark(KisFilterSelectionsBenchmark TESTNAME krita-image-KisFilterSelectionsBenchmark ${kis_filter_selections_benchmark_SRCS})
 if(UNIX)
-	#krita_add_benchmark(KisCompositionBenchmark TESTNAME krita-benchmarks-KisComposition ${kis_composition_benchmark_SRCS})
+        krita_add_benchmark(KisCompositionBenchmark TESTNAME krita-benchmarks-KisComposition ${kis_composition_benchmark_SRCS})
 endif()
 krita_add_benchmark(KisThumbnailBenchmark TESTNAME krita-benchmarks-KisThumbnail ${kis_thumbnail_benchmark_SRCS})
 
@@ -77,13 +78,14 @@ target_link_libraries(KisFastMathBenchmark  kritaimage  Qt5::Test)
 target_link_libraries(KisFloodfillBenchmark  kritaimage  Qt5::Test)
 target_link_libraries(KisGradientBenchmark  kritaimage  Qt5::Test)
 target_link_libraries(KisLowMemoryBenchmark  kritaimage  Qt5::Test)
+target_link_libraries(KisAnimationRenderingBenchmark  kritaimage kritaui  Qt5::Test)
 target_link_libraries(KisFilterSelectionsBenchmark   kritaimage  Qt5::Test)
 
 if(UNIX)
-	#target_link_libraries(KisCompositionBenchmark  kritaimage  Qt5::Test ${LINK_VC_LIB})
-	#if(HAVE_VC)
-	#	set_property(TARGET KisCompositionBenchmark APPEND PROPERTY COMPILE_OPTIONS "${Vc_ARCHITECTURE_FLAGS}")
-	#endif()
+    target_link_libraries(KisCompositionBenchmark  kritaimage  Qt5::Test ${LINK_VC_LIB})
+    if(HAVE_VC)
+        set_property(TARGET KisCompositionBenchmark APPEND PROPERTY COMPILE_OPTIONS "${Vc_ARCHITECTURE_FLAGS}")
+    endif()
 endif()
 target_link_libraries(KisMaskGeneratorBenchmark  kritaimage  Qt5::Test)
 target_link_libraries(KisThumbnailBenchmark  kritaimage  Qt5::Test)

@@ -31,7 +31,7 @@
 #include <QTreeWidgetItem>
 #include <QStyledItemDelegate>
 #include <QLinearGradient>
-#include <QDesktopServices>
+#include <QStandardPaths>
 #include <QDragEnterEvent>
 #include <QDropEvent>
 #include <QMimeData>
@@ -59,8 +59,12 @@
 class KoSectionListItem : public QTreeWidgetItem
 {
 public:
-    KoSectionListItem(QTreeWidget* treeWidget, const QString& name, int sortWeight, int widgetIndex = -1)
-        : QTreeWidgetItem(treeWidget, QStringList() << name), m_sortWeight(sortWeight), m_widgetIndex(widgetIndex) {
+    KoSectionListItem(QTreeWidget* treeWidget, const QString& name, QString untranslatedName, int sortWeight, int widgetIndex = -1)
+        : QTreeWidgetItem(treeWidget, QStringList() << name)
+        , m_sortWeight(sortWeight)
+        , m_widgetIndex(widgetIndex)
+        , m_untranslatedName(untranslatedName)
+    {
         Qt::ItemFlags newFlags = Qt::NoItemFlags;
 
         if(m_widgetIndex >= 0)
@@ -86,34 +90,15 @@ public:
         return m_widgetIndex;
     }
 
+    QString untranslatedName() const {
+        return m_untranslatedName;
+    }
+
 private:
     int m_sortWeight;
     int m_widgetIndex;
+    QString m_untranslatedName;
 };
-
-
-class KoSectionListDelegate : public QStyledItemDelegate
-{
-public:
-    KoSectionListDelegate(QObject* parent = 0) : QStyledItemDelegate(parent) { }
-
-    void paint(QPainter* painter, const QStyleOptionViewItem& option, const QModelIndex& index) const override
-    {
-        QStyledItemDelegate::paint(painter, option, index);
-
-        if(!(option.state & (int)(QStyle::State_Active && QStyle::State_Enabled)))
-        {
-            int ypos = option.rect.y() + ((option.rect.height() - 2) / 2);
-            QRect lineRect(option.rect.left(), ypos, option.rect.width(), 2);
-            QLinearGradient gradient(option.rect.topLeft(), option.rect.bottomRight());
-            gradient.setColorAt(option.direction == Qt::LeftToRight ? 0 : 1, option.palette.color(QPalette::Text));
-            gradient.setColorAt(option.direction == Qt::LeftToRight ? 1 : 0, Qt::transparent);
-
-            painter->fillRect(lineRect, gradient);
-        }
-    }
-};
-
 
 class KisOpenPanePrivate : public Ui_KisOpenPaneBase
 {
@@ -126,7 +111,7 @@ public:
     int m_freeCustomWidgetIndex;
     KoSectionListItem* m_templatesSeparator;
 
-   
+
 };
 
 KisOpenPane::KisOpenPane(QWidget *parent, const QStringList& mimeFilter, const QString& templatesResourcePath)
@@ -137,18 +122,15 @@ KisOpenPane::KisOpenPane(QWidget *parent, const QStringList& mimeFilter, const Q
 
     m_mimeFilter = mimeFilter;
 
-    KoSectionListDelegate* delegate = new KoSectionListDelegate(d->m_sectionList);
+    QStyledItemDelegate* delegate = new QStyledItemDelegate(d->m_sectionList);
     d->m_sectionList->setItemDelegate(delegate);
 
     connect(d->m_sectionList, SIGNAL(itemSelectionChanged()),
             this, SLOT(updateSelectedWidget()));
-    connect(d->m_sectionList, SIGNAL(itemClicked(QTreeWidgetItem*, int)),
+    connect(d->m_sectionList, SIGNAL(itemClicked(QTreeWidgetItem*,int)),
             this, SLOT(itemClicked(QTreeWidgetItem*)));
-    connect(d->m_sectionList, SIGNAL(itemActivated(QTreeWidgetItem*, int)),
+    connect(d->m_sectionList, SIGNAL(itemActivated(QTreeWidgetItem*,int)),
             this, SLOT(itemClicked(QTreeWidgetItem*)));
-   
-   connect(d->cancelButton, SIGNAL(clicked()), this, SLOT(close()));
-   connect(d->cancelButton, SIGNAL(clicked()), this, SLOT(deleteLater()));
 
     initTemplates(templatesResourcePath);
 
@@ -171,8 +153,8 @@ KisOpenPane::KisOpenPane(QWidget *parent, const QStringList& mimeFilter, const Q
     if (!sizes.isEmpty())
         emit splitterResized(0, sizes);
 
-    connect(this, SIGNAL(splitterResized(KisDetailsPane*, const QList<int>&)),
-            this, SLOT(saveSplitterSizes(KisDetailsPane*, const QList<int>&)));
+    connect(this, SIGNAL(splitterResized(KisDetailsPane*,QList<int>)),
+            this, SLOT(saveSplitterSizes(KisDetailsPane*,QList<int>)));
 
     setAcceptDrops(true);
 }
@@ -185,7 +167,7 @@ KisOpenPane::~KisOpenPane()
         if (item) {
             if (!qobject_cast<KisDetailsPane*>(d->m_widgetStack->widget(item->widgetIndex()))) {
                 KConfigGroup cfgGrp( KSharedConfig::openConfig(), "TemplateChooserDialog");
-                cfgGrp.writeEntry("LastReturnType", item->text(0));
+                cfgGrp.writeEntry("LastReturnType", item->untranslatedName());
             }
         }
     }
@@ -200,9 +182,7 @@ void KisOpenPane::openFileDialog()
 
     KoFileDialog dialog(this, KoFileDialog::OpenFiles, "OpenDocument");
     dialog.setCaption(i18n("Open Existing Document"));
-    dialog.setDefaultDir(qApp->applicationName().contains("krita") || qApp->applicationName().contains("karbon")
-                          ? QDesktopServices::storageLocation(QDesktopServices::PicturesLocation)
-                          : QDesktopServices::storageLocation(QDesktopServices::DocumentsLocation));
+    dialog.setDefaultDir(QStandardPaths::writableLocation(QStandardPaths::PicturesLocation));
     dialog.setMimeTypeFilters(m_mimeFilter);
     Q_FOREACH (const QString &filename, dialog.filenames()) {
         emit openExistingFile(QUrl::fromUserInput(filename));
@@ -224,23 +204,23 @@ void KisOpenPane::initTemplates(const QString& templatesResourcePath)
             }
 
             if (!d->m_templatesSeparator) {
-                d->m_templatesSeparator = new KoSectionListItem(d->m_sectionList, "", 999);
+                d->m_templatesSeparator = new KoSectionListItem(d->m_sectionList, "", "", 999);
             }
 
             KisTemplatesPane* pane = new KisTemplatesPane(this, group->name(),
                                                           group, templateTree.defaultTemplate());
-            connect(pane, SIGNAL(openUrl(const QUrl&)), this, SIGNAL(openTemplate(const QUrl&)));
-            connect(pane, SIGNAL(alwaysUseChanged(KisTemplatesPane*, const QString&)),
-                    this, SIGNAL(alwaysUseChanged(KisTemplatesPane*, const QString&)));
-            connect(this, SIGNAL(alwaysUseChanged(KisTemplatesPane*, const QString&)),
-                    pane, SLOT(changeAlwaysUseTemplate(KisTemplatesPane*, const QString&)));
-            connect(pane, SIGNAL(splitterResized(KisDetailsPane*, const QList<int>&)),
-                    this, SIGNAL(splitterResized(KisDetailsPane*, const QList<int>&)));
-            connect(this, SIGNAL(splitterResized(KisDetailsPane*, const QList<int>&)),
-                    pane, SLOT(resizeSplitter(KisDetailsPane*, const QList<int>&)));
-            QTreeWidgetItem* item = addPane(group->name(), group->templates().first()->loadPicture(),
+            connect(pane, SIGNAL(openUrl(QUrl)), this, SIGNAL(openTemplate(QUrl)));
+            connect(pane, SIGNAL(alwaysUseChanged(KisTemplatesPane*,QString)),
+                    this, SIGNAL(alwaysUseChanged(KisTemplatesPane*,QString)));
+            connect(this, SIGNAL(alwaysUseChanged(KisTemplatesPane*,QString)),
+                    pane, SLOT(changeAlwaysUseTemplate(KisTemplatesPane*,QString)));
+            connect(pane, SIGNAL(splitterResized(KisDetailsPane*,QList<int>)),
+                    this, SIGNAL(splitterResized(KisDetailsPane*,QList<int>)));
+            connect(this, SIGNAL(splitterResized(KisDetailsPane*,QList<int>)),
+                    pane, SLOT(resizeSplitter(KisDetailsPane*,QList<int>)));
+            QTreeWidgetItem* item = addPane(group->name(), "Template", group->templates().first()->loadPicture(),
                                             pane, group->sortingWeight() + templateOffset);
-	    
+
 
 
             if (!firstItem) {
@@ -263,7 +243,8 @@ void KisOpenPane::initTemplates(const QString& templatesResourcePath)
 
     if (selectItem && (cfgGrp.readEntry("LastReturnType") == "Template")) {
         d->m_sectionList->setCurrentItem(selectItem, 0, QItemSelectionModel::ClearAndSelect);
-    } else if (d->m_sectionList->selectedItems().isEmpty() && firstItem) {
+    }
+    else if (d->m_sectionList->selectedItems().isEmpty() && firstItem) {
         d->m_sectionList->setCurrentItem(firstItem, 0, QItemSelectionModel::ClearAndSelect);
     }
 }
@@ -286,36 +267,32 @@ void KisOpenPane::dropEvent(QDropEvent *event)
     }
 }
 
-void KisOpenPane::addCustomDocumentWidget(QWidget *widget, const QString& title, const QString& icon)
+void KisOpenPane::addCustomDocumentWidget(QWidget *widget, const QString& title, const QString &untranslatedName, const QString& icon)
 {
     Q_ASSERT(widget);
 
-    QString realtitle = title;
-
-    if (realtitle.isEmpty())
-        realtitle = i18n("Custom Document");
-
-    QTreeWidgetItem* item = addPane(realtitle, icon, widget, d->m_freeCustomWidgetIndex);
+    QTreeWidgetItem* item = addPane(title, untranslatedName, icon, widget, d->m_freeCustomWidgetIndex);
     ++d->m_freeCustomWidgetIndex;
     KConfigGroup cfgGrp( KSharedConfig::openConfig(), "TemplateChooserDialog");
 
     QString lastActiveItem = cfgGrp.readEntry("LastReturnType");
     bool showCustomItemByDefault = cfgGrp.readEntry("ShowCustomDocumentWidgetByDefault", false);
-    if (lastActiveItem == realtitle || (lastActiveItem.isEmpty() && showCustomItemByDefault)) {
+    if (lastActiveItem == untranslatedName || (lastActiveItem.isEmpty() && showCustomItemByDefault)) {
         d->m_sectionList->setCurrentItem(item, 0, QItemSelectionModel::ClearAndSelect);
         KoSectionListItem* selectedItem = static_cast<KoSectionListItem*>(item);
         d->m_widgetStack->widget(selectedItem->widgetIndex())->setFocus();
     }
 }
 
-QTreeWidgetItem* KisOpenPane::addPane(const QString &title, const QString &iconName, QWidget *widget, int sortWeight)
+
+QTreeWidgetItem* KisOpenPane::addPane(const QString &title, const QString &untranslatedName, const QString &iconName, QWidget *widget, int sortWeight)
 {
     if (!widget) {
         return 0;
     }
 
     int id = d->m_widgetStack->addWidget(widget);
-    KoSectionListItem* listItem = new KoSectionListItem(d->m_sectionList, title, sortWeight, id);
+    KoSectionListItem* listItem = new KoSectionListItem(d->m_sectionList, title, untranslatedName, sortWeight, id);
 
     // resizes icons so they are a bit smaller
     QIcon icon = KisIconUtils::loadIcon(iconName);
@@ -327,7 +304,7 @@ QTreeWidgetItem* KisOpenPane::addPane(const QString &title, const QString &iconN
     return listItem;
 }
 
-QTreeWidgetItem* KisOpenPane::addPane(const QString& title, const QPixmap& icon, QWidget* widget, int sortWeight)
+QTreeWidgetItem* KisOpenPane::addPane(const QString &title, const QString &untranslatedName, const QPixmap& icon, QWidget* widget, int sortWeight)
 {
     if (!widget) {
         return 0;
@@ -337,7 +314,7 @@ QTreeWidgetItem* KisOpenPane::addPane(const QString& title, const QPixmap& icon,
 
     int iconSize = 32;
 
-    KoSectionListItem* listItem = new KoSectionListItem(d->m_sectionList, title, sortWeight, id);
+    KoSectionListItem* listItem = new KoSectionListItem(d->m_sectionList, title, untranslatedName, sortWeight, id);
 
     if (!icon.isNull()) {
         QImage image = icon.toImage();
@@ -380,5 +357,5 @@ void KisOpenPane::itemClicked(QTreeWidgetItem* item)
 
     if (selectedItem && selectedItem->widgetIndex() >= 0) {
         d->m_widgetStack->widget(selectedItem->widgetIndex())->setFocus();
-    } 
+    }
 }

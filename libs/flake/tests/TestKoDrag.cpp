@@ -37,8 +37,7 @@ void TestKoDrag::test()
     QFile testShapes(fileName);
     testShapes.open(QIODevice::ReadOnly);
 
-    KoXmlDocument doc;
-    doc.setContent(testShapes.readAll());
+    KoXmlDocument doc = SvgParser::createDocumentFromSvg(&testShapes);
 
     KoDocumentResourceManager resourceManager;
     SvgParser parser(&resourceManager);
@@ -55,7 +54,7 @@ void TestKoDrag::test()
         QVERIFY(layer);
         QCOMPARE(layer->shapeCount(), 2);
 
-        QCOMPARE(KoShape::boundingRect(shapes).toAlignedRect(), QRect(4,3,24,24));
+        QCOMPARE(KoShape::boundingRect(shapes).toAlignedRect(), QRect(3,2,25,26));
     }
 
     KoDrag drag;
@@ -74,8 +73,8 @@ void TestKoDrag::test()
         QVERIFY(layer);
         QCOMPARE(layer->shapeCount(), 2);
 
-        QCOMPARE(fragmentSize.toSize(), QSize(54, 53));
-        QCOMPARE(KoShape::boundingRect(newShapes).toAlignedRect(), QRect(4,3,24,24));
+        QCOMPARE(fragmentSize.toSize(), QSize(56, 54));
+        QCOMPARE(KoShape::boundingRect(newShapes).toAlignedRect(), QRect(3,2,25,26));
     }
 
 

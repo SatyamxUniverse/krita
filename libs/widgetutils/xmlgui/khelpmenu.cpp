@@ -23,7 +23,7 @@
 
 #include "khelpmenu.h"
 #include "config-xmlgui.h"
-#include <QtCore/QTimer>
+#include <QTimer>
 #include <QAction>
 #include <QApplication>
 #include <QDialogButtonBox>
@@ -36,8 +36,8 @@
 #include <QDir>
 #include <QUrl>
 #include <QBoxLayout>
-#include <QDesktopServices>
 #include <QStandardPaths>
+#include <QDesktopServices>
 #include <QDebug>
 
 #include "kaboutkdedialog_p.h"

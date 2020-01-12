@@ -41,8 +41,9 @@
 #include "kis_select_layer_action.h"
 #include "kis_gamma_exposure_action.h"
 #include "kis_change_frame_action.h"
+#include "kis_zoom_and_rotate_action.h"
 
-#define PROFILE_VERSION 3
+#define PROFILE_VERSION 4
 
 
 class Q_DECL_HIDDEN KisInputProfileManager::Private
@@ -145,13 +146,18 @@ bool KisInputProfileManager::renameProfile(const QString &oldName, const QString
     }
 
     KisInputProfile *profile = d->profiles.value(oldName);
-    d->profiles.remove(oldName);
-    profile->setName(newName);
-    d->profiles.insert(newName, profile);
+    if (profile) {
+        d->profiles.remove(oldName);
+        profile->setName(newName);
+        d->profiles.insert(newName, profile);
 
-    emit profilesChanged();
+        emit profilesChanged();
 
-    return true;
+
+        return true;
+    }
+
+    return false;
 }
 
 void KisInputProfileManager::duplicateProfile(const QString &name, const QString &newName)
@@ -193,7 +199,7 @@ void KisInputProfileManager::loadProfiles()
     d->profiles.clear();
 
     //Look up all profiles (this includes those installed to $prefix as well as the user's local data dir)
-    QStringList profiles = KoResourcePaths::findAllResources("data", "input/*", KoResourcePaths::Recursive);
+    QStringList profiles = KoResourcePaths::findAllResources("data", "input/*.profile", KoResourcePaths::Recursive);
 
     dbgKrita << "profiles" << profiles;
 
@@ -233,6 +239,8 @@ void KisInputProfileManager::loadProfiles()
         }
     }
 
+    QStringList profilePaths;
+
     Q_FOREACH(const QString & profileName, profileEntries.keys()) {
 
         if (profileEntries[profileName].isEmpty()) {
@@ -242,6 +250,11 @@ void KisInputProfileManager::loadProfiles()
         // we have one or more entries for this profile name. We'll take the first,
         // because that's the most local one.
         ProfileEntry entry = profileEntries[profileName].first();
+
+        QString path(QFileInfo(entry.fullpath).dir().absolutePath());
+        if (!profilePaths.contains(path)) {
+            profilePaths.append(path);
+        }
 
         KConfig config(entry.fullpath, KConfig::SimpleConfig);
 
@@ -267,7 +280,10 @@ void KisInputProfileManager::loadProfiles()
         }
     }
 
-    KisConfig cfg;
+//    QString profilePathsStr(profilePaths.join("' AND '"));
+//    qDebug() << "input profiles were read from '" << qUtf8Printable(profilePathsStr) << "'.";
+
+    KisConfig cfg(true);
     QString currentProfile = cfg.currentInputProfile();
     if (d->profiles.size() > 0) {
         if (currentProfile.isEmpty() || !d->profiles.contains(currentProfile)) {
@@ -307,7 +323,7 @@ void KisInputProfileManager::saveProfiles()
         config.sync();
     }
 
-    KisConfig config;
+    KisConfig config(false);
     config.setCurrentInputProfile(d->currentProfile->name());
 
     //Force a reload of the current profile in input manager and whatever else uses the profile.
@@ -359,6 +375,7 @@ void KisInputProfileManager::Private::createActions()
     actions.append(new KisSelectLayerAction());
     actions.append(new KisGammaExposureAction());
     actions.append(new KisChangeFrameAction());
+    actions.append(new KisZoomAndRotateAction());
 }
 
 QString KisInputProfileManager::Private::profileFileName(const QString &profileName)

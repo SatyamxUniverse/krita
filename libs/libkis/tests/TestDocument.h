@@ -29,6 +29,7 @@ private Q_SLOTS:
     void testSetColorProfile();
     void testPixelData();
     void testThumbnail();
+    void testCreateFillLayer();
 };
 
 #endif

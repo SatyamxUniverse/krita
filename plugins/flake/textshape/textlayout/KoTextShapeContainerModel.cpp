@@ -217,7 +217,7 @@ void KoTextShapeContainerModel::proposeMove(KoShape *child, QPointF &move)
             relayoutInlineObject(child);
         }
     } else {
-        //TODO pavolk: handle position type change: absolute to realtive, etc ..
+        //TODO pavolk: handle position type change: absolute to relative, etc ..
         child->setPosition(newPosition);
         relation.anchor->setOffset(relation.anchor->offset() + move);
         relayoutInlineObject(child);
@@ -225,11 +225,6 @@ void KoTextShapeContainerModel::proposeMove(KoShape *child, QPointF &move)
 
     move.setX(0); // let the text layout move it.
     move.setY(0);
-}
-
-bool KoTextShapeContainerModel::isChildLocked(const KoShape *child) const
-{
-    return child->isGeometryProtected();
 }
 
 void KoTextShapeContainerModel::relayoutInlineObject(KoShape *child)

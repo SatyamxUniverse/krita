@@ -24,8 +24,9 @@
 #include <QDomElement>
 
 #include "kis_properties_configuration.h"
+#include <KisPaintopSettingsIds.h>
 
-void KisBrushOption::writeOptionSettingImpl(KisPropertiesConfiguration *setting) const
+void KisBrushOptionProperties::writeOptionSettingImpl(KisPropertiesConfiguration *setting) const
 {
     if (!m_brush)
         return;
@@ -36,10 +37,21 @@ void KisBrushOption::writeOptionSettingImpl(KisPropertiesConfiguration *setting)
     d.appendChild(e);
     setting->setProperty("brush_definition", d.toString());
 
-    QString brushFileName = !m_brush->filename().isEmpty() ?
+    QString brushFileName  = !m_brush->filename().isEmpty() ?
                             m_brush->shortFilename() : QString();
 
-    setting->setProperty("requiredBrushFile", brushFileName);
+    setting->setProperty(KisPaintOpUtils::RequiredBrushFileTag, brushFileName);
+
+    {
+        QStringList requiredFiles =
+            setting->getStringList(KisPaintOpUtils::RequiredBrushFilesListTag);
+
+
+
+        requiredFiles << brushFileName;
+        setting->setProperty(KisPaintOpUtils::RequiredBrushFilesListTag, requiredFiles);
+    }
+
 }
 
 QDomElement getBrushXMLElement(const KisPropertiesConfiguration *setting)
@@ -56,35 +68,20 @@ QDomElement getBrushXMLElement(const KisPropertiesConfiguration *setting)
     return element;
 }
 
-void KisBrushOption::readOptionSettingInternal(const KisPropertiesConfiguration *setting, bool forceCopy)
+void KisBrushOptionProperties::readOptionSettingImpl(const KisPropertiesConfiguration *setting)
 {
     QDomElement element = getBrushXMLElement(setting);
 
     if (!element.isNull()) {
-        m_brush = KisBrush::fromXML(element, forceCopy);
+        m_brush = KisBrush::fromXML(element);
     }
-}
-
-void KisBrushOption::readOptionSettingForceCopy(KisPropertiesConfigurationSP setting)
-{
-    readOptionSettingInternal(setting.data(), true);
-}
-
-void KisBrushOption::readOptionSettingForceCopy(const KisPropertiesConfiguration *setting)
-{
-    readOptionSettingInternal(setting, true);
-}
-
-void KisBrushOption::readOptionSettingImpl(const KisPropertiesConfiguration *setting)
-{
-    readOptionSettingInternal(setting, false);
 }
 
 #ifdef HAVE_THREADED_TEXT_RENDERING_WORKAROUND
 
 #include "kis_text_brush_factory.h"
 
-bool KisBrushOption::isTextBrush(const KisPropertiesConfiguration *setting)
+bool KisBrushOptionProperties::isTextBrush(const KisPropertiesConfiguration *setting)
 {
     static QString textBrushId = KisTextBrushFactory().id();
 
@@ -96,12 +93,12 @@ bool KisBrushOption::isTextBrush(const KisPropertiesConfiguration *setting)
 
 #endif /* HAVE_THREADED_TEXT_RENDERING_WORKAROUND */
 
-KisBrushSP KisBrushOption::brush() const
+KisBrushSP KisBrushOptionProperties::brush() const
 {
     return m_brush;
 }
 
-void KisBrushOption::setBrush(KisBrushSP brush)
+void KisBrushOptionProperties::setBrush(KisBrushSP brush)
 {
     m_brush = brush;
 }

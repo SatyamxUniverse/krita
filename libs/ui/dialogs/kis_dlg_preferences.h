@@ -23,11 +23,15 @@
 #define _KIS_DLG_PREFERENCES_H_
 
 #include <QWidget>
+#include <QButtonGroup>
+#include <QMap>
+#include <QString>
 
 #include <kpagedialog.h>
+#include <kis_config.h>
 
 #include "kis_global.h"
-#include "widgets/squeezedcombobox.h"
+#include <KisSqueezedComboBox.h>
 
 #include "ui_wdggeneralsettings.h"
 #include "ui_wdgdisplaysettings.h"
@@ -68,21 +72,27 @@ public:
     CursorStyle cursorStyle();
     OutlineStyle outlineStyle();
 
+    KisConfig::SessionOnStartup sessionOnStartup() const;
+    bool saveSessionOnQuit() const;
+
     bool showRootLayer();
     int autoSaveInterval();
     void setDefault();
     int undoStackSize();
     bool showOutlineWhilePainting();
-    bool hideSplashScreen();
+
     int mdiMode();
     int favoritePresets();
     bool showCanvasMessages();
     bool compressKra();
+    bool useZip64();
     bool toolOptionsInDocker();
+    bool kineticScrollingEnabled();
+    int kineticScrollingGesture();
+    int kineticScrollingSensitivity();
+    bool kineticScrollingHiddenScrollbars();
     bool switchSelectionCtrlAlt();
     bool convertToImageColorspaceOnImport();
-
-    bool calculateAnimationCacheInBackground();
 
 private Q_SLOTS:
     void getBackgroundImage();
@@ -124,7 +134,6 @@ public:
     WdgShortcutSettings  *m_page;
     QScopedPointer<KisActionsSnapshot> m_snapshot;
 
-
 public Q_SLOTS:
     void saveChanges();
     void cancelChanges();
@@ -165,7 +174,7 @@ public:
     WdgColorSettings  *m_page;
     QButtonGroup m_pasteBehaviourGroup;
     QList<QLabel*> m_monitorProfileLabels;
-    QList<SqueezedComboBox*> m_monitorProfileWidgets;
+    QList<KisSqueezedComboBox*> m_monitorProfileWidgets;
 };
 
 //=======================
@@ -185,6 +194,10 @@ class TabletSettingsTab : public QWidget {
     Q_OBJECT
 public:
     TabletSettingsTab(QWidget *parent = 0, const char  *name = 0);
+
+private Q_SLOTS:
+    void slotTabletTest();
+    void slotResolutionSettings();
 
 public:
     void setDefault();
@@ -227,11 +240,16 @@ private Q_SLOTS:
 
     void selectSwapDir();
 
+    void slotThreadsLimitChanged(int value);
+    void slotFrameClonesLimitChanged(int value);
+
 private:
     int realTilesRAM();
 
 private:
     QVector<SliderAndSpinBoxSync*> m_syncs;
+    int m_lastUsedThreadsLimit;
+    int m_lastUsedClonesLimit;
 };
 
 //=======================
@@ -262,6 +280,7 @@ public:
     void setDefault();
 protected Q_SLOTS:
     void slotUseOpenGLToggled(bool isChecked);
+    void slotPreferredSurfaceFormatChanged(int index);
 
 public:
 };
@@ -304,15 +323,14 @@ class KisDlgPreferences : public KPageDialog
 
 public:
 
-    static bool editPreferences();
-
-
-protected:
-
     KisDlgPreferences(QWidget *parent = 0, const char *name = 0);
     ~KisDlgPreferences() override;
 
-protected:
+    bool editPreferences();
+
+    void showEvent(QShowEvent *event) override;
+
+private:
 
     GeneralTab *m_general;
     ShortcutSettingsTab  *m_shortcutSettings;
@@ -324,10 +342,16 @@ protected:
     KisInputConfigurationPage *m_inputConfiguration;
     KoConfigAuthorPage *m_authorPage;
 
-protected Q_SLOTS:
+    QList<KPageWidgetItem*> m_pages;
 
+private Q_SLOTS:
+
+    void slotButtonClicked(QAbstractButton *button);
     void slotDefault();
 
+private:
+
+    bool m_cancelClicked {false};
 };
 
 #endif

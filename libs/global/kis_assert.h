@@ -73,7 +73,7 @@ KRITAGLOBAL_EXPORT void kis_safe_assert_recoverable(const char *assertion, const
  * }
  *
  */
-#define KIS_ASSERT_RECOVER_BREAK(cond) KIS_ASSERT_RECOVER(cond) { break; }
+#define KIS_ASSERT_RECOVER_BREAK(cond) do { KIS_ASSERT_RECOVER(cond) { break; } } while (0)
 
 /**
  * Equivalent of the following:
@@ -83,7 +83,7 @@ KRITAGLOBAL_EXPORT void kis_safe_assert_recoverable(const char *assertion, const
  * }
  *
  */
-#define KIS_ASSERT_RECOVER_RETURN(cond) KIS_ASSERT_RECOVER(cond) { return; }
+#define KIS_ASSERT_RECOVER_RETURN(cond) do { KIS_ASSERT_RECOVER(cond) { return; } } while (0)
 
 /**
  * Equivalent of the following:
@@ -93,7 +93,7 @@ KRITAGLOBAL_EXPORT void kis_safe_assert_recoverable(const char *assertion, const
  * }
  *
  */
-#define KIS_ASSERT_RECOVER_RETURN_VALUE(cond, val) KIS_ASSERT_RECOVER(cond) { return (val); }
+#define KIS_ASSERT_RECOVER_RETURN_VALUE(cond, val) do { KIS_ASSERT_RECOVER(cond) { return (val); } } while (0)
 
 /**
  * Does nothing in case of a failure. Just continues execution.
@@ -105,14 +105,14 @@ KRITAGLOBAL_EXPORT void kis_safe_assert_recoverable(const char *assertion, const
  * }
  *
  */
-#define KIS_ASSERT_RECOVER_NOOP(cond) KIS_ASSERT_RECOVER(cond) { qt_noop(); }
+#define KIS_ASSERT_RECOVER_NOOP(cond) do { KIS_ASSERT_RECOVER(cond) { qt_noop(); } } while (0)
 
 
 /**
  * This set of macros work in exactly the same way as their non-safe
  * counterparts, but they are automatically converted into console
  * warnings in release builds. That is the user will not see any
- * message box, just a warning message wil be printed in a terminal
+ * message box, just a warning message will be printed in a terminal
  * and a recovery branch will be taken automatically.
  *
  * Rules when to use "safe" asserts. Use them if the following
@@ -135,9 +135,9 @@ KRITAGLOBAL_EXPORT void kis_safe_assert_recoverable(const char *assertion, const
  */
 
 #define KIS_SAFE_ASSERT_RECOVER(cond) if (!(cond) && (kis_safe_assert_recoverable(#cond,__FILE__,__LINE__), true))
-#define KIS_SAFE_ASSERT_RECOVER_BREAK(cond) KIS_SAFE_ASSERT_RECOVER(cond) { break; }
-#define KIS_SAFE_ASSERT_RECOVER_RETURN(cond) KIS_SAFE_ASSERT_RECOVER(cond) { return; }
-#define KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(cond, val) KIS_SAFE_ASSERT_RECOVER(cond) { return (val); }
-#define KIS_SAFE_ASSERT_RECOVER_NOOP(cond) KIS_SAFE_ASSERT_RECOVER(cond) { qt_noop(); }
+#define KIS_SAFE_ASSERT_RECOVER_BREAK(cond) do { KIS_SAFE_ASSERT_RECOVER(cond) { break; } } while (0)
+#define KIS_SAFE_ASSERT_RECOVER_RETURN(cond) do { KIS_SAFE_ASSERT_RECOVER(cond) { return; } } while (0)
+#define KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(cond, val) do { KIS_SAFE_ASSERT_RECOVER(cond) { return (val); } } while (0)
+#define KIS_SAFE_ASSERT_RECOVER_NOOP(cond) do { KIS_SAFE_ASSERT_RECOVER(cond) { qt_noop(); } } while (0)
 
 #endif /* __KIS_ASSERT_H */

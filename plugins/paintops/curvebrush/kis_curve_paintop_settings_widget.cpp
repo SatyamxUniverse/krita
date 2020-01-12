@@ -31,7 +31,7 @@ KisCurvePaintOpSettingsWidget:: KisCurvePaintOpSettingsWidget(QWidget* parent)
     : KisPaintOpSettingsWidget(parent)
 {
     m_curveOption = new KisCurveOpOption();
-    addPaintOpOption(m_curveOption, i18n("Value"));
+    addPaintOpOption(m_curveOption, i18nc("Brush settings curve value", "Value"));
     addPaintOpOption(new KisCurveOptionWidget(new KisPressureOpacityOption(), i18n("Transparent"), i18n("Opaque")), i18n("Opacity"));
     addPaintOpOption(new KisCurveOptionWidget(new KisLineWidthOption(), i18n("0%"), i18n("100%")), i18n("Line width"));
     addPaintOpOption(new KisCurveOptionWidget(new KisCurvesOpacityOption(), i18n("0%"), i18n("100%")), i18n("Curves opacity"));
@@ -48,7 +48,7 @@ KisPropertiesConfigurationSP  KisCurvePaintOpSettingsWidget::configuration() con
 {
     KisCurvePaintOpSettings* config = new KisCurvePaintOpSettings();
     config->setOptionsWidget(const_cast<KisCurvePaintOpSettingsWidget*>(this));
-    config->setProperty("paintop", "chalkbrush"); // XXX: make this a const id string
+    config->setProperty("paintop", "curvebrush"); // XXX: make this a const id string
     writeConfiguration(config);
     return config;
 }

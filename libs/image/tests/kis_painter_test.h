@@ -51,9 +51,18 @@ private Q_SLOTS:
     void testSelectionBitBltEraseCompositeOp();
 
     void testBitBltOldData();
-    void benchmarkBitBlt();
-    void benchmarkBitBltOldData();
 
+    void testMassiveBltFixedSingleTile();
+    void testMassiveBltFixedMultiTile();
+
+    void testMassiveBltFixedMultiTileWithOpacity();
+
+    void testMassiveBltFixedMultiTileWithSelection();
+
+    void testMassiveBltFixedCornerCases();
+
+
+    void testOptimizedCopying();
 };
 
 #endif

@@ -47,6 +47,7 @@
 #include "KoColorProfileStorage.h"
 #include <KisReadWriteLockPolicy.h>
 
+#include <KoColorModelStandardIds.h>
 
 Q_GLOBAL_STATIC(KoColorSpaceRegistry, s_instance)
 
@@ -408,6 +409,7 @@ const KoColorProfile *KoColorSpaceRegistry::Private::profileForCsIdWithFallbackI
             QList<const KoColorProfile *> profiles = profileStorage.profilesFor(colorSpaceFactoryRegistry.value(csID));
             if (profiles.isEmpty() || !profiles.first()) {
                 dbgPigmentCSRegistry << "Couldn't fetch a fallback profile:" << profileName;
+                qWarning() << "profileForCsIdWithFallbackImpl couldn't fetch a fallback profile for " << qUtf8Printable(profileName);
                 return 0;
             }
 
@@ -437,6 +439,7 @@ const KoColorSpace *KoColorSpaceRegistry::Private::lazyCreateColorSpaceImpl(cons
         cs = csf->grabColorSpace(profile);
         if (!cs) {
             dbgPigmentCSRegistry << "Unable to create color space";
+            qWarning() << "lazyCreateColorSpaceImpl was unable to create a color space for " << csID;
             return 0;
         }
 
@@ -475,14 +478,12 @@ const KoColorSpace * KoColorSpaceRegistry::Private::colorSpace1(const QString &c
     }
 
     if (!cs) {
-        // slow attemt to create a color space
+        // slow attempt to create a color space
         typename LockPolicy::WriteLocker l(&registrylock);
 
         const KoColorProfile *profile =
             profileForCsIdWithFallbackImpl(csID, profileName);
 
-        // until kis_asert.h is not available in 3.1, use this combo
-        Q_ASSERT(profile);
         if (!profile) return 0;
 
         cs = lazyCreateColorSpaceImpl(csID, profile);
@@ -576,6 +577,52 @@ const KoColorSpace * KoColorSpaceRegistry::alpha32f()
     return d->alphaF32Cs;
 }
 
+const KoColorSpace *KoColorSpaceRegistry::graya8(const QString &profile)
+{
+
+    if (profile.isEmpty()) {
+        KoColorSpaceFactory* factory = d->colorSpaceFactoryRegistry.get(GrayAColorModelID.id());
+        return KoColorSpaceRegistry::instance()->colorSpace(GrayAColorModelID.id(), Integer8BitsColorDepthID.id(), factory->defaultProfile());
+    }
+    else {
+        return KoColorSpaceRegistry::instance()->colorSpace(GrayAColorModelID.id(), Integer8BitsColorDepthID.id(), profile);
+    }
+
+}
+
+const KoColorSpace *KoColorSpaceRegistry::graya8(const KoColorProfile *profile)
+{
+    if (!profile) {
+        return graya8();
+    }
+    else {
+        return KoColorSpaceRegistry::instance()->colorSpace(GrayAColorModelID.id(), Integer8BitsColorDepthID.id(), profile);
+    }
+
+}
+
+const KoColorSpace *KoColorSpaceRegistry::graya16(const QString &profile)
+{
+    if (profile.isEmpty()) {
+        KoColorSpaceFactory* factory = d->colorSpaceFactoryRegistry.get(GrayAColorModelID.id());
+        return KoColorSpaceRegistry::instance()->colorSpace(GrayAColorModelID.id(), Integer16BitsColorDepthID.id(), factory->defaultProfile());
+    }
+    else {
+        return KoColorSpaceRegistry::instance()->colorSpace(GrayAColorModelID.id(), Integer16BitsColorDepthID.id(), profile);
+    }
+
+}
+
+const KoColorSpace *KoColorSpaceRegistry::graya16(const KoColorProfile *profile)
+{
+    if (!profile) {
+        return graya8();
+    }
+    else {
+        return KoColorSpaceRegistry::instance()->colorSpace(GrayAColorModelID.id(), Integer8BitsColorDepthID.id(), profile);
+    }
+}
+
 
 const KoColorSpace * KoColorSpaceRegistry::rgb8(const QString &profileName)
 {
@@ -634,6 +681,26 @@ const KoColorSpace * KoColorSpaceRegistry::lab16(const KoColorProfile * profile)
     return d->colorSpace1(KoLabColorSpace::colorSpaceId(), profile);
 }
 
+const KoColorProfile *KoColorSpaceRegistry::p2020G10Profile() const
+{
+    return profileByName("Rec2020-elle-V4-g10.icc");
+}
+
+const KoColorProfile *KoColorSpaceRegistry::p2020PQProfile() const
+{
+    return profileByName("High Dynamic Range UHDTV Wide Color Gamut Display (Rec. 2020) - SMPTE ST 2084 PQ EOTF");
+}
+
+const KoColorProfile *KoColorSpaceRegistry::p709G10Profile() const
+{
+    return profileByName("sRGB-elle-V2-g10.icc");
+}
+
+const KoColorProfile *KoColorSpaceRegistry::p709SRGBProfile() const
+{
+    return profileByName("sRGB-elle-V2-srgbtrc.icc");
+}
+
 QList<KoID> KoColorSpaceRegistry::colorModelsList(ColorSpaceListVisibility option) const
 {
     QReadLocker l(&d->registrylock);
@@ -667,7 +734,15 @@ QList<KoID> KoColorSpaceRegistry::colorDepthList(const QString & colorModelId, C
             ids << factory->colorDepthId();
         }
     }
-    return ids;
+    QList<KoID> r;
+
+    if (ids.contains(Integer8BitsColorDepthID)) r << Integer8BitsColorDepthID;
+    if (ids.contains(Integer16BitsColorDepthID)) r << Integer16BitsColorDepthID;
+    if (ids.contains(Float16BitsColorDepthID)) r << Float16BitsColorDepthID;
+    if (ids.contains(Float32BitsColorDepthID)) r << Float32BitsColorDepthID;
+    if (ids.contains(Float64BitsColorDepthID)) r << Float64BitsColorDepthID;
+
+    return r;
 }
 
 QString KoColorSpaceRegistry::Private::colorSpaceIdImpl(const QString & colorModelId, const QString & colorDepthId) const

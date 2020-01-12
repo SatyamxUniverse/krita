@@ -2,7 +2,7 @@
  * Copyright (C) 1998-1999 Torben Weis       <weis@kde.org>
  * Copyright (C) 2000-2005 David Faure       <faure@kde.org>
  * Copyright (C) 2007-2008 Thorsten Zachmann <zachmann@kde.org>
- * Copyright (C) 2010-2012 Boudewijn Rempt   <boud@kogmbh.com>
+ * Copyright (C) 2010-2012 Boudewijn Rempt   <boud@valdyas.org>
  * Copyright (C) 2011 Inge Wallin            <ingwa@kogmbh.com>
  * Copyright (C) 2015 Michael Abrahams       <miabraha@gmail.com>
  *
@@ -30,11 +30,12 @@
 #include <KoColorSpaceEngine.h>
 #include <KoCanvasBase.h>
 #include <KoToolManager.h>
-#include <KoShapeBasedDocumentBase.h>
+#include <KoShapeControllerBase.h>
 #include <KoResourceServerProvider.h>
 #include <kis_icon.h>
 
 #include "KisApplication.h"
+#include "KisMainWindow.h"
 #include "KisDocument.h"
 #include "KisView.h"
 #include "KisViewManager.h"
@@ -57,27 +58,21 @@
 #include <QDomElement>
 #include <QGlobalStatic>
 #include <KisMimeDatabase.h>
+#include <dialogs/KisSessionManagerDialog.h>
 
-#include "KisView.h"
-#include "KisDocument.h"
 #include "kis_config.h"
 #include "kis_shape_controller.h"
-#include "kis_resource_server_provider.h"
+#include "KisResourceServerProvider.h"
 #include "kis_animation_cache_populator.h"
 #include "kis_idle_watcher.h"
 #include "kis_image.h"
-#include "KisImportExportManager.h"
-#include "KisDocument.h"
-#include "KoToolManager.h"
-#include "KisViewManager.h"
-#include "kis_script_manager.h"
 #include "KisOpenPane.h"
 
 #include "kis_color_manager.h"
-#include "kis_debug.h"
 
 #include "kis_action.h"
 #include "kis_action_registry.h"
+#include "KisSessionResource.h"
 
 Q_GLOBAL_STATIC(KisPart, s_instance)
 
@@ -101,12 +96,23 @@ public:
     QList<QPointer<KisView> > views;
     QList<QPointer<KisMainWindow> > mainWindows;
     QList<QPointer<KisDocument> > documents;
-    QList<KisAction*> scriptActions;
-
     KActionCollection *actionCollection{0};
-
     KisIdleWatcher idleWatcher;
     KisAnimationCachePopulator animationCachePopulator;
+
+    KisSessionResource *currentSession = nullptr;
+    bool closingSession{false};
+    QScopedPointer<KisSessionManagerDialog> sessionManager;
+
+    bool queryCloseDocument(KisDocument *document) {
+        Q_FOREACH(auto view, views) {
+            if (view && view->isVisible() && view->document() == document) {
+                return view->queryClose();
+            }
+        }
+
+        return true;
+    }
 };
 
 
@@ -134,6 +140,7 @@ KisPart::KisPart()
             this, SLOT(updateShortcuts()));
     connect(&d->idleWatcher, SIGNAL(startedIdleMode()),
             &d->animationCachePopulator, SLOT(slotRequestRegeneration()));
+
 
     d->animationCachePopulator.slotRequestRegeneration();
 }
@@ -205,12 +212,9 @@ void KisPart::removeDocument(KisDocument *document)
     document->deleteLater();
 }
 
-KisMainWindow *KisPart::createMainWindow()
+KisMainWindow *KisPart::createMainWindow(QUuid id)
 {
-    KisMainWindow *mw = new KisMainWindow();
-    Q_FOREACH(KisAction *action, d->scriptActions) {
-        mw->viewManager()->scriptManager()->addAction(action);
-    }
+    KisMainWindow *mw = new KisMainWindow(id);
     dbgUI <<"mainWindow" << (void*)mw << "added to view" << this;
     d->mainWindows.append(mw);
     emit sigWindowAdded(mw);
@@ -218,24 +222,23 @@ KisMainWindow *KisPart::createMainWindow()
 }
 
 KisView *KisPart::createView(KisDocument *document,
-                             KoCanvasResourceManager *resourceManager,
-                             KActionCollection *actionCollection,
+                             KisViewManager *viewManager,
                              QWidget *parent)
 {
     // If creating the canvas fails, record this and disable OpenGL next time
-    KisConfig cfg;
+    KisConfig cfg(false);
     KConfigGroup grp( KSharedConfig::openConfig(), "crashprevention");
     if (grp.readEntry("CreatingCanvas", false)) {
-        cfg.setUseOpenGL(false);
+        cfg.disableOpenGL();
     }
     if (cfg.canvasState() == "OPENGL_FAILED") {
-        cfg.setUseOpenGL(false);
+        cfg.disableOpenGL();
     }
     grp.writeEntry("CreatingCanvas", true);
     grp.sync();
 
     QApplication::setOverrideCursor(Qt::WaitCursor);
-    KisView *view  = new KisView(document, resourceManager, actionCollection, parent);
+    KisView *view = new KisView(document,  viewManager, parent);
     QApplication::restoreOverrideCursor();
 
     // Record successful canvas creation
@@ -311,6 +314,55 @@ int KisPart::viewCount(KisDocument *doc) const
     }
 }
 
+bool KisPart::closingSession() const
+{
+    return d->closingSession;
+}
+
+bool KisPart::exists()
+{
+    return s_instance.exists();
+}
+
+bool KisPart::closeSession(bool keepWindows)
+{
+    d->closingSession = true;
+
+    Q_FOREACH(auto document, d->documents) {
+        if (!d->queryCloseDocument(document.data())) {
+            d->closingSession = false;
+            return false;
+        }
+    }
+
+    if (d->currentSession) {
+        KisConfig kisCfg(false);
+        if (kisCfg.saveSessionOnQuit(false)) {
+
+            d->currentSession->storeCurrentWindows();
+            d->currentSession->save();
+
+            KConfigGroup cfg = KSharedConfig::openConfig()->group("session");
+            cfg.writeEntry("previousSession", d->currentSession->name());
+        }
+
+        d->currentSession = nullptr;
+    }
+
+    if (!keepWindows) {
+        Q_FOREACH (auto window, d->mainWindows) {
+            window->close();
+        }
+
+        if (d->sessionManager) {
+            d->sessionManager->close();
+        }
+    }
+
+    d->closingSession = false;
+    return true;
+}
+
 void KisPart::slotDocumentSaved()
 {
     KisDocument *doc = qobject_cast<KisDocument*>(sender());
@@ -352,9 +404,15 @@ KisMainWindow *KisPart::currentMainwindow() const
 
 }
 
-void KisPart::addScriptAction(KisAction *action)
+KisMainWindow * KisPart::windowById(QUuid id) const
 {
-    d->scriptActions << action;
+    Q_FOREACH(QPointer<KisMainWindow> mainWindow, d->mainWindows) {
+        if (mainWindow->id() == id) {
+            return mainWindow;
+        }
+    }
+
+    return nullptr;
 }
 
 KisIdleWatcher* KisPart::idleWatcher() const
@@ -369,33 +427,17 @@ KisAnimationCachePopulator* KisPart::cachePopulator() const
 
 void KisPart::openExistingFile(const QUrl &url)
 {
-    Q_ASSERT(url.isLocalFile());
-    qApp->setOverrideCursor(Qt::BusyCursor);
-    KisDocument *document = createDocument();
-    if (!document->openUrl(url)) {
-        delete document;
-        return;
-    }
-    if (!document->image()) {
-        delete document;
-        return;
-    }
-    document->setModified(false);
-    addDocument(document);
+    // TODO: refactor out this method!
 
     KisMainWindow *mw = currentMainwindow();
-    mw->addViewAndNotifyLoadingCompleted(document);
+    KIS_SAFE_ASSERT_RECOVER_RETURN(mw);
 
-    qApp->restoreOverrideCursor();
+    mw->openDocument(url, KisMainWindow::None);
 }
 
 void KisPart::updateShortcuts()
 {
     // Update any non-UI actionCollections.  That includes:
-    //  - Shortcuts called inside of tools
-    //  - Perhaps other things?
-    KoToolManager::instance()->updateToolShortcuts();
-
     // Now update the UI actions.
     Q_FOREACH (KisMainWindow *mainWindow, d->mainWindows) {
         KActionCollection *ac = mainWindow->actionCollection();
@@ -411,7 +453,7 @@ void KisPart::updateShortcuts()
             QString strippedTooltip = action->toolTip().remove(QRegExp("\\s\\(.*\\)"));
 
             // Now update the tooltips with the new shortcut info.
-            if(action->shortcut() == QKeySequence(0))
+            if (action->shortcut() == QKeySequence(0))
                 action->setToolTip(strippedTooltip);
             else
                 action->setToolTip( strippedTooltip + " (" + action->shortcut().toString() + ")");
@@ -434,6 +476,7 @@ void KisPart::openTemplate(const QUrl &url)
         mimeType.remove( QRegExp( "-template$" ) );
         document->setMimeTypeAfterLoading(mimeType);
         document->resetURL();
+        document->setReadWrite(true);
     }
     else {
         if (document->errorMessage().isEmpty()) {
@@ -489,3 +532,38 @@ KisInputManager* KisPart::currentInputManager()
     return manager ? manager->inputManager() : 0;
 }
 
+void KisPart::showSessionManager()
+{
+    if (d->sessionManager.isNull()) {
+        d->sessionManager.reset(new KisSessionManagerDialog());
+    }
+
+    d->sessionManager->show();
+    d->sessionManager->activateWindow();
+}
+
+void KisPart::startBlankSession()
+{
+    KisMainWindow *window = createMainWindow();
+    window->initializeGeometry();
+    window->show();
+
+}
+
+bool KisPart::restoreSession(const QString &sessionName)
+{
+    if (sessionName.isNull()) return false;
+
+    KoResourceServer<KisSessionResource> * rserver = KisResourceServerProvider::instance()->sessionServer();
+    auto *session = rserver->resourceByName(sessionName);
+    if (!session || !session->valid()) return false;
+
+    session->restore();
+
+    return true;
+}
+
+void KisPart::setCurrentSession(KisSessionResource *session)
+{
+    d->currentSession = session;
+}

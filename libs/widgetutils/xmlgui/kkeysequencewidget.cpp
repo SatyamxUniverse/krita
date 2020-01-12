@@ -25,7 +25,7 @@
 #include <QAction>
 #include <QKeyEvent>
 #include <QTimer>
-#include <QtCore/QHash>
+#include <QHash>
 #include <QHBoxLayout>
 #include <QToolButton>
 #include <QApplication>
@@ -98,7 +98,7 @@ public:
     void controlModifierlessTimout()
     {
         if (nKey != 0 && !modifierKeys) {
-            // No modifier key pressed currently. Start the timout
+            // No modifier key pressed currently. Start the timeout
             modifierlessTimeout.start(600);
         } else {
             // A modifier is pressed. Stop the timeout
@@ -185,7 +185,7 @@ bool KKeySequenceWidgetPrivate::stealShortcuts(
                                      action->shortcut().toString(QKeySequence::NativeText),
                                      KLocalizedString::removeAcceleratorMarker(action->text()));
     }
-    QString message = i18ncp("%1 is the number of ambigious shortcut clashes (hidden)",
+    QString message = i18ncp("%1 is the number of ambiguous shortcut clashes (hidden)",
                              "The \"%2\" shortcut is ambiguous with the following shortcut.\n"
                              "Do you want to assign an empty shortcut to this action?\n"
                              "%3",
@@ -569,26 +569,29 @@ void KKeySequenceWidgetPrivate::updateShortcutDisplay()
             if (!s.isEmpty()) {
                 s.append(QLatin1Char(','));
             }
-            if (modifierKeys & Qt::META) {
-                s += KKeyServer::modToStringUser(Qt::META) + QLatin1Char('+');
+            if (modifierKeys & Qt::MetaModifier) {
+                s += QKeySequence(Qt::MetaModifier).toString(QKeySequence::NativeText);
             }
-#if defined(Q_OS_OSX)
-            if (modifierKeys & Qt::ALT) {
-                s += KKeyServer::modToStringUser(Qt::ALT) + QLatin1Char('+');
+#if defined(Q_OS_MAC)
+            if (modifierKeys & Qt::AltModifier) {
+                s += QKeySequence(Qt::AltModifier).toString(QKeySequence::NativeText);
             }
-            if (modifierKeys & Qt::CTRL) {
-                s += KKeyServer::modToStringUser(Qt::CTRL) + QLatin1Char('+');
+            if (modifierKeys & Qt::ControlModifier) {
+                s += QKeySequence(Qt::ControlModifier).toString(QKeySequence::NativeText);
             }
 #else
-            if (modifierKeys & Qt::CTRL) {
-                s += KKeyServer::modToStringUser(Qt::CTRL) + QLatin1Char('+');
+            if (modifierKeys & Qt::ControlModifier) {
+                s += QKeySequence(Qt::ControlModifier).toString(QKeySequence::NativeText);
             }
-            if (modifierKeys & Qt::ALT) {
-                s += KKeyServer::modToStringUser(Qt::ALT) + QLatin1Char('+');
+            if (modifierKeys & Qt::AltModifier) {
+                s += QKeySequence(Qt::AltModifier).toString(QKeySequence::NativeText);
             }
 #endif
-            if (modifierKeys & Qt::SHIFT) {
-                s += KKeyServer::modToStringUser(Qt::SHIFT) + QLatin1Char('+');
+            if (modifierKeys & Qt::ShiftModifier) {
+                s += QKeySequence(Qt::ShiftModifier).toString(QKeySequence::NativeText);
+            }
+            if (modifierKeys & Qt::KeypadModifier) {
+                s += QKeySequence(Qt::KeypadModifier).toString(QKeySequence::NativeText);
             }
 
         } else if (nKey == 0) {
@@ -605,6 +608,7 @@ void KKeySequenceWidgetPrivate::updateShortcutDisplay()
     s.prepend(QLatin1Char(' '));
     s.append(QLatin1Char(' '));
     keyButton->setText(s);
+
 }
 
 KKeySequenceButton::~KKeySequenceButton()

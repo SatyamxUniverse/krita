@@ -45,6 +45,8 @@
 #include <brushengine/kis_locked_properties_server.h>
 #include <brushengine/kis_locked_properties_proxy.h>
 
+#include "KisPaintopSettingsIds.h"
+
 
 struct Q_DECL_HIDDEN KisPaintOpSettings::Private {
     Private()
@@ -129,8 +131,15 @@ bool KisPaintOpSettings::mousePressEvent(const KisPaintInformation &paintInforma
     return true; // ignore the event by default
 }
 
+bool KisPaintOpSettings::mouseReleaseEvent()
+{
+    return true; // ignore the event by default
+}
+
 void KisPaintOpSettings::setRandomOffset(const KisPaintInformation &paintInformation)
 {
+	bool disableDirtyBefore = d->disableDirtyNotifications;
+	d->disableDirtyNotifications = true;
     if (getBool("Texture/Pattern/Enabled")) {
         if (getBool("Texture/Pattern/isRandomOffsetX")) {
             setProperty("Texture/Pattern/OffsetX",
@@ -142,9 +151,36 @@ void KisPaintOpSettings::setRandomOffset(const KisPaintInformation &paintInforma
 
         }
     }
-
+	d->disableDirtyNotifications = disableDirtyBefore;
 }
 
+bool KisPaintOpSettings::hasMaskingSettings() const
+{
+    return getBool(KisPaintOpUtils::MaskingBrushEnabledTag, false);
+}
+
+KisPaintOpSettingsSP KisPaintOpSettings::createMaskingSettings() const
+{
+    if (!hasMaskingSettings()) return KisPaintOpSettingsSP();
+
+    const KoID pixelBrushId(KisPaintOpUtils::MaskingBrushPaintOpId, QString());
+
+    KisPaintOpSettingsSP maskingSettings = KisPaintOpRegistry::instance()->settings(pixelBrushId);
+    this->getPrefixedProperties(KisPaintOpUtils::MaskingBrushPresetPrefix, maskingSettings);
+
+    const bool useMasterSize = this->getBool(KisPaintOpUtils::MaskingBrushUseMasterSizeTag, true);
+    if (useMasterSize) {
+        const qreal masterSizeCoeff = getDouble(KisPaintOpUtils::MaskingBrushMasterSizeCoeffTag, 1.0);
+        maskingSettings->setPaintOpSize(masterSizeCoeff * paintOpSize());
+    }
+
+    return maskingSettings;
+}
+
+QString KisPaintOpSettings::maskingBrushCompositeOp() const
+{
+    return getString(KisPaintOpUtils::MaskingBrushCompositeOpTag, COMPOSITE_MULT);
+}
 
 KisPaintOpSettingsSP KisPaintOpSettings::clone() const
 {
@@ -152,7 +188,7 @@ KisPaintOpSettingsSP KisPaintOpSettings::clone() const
     if (paintopID.isEmpty())
         return 0;
 
-    KisPaintOpSettingsSP settings = KisPaintOpRegistry::instance()->settings(KoID(paintopID, ""));
+    KisPaintOpSettingsSP settings = KisPaintOpRegistry::instance()->settings(KoID(paintopID));
     QMapIterator<QString, QVariant> i(getProperties());
     while (i.hasNext()) {
         i.next();
@@ -160,6 +196,25 @@ KisPaintOpSettingsSP KisPaintOpSettings::clone() const
     }
     settings->setPreset(this->preset());
     return settings;
+}
+
+void KisPaintOpSettings::resetSettings(const QStringList &preserveProperties)
+{
+    QStringList allKeys = preserveProperties;
+    allKeys << "paintop";
+
+    QHash<QString, QVariant> preserved;
+    Q_FOREACH (const QString &key, allKeys) {
+        if (hasProperty(key)) {
+            preserved[key] = getProperty(key);
+        }
+    }
+
+    clearProperties();
+
+    for (auto it = preserved.constBegin(); it != preserved.constEnd(); ++it) {
+        setProperty(it.key(), it.value());
+    }
 }
 
 void KisPaintOpSettings::activate()
@@ -332,13 +387,18 @@ bool KisPaintOpSettings::useSpacingUpdates() const
     return getBool(SPACING_USE_UPDATES, false);
 }
 
-QPainterPath KisPaintOpSettings::brushOutline(const KisPaintInformation &info, OutlineMode mode)
+bool KisPaintOpSettings::needsAsynchronousUpdates() const
+{
+    return false;
+}
+
+QPainterPath KisPaintOpSettings::brushOutline(const KisPaintInformation &info, const OutlineMode &mode)
 {
     QPainterPath path;
-    if (mode == CursorIsOutline || mode == CursorIsCircleOutline || mode == CursorTiltOutline) {
+    if (mode.isVisible) {
         path = ellipseOutline(10, 10, 1.0, 0);
 
-        if (mode == CursorTiltOutline) {
+        if (mode.showTiltDecoration) {
             path.addPath(makeTiltIndicator(info, QPointF(0.0, 0.0), 0.0, 2.0));
         }
 
@@ -381,32 +441,13 @@ QPainterPath KisPaintOpSettings::makeTiltIndicator(KisPaintInformation const& in
     return ret;
 }
 
-void KisPaintOpSettings::setCanvasRotation(qreal angle)
-{
-    Private::DirtyNotificationsLocker locker(d.data());
-
-    setProperty("runtimeCanvasRotation", angle);
-    setPropertyNotSaved("runtimeCanvasRotation");
-}
-
-void KisPaintOpSettings::setCanvasMirroring(bool xAxisMirrored, bool yAxisMirrored)
-{
-    Private::DirtyNotificationsLocker locker(d.data());
-
-    setProperty("runtimeCanvasMirroredX", xAxisMirrored);
-    setPropertyNotSaved("runtimeCanvasMirroredX");
-
-    setProperty("runtimeCanvasMirroredY", yAxisMirrored);
-    setPropertyNotSaved("runtimeCanvasMirroredY");
-}
-
 void KisPaintOpSettings::setProperty(const QString & name, const QVariant & value)
 {
     if (value != KisPropertiesConfiguration::getProperty(name) &&
             !d->disableDirtyNotifications) {
         KisPaintOpPresetSP presetSP = preset().toStrongRef();
         if (presetSP) {
-            presetSP->setPresetDirty(true);
+            presetSP->setDirty(true);
         }
     }
 
@@ -432,6 +473,21 @@ bool KisPaintOpSettings::isLodUserAllowed(const KisPropertiesConfigurationSP con
 void KisPaintOpSettings::setLodUserAllowed(KisPropertiesConfigurationSP config, bool value)
 {
     config->setProperty("lodUserAllowed", value);
+}
+
+bool KisPaintOpSettings::lodSizeThresholdSupported() const
+{
+    return true;
+}
+
+qreal KisPaintOpSettings::lodSizeThreshold() const
+{
+    return getDouble("lodSizeThreshold", 100.0);
+}
+
+void KisPaintOpSettings::setLodSizeThreshold(qreal value)
+{
+    setProperty("lodSizeThreshold", value);
 }
 
 #include "kis_standard_uniform_properties_factory.h"

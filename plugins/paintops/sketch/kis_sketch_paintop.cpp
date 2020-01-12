@@ -46,7 +46,7 @@
 #include <QtGlobal>
 
 /*
-* Based on Harmony project http://github.com/mrdoob/harmony/
+* Based on Harmony project https://github.com/mrdoob/harmony/
 */
 // chrome : diff 0.2, sketchy : 0.3, fur: 0.5
 // fur : distance / thresholdDistance
@@ -61,7 +61,7 @@
 // to: i point - (offset * -random)  + random * 2
 // probability distance / thresholdDistnace
 
-// shaded: probabity : paint always - 0.0 density
+// shaded: probability : paint always - 0.0 density
 
 KisSketchPaintOp::KisSketchPaintOp(const KisPaintOpSettingsSP settings, KisPainter *painter, KisNodeSP node, KisImageSP image)
     : KisPaintOp(painter)
@@ -75,7 +75,7 @@ KisSketchPaintOp::KisSketchPaintOp(const KisPaintOpSettingsSP settings, KisPaint
     m_rotationOption.readOptionSetting(settings);
     m_rateOption.readOptionSetting(settings);
     m_sketchProperties.readOptionSetting(settings);
-    m_brushOption.readOptionSettingForceCopy(settings);
+    m_brushOption.readOptionSetting(settings);
     m_densityOption.readOptionSetting(settings);
     m_lineWidthOption.readOptionSetting(settings);
     m_offsetScaleOption.readOptionSetting(settings);
@@ -134,7 +134,7 @@ void KisSketchPaintOp::paintLine(const KisPaintInformation &pi1, const KisPaintI
     else {
         doPaintLine(pi1, pi2);
     }
-} 
+}
 void KisSketchPaintOp::doPaintLine(const KisPaintInformation &pi1, const KisPaintInformation &pi2)
 {
     if (!m_brush || !painter()) return;

@@ -24,6 +24,8 @@
 #include <QTransform>
 #include <math.h>
 
+#include "kis_global.h"
+
 /// Maximal recursion depth for finding root params
 const int MaxRecursionDepth = 64;
 /// Flatness tolerance for finding root params
@@ -319,7 +321,9 @@ void KoPathSegment::Private::deCasteljau(qreal t, QPointF *p1, QPointF *p2, QPoi
         q[1] = first->controlPoint2();
         q[2] = second->controlPoint1();
     }
-    q[deg] = second->point();
+    if (deg >= 0) {
+        q[deg] = second->point();
+    }
 
     // points of the new segment after the split point
     QPointF p[3];
@@ -418,13 +422,13 @@ QList<qreal> KoPathSegment::Private::extrema() const
          * r(t) = (P1 - P0) * t + P0
          */
 
-        // calcualting the differences between successive control points
+        // calculating the differences between successive control points
         QPointF cp = first->activeControlPoint2() ?
                      first->controlPoint2() : second->controlPoint1();
         QPointF x0 = cp - first->point();
         QPointF x1 = second->point() - cp;
 
-        // calculating the coefficents
+        // calculating the coefficients
         QPointF a = x1 - x0;
         QPointF c = x0;
 
@@ -445,12 +449,12 @@ QList<qreal> KoPathSegment::Private::extrema() const
          * r(t) = (P2 - 2*P1 + P0) * t^2 + (2*P1 - 2*P0) * t + P0
          *
          */
-        // calcualting the differences between successive control points
+        // calculating the differences between successive control points
         QPointF x0 = first->controlPoint2() - first->point();
         QPointF x1 = second->controlPoint1() - first->controlPoint2();
         QPointF x2 = second->point() - second->controlPoint1();
 
-        // calculating the coefficents
+        // calculating the coefficients
         QPointF a = x2 - 2.0 * x1 + x0;
         QPointF b = 2.0 * x1 - 2.0 * x0;
         QPointF c = x0;
@@ -823,7 +827,7 @@ QList<QPointF> KoPathSegment::intersections(const KoPathSegment &segment) const
      which forms another explicit bezier curve
      D(t) = (t,d(t)) = sum_i D_i B_{n,i}(t)
      now values of t for which P(t) lies outside of our fat line L
-     corrsponds to values of t for which D(t) lies above d = dmax or
+     corresponds to values of t for which D(t) lies above d = dmax or
      below d = dmin
      we can determine parameter ranges of t for which P(t) is guaranteed
      to lie outside of L by identifying ranges of t which the convex hull
@@ -871,7 +875,7 @@ QList<QPointF> KoPathSegment::intersections(const KoPathSegment &segment) const
         // hull edge is completely above dmax
         if (p1.y() > dmax && p2.y() > dmax)
             continue;
-        // hull egde is completely below dmin
+        // hull edge is completely below dmin
         if (p1.y() < dmin && p2.y() < dmin)
             continue;
         if (p1.x() == p2.x()) {
@@ -947,7 +951,7 @@ QList<QPointF> KoPathSegment::intersections(const KoPathSegment &segment) const
         }
     } else if (qAbs(tmin - tmax) < 1e-5) {
         //debugFlake << "Yay, we found an intersection";
-        // the inteval is pretty small now, just calculate the intersection at this point
+        // the interval is pretty small now, just calculate the intersection at this point
         isects.append(segment.pointAt(tmin));
     } else {
         QPair<KoPathSegment, KoPathSegment> clip1 = segment.splitAt(tmin);
@@ -1334,7 +1338,7 @@ qreal KoPathSegment::nearestPoint(const QPointF &point) const
     * z_{ij} = -----------------------------------------------
     *                   BinomialCoeff(2n - 1, i + j)
     *
-    * This Bernstein-Bezier polynom representation can now be solved for it's roots.
+    * This Bernstein-Bezier polynom representation can now be solved for its roots.
     */
 
     QList<QPointF> ctlPoints = controlPoints();
@@ -1404,28 +1408,26 @@ qreal KoPathSegment::nearestPoint(const QPointF &point) const
     // Now compare the distances of the candidate points.
 
     // First candidate is the previous knot.
-    QPointF dist = d->first->point() - point;
-    qreal distanceSquared = dist.x() * dist.x() + dist.y() * dist.y();
-    qreal oldDistanceSquared;
+    qreal distanceSquared = kisSquareDistance(point, d->first->point());
+    qreal minDistanceSquared = distanceSquared;
     qreal resultParam = 0.0;
 
     // Iterate over the found candidate params.
     foreach (qreal root, rootParams) {
-        dist = point - pointAt(root);
-        oldDistanceSquared = distanceSquared;
-        distanceSquared = dist.x() * dist.x() + dist.y() * dist.y();
+        distanceSquared = kisSquareDistance(point, pointAt(root));
 
-        if (distanceSquared < oldDistanceSquared)
+        if (distanceSquared < minDistanceSquared) {
+            minDistanceSquared = distanceSquared;
             resultParam = root;
+        }
     }
 
     // Last candidate is the knot.
-    dist = d->second->point() - point;
-    oldDistanceSquared = distanceSquared;
-    distanceSquared = dist.x() * dist.x() + dist.y() * dist.y();
-
-    if (distanceSquared < oldDistanceSquared)
+    distanceSquared = kisSquareDistance(point, d->second->point());
+    if (distanceSquared < minDistanceSquared) {
+        minDistanceSquared = distanceSquared;
         resultParam = 1.0;
+    }
 
     return resultParam;
 }

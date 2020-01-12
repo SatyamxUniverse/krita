@@ -30,6 +30,7 @@
 #include <QSharedPointer>
 #include <QSet>
 #include <QMetaType>
+#include <QSharedDataPointer>
 
 #include <KoXmlReaderForward.h>
 
@@ -49,7 +50,6 @@ class KoShapeSavingContext;
 class KoShapeLoadingContext;
 class KoGenStyle;
 class KoShapeShadow;
-class KoShapePrivate;
 class KoFilterEffectStack;
 class KoSnapData;
 class KoClipPath;
@@ -60,10 +60,9 @@ class KoBorder;
 struct KoInsets;
 class KoShapeBackground;
 class KisHandlePainterHelper;
-
+class KoShapeManager;
 
 /**
- *
  * Base class for all flake shapes. Shapes extend this class
  * to allow themselves to be manipulated. This class just represents
  * a graphical shape in the document and can be manipulated by some default
@@ -170,20 +169,20 @@ public:
     virtual ~KoShape();
 
     /**
-     * @brief creates a deep copy of thie shape or shapes subtree
+     * @brief creates a deep copy of the shape or shape's subtree 
      * @return a cloned shape
      */
     virtual KoShape* cloneShape() const;
 
     /**
-     * @brief Paint the shape
+     * @brief Paint the shape fill
      * The class extending this one is responsible for painting itself.  Since we do not
      * assume the shape is square the paint must also clear its background if it will draw
      * something transparent on top.
      * This can be done with a method like:
      * <code>
        painter.fillRect(converter.normalToView(QRectF(QPointF(0.0,0.0), size())), background());</code>
-     * Or equavalent for non-square objects.
+     * Or equivalent for non-square objects.
      * Do note that a shape's top-left is always at coordinate 0,0. Even if the shape itself is rotated
      * or translated.
      * @param painter used for painting the shape
@@ -192,6 +191,15 @@ public:
      * @param paintcontext the painting context.
      */
     virtual void paint(QPainter &painter, const KoViewConverter &converter, KoShapePaintingContext &paintcontext) = 0;
+
+    /**
+     * @brief paintStroke paints the shape's stroked outline
+     * @param painter used for painting the shape
+     * @param converter to convert between internal and view coordinates.
+     * @see applyConversion()
+     * @param paintcontext the painting context.
+     */
+    virtual void paintStroke(QPainter &painter, const KoViewConverter &converter, KoShapePaintingContext &paintcontext);
 
     /**
      * @brief Paint the shape's border
@@ -405,7 +413,7 @@ public:
     /**
      * Set the side text should flow around this shape.
      * @param side the requested side
-     * @param runThrought run through the foreground or background or...
+     * @param runThrough run through the foreground or background or...
      */
     void setTextRunAroundSide(TextRunAroundSide side, RunThroughLevel runThrough = Background);
 
@@ -498,7 +506,7 @@ public:
     /**
      * Set the minimum height of the shape.
      * Currently it's not respected but only for informational purpose
-     * @param minimumShapeHeight the minimum height of the frame.
+     * @param height the minimum height of the frame.
      */
     void setMinimumHeight(qreal height);
 
@@ -515,6 +523,10 @@ public:
      * or have a complex fill.
      * Setting such a background will allow the shape to be filled and will be able to tell
      * if it is transparent or not.
+     *
+     * If the shape inherited the background from its parent, its stops inheriting it, that
+     * is inheritBackground property resets to false.
+     *
      * @param background the new shape background.
      */
     void setBackground(QSharedPointer<KoShapeBackground> background);
@@ -527,6 +539,19 @@ public:
      * @return the background-brush
      */
     QSharedPointer<KoShapeBackground> background() const;
+
+    /**
+     * @brief setInheritBackground marks a shape as inhiriting the background
+     * from the parent shape. NOTE: The currently selected background is destroyed.
+     * @param value true if the shape should inherit the filling background
+     */
+    void setInheritBackground(bool value);
+
+    /**
+     * @brief inheritBackground shows if the shape inherits background from its parent
+     * @return true if the shape inherits the fill
+     */
+    bool inheritBackground() const;
 
     /**
      * Returns true if there is some transparency, false if the shape is fully opaque.
@@ -555,7 +580,7 @@ public:
      * @return the z-index of this shape.
      * @see setZIndex()
      */
-    int zIndex() const;
+    qint16 zIndex() const;
 
     /**
      * Set the z-coordinate of this shape.
@@ -568,7 +593,17 @@ public:
      * and probably depends on the order in which they are added to the shape manager.
      * @param zIndex the new z-index;
      */
-    void setZIndex(int zIndex);
+    void setZIndex(qint16 zIndex);
+
+    /**
+     * Maximum value of z-index
+     */
+    static const qint16 maxZIndex;
+
+    /**
+     * Minimum value of z-index
+     */
+    static const qint16 minZIndex;
 
     /**
      * Retrieve the run through property of this shape.
@@ -600,7 +635,7 @@ public:
      * @return current visibility state of this shape.
      * @see isGeometryProtected(), isContentProtected(), isSelectable()
      */
-    bool isVisible(bool recursive = false) const;
+    bool isVisible(bool recursive = true) const;
 
     /**
      * Changes the shape to be printable or not. The default is true.
@@ -692,6 +727,11 @@ public:
     bool inheritsTransformFromAny(const QList<KoShape*> ancestorsInQuestion) const;
 
     /**
+     * @return true if this shape has a common parent with \p shape
+     */
+    bool hasCommonParent(const KoShape *shape) const;
+
+    /**
      * Request a repaint to be queued.
      * The repaint will be of the entire Shape, including its selection handles should this
      * shape be selected.
@@ -774,10 +814,23 @@ public:
     KoShapeStrokeModelSP stroke() const;
 
     /**
-     * Set a new stroke, removing the old one.
+     * Set a new stroke, removing the old one. The stroke inheritance becomes disabled.
      * @param stroke the new stroke, or 0 if there should be no stroke.
      */
     void setStroke(KoShapeStrokeModelSP stroke);
+
+    /**
+     * @brief setInheritStroke marks a shape as inhiriting the stroke
+     * from the parent shape. NOTE: The currently selected stroke is destroyed.
+     * @param value true if the shape should inherit the stroke style
+     */
+    void setInheritStroke(bool value);
+
+    /**
+     * @brief inheritStroke shows if the shape inherits the stroke from its parent
+     * @return true if the shape inherits the stroke style
+     */
+    bool inheritStroke() const;
 
     /**
      * Return the insets of the stroke.
@@ -811,7 +864,7 @@ public:
 
     /**
      * Setting the shape to keep its aspect-ratio has the effect that user-scaling will
-     * keep the width/hight ratio intact so as not to distort shapes that rely on that
+     * keep the width/height ratio intact so as not to distort shapes that rely on that
      * ratio.
      * @param keepAspect the new value
      */
@@ -819,7 +872,7 @@ public:
 
     /**
      * Setting the shape to keep its aspect-ratio has the effect that user-scaling will
-     * keep the width/hight ratio intact so as not to distort shapes that rely on that
+     * keep the width/height ratio intact so as not to distort shapes that rely on that
      * ratio.
      * @return whether to keep aspect ratio of this shape
      */
@@ -990,8 +1043,9 @@ public:
      * In this case it can be shown on screen probably partially but it should really not be printed
      * until it is fully done processing.
      * Warning! This method can be blocking for a long time
+     * @param converter    The converter
      * @param asynchronous If set to true the processing will can take place in a different thread and the
-     *                     function will not block until the shape is finised.
+     *                     function will not block until the shape is finished.
      *                     In case of printing Flake will call this method from a non-main thread and only
      *                     start printing it when the in case of printing method returned.
      *                     If set to false the processing needs to be done synchronously and will
@@ -1000,7 +1054,7 @@ public:
     virtual void waitUntilReady(const KoViewConverter &converter, bool asynchronous = true) const;
 
     /// checks recursively if the shape or one of its parents is not visible or locked
-    bool isEditable() const;
+    virtual bool isShapeEditable(bool recursive = true) const;
 
     /**
      * Adds a shape which depends on this shape.
@@ -1124,21 +1178,14 @@ public:
      */
     void setHyperLink(const QString &hyperLink);
 
-    /**
-     * \internal
-     * Returns the private object for use within the flake lib
-     */
-    KoShapePrivate *priv();
-
 public:
 
-    struct ShapeChangeListener {
+    struct KRITAFLAKE_EXPORT ShapeChangeListener {
         virtual ~ShapeChangeListener();
         virtual void notifyShapeChanged(ChangeType type, KoShape *shape) = 0;
 
     private:
         friend class KoShape;
-        friend class KoShapePrivate;
         void registerShape(KoShape *shape);
         void unregisterShape(KoShape *shape);
         void notifyShapeChangedImpl(ChangeType type, KoShape *shape);
@@ -1149,12 +1196,15 @@ public:
     void addShapeChangeListener(ShapeChangeListener *listener);
     void removeShapeChangeListener(ShapeChangeListener *listener);
 
+protected:
+    QList<ShapeChangeListener *> listeners() const;
+    void setSizeImpl(const QSizeF &size) const;
+
 public:
     static QList<KoShape*> linearizeSubtree(const QList<KoShape*> &shapes);
 
 protected:
-    /// constructor
-    KoShape(KoShapePrivate *);
+    KoShape(const KoShape &rhs);
 
     /* ** loading saving helper methods */
     /// attributes from ODF 1.1 chapter 9.2.15 Common Drawing Shape Attributes
@@ -1234,16 +1284,28 @@ protected:
      * A hook that allows inheriting classes to do something after a KoShape property changed
      * This is called whenever the shape, position rotation or scale properties were altered.
      * @param type an indicator which type was changed.
+     * @param shape the shape.
      */
     virtual void shapeChanged(ChangeType type, KoShape *shape = 0);
 
     /// return the current matrix that contains the rotation/scale/position of this shape
     QTransform transform() const;
 
-    KoShapePrivate *d_ptr;
+private:
+    class Private;
+    QSharedDataPointer<Private> d;
+
+protected:
+    /**
+     * Notify the shape that a change was done. To be used by inheriting shapes.
+     * @param type the change type
+     */
+    void shapeChangedPriv(KoShape::ChangeType type);
 
 private:
-    Q_DECLARE_PRIVATE(KoShape)
+    void addShapeManager(KoShapeManager *manager);
+    void removeShapeManager(KoShapeManager *manager);
+    friend class KoShapeManager;
 };
 
 Q_DECLARE_METATYPE(KoShape*)

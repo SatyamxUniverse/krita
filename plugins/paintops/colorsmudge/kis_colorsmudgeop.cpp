@@ -38,16 +38,18 @@
 #include <kis_fixed_paint_device.h>
 #include <kis_lod_transform.h>
 #include <kis_spacing_information.h>
-
+#include <KoColorModelStandardIds.h>
 
 KisColorSmudgeOp::KisColorSmudgeOp(const KisPaintOpSettingsSP settings, KisPainter* painter, KisNodeSP node, KisImageSP image)
     : KisBrushBasedPaintOp(settings, painter)
     , m_firstRun(true)
     , m_image(image)
-    , m_tempDev(painter->device()->createCompositionSourceDevice())
+    , m_precisePainterWrapper(painter->device())
+    , m_tempDev(m_precisePainterWrapper.createPreciseCompositionSourceDevice())
     , m_backgroundPainter(new KisPainter(m_tempDev))
     , m_smudgePainter(new KisPainter(m_tempDev))
     , m_colorRatePainter(new KisPainter(m_tempDev))
+    , m_finalPainter(new KisPainter(m_precisePainterWrapper.preciseDevice()))
     , m_smudgeRateOption()
     , m_colorRateOption("ColorRate", KisPaintOpOption::GENERAL, false)
     , m_smudgeRadiusOption()
@@ -56,7 +58,6 @@ KisColorSmudgeOp::KisColorSmudgeOp(const KisPaintOpSettingsSP settings, KisPaint
 
     Q_ASSERT(settings);
     Q_ASSERT(painter);
-
     m_sizeOption.readOptionSetting(settings);
     m_opacityOption.readOptionSetting(settings);
     m_spacingOption.readOptionSetting(settings);
@@ -84,14 +85,37 @@ KisColorSmudgeOp::KisColorSmudgeOp(const KisPaintOpSettingsSP settings, KisPaint
     // Smudge Painter works in default COMPOSITE_OVER mode
     m_colorRatePainter->setCompositeOp(painter->compositeOp()->id());
 
+    m_finalPainter->setCompositeOp(COMPOSITE_COPY);
+    m_finalPainter->setSelection(painter->selection());
+    m_finalPainter->setChannelFlags(painter->channelFlags());
+    m_finalPainter->copyMirrorInformationFrom(painter);
+
+    m_paintColor = painter->paintColor().convertedTo(m_tempDev->colorSpace());
+    m_preciseColorRateCompositeOp =
+        m_tempDev->colorSpace()->compositeOp(m_colorRatePainter->compositeOp()->id());
+
+    m_hsvOptions.append(KisPressureHSVOption::createHueOption());
+    m_hsvOptions.append(KisPressureHSVOption::createSaturationOption());
+    m_hsvOptions.append(KisPressureHSVOption::createValueOption());
+
+    Q_FOREACH (KisPressureHSVOption * option, m_hsvOptions) {
+        option->readOptionSetting(settings);
+        option->resetAllSensors();
+        if (option->isChecked() && !m_hsvTransform) {
+            m_hsvTransform = m_paintColor.colorSpace()->createColorTransformation("hsv_adjustment", QHash<QString, QVariant>());
+        }
+    }
     m_rotationOption.applyFanCornersInfo(this);
+
+    if (m_overlayModeOption.isChecked() && m_image && m_image->projection()){
+        m_preciseImageDeviceWrapper.reset(new KisPrecisePaintDeviceWrapper(m_image->projection()));
+    }
 }
 
 KisColorSmudgeOp::~KisColorSmudgeOp()
 {
-    delete m_backgroundPainter;
-    delete m_colorRatePainter;
-    delete m_smudgePainter;
+    qDeleteAll(m_hsvOptions);
+    delete m_hsvTransform;
 }
 
 void KisColorSmudgeOp::updateMask(const KisPaintInformation& info, double scale, double rotation, const QPointF &cursorPoint)
@@ -123,6 +147,17 @@ inline void KisColorSmudgeOp::getTopLeftAligned(const QPointF &pos, const QPoint
 KisSpacingInformation KisColorSmudgeOp::paintAt(const KisPaintInformation& info)
 {
     KisBrushSP brush = m_brush;
+    const bool useDullingMode = m_smudgeRateOption.getMode() == KisSmudgeOption::DULLING_MODE;
+
+    /* This is a fix for dulling + overlay + paint,
+     * this should allow the image to composite paint addition effects correctly
+     * while also respecting overlay mode. */
+    bool useAlternatePrecisionSource = (m_overlayModeOption.isChecked() &&
+                                        useDullingMode &&
+                                        m_preciseImageDeviceWrapper!= nullptr);
+
+    KisPrecisePaintDeviceWrapper &activeWrapper = useAlternatePrecisionSource ? *m_preciseImageDeviceWrapper :
+                                                                                 m_precisePainterWrapper;
 
     // Simple error catching
     if (!painter()->device() || !brush || !brush->canPaintFor(info)) {
@@ -142,6 +177,7 @@ KisSpacingInformation KisColorSmudgeOp::paintAt(const KisPaintInformation& info)
         */
         m_dabCache->disableSubpixelPrecision();
     }
+
 #if 0
     //if precision
     KoColor colorSpaceChanger = painter()->paintColor();
@@ -154,10 +190,11 @@ KisSpacingInformation KisColorSmudgeOp::paintAt(const KisPaintInformation& info)
 #endif
 
     // get the scaling factor calculated by the size option
-    qreal scale    = m_sizeOption.apply(info);
+    qreal scale = m_sizeOption.apply(info);
     scale *= KisLodTransform::lodToScale(painter()->device());
     qreal rotation = m_rotationOption.apply(info);
     if (checkSizeTooSmall(scale)) return KisSpacingInformation();
+
     KisDabShape shape(scale, 1.0, rotation);
 
     QPointF scatteredPos =
@@ -199,10 +236,7 @@ KisSpacingInformation KisColorSmudgeOp::paintAt(const KisPaintInformation& info)
         return spacingInfo;
     }
 
-    // save the old opacity value and composite mode
-    quint8  oldOpacity = painter()->opacity();
-    QString oldCompositeOpId = painter()->compositeOp()->id();
-    qreal   fpOpacity  = (qreal(oldOpacity) / 255.0) * m_opacityOption.getOpacityf(info);
+    const qreal fpOpacity = (qreal(painter()->opacity()) / 255.0) * m_opacityOption.getOpacityf(info);
 
     if (m_image && m_overlayModeOption.isChecked()) {
         m_image->blockUpdates();
@@ -210,33 +244,35 @@ KisSpacingInformation KisColorSmudgeOp::paintAt(const KisPaintInformation& info)
         m_image->unblockUpdates();
     }
     else {
-        // IMPORTANT: clear the temporary painting device to color black with zero opacity:
-        //            it will only clear the extents of the brush.
+        // IMPORTANT: Clear the temporary painting device to transparent black.
+        //            It will only clear the extents of the brush.
         m_tempDev->clear(QRect(QPoint(), m_dstDabRect.size()));
     }
 
-    if (m_smudgeRateOption.getMode() == KisSmudgeOption::SMEARING_MODE) {
-        m_smudgePainter->bitBlt(QPoint(), painter()->device(), srcDabRect);
+    // stored in the color space of the paintColor
+    KoColor dullingFillColor = m_paintColor;
+
+    QPoint canvasLocalSamplePoint = (srcDabRect.topLeft() + hotSpot).toPoint();
+
+    if (!useDullingMode) {
+        activeWrapper.readRect(srcDabRect);
+        m_smudgePainter->bitBlt(QPoint(), activeWrapper.preciseDevice(), srcDabRect);
     } else {
-        QPoint pt = (srcDabRect.topLeft() + hotSpot).toPoint();
-
         if (m_smudgeRadiusOption.isChecked()) {
-            qreal effectiveSize = 0.5 * (m_dstDabRect.width() + m_dstDabRect.height());
-            m_smudgeRadiusOption.apply(*m_smudgePainter, info, effectiveSize, pt.x(), pt.y(), painter()->device());
+            const qreal effectiveSize = 0.5 * (m_dstDabRect.width() + m_dstDabRect.height());
 
-            KoColor color2 = m_smudgePainter->paintColor();
-            m_smudgePainter->fill(0, 0, m_dstDabRect.width(), m_dstDabRect.height(), color2);
+            const QRect sampleRect = m_smudgeRadiusOption.sampleRect(info, effectiveSize, canvasLocalSamplePoint);
+            activeWrapper.readRect(sampleRect);
 
+            m_smudgeRadiusOption.apply(&dullingFillColor, info, effectiveSize, canvasLocalSamplePoint.x(), canvasLocalSamplePoint.y(), activeWrapper.preciseDevice());
+            KIS_SAFE_ASSERT_RECOVER_NOOP(*dullingFillColor.colorSpace() == *m_tempDev->colorSpace());
         } else {
-            KoColor color = painter()->paintColor();
-
             // get the pixel on the canvas that lies beneath the hot spot
             // of the dab and fill  the temporary paint device with that color
-
-            KisCrossDeviceColorPickerInt colorPicker(painter()->device(), color);
-            colorPicker.pickColor(pt.x(), pt.y(), color.data());
-
-            m_smudgePainter->fill(0, 0, m_dstDabRect.width(), m_dstDabRect.height(), color);
+            activeWrapper.readRect(QRect(canvasLocalSamplePoint, QSize(1,1)));
+            KisCrossDeviceColorPickerInt colorPicker(activeWrapper.preciseDevice(), dullingFillColor);
+            colorPicker.pickColor(canvasLocalSamplePoint.x(), canvasLocalSamplePoint.y(), dullingFillColor.data());
+            KIS_SAFE_ASSERT_RECOVER_NOOP(*dullingFillColor.colorSpace() == *m_tempDev->colorSpace());
         }
     }
 
@@ -252,37 +288,66 @@ KisSpacingInformation KisColorSmudgeOp::paintAt(const KisPaintInformation& info)
         // or a gradient color (if enabled)
         // into the temporary painting device and use the user selected
         // composite mode
-        KoColor color = painter()->paintColor();
+        KoColor color = m_paintColor;
         m_gradientOption.apply(color, m_gradient, info);
-        m_colorRatePainter->fill(0, 0, m_dstDabRect.width(), m_dstDabRect.height(), color);
+        if (m_hsvTransform) {
+            Q_FOREACH (KisPressureHSVOption * option, m_hsvOptions) {
+                option->apply(m_hsvTransform, info);
+            }
+            m_hsvTransform->transform(color.data(), color.data(), 1);
+        }
+
+        if (!useDullingMode) {
+            KIS_SAFE_ASSERT_RECOVER(*m_colorRatePainter->device()->colorSpace() == *color.colorSpace()) {
+                color.convertTo(m_colorRatePainter->device()->colorSpace());
+            }
+
+            m_colorRatePainter->fill(0, 0, m_dstDabRect.width(), m_dstDabRect.height(), color);
+        } else {
+            KIS_SAFE_ASSERT_RECOVER(*dullingFillColor.colorSpace() == *color.colorSpace()) {
+                color.convertTo(dullingFillColor.colorSpace());
+            }
+            KIS_SAFE_ASSERT_RECOVER_NOOP(*dullingFillColor.colorSpace() == *m_tempDev->colorSpace());
+            m_preciseColorRateCompositeOp->composite(dullingFillColor.data(), 0,
+                                                     color.data(), 0,
+                                                     0, 0,
+                                                     1, 1,
+                                                     m_colorRatePainter->opacity());
+        }
     }
+
+    if (useDullingMode) {
+        KIS_SAFE_ASSERT_RECOVER_NOOP(*dullingFillColor.colorSpace() == *m_tempDev->colorSpace());
+        m_tempDev->fill(QRect(0, 0, m_dstDabRect.width(), m_dstDabRect.height()), dullingFillColor);
+    }
+
+    m_precisePainterWrapper.readRects(m_finalPainter->calculateAllMirroredRects(m_dstDabRect));
 
     // if color is disabled (only smudge) and "overlay mode" is enabled
     // then first blit the region under the brush from the image projection
     // to the painting device to prevent a rapid build up of alpha value
     // if the color to be smudged is semi transparent.
     if (m_image && m_overlayModeOption.isChecked() && !m_colorRateOption.isChecked()) {
-        painter()->setCompositeOp(COMPOSITE_COPY);
-        painter()->setOpacity(OPACITY_OPAQUE_U8);
+        m_finalPainter->setOpacity(OPACITY_OPAQUE_U8);
         m_image->blockUpdates();
-        painter()->bitBlt(m_dstDabRect.topLeft(), m_image->projection(), m_dstDabRect);
+        // TODO: check if this code is correct in mirrored mode! Technically, the
+        //       painter renders the mirrored dab only, so we should also prepare
+        //       the overlay for it in all the places.
+        m_finalPainter->bitBlt(m_dstDabRect.topLeft(), m_image->projection(), m_dstDabRect);
         m_image->unblockUpdates();
     }
 
-
     // set opacity calculated by the rate option
-    m_smudgeRateOption.apply(*painter(), info, 0.0, 1.0, fpOpacity);
+    m_smudgeRateOption.apply(*m_finalPainter, info, 0.0, 1.0, fpOpacity);
 
     // then blit the temporary painting device on the canvas at the current brush position
     // the alpha mask (maskDab) will be used here to only blit the pixels that are in the area (shape) of the brush
+    m_finalPainter->bitBltWithFixedSelection(m_dstDabRect.x(), m_dstDabRect.y(), m_tempDev, m_maskDab, m_dstDabRect.width(), m_dstDabRect.height());
+    m_finalPainter->renderMirrorMaskSafe(m_dstDabRect, m_tempDev, 0, 0, m_maskDab, !m_dabCache->needSeparateOriginal());
 
-    painter()->setCompositeOp(COMPOSITE_COPY);
-    painter()->bitBltWithFixedSelection(m_dstDabRect.x(), m_dstDabRect.y(), m_tempDev, m_maskDab, m_dstDabRect.width(), m_dstDabRect.height());
-    painter()->renderMirrorMaskSafe(m_dstDabRect, m_tempDev, 0, 0, m_maskDab, !m_dabCache->needSeparateOriginal());
-
-    // restore orginal opacy and composite mode values
-    painter()->setOpacity(oldOpacity);
-    painter()->setCompositeOp(oldCompositeOpId);
+    const QVector<QRect> dirtyRects = m_finalPainter->takeDirtyRegion();
+    m_precisePainterWrapper.writeRects(dirtyRects);
+    painter()->addDirtyRects(dirtyRects);
 
     return spacingInfo;
 }

@@ -23,7 +23,7 @@
 
 #include <QStringList>
 #include <QDir>
-#include <QDesktopServices>
+#include <QStandardPaths>
 #include <QMessageBox>
 
 #include <klocalizedstring.h>
@@ -39,7 +39,6 @@
 #include <KisViewManager.h>
 #include <kis_image.h>
 #include <kis_action.h>
-#include <KisDocument.h>
 #include <kis_paint_layer.h>
 #include <kis_painter.h>
 #include <kis_paint_device.h>
@@ -50,7 +49,7 @@
 K_PLUGIN_FACTORY_WITH_JSON(ImagesplitFactory, "kritaimagesplit.json", registerPlugin<Imagesplit>();)
 
 Imagesplit::Imagesplit(QObject *parent, const QVariantList &)
-    : KisViewPlugin(parent)
+    : KisActionPlugin(parent)
 {
     KisAction *action  = createAction("imagesplit");
     connect(action, SIGNAL(triggered()), this, SLOT(slotImagesplit()));
@@ -62,23 +61,25 @@ Imagesplit::~Imagesplit()
 
 bool Imagesplit::saveAsImage(const QRect &imgSize, const QString &mimeType, const QString &url)
 {
-    KisImageSP image = m_view->image();
+    KisImageSP image = viewManager()->image();
 
     KisDocument *document = KisPart::instance()->createDocument();
 
-    KisImageSP dst = new KisImage(document->createUndoStore(), imgSize.width(), imgSize.height(), image->colorSpace(), image->objectName());
-    dst->setResolution(image->xRes(), image->yRes());
-    document->setCurrentImage(dst);
+    { // make sure dst is deleted before calling 'delete exportDocument',
+      // since KisDocument checks that its image is properly deref()'d.
+      KisImageSP dst = new KisImage(document->createUndoStore(), imgSize.width(), imgSize.height(), image->colorSpace(), image->objectName());
+      dst->setResolution(image->xRes(), image->yRes());
+      document->setCurrentImage(dst);
 
-    KisPaintLayer* paintLayer = new KisPaintLayer(dst, dst->nextLayerName(), 255);
-    KisPainter gc(paintLayer->paintDevice());
-    gc.bitBlt(QPoint(0, 0), image->projection(), imgSize);
+      KisPaintLayer* paintLayer = new KisPaintLayer(dst, dst->nextLayerName(), 255);
+      KisPainter gc(paintLayer->paintDevice());
+      gc.bitBlt(QPoint(0, 0), image->projection(), imgSize);
 
-    dst->addNode(paintLayer, KisNodeSP(0));
-    dst->refreshGraph();
-    document->setOutputMimeType(mimeType.toLatin1());
+      dst->addNode(paintLayer, KisNodeSP(0));
+      dst->refreshGraph();
+    }
     document->setFileBatchMode(true);
-    if (!document->exportDocument(QUrl::fromLocalFile(url))) {
+    if (!document->exportDocumentSync(QUrl::fromLocalFile(url), mimeType.toLatin1())) {
         if (document->errorMessage().isEmpty()) {
             QMessageBox::critical(0, i18nc("@title:window", "Krita"), i18n("Could not save\n%1", document->localFilePath()));
         } else {
@@ -95,19 +96,20 @@ bool Imagesplit::saveAsImage(const QRect &imgSize, const QString &mimeType, cons
 void Imagesplit::slotImagesplit()
 {
     // Taking the title - url from caption function and removing file extension
-    QStringList strList = ((m_view->document())->caption()).split('.');
+    QStringList strList = ((viewManager()->document())->caption()).split('.');
     QString suffix = strList.at(0);
 
     // Getting all mime types and converting them into names which are displayed at combo box
-    QStringList listMimeFilter = KisImportExportManager::mimeFilter(KisImportExportManager::Export);
-    QString defaultMime = QString::fromLatin1(m_view->document()->mimeType());
+    QStringList listMimeFilter = KisImportExportManager::supportedMimeTypes(KisImportExportManager::Export);
+    QString defaultMime = QString::fromLatin1(viewManager()->document()->mimeType());
+    if (defaultMime.isEmpty()) defaultMime = QString::fromLatin1(viewManager()->document()->nativeFormatMimeType());
     int defaultMimeIndex = 0;
 
     listMimeFilter.sort();
     QStringList filteredMimeTypes;
     QStringList listFileType;
     int i = 0;
-    Q_FOREACH (const QString & mimeType, listMimeFilter) {
+    Q_FOREACH (const QString &mimeType, listMimeFilter) {
         listFileType.append(KisMimeDatabase::descriptionForMimeType(mimeType));
         filteredMimeTypes.append(mimeType);
         if (mimeType == defaultMime) {
@@ -120,11 +122,11 @@ void Imagesplit::slotImagesplit()
 
     Q_ASSERT(listMimeFilter.size() == listFileType.size());
 
-    DlgImagesplit *dlgImagesplit = new DlgImagesplit(m_view, suffix, listFileType, defaultMimeIndex);
+    DlgImagesplit *dlgImagesplit = new DlgImagesplit(viewManager(), suffix, listFileType, defaultMimeIndex);
     dlgImagesplit->setObjectName("Imagesplit");
     Q_CHECK_PTR(dlgImagesplit);
 
-    KisImageWSP image = m_view->image();
+    KisImageWSP image = viewManager()->image();
 
     if (dlgImagesplit->exec() == QDialog::Accepted) {
 
@@ -136,71 +138,91 @@ void Imagesplit::slotImagesplit()
 
 
         bool stop = false;
+
+        QString mimeType;
+        QString filepath;
+        QString homepath;
+        QString suffix;
+
         if (dlgImagesplit->autoSave()) {
-            KoFileDialog dialog(m_view->mainWindow(), KoFileDialog::OpenDirectory, "OpenDocument");
+            KoFileDialog dialog(viewManager()->mainWindow(), KoFileDialog::OpenDirectory, "OpenDocument");
             dialog.setCaption(i18n("Save Image on Split"));
-            dialog.setDefaultDir(QDesktopServices::storageLocation(QDesktopServices::PicturesLocation));
-            QStringList mimeFilter = m_view->document()->importExportManager()->mimeFilter(KisImportExportManager::Export);
-            QString defaultMime = QString::fromLatin1(m_view->document()->mimeType());
+            dialog.setDefaultDir(QStandardPaths::writableLocation(QStandardPaths::PicturesLocation));
+            QStringList mimeFilter = viewManager()->document()->importExportManager()->supportedMimeTypes(KisImportExportManager::Export);
+            QString defaultMime = QString::fromLatin1(viewManager()->document()->mimeType());
             dialog.setMimeTypeFilters(mimeFilter, defaultMime);
 
             QUrl directory = QUrl::fromUserInput(dialog.filename());
 
             if (directory.isEmpty())
                 return;
-            for (int i = 0, k = 1; i < (numVerticalLines + 1); i++) {
-                for (int j = 0; j < (numHorizontalLines + 1); j++, k++) {
-                    QString mimeTypeSelected = listMimeFilter.at(dlgImagesplit->cmbIndex);
-                    QString homepath = directory.toLocalFile();
-                    QString suffix = KisMimeDatabase::suffixesForMimeType(mimeTypeSelected).first();
-                    qDebug() << "suffix" << suffix;
-                    if (suffix.startsWith("*.")) {
-                        suffix = suffix.remove(0, 1);
-                    }
-                    qDebug() << "\tsuffix" << suffix;
-                    if (!suffix.startsWith(".")) {
-                        suffix = suffix.prepend('.');
-                    }
-                    qDebug() << "\tsuffix" << suffix;
-                    QString fileName = dlgImagesplit->suffix() + '_' + QString::number(k) + suffix;
-                    QString url = homepath  + '/' + fileName;
-                    if (!saveAsImage(QRect((i * img_width), (j * img_height), img_width, img_height), listMimeFilter.at(dlgImagesplit->cmbIndex), url)) {
-                        stop = true;
-                        break;
-                    }
-                }
-                if (stop) {
-                    break;
-                }
+
+            mimeType = listMimeFilter.at(dlgImagesplit->cmbIndex);
+            homepath = directory.toLocalFile();
+            suffix = KisMimeDatabase::suffixesForMimeType(mimeType).first();
+            if (suffix.startsWith("*.")) {
+                suffix = suffix.remove(0, 1);
             }
+            if (!suffix.startsWith(".")) {
+                suffix = suffix.prepend('.');
+            }
+	    }
+
+        int outerLoop;
+        int innerLoop;
+
+        if (dlgImagesplit->sortHorizontal()) {
+            outerLoop = numHorizontalLines + 1;
+            innerLoop = numVerticalLines + 1;
         }
         else {
+            outerLoop = numVerticalLines + 1;
+            innerLoop = numHorizontalLines + 1;
+        }
 
-            for (int i = 0; i < (numVerticalLines + 1); i++) {
-                for (int j = 0; j < (numHorizontalLines + 1); j++) {
-                    KoFileDialog dialog(m_view->mainWindow(), KoFileDialog::SaveFile, "OpenDocument");
+
+        for (int i = 0, k = 1; i < outerLoop; i++) {
+            for (int j = 0; j < innerLoop; j++, k++) {
+                int row;
+                int column;
+                if (dlgImagesplit->sortHorizontal()) {
+                    row = i;
+                    column = j;
+                }
+                else {
+                    row = j;
+                    column = i;
+                }
+
+                if (dlgImagesplit->autoSave()) {
+                    QString fileName = dlgImagesplit->suffix() + '_' + QString::number(k) + suffix;
+                    filepath = homepath  + '/' + fileName;
+		            mimeType = listMimeFilter.at(dlgImagesplit->cmbIndex);
+	            }
+                else {
+                    KoFileDialog dialog(viewManager()->mainWindow(), KoFileDialog::SaveFile, "OpenDocument");
                     dialog.setCaption(i18n("Save Image on Split"));
-                    dialog.setDefaultDir(QDesktopServices::storageLocation(QDesktopServices::PicturesLocation));
+                    dialog.setDefaultDir(QStandardPaths::writableLocation(QStandardPaths::PicturesLocation));
                     dialog.setMimeTypeFilters(listMimeFilter, defaultMime);
 
                     QUrl url = QUrl::fromUserInput(dialog.filename());
+                    filepath = url.toLocalFile();
 
-                    QString mimefilter = KisMimeDatabase::mimeTypeForFile(url.toLocalFile());
+                    mimeType = KisMimeDatabase::mimeTypeForFile(url.toLocalFile(), false);
 
                     if (url.isEmpty())
                         return;
-                    if (!saveAsImage(QRect((i * img_width), (j * img_height), img_width, img_height), mimefilter, url.toLocalFile())) {
-                        stop = true;
-                        break;
-                    }
+
                 }
-                if (stop) {
+                if (!saveAsImage(QRect((column * img_width), (row * img_height), img_width, img_height), mimeType, filepath)) {
+                    stop = true;
                     break;
                 }
             }
-
+            if (stop) {
+                break;
+            }
         }
-
     }
     delete dlgImagesplit;
 }

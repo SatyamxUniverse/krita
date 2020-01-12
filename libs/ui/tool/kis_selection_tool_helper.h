@@ -19,7 +19,7 @@
 #define KIS_SELECTION_TOOL_HELPER_H
 
 #include <kritaui_export.h>
-
+#include <QMenu>
 #include <QPointer>
 
 #include "kundo2magicstring.h"
@@ -40,15 +40,17 @@ public:
     virtual ~KisSelectionToolHelper();
 
     void selectPixelSelection(KisPixelSelectionSP selection, SelectionAction action);
-    void addSelectionShape(KoShape* shape);
-    void addSelectionShapes(QList<KoShape*> shapes);
+    void addSelectionShape(KoShape* shape, SelectionAction action = SELECTION_DEFAULT);
+    void addSelectionShapes(QList<KoShape*> shapes, SelectionAction action = SELECTION_DEFAULT);
 
-    void cropRectIfNeeded(QRect *rect, SelectionAction action);
     bool canShortcutToDeselect(const QRect &rect, SelectionAction action);
     bool canShortcutToNoop(const QRect &rect, SelectionAction action);
-    void cropPathIfNeeded(QPainterPath *path);
 
     bool tryDeselectCurrentSelection(const QRectF selectionViewRect, SelectionAction action);
+    static QMenu* getSelectionContextMenu(KisCanvas2* canvas);
+
+    SelectionMode tryOverrideSelectionMode(KisSelectionSP activeSelection, SelectionMode currentMode, SelectionAction currentAction) const;
+
 
 private:
     QPointer<KisCanvas2> m_canvas;

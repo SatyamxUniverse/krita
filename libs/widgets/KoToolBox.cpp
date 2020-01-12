@@ -22,6 +22,7 @@
 #include "KoToolBox_p.h"
 #include "KoToolBoxLayout_p.h"
 #include "KoToolBoxButton_p.h"
+#include "kis_assert.h"
 
 #include <QButtonGroup>
 #include <QToolButton>
@@ -33,6 +34,7 @@
 #include <QTimer>
 #include <QMenu>
 #include <QAction>
+#include <QScreen>
 
 #include <klocalizedstring.h>
 #include <WidgetsDebug.h>
@@ -46,7 +48,9 @@
 
 static int buttonSize(int screen)
 {
-    QRect rc = qApp->desktop()->screenGeometry(screen);
+    KIS_ASSERT_RECOVER_RETURN_VALUE(screen < QGuiApplication::screens().size() && screen >= 0, 16);
+
+    QRect rc = QGuiApplication::screens().at(screen)->availableGeometry();
     if (rc.width() <= 1024) {
         return 12;
     }
@@ -59,6 +63,7 @@ static int buttonSize(int screen)
     else {
         return 22;
     }
+
 }
 
 class KoToolBox::Private
@@ -109,8 +114,8 @@ KoToolBox::KoToolBox()
     // Update visibility of buttons
     setButtonsVisible(QList<QString>());
 
-    connect(KoToolManager::instance(), SIGNAL(changedTool(KoCanvasController*, int)),
-            this, SLOT(setActiveTool(KoCanvasController*, int)));
+    connect(KoToolManager::instance(), SIGNAL(changedTool(KoCanvasController*,int)),
+            this, SLOT(setActiveTool(KoCanvasController*,int)));
     connect(KoToolManager::instance(), SIGNAL(currentLayerChanged(const KoCanvasController*,const KoShapeLayer*)),
             this, SLOT(setCurrentLayer(const KoCanvasController*,const KoShapeLayer*)));
     connect(KoToolManager::instance(), SIGNAL(toolCodesSelected(QList<QString>)), this, SLOT(setButtonsVisible(QList<QString>)));
@@ -118,7 +123,6 @@ KoToolBox::KoToolBox()
             SIGNAL(addedTool(KoToolAction*,KoCanvasController*)),
             this, SLOT(toolAdded(KoToolAction*,KoCanvasController*)));
 
-    QTimer::singleShot(0, this, SLOT(adjustToFit()));
 }
 
 KoToolBox::~KoToolBox()
@@ -207,7 +211,7 @@ void KoToolBox::setButtonsVisible(const QList<QString> &codes)
 void KoToolBox::setCurrentLayer(const KoCanvasController *canvas, const KoShapeLayer *layer)
 {
     Q_UNUSED(canvas);
-    const bool enabled = layer == 0 || (layer->isEditable() && layer->isVisible());
+    const bool enabled = layer == 0 || (layer->isShapeEditable() && layer->isVisible());
     foreach (QToolButton *button, d->visibilityCodes.keys()) {
         if (d->visibilityCodes[button].endsWith( QLatin1String( "/always") ) ) {
             continue;
@@ -253,24 +257,6 @@ void KoToolBox::paintEvent(QPaintEvent *)
     painter.end();
 }
 
-void KoToolBox::resizeEvent(QResizeEvent* event)
-{
-    QRect availableRc = qApp->desktop()->availableGeometry(this);
-    QSize layoutSize = layout()->minimumSize();
-
-    QWidget::resizeEvent(event);
-
-    if (layoutSize.height() > availableRc.height()) {
-        setMinimumWidth(layout()->minimumSize().width() * 2); // This enforces the minimum size on the widget
-        adjustToFit();
-    }
-    else if (layoutSize.width() > availableRc.width()) {
-        setMinimumHeight(layout()->minimumSize().height() * 2); // This enforces the minimum size on the widget
-        adjustToFit();
-    }
-
-}
-
 void KoToolBox::setOrientation(Qt::Orientation orientation)
 {
     d->orientation = orientation;
@@ -283,7 +269,6 @@ void KoToolBox::setOrientation(Qt::Orientation orientation)
 
 void KoToolBox::setFloating(bool v)
 {
-    setMinimumSize(QSize(1,1));
     d->floating = v;
 }
 
@@ -293,21 +278,6 @@ void KoToolBox::toolAdded(KoToolAction *toolAction, KoCanvasController *canvas)
     addButton(toolAction);
     setButtonsVisible(QList<QString>());
 
-}
-
-void KoToolBox::adjustToFit()
-{
-    int newWidth = width() - (width() % layout()->minimumSize().width());
-
-    if (newWidth != width() && newWidth >= layout()->minimumSize().width()) {
-        setMaximumWidth(newWidth);
-        QTimer::singleShot(0, this, SLOT(resizeUnlock()));
-    }
-}
-
-void KoToolBox::resizeUnlock()
-{
-    setMaximumWidth(QWIDGETSIZE_MAX);
 }
 
 void KoToolBox::slotContextIconSize()
@@ -328,8 +298,6 @@ void KoToolBox::slotContextIconSize()
         }
 
     }
-
-    adjustToFit();
 }
 
 void KoToolBox::contextMenuEvent(QContextMenuEvent *event)
@@ -370,3 +338,9 @@ void KoToolBox::contextMenuEvent(QContextMenuEvent *event)
 
     d->contextSize->exec(event->globalPos());
 }
+KoToolBoxLayout *KoToolBox::toolBoxLayout() const
+{
+    return d->layout;
+}
+
+#include "moc_KoToolBoxScrollArea_p.cpp"

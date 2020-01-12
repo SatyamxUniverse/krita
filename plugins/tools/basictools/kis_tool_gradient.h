@@ -26,7 +26,7 @@
 
 #include <QKeySequence>
 
-#include <KoToolFactoryBase.h>
+#include <KisToolPaintFactoryBase.h>
 
 #include <kis_tool_paint.h>
 #include <kis_global.h>
@@ -64,11 +64,12 @@ public:
 
 public Q_SLOTS:
     void activate(ToolActivation toolActivation, const QSet<KoShape*> &shapes) override;
+private Q_SLOTS:
     void slotSetShape(int);
     void slotSetRepeat(int);
     void slotSetReverse(bool);
     void slotSetAntiAliasThreshold(qreal);
-
+    void setOpacity(qreal opacity);
 protected Q_SLOTS:
     void resetCursorStyle() override;
 
@@ -102,15 +103,14 @@ private:
     QLabel *m_lbAntiAliasThreshold;
     KisDoubleSliderSpinBox *m_slAntiAliasThreshold;
     KConfigGroup m_configGroup;
-
 };
 
-class KisToolGradientFactory : public KoToolFactoryBase
+class KisToolGradientFactory : public KisToolPaintFactoryBase
 {
 
 public:
     KisToolGradientFactory()
-            : KoToolFactoryBase("KritaFill/KisToolGradient") {
+            : KisToolPaintFactoryBase("KritaFill/KisToolGradient") {
         setToolTip(i18n("Gradient Tool"));
         setSection(TOOL_TYPE_FILL);
         setIconName(koIconNameCStr("krita_tool_gradient"));

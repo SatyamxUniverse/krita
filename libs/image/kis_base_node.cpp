@@ -19,6 +19,7 @@
 #include "kis_base_node.h"
 #include <klocalizedstring.h>
 
+#include <kis_image.h>
 #include <kis_icon.h>
 #include <KoProperties.h>
 #include <KoColorSpace.h>
@@ -42,14 +43,16 @@ struct Q_DECL_HIDDEN KisBaseNode::Private
     bool supportsLodMoves;
     bool animated;
     bool useInTimeline;
+    KisImageWSP image;
 
-    Private()
+    Private(KisImageWSP image)
         : id(QUuid::createUuid())
         , systemLocked(false)
         , collapsed(false)
         , supportsLodMoves(false)
         , animated(false)
-        , useInTimeline(false)
+        , useInTimeline(true)
+        , image(image)
     {
     }
 
@@ -60,7 +63,8 @@ struct Q_DECL_HIDDEN KisBaseNode::Private
           collapsed(rhs.collapsed),
           supportsLodMoves(rhs.supportsLodMoves),
           animated(rhs.animated),
-          useInTimeline(rhs.useInTimeline)
+          useInTimeline(rhs.useInTimeline),
+          image(rhs.image)
     {
         QMapIterator<QString, QVariant> iter = rhs.properties.propertyIterator();
         while (iter.hasNext()) {
@@ -70,13 +74,13 @@ struct Q_DECL_HIDDEN KisBaseNode::Private
     }
 };
 
-KisBaseNode::KisBaseNode()
-    : m_d(new Private())
+KisBaseNode::KisBaseNode(KisImageWSP image)
+    : m_d(new Private(image))
 {
     /**
      * Be cautious! These two calls are vital to warm-up KoProperties.
      * We use it and its QMap in a threaded environment. This is not
-     * officially suported by Qt, but our environment guarantees, that
+     * officially supported by Qt, but our environment guarantees, that
      * there will be the only writer and several readers. Whilst the
      * value of the QMap is boolean and there are no implicit-sharing
      * calls provocated, it is safe to work with it in such an
@@ -96,11 +100,39 @@ KisBaseNode::KisBaseNode(const KisBaseNode & rhs)
     , KisShared()
     , m_d(new Private(*rhs.m_d))
 {
+    if (rhs.m_d->keyframeChannels.size() > 0) {
+        Q_FOREACH(QString key, rhs.m_d->keyframeChannels.keys()) {
+            KisKeyframeChannel* channel = rhs.m_d->keyframeChannels.value(key);
+            if (!channel) {
+                continue;
+            }
+
+            if (channel->inherits("KisScalarKeyframeChannel")) {
+                KisScalarKeyframeChannel* pchannel = qobject_cast<KisScalarKeyframeChannel*>(channel);
+                KIS_ASSERT_RECOVER(pchannel) { continue; }
+
+                KisScalarKeyframeChannel* channelNew = new KisScalarKeyframeChannel(*pchannel, 0);
+                KIS_ASSERT(channelNew);
+
+                m_d->keyframeChannels.insert(channelNew->id(), channelNew);
+
+                if (KoID(key) == KisKeyframeChannel::Opacity) {
+                    m_d->opacityChannel.reset(channelNew);
+                }
+            }
+
+        }
+    }
 }
 
 KisBaseNode::~KisBaseNode()
 {
     delete m_d;
+}
+
+KisPaintDeviceSP KisBaseNode::colorPickSourceDevice() const
+{
+    return projection();
 }
 
 quint8 KisBaseNode::opacity() const
@@ -128,9 +160,8 @@ void KisBaseNode::setOpacity(quint8 val)
 
     if (opacity() == val) return;
 
-    nodeProperties().setProperty("opacity", val);
+    setNodeProperty("opacity", val);
 
-    baseNodeChangedCallback();
     baseNodeInvalidateAllFramesCallback();
 }
 
@@ -173,9 +204,15 @@ void KisBaseNode::setSectionModelProperties(const KisBaseNode::PropertyList &pro
     setUserLocked(properties.at(1).state.toBool());
 }
 
-KoProperties & KisBaseNode::nodeProperties() const
+const KoProperties & KisBaseNode::nodeProperties() const
 {
     return m_d->properties;
+}
+
+void KisBaseNode::setNodeProperty(const QString & name, const QVariant & value)
+{
+    m_d->properties.setProperty(name, value);
+    baseNodeChangedCallback();
 }
 
 void KisBaseNode::mergeNodeProperties(const KoProperties & properties)
@@ -209,7 +246,7 @@ QImage KisBaseNode::createThumbnail(qint32 w, qint32 h)
         QImage image(w, h, QImage::Format_ARGB32);
         image.fill(0);
         return image;
-    } catch (std::bad_alloc) {
+    } catch (const std::bad_alloc&) {
         return QImage();
     }
 
@@ -227,7 +264,7 @@ bool KisBaseNode::visible(bool recursive) const
     KisBaseNodeSP parentNode = parentCallback();
 
     return recursive && isVisible && parentNode ?
-        parentNode->visible() : isVisible;
+        parentNode->visible(recursive) : isVisible;
 }
 
 void KisBaseNode::setVisible(bool visible, bool loading)
@@ -239,7 +276,6 @@ void KisBaseNode::setVisible(bool visible, bool loading)
     notifyParentVisibilityChanged(visible);
 
     if (!loading) {
-        emit visibilityChanged(visible);
         baseNodeChangedCallback();
         baseNodeInvalidateAllFramesCallback();
     }
@@ -256,7 +292,6 @@ void KisBaseNode::setUserLocked(bool locked)
     if (isLocked == locked) return;
 
     m_d->properties.setProperty(KisLayerPropertiesIcons::locked.id(), locked);
-    emit userLockingChanged(locked);
     baseNodeChangedCallback();
 }
 
@@ -286,7 +321,13 @@ bool KisBaseNode::hasEditablePaintDevice() const
 
 void KisBaseNode::setCollapsed(bool collapsed)
 {
+    const bool oldCollapsed = m_d->collapsed;
+
     m_d->collapsed = collapsed;
+
+    if (oldCollapsed != collapsed) {
+        baseNodeCollapsedChangedCallback();
+    }
 }
 
 bool KisBaseNode::collapsed() const
@@ -327,7 +368,17 @@ bool KisBaseNode::supportsLodMoves() const
 
 void KisBaseNode::setImage(KisImageWSP image)
 {
-    Q_UNUSED(image);
+    m_d->image = image;
+}
+
+KisImageWSP KisBaseNode::image() const
+{
+    return m_d->image;
+}
+
+bool KisBaseNode::isFakeNode() const
+{
+    return false;
 }
 
 void KisBaseNode::setSupportsLodMoves(bool value)

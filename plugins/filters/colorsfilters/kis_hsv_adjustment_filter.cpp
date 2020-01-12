@@ -19,6 +19,7 @@
 
 #include "kis_hsv_adjustment_filter.h"
 
+#include <filter/kis_filter_category_ids.h>
 #include <filter/kis_color_transformation_configuration.h>
 #include <kis_selection.h>
 #include <kis_paint_device.h>
@@ -49,6 +50,12 @@ struct SliderConfig {
     {
         return (double)value / (double)m_maximum;
     }
+
+    inline void resetSlider( QSlider* slider) const
+    {
+        slider->setValue(0);
+    }
+
 };
 
 struct WidgetSlidersConfig {
@@ -84,13 +91,13 @@ inline const WidgetSlidersConfig& getCurrentWidgetConfig(int type, bool colorize
 }
 
 KisHSVAdjustmentFilter::KisHSVAdjustmentFilter()
-        : KisColorTransformationFilter(id(), categoryAdjust(), i18n("&HSV Adjustment..."))
+        : KisColorTransformationFilter(id(), FiltersCategoryAdjustId, i18n("&HSV Adjustment..."))
 {
     setShortcut(QKeySequence(Qt::CTRL + Qt::Key_U));
     setSupportsPainting(true);
 }
 
-KisConfigWidget * KisHSVAdjustmentFilter::createConfigurationWidget(QWidget* parent, const KisPaintDeviceSP dev) const
+KisConfigWidget * KisHSVAdjustmentFilter::createConfigurationWidget(QWidget* parent, const KisPaintDeviceSP dev, bool) const
 {
     Q_UNUSED(dev);
     return new KisHSVConfigWidget(parent);
@@ -102,6 +109,7 @@ KoColorTransformation* KisHSVAdjustmentFilter::createTransformation(const KoColo
     if (config) {
         int type = config->getInt("type", 1);
         bool colorize = config->getBool("colorize", false);
+        bool compatibilityMode = config->getBool("compatibilityMode", true);
         const WidgetSlidersConfig& widgetConfig = getCurrentWidgetConfig(type, colorize);
 
         params["h"] = widgetConfig.m_sliders[0].normalize(config->getInt("h", 0));
@@ -113,22 +121,24 @@ KoColorTransformation* KisHSVAdjustmentFilter::createTransformation(const KoColo
         params["lumaRed"]   = cs->lumaCoefficients()[0];
         params["lumaGreen"] = cs->lumaCoefficients()[1];
         params["lumaBlue"]  = cs->lumaCoefficients()[2];
+        params["compatibilityMode"] = compatibilityMode;
     }
     return cs->createColorTransformation("hsv_adjustment", params);
 }
 
-KisFilterConfigurationSP KisHSVAdjustmentFilter::factoryConfiguration() const
+KisFilterConfigurationSP KisHSVAdjustmentFilter::defaultConfiguration() const
 {
-    KisColorTransformationConfigurationSP config = new KisColorTransformationConfiguration(id().id(), 1);
+    KisFilterConfigurationSP config = factoryConfiguration();
     config->setProperty("h", 0);
     config->setProperty("s", 0);
     config->setProperty("v", 0);
     config->setProperty("type", 1);
     config->setProperty("colorize", false);
+    config->setProperty("compatibilityMode", false);
     return config;
 }
 
-KisHSVConfigWidget::KisHSVConfigWidget(QWidget * parent, Qt::WFlags f) : KisConfigWidget(parent, f)
+KisHSVConfigWidget::KisHSVConfigWidget(QWidget * parent, Qt::WindowFlags f) : KisConfigWidget(parent, f)
 {
     m_page = new Ui_WdgHSVAdjustment();
     m_page->setupUi(this);
@@ -136,6 +146,9 @@ KisHSVConfigWidget::KisHSVConfigWidget(QWidget * parent, Qt::WFlags f) : KisConf
     connect(m_page->cmbType, SIGNAL(activated(int)), this, SLOT(configureSliderLimitsAndLabels()));
     connect(m_page->chkColorize, SIGNAL(toggled(bool)), this, SLOT(configureSliderLimitsAndLabels()));
 
+    connect(m_page->chkCompatibilityMode, SIGNAL(toggled(bool)), SIGNAL(sigConfigurationItemChanged()));
+
+    connect(m_page->reset,SIGNAL(clicked(bool)),this,SLOT(resetFilter()));
 
     // connect horizontal sliders
     connect(m_page->hueSlider, SIGNAL(valueChanged(int)), SIGNAL(sigConfigurationItemChanged()));
@@ -165,6 +178,7 @@ KisPropertiesConfigurationSP  KisHSVConfigWidget::configuration() const
     c->setProperty("v", m_page->valueSlider->value());
     c->setProperty("type", m_page->cmbType->currentIndex());
     c->setProperty("colorize", m_page->chkColorize->isChecked());
+    c->setProperty("compatibilityMode", m_page->chkCompatibilityMode->isChecked());
     return c;
 }
 
@@ -175,6 +189,7 @@ void KisHSVConfigWidget::setConfiguration(const KisPropertiesConfigurationSP  co
     m_page->hueSlider->setValue(config->getInt("h", 0));
     m_page->saturationSlider->setValue(config->getInt("s", 0));
     m_page->valueSlider->setValue(config->getInt("v", 0));
+    m_page->chkCompatibilityMode->setChecked(config->getInt("compatibilityMode", true));
     configureSliderLimitsAndLabels();
 }
 
@@ -186,5 +201,21 @@ void KisHSVConfigWidget::configureSliderLimitsAndLabels()
     widget.m_sliders[1].apply(m_page->saturationSpinBox, m_page->saturationSlider, m_page->label_2);
     widget.m_sliders[2].apply(m_page->valueSpinBox,      m_page->valueSlider,      m_page->label_3);
 
+    const bool compatibilityEnabled =
+            !m_page->chkColorize->isChecked() &&
+            m_page->cmbType->currentIndex() >= 0 && m_page->cmbType->currentIndex() <= 3;
+
+    m_page->chkCompatibilityMode->setEnabled(compatibilityEnabled);
+
     emit sigConfigurationItemChanged();
 }
+
+void KisHSVConfigWidget::resetFilter()
+{
+    const WidgetSlidersConfig& widget = getCurrentWidgetConfig(m_page->cmbType->currentIndex(), m_page->chkColorize->isChecked());
+
+    widget.m_sliders[0].resetSlider(m_page->hueSlider);
+    widget.m_sliders[1].resetSlider(m_page->saturationSlider);
+    widget.m_sliders[2].resetSlider(m_page->valueSlider);
+}
+

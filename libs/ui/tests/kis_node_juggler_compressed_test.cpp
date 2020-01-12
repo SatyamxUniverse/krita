@@ -30,7 +30,6 @@ void KisNodeJugglerCompressedTest::init()
 
     QRect rect1(100, 100, 100, 100);
     QRect rect2(150, 150, 150, 150);
-    QRect rect3(50, 50, 100, 100);
 
     layer1 = p->layer;
     layer1->paintDevice()->fill(rect1, KoColor(Qt::red, layer1->colorSpace()));
@@ -61,7 +60,7 @@ void KisNodeJugglerCompressedTest::cleanup()
 
 void KisNodeJugglerCompressedTest::testMove(int delayBeforeEnd)
 {
-    TestUtil::ExternalImageChecker chk("node_juggler", "move_test");
+    TestUtil::ReferenceImageChecker chk("node_juggler", "move_test");
     chk.setMaxFailingPixels(0);
 
     KisNodeJugglerCompressed juggler(kundo2_i18n("Move Layer"), p->image, 0, 600);
@@ -98,7 +97,7 @@ void KisNodeJugglerCompressedTest::testEndBeforeUpdate()
 
 void KisNodeJugglerCompressedTest::testDuplicateImpl(bool externalParent, bool useMove)
 {
-    TestUtil::ExternalImageChecker chk("node_juggler", "move_test");
+    TestUtil::ReferenceImageChecker chk("node_juggler", "move_test");
     chk.setMaxFailingPixels(0);
 
     QStringList initialRef;

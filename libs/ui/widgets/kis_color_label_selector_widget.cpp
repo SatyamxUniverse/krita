@@ -101,6 +101,7 @@ void KisColorLabelSelectorWidget::setCurrentIndex(int index)
     m_d->selectedItem = index;
     m_d->updateItem(oldItem);
     m_d->updateItem(m_d->selectedItem);
+    m_d->hoveringItem = index;
 
     emit currentIndexChanged(m_d->selectedItem);
 }
@@ -136,7 +137,7 @@ void KisColorLabelSelectorWidget::resizeEvent(QResizeEvent *e)
     if (hasWideItems) {
         QStyleOption opt;
         opt.init(this);
-        // som ecopy-pasted code from QFusionStyle style
+        // some copy-pasted code from QFusionStyle style
         const int hmargin = style()->pixelMetric(QStyle::PM_MenuHMargin, &opt, this);
         const int icone = style()->pixelMetric(QStyle::PM_SmallIconSize, &opt, this);
         m_d->xMenuOffset = hmargin + icone + 6;
@@ -188,7 +189,7 @@ int KisColorLabelSelectorWidget::Private::indexFromPos(const QPoint &pos)
 {
     const int x = pos.x() - border - xMenuOffset;
     const int y = pos.y() - border - yCenteringOffset;
-    if (y < 0 || y >= realItemSize) return -1;
+    if (y < 0 || y >= realItemSize || x < 0) return -1;
     int idx = (x + realItemSpacing) / (realItemSize + realItemSpacing);
 
     if (idx < 0 || idx >= colors.size()) {
@@ -303,25 +304,24 @@ void KisColorLabelSelectorWidget::keyPressEvent(QKeyEvent *e)
 
 void KisColorLabelSelectorWidget::mousePressEvent(QMouseEvent *e)
 {
-    const int newItem = m_d->indexFromPos(e->pos());
-    if (newItem >= 0) {
-        setCurrentIndex(newItem);
-    }
     QWidget::mousePressEvent(e);
 }
 
 void KisColorLabelSelectorWidget::mouseReleaseEvent(QMouseEvent *e)
 {
+    const int newItem = m_d->indexFromPos(e->pos());
+
+    if (newItem >= 0 &&
+        (e->button() == Qt::LeftButton ||
+         e->button() == Qt::RightButton)) {
+
+        setCurrentIndex(newItem);
+    }
     QWidget::mouseReleaseEvent(e);
 }
 
 void KisColorLabelSelectorWidget::mouseMoveEvent(QMouseEvent *e)
 {
-    const int newItem = m_d->indexFromPos(e->pos());
-    if (newItem >= 0 && e->buttons()) {
-        setCurrentIndex(newItem);
-    }
-
     const int oldItem = m_d->hoveringItem;
     m_d->hoveringItem = m_d->indexFromPos(e->pos());
     m_d->updateItem(oldItem);

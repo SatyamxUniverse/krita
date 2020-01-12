@@ -23,9 +23,9 @@
 
 #include <QVariant>
 
-#include <kis_view_plugin.h>
+#include <KisActionPlugin.h>
 
-class ColorRange : public KisViewPlugin
+class ColorRange : public KisActionPlugin
 {
     Q_OBJECT
 public:
@@ -34,7 +34,7 @@ public:
 
 private Q_SLOTS:
     void slotActivated();
-    void selectOpaque();
+    void selectOpaque(int id);
 };
 
 #endif // COLORRANGE_H

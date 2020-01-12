@@ -2,7 +2,7 @@
  * @file
  *
  * This file is a part of digiKam project
- * <a href="http://www.digikam.org">http://www.digikam.org</a>
+ * <a href="https://www.digikam.org">https://www.digikam.org</a>
  *
  * @date   2006-09-13
  * @brief  LibRaw settings widgets
@@ -42,7 +42,7 @@
 #include <QApplication>
 #include <QStyle>
 #include <QIcon>
-#include <QDesktopServices>
+#include <QStandardPaths>
 
 // KDE includes
 
@@ -261,7 +261,7 @@ void DcrawSettingsWidget::setup(int advSettings)
     dcrawVersion->setTextFormat(Qt::RichText);
     dcrawVersion->setTextInteractionFlags(Qt::LinksAccessibleByMouse);
     dcrawVersion->setText(QString::fromLatin1("<a href=\"%1\">%2</a>")
-                          .arg(QLatin1String("http://www.libraw.org"))
+                          .arg(QLatin1String("https://www.libraw.org"))
                           .arg(QString::fromLatin1("libraw %1").arg(KDcraw::librawVersion())));
 
     demosaicingLayout->addWidget(dcrawVersion, 0, 2, 1, 1);
@@ -705,7 +705,7 @@ void DcrawSettingsWidget::setup(int advSettings)
     d->outputColorSpaceComboBox->setDefaultIndex(RawDecodingSettings::SRGB);
     d->outputColorSpaceComboBox->setToolTip(i18nc("@info:whatsthis", "<title>Workspace</title>"
                                 "<p>Select here the output color space used to decode RAW data.</p>"
-                                "<p><ul><li><emphasis strong='true'>Raw (linear)</emphasis>: "
+                                "<p><ul><li><emphasis strong='true'>Raw (no profile)</emphasis>: "
                                 "in this mode, no output color space is used during RAW decoding.</li>"
                                 "<li><emphasis strong='true'>sRGB</emphasis>: this is an RGB "
                                 "color space, created cooperatively by Hewlett-Packard and "
@@ -1040,7 +1040,7 @@ void DcrawSettingsWidget::slotRAWQualityChanged(int quality)
     {
         case RawDecodingSettings::DCB:
         case RawDecodingSettings::VCD_AHD:
-            // These options can be only avaialble if Libraw use GPL2 pack.
+            // These options can be only available if Libraw use GPL2 pack.
             d->medianFilterPassesLabel->setEnabled(KDcraw::librawUseGPL2DemosaicPack());
             d->medianFilterPassesSpinBox->setEnabled(KDcraw::librawUseGPL2DemosaicPack());
             d->refineInterpolationBox->setEnabled(KDcraw::librawUseGPL2DemosaicPack());
@@ -1141,7 +1141,7 @@ void DcrawSettingsWidget::setSettings(const RawDecodingSettings& settings)
             if (q == i)
             {
                 q = RawDecodingSettings::BILINEAR;
-                qCDebug(LIBKDCRAW_LOG) << "Libraw GPL2 pack not avaialble. Raw quality set to Bilinear";
+                qCDebug(LIBKDCRAW_LOG) << "Libraw GPL2 pack not available. Raw quality set to Bilinear";
                 break;
             }
         }
@@ -1151,7 +1151,7 @@ void DcrawSettingsWidget::setSettings(const RawDecodingSettings& settings)
     if (!KDcraw::librawUseGPL3DemosaicPack() && (q == RawDecodingSettings::AMAZE))
     {
         q = RawDecodingSettings::BILINEAR;
-        qCDebug(LIBKDCRAW_LOG) << "Libraw GPL3 pack not avaialble. Raw quality set to Bilinear";
+        qCDebug(LIBKDCRAW_LOG) << "Libraw GPL3 pack not available. Raw quality set to Bilinear";
     }
 
     d->RAWQualityComboBox->setCurrentIndex(q);

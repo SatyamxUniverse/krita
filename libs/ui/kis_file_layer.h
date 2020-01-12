@@ -23,8 +23,6 @@
 #include "kis_external_layer_iface.h"
 #include "kis_safe_document_loader.h"
 
-
-
 /**
  * @brief The KisFileLayer class loads a particular file as a layer into the layer stack.
  */
@@ -40,6 +38,15 @@ public:
     };
 
     KisFileLayer(KisImageWSP image, const QString &name, quint8 opacity);
+    /**
+     * @brief KisFileLayer create a new file layer with the given file
+     * @param image the image the file layer will belong to
+     * @param basePath the path to the image, if it has been saved before.
+     * @param filename the path to the file, relative to the basePath
+     * @param scalingMethod @see ScalingMethod
+     * @param name the name of the layer
+     * @param opacity the opacity of the layer
+     */
     KisFileLayer(KisImageWSP image, const QString& basePath, const QString &filename, ScalingMethod scalingMethod, const QString &name, quint8 opacity);
     ~KisFileLayer() override;
     KisFileLayer(const KisFileLayer& rhs);
@@ -52,13 +59,21 @@ public:
 
     KisPaintDeviceSP original() const override;
     KisPaintDeviceSP paintDevice() const override;
+    void setSectionModelProperties(const KisBaseNode::PropertyList &properties) override;
     KisBaseNode::PropertyList sectionModelProperties() const override;
 
+    /**
+     * @brief setFileName replace the existing file with a new one
+     * @param basePath the path to the image, if it has been saved before.
+     * @param filename the path to the file, relative to the basePath
+     */
     void setFileName(const QString &basePath, const QString &filename);
     QString fileName() const;
     QString path() const;
+    void openFile() const;
 
     ScalingMethod scalingMethod() const;
+    void setScalingMethod(ScalingMethod method);
 
     KisNodeSP clone() const override;
     bool allowAsChild(KisNodeSP) const override;
@@ -68,6 +83,8 @@ public:
 
     KUndo2Command* crop(const QRect & rect) override;
     KUndo2Command* transform(const QTransform &transform) override;
+
+    void setImage(KisImageWSP image) override;
 
 public Q_SLOTS:
     void slotLoadingFinished(KisPaintDeviceSP projection, int xRes, int yRes);

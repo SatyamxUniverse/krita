@@ -27,8 +27,8 @@
 #include "kritawidgets_export.h"
 
 /**
- * KoResourceItemChooserSync is a singleton that sync the size of entries in the
- * resource item choosers between differnt choosers
+ * KoResourceItemChooserSync is a singleton that syncs the size of entries in the
+ * resource item choosers between different choosers
  * To use the syncing it has to be turned on in the KoResourceItemChooser
  */
 class KRITAWIDGETS_EXPORT KoResourceItemChooserSync : public QObject
@@ -44,13 +44,13 @@ public:
     int baseLength();
 
     /// Set the base length 
-    /// @param length base length for the items, will be clamped if ouside range
+    /// @param length base length for the items, will be clamped if outside range
     void setBaseLength(int length);
     
 Q_SIGNALS:
     /// Signal is emitted when the base length is changed and will trigger and update in
     /// the resource item choosers
-    void baseLenghtChanged(int length);
+    void baseLengthChanged(int length);
     
 private:
 

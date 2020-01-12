@@ -24,13 +24,14 @@
 #include <QCompleter>
 #include <QMenu>
 #include <QWidgetAction>
+#include <QSlider>
 
 #include <resources/KoResource.h>
 #include <KoResourceItemChooser.h>
 
 #include <ui_wdgpaintoppresets.h>
 #include <kis_config.h>
-#include <kis_resource_server_provider.h>
+#include <KisResourceServerProvider.h>
 #include <brushengine/kis_paintop_preset.h>
 #include <kis_icon.h>
 #include <brushengine/kis_paintop_settings.h>
@@ -40,6 +41,7 @@ struct KisPaintOpPresetsChooserPopup::Private
 public:
     Ui_WdgPaintOpPresets uiWdgPaintOpPresets;
     bool firstShown;
+    QToolButton *viewModeButton;
 };
 
 KisPaintOpPresetsChooserPopup::KisPaintOpPresetsChooserPopup(QWidget * parent)
@@ -47,14 +49,14 @@ KisPaintOpPresetsChooserPopup::KisPaintOpPresetsChooserPopup(QWidget * parent)
     , m_d(new Private())
 {
     m_d->uiWdgPaintOpPresets.setupUi(this);
-    QMenu* menu = new QMenu(this);  
+    QMenu* menu = new QMenu(this);
     menu->setStyleSheet("margin: 6px");
 
-    menu->addSection(i18n("Display"));
+    menu->addSection(i18nc("@title Which elements to display (e.g., thumbnails or details)", "Display"));
 
     QActionGroup *actionGroup = new QActionGroup(this);
 
-    KisPresetChooser::ViewMode mode = (KisPresetChooser::ViewMode)KisConfig().presetChooserViewMode();
+    KisPresetChooser::ViewMode mode = (KisPresetChooser::ViewMode)KisConfig(true).presetChooserViewMode();
 
     QAction* action = menu->addAction(KisIconUtils::loadIcon("view-preview"), i18n("Thumbnails"), this, SLOT(slotThumbnailMode()));
     action->setCheckable(true);
@@ -89,8 +91,10 @@ KisPaintOpPresetsChooserPopup::KisPaintOpPresetsChooserPopup(QWidget * parent)
     m_d->uiWdgPaintOpPresets.wdgPresetChooser->showTaggingBar(true);
 
     m_d->uiWdgPaintOpPresets.wdgPresetChooser->itemChooser()->setViewModeButtonVisible(true);
-    QToolButton *viewModeButton = m_d->uiWdgPaintOpPresets.wdgPresetChooser->itemChooser()->viewModeButton();
-    viewModeButton->setMenu(menu);
+    m_d->viewModeButton = m_d->uiWdgPaintOpPresets.wdgPresetChooser->itemChooser()->viewModeButton();
+    m_d->viewModeButton->setMenu(menu);
+    m_d->viewModeButton->setIcon(KisIconUtils::loadIcon("configure"));
+
 
     connect(m_d->uiWdgPaintOpPresets.wdgPresetChooser, SIGNAL(resourceSelected(KoResource*)),
             this, SIGNAL(resourceSelected(KoResource*)));
@@ -115,13 +119,13 @@ KisPaintOpPresetsChooserPopup::~KisPaintOpPresetsChooserPopup()
 
 void KisPaintOpPresetsChooserPopup::slotThumbnailMode()
 {
-    KisConfig().setPresetChooserViewMode(KisPresetChooser::THUMBNAIL);
+    KisConfig(false).setPresetChooserViewMode(KisPresetChooser::THUMBNAIL);
     m_d->uiWdgPaintOpPresets.wdgPresetChooser->setViewMode(KisPresetChooser::THUMBNAIL);
 }
 
 void KisPaintOpPresetsChooserPopup::slotDetailMode()
 {
-    KisConfig().setPresetChooserViewMode(KisPresetChooser::DETAIL);
+    KisConfig(false).setPresetChooserViewMode(KisPresetChooser::DETAIL);
     m_d->uiWdgPaintOpPresets.wdgPresetChooser->setViewMode(KisPresetChooser::DETAIL);
 }
 
@@ -148,6 +152,11 @@ void KisPaintOpPresetsChooserPopup::canvasResourceChanged(KisPaintOpPresetSP  pr
         blockSignals(false);
     }
     m_d->uiWdgPaintOpPresets.wdgPresetChooser->updateViewSettings();
+}
+
+void KisPaintOpPresetsChooserPopup::slotThemeChanged()
+{
+    m_d->viewModeButton->setIcon(KisIconUtils::loadIcon("configure"));
 }
 
 void KisPaintOpPresetsChooserPopup::updateViewSettings()

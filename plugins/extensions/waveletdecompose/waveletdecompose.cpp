@@ -56,7 +56,7 @@
 K_PLUGIN_FACTORY_WITH_JSON(WaveletDecomposeFactory, "kritawaveletdecompose.json", registerPlugin<WaveletDecompose>();)
 
 WaveletDecompose::WaveletDecompose(QObject *parent, const QVariantList &)
-    : KisViewPlugin(parent)
+    : KisActionPlugin(parent)
 {
     KisAction *action  = createAction("waveletdecompose");
     connect(action, SIGNAL(triggered()), this, SLOT(slotWaveletDecompose()));
@@ -68,25 +68,22 @@ WaveletDecompose::~WaveletDecompose()
 
 void WaveletDecompose::slotWaveletDecompose()
 {
-    DlgWaveletDecompose dlg(m_view->mainWindow(), "WaveletDecompose");
+    DlgWaveletDecompose dlg(viewManager()->mainWindow(), "WaveletDecompose");
         
     if (dlg.exec() == QDialog::Accepted) {
 
         QApplication::setOverrideCursor(Qt::WaitCursor);
 
-        KoProgressUpdater* pu = m_view->createProgressUpdater(KoProgressUpdater::Unthreaded);
-        pu->start(100, i18n("Wavelet Decompose"));
-        QPointer<KoUpdater> updater = pu->startSubtask();
-        updater->setProgress(0);
+        QPointer<KoUpdater> updater = viewManager()->createUnthreadedUpdater(i18n("Wavelet Decompose"));
 
-        KisImageSP image = m_view->image();
+        KisImageSP image = viewManager()->image();
         if (!image) return;
 
-        if (!m_view->blockUntilOperationsFinished(image)) return;
+        if (!viewManager()->blockUntilOperationsFinished(image)) return;
 
         image->barrierLock();
 
-        KisPaintDeviceSP projection = new KisPaintDevice(*(image->projection()), false, 0);
+        KisPaintDeviceSP projection = new KisPaintDevice(*(image->projection()));
         if (!projection) return;
        
         const KoColorSpace *cs = projection->colorSpace();
@@ -106,7 +103,7 @@ void WaveletDecompose::slotWaveletDecompose()
         for(int level = 0; level < scales; ++level){
         
             //copy original
-            KisPaintDeviceSP blur = new KisPaintDevice(*original, false, 0);
+            KisPaintDeviceSP blur = new KisPaintDevice(*original);
            
             //blur it
             KisWaveletKernel::applyWavelet(blur, rc, 1 << level, 1 << level, flags, 0);
@@ -126,7 +123,7 @@ void WaveletDecompose::slotWaveletDecompose()
         KisUndoAdapter *undo = image->undoAdapter();
         undo->beginMacro(kundo2_i18n("Wavelet decompose"));
         
-        KisNodeCommandsAdapter adapter(m_view);
+        KisNodeCommandsAdapter adapter(viewManager());
         
         KisGroupLayerSP baseGroup = image->rootLayer();
 

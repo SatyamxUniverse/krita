@@ -229,6 +229,20 @@
      </property>
     </widget>
    </item>
+   <item row="9" column="2">
+    <widget class="QPushButton" name="reset">
+     <property name="text">
+      <string>Reset</string>
+     </property>
+    </widget>
+   </item>
+   <item row="10" column="1">
+    <widget class="QCheckBox" name="chkCompatibilityMode">
+     <property name="text">
+      <string>Legacy mode (before Krita 4.3)</string>
+     </property>
+    </widget>
+   </item>
   </layout>
  </widget>
  <customwidgets>

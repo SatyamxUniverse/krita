@@ -42,12 +42,14 @@
 #include <kis_random_generator.h>
 #include <kis_selection.h>
 #include <kis_types.h>
+#include <filter/kis_filter_category_ids.h>
 #include <filter/kis_filter_configuration.h>
 #include <kis_processing_information.h>
 
 #include "kis_wdg_random_pick.h"
 #include "ui_wdgrandompickoptions.h"
 #include <kis_iterator_ng.h>
+#include <KisSequentialIteratorProgress.h>
 
 K_PLUGIN_FACTORY_WITH_JSON(KritaRandomPickFilterFactory, "kritarandompickfilter.json", registerPlugin<KritaRandomPickFilter>();)
 
@@ -61,7 +63,7 @@ KritaRandomPickFilter::~KritaRandomPickFilter()
 {
 }
 
-KisFilterRandomPick::KisFilterRandomPick() : KisFilter(id(), categoryOther(), i18n("&Random Pick..."))
+KisFilterRandomPick::KisFilterRandomPick() : KisFilter(id(), FiltersCategoryOtherId, i18n("&Random Pick..."))
 {
     setColorSpaceIndependence(FULLY_INDEPENDENT);
     setSupportsPainting(true);
@@ -76,11 +78,6 @@ void KisFilterRandomPick::processImpl(KisPaintDeviceSP device,
 {
     Q_UNUSED(config);
     Q_ASSERT(!device.isNull());
-
-    if (progressUpdater) {
-        progressUpdater->setRange(0, applyRect.width() * applyRect.height());
-    }
-    int count = 0;
 
     const KoColorSpace * cs = device->colorSpace();
 
@@ -102,7 +99,7 @@ void KisFilterRandomPick::processImpl(KisPaintDeviceSP device,
     KisRandomGenerator randH(seedH);
     KisRandomGenerator randV(seedV);
 
-    KisSequentialIterator dstIt(device, applyRect);
+    KisSequentialIteratorProgress dstIt(device, applyRect, progressUpdater);
     KisRandomConstAccessorSP srcRA = device->createRandomConstAccessorNG(0, 0);
 
     double threshold = (100 - level) / 100.0;
@@ -111,7 +108,7 @@ void KisFilterRandomPick::processImpl(KisPaintDeviceSP device,
     weights[0] = (255 * opacity) / 100; weights[1] = 255 - weights[0];
     const quint8* pixels[2];
     KoMixColorsOp * mixOp = cs->mixColorsOp();
-    do{
+    while (dstIt.nextPixel()) {
         if (randT.doubleRandomAt(dstIt.x(), dstIt.y()) > threshold) {
             int x = static_cast<int>(dstIt.x() + windowsize * (randH.doubleRandomAt(dstIt.x(), dstIt.y()) - 0.5));
             int y = static_cast<int>(dstIt.y() +  windowsize * (randV.doubleRandomAt(dstIt.x(), dstIt.y()) -0.5));
@@ -120,20 +117,19 @@ void KisFilterRandomPick::processImpl(KisPaintDeviceSP device,
             pixels[1] = dstIt.oldRawData();
             mixOp->mixColors(pixels, weights, 2, dstIt.rawData());
         }
-        if (progressUpdater) progressUpdater->setValue(++count);
-    } while(dstIt.nextPixel());
+    }
 
 }
 
-KisConfigWidget * KisFilterRandomPick::createConfigurationWidget(QWidget* parent, const KisPaintDeviceSP dev) const
+KisConfigWidget * KisFilterRandomPick::createConfigurationWidget(QWidget* parent, const KisPaintDeviceSP dev, bool) const
 {
     Q_UNUSED(dev);
     return new KisWdgRandomPick((KisFilter*)this, (QWidget*)parent);
 }
 
-KisFilterConfigurationSP KisFilterRandomPick::factoryConfiguration() const
+KisFilterConfigurationSP KisFilterRandomPick::defaultConfiguration() const
 {
-    KisFilterConfigurationSP config = new KisFilterConfiguration("randompick", 1);
+    KisFilterConfigurationSP config = factoryConfiguration();
     config->setProperty("level", 50);
     config->setProperty("windowsize", 2.5);
     config->setProperty("opacity", 100);
@@ -151,6 +147,11 @@ QRect KisFilterRandomPick::neededRect(const QRect& rect, const KisFilterConfigur
     QVariant value;
     int windowsize = ceil((config && config->getProperty("windowsize", value)) ? value.toDouble() : 2.5);
     return rect.adjusted(-windowsize, -windowsize, windowsize, windowsize);
+}
+
+QRect KisFilterRandomPick::changedRect(const QRect &rect, const KisFilterConfigurationSP config, int lod) const
+{
+    return neededRect(rect, config, lod);
 }
 
 #include "randompickfilter.moc"

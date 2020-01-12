@@ -21,19 +21,25 @@
 #include "dlg_canvassize.h"
 #include "kcanvaspreview.h"
 
+#include <kis_config.h>
 #include <KoUnit.h>
 #include <kis_icon.h>
 #include <kis_size_group.h>
 #include <klocalizedstring.h>
 
-#include <kis_config.h>
-
 #include <kis_document_aware_spin_box_unit_manager.h>
 
 #include <QComboBox>
+#include <QButtonGroup>
 
 // used to extend KoUnit in comboboxes
 static const QString percentStr(i18n("Percent (%)"));
+
+const QString DlgCanvasSize::PARAM_PREFIX = "canvasizedlg";
+const QString DlgCanvasSize::PARAM_WIDTH_UNIT = DlgCanvasSize::PARAM_PREFIX + "_widthunit";
+const QString DlgCanvasSize::PARAM_HEIGHT_UNIT = DlgCanvasSize::PARAM_PREFIX + "_heightunit";
+const QString DlgCanvasSize::PARAM_XOFFSET_UNIT = DlgCanvasSize::PARAM_PREFIX + "_xoffsetunit";
+const QString DlgCanvasSize::PARAM_YOFFSET_UNIT = DlgCanvasSize::PARAM_PREFIX + "_yoffsetunit";
 
 DlgCanvasSize::DlgCanvasSize(QWidget *parent, int width, int height, double resolution)
     : KoDialog(parent)
@@ -59,6 +65,8 @@ DlgCanvasSize::DlgCanvasSize(QWidget *parent, int width, int height, double reso
     _widthUnitManager = new KisDocumentAwareSpinBoxUnitManager(this);
     _heightUnitManager = new KisDocumentAwareSpinBoxUnitManager(this, KisDocumentAwareSpinBoxUnitManager::PIX_DIR_Y);
 
+    KisConfig cfg(true);
+
     _widthUnitManager->setApparentUnitFromSymbol("px");
     _heightUnitManager->setApparentUnitFromSymbol("px");
 
@@ -76,9 +84,17 @@ DlgCanvasSize::DlgCanvasSize(QWidget *parent, int width, int height, double reso
     m_page->widthUnit->setModel(_widthUnitManager);
     m_page->heightUnit->setModel(_heightUnitManager);
 
-    const int pixelUnitIndex = _widthUnitManager->getsUnitSymbolList().indexOf("px"); //TODO: have a better way to identify units.
-    m_page->widthUnit->setCurrentIndex(pixelUnitIndex);
-    m_page->heightUnit->setCurrentIndex(pixelUnitIndex);
+    QString unitw = cfg.readEntry<QString>(PARAM_WIDTH_UNIT, "px");
+    QString unith = cfg.readEntry<QString>(PARAM_HEIGHT_UNIT, "px");
+
+    _widthUnitManager->setApparentUnitFromSymbol(unitw);
+    _heightUnitManager->setApparentUnitFromSymbol(unith);
+
+    const int wUnitIndex = _widthUnitManager->getsUnitSymbolList().indexOf(unitw);
+    const int hUnitIndex = _widthUnitManager->getsUnitSymbolList().indexOf(unith);
+
+    m_page->widthUnit->setCurrentIndex(wUnitIndex);
+    m_page->heightUnit->setCurrentIndex(hUnitIndex);
 
     _xOffsetUnitManager = new KisDocumentAwareSpinBoxUnitManager(this);
     _yOffsetUnitManager = new KisDocumentAwareSpinBoxUnitManager(this, KisDocumentAwareSpinBoxUnitManager::PIX_DIR_Y);
@@ -96,17 +112,24 @@ DlgCanvasSize::DlgCanvasSize(QWidget *parent, int width, int height, double reso
     m_page->xOffUnit->setModel(_xOffsetUnitManager);
     m_page->yOffUnit->setModel(_yOffsetUnitManager);
 
-    m_page->xOffUnit->setCurrentIndex(pixelUnitIndex);
-    m_page->yOffUnit->setCurrentIndex(pixelUnitIndex);
+    m_page->xOffsetDouble->changeValue(m_xOffset);
+    m_page->yOffsetDouble->changeValue(m_yOffset);
+
+    QString unitx = cfg.readEntry<QString>(PARAM_XOFFSET_UNIT, "px");
+    QString unity = cfg.readEntry<QString>(PARAM_YOFFSET_UNIT, "px");
+
+    _xOffsetUnitManager->setApparentUnitFromSymbol(unitx);
+    _yOffsetUnitManager->setApparentUnitFromSymbol(unity);
+
+    const int xUnitIndex = _xOffsetUnitManager->getsUnitSymbolList().indexOf(unitx);
+    const int yUnitIndex = _yOffsetUnitManager->getsUnitSymbolList().indexOf(unity);
+
+    m_page->xOffUnit->setCurrentIndex(xUnitIndex);
+    m_page->yOffUnit->setCurrentIndex(yUnitIndex);
 
     m_page->canvasPreview->setImageSize(m_originalWidth, m_originalHeight);
     m_page->canvasPreview->setCanvasSize(m_originalWidth, m_originalHeight);
     m_page->canvasPreview->setImageOffset(m_xOffset, m_yOffset);
-
-    m_page->xOffsetDouble->changeValue(m_xOffset);
-    m_page->yOffsetDouble->changeValue(m_yOffset);
-
-    KisConfig cfg;
 
     m_page->aspectRatioBtn->setKeepAspectRatio(cfg.readEntry("CanvasSize/KeepAspectRatio", false));
     m_page->constrainProportionsCkb->setChecked(cfg.readEntry("CanvasSize/ConstrainProportions", false));
@@ -176,9 +199,15 @@ DlgCanvasSize::DlgCanvasSize(QWidget *parent, int width, int height, double reso
 
 DlgCanvasSize::~DlgCanvasSize()
 {
-    KisConfig cfg;
+    KisConfig cfg(false);
     cfg.writeEntry<bool>("CanvasSize/KeepAspectRatio", m_page->aspectRatioBtn->keepAspectRatio());
     cfg.writeEntry<bool>("CanvasSize/ConstrainProportions", m_page->constrainProportionsCkb->isChecked());
+
+    cfg.writeEntry<QString>(PARAM_WIDTH_UNIT, _widthUnitManager->getApparentUnitSymbol());
+    cfg.writeEntry<QString>(PARAM_HEIGHT_UNIT, _heightUnitManager->getApparentUnitSymbol());
+
+    cfg.writeEntry<QString>(PARAM_XOFFSET_UNIT, _xOffsetUnitManager->getApparentUnitSymbol());
+    cfg.writeEntry<QString>(PARAM_YOFFSET_UNIT, _yOffsetUnitManager->getApparentUnitSymbol());
 
     delete m_page;
 }
@@ -195,12 +224,12 @@ qint32 DlgCanvasSize::height()
 
 qint32 DlgCanvasSize::xOffset()
 {
-    return (qint32) m_page->xOffsetDouble->value();
+    return (qint32) m_xOffset;
 }
 
 qint32 DlgCanvasSize::yOffset()
 {
-    return (qint32) m_page->yOffsetDouble->value();
+    return (qint32) m_yOffset;
 }
 
 void DlgCanvasSize::slotAspectChanged(bool keep)
@@ -458,7 +487,7 @@ void DlgCanvasSize::updateOffset(int id)
 void DlgCanvasSize::expectedOffset(int id, double &xOffset, double &yOffset)
 {
     const double xCoeff = (id % 3) * 0.5;
-    const double yCoeff = (id / 3) * 0.5;
+    const double yCoeff = (id / 3.0) * 0.5;
 
     const int xDiff = m_newWidth - m_originalWidth;
     const int yDiff = m_newHeight - m_originalHeight;

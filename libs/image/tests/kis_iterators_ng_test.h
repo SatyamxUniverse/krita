@@ -24,12 +24,12 @@
 
 class KoColorSpace;
 
-class KisIteratorTest : public QObject
+class KisIteratorNGTest : public QObject
 {
     Q_OBJECT
 
 private:
-    void allCsApplicator(void (KisIteratorTest::* funcPtr)(const KoColorSpace*cs));
+    void allCsApplicator(void (KisIteratorNGTest::* funcPtr)(const KoColorSpace*cs));
 
     void justCreation(const KoColorSpace * cs);
     void vLineIter(const KoColorSpace * cs);
@@ -45,6 +45,8 @@ private Q_SLOTS:
     void writeBytes();
     void fill();
     void sequentialIter();
+    void sequentialIteratorWithProgress();
+    void sequentialIteratorWithProgressIncomplete();
     void hLineIter();
     void randomAccessor();
 };

@@ -36,10 +36,10 @@
 #include <kis_external_layer_iface.h>
 
 struct KisOpenRasterStackSaveVisitor::Private {
-    Private() : currentElement(0) {}
+    Private() {}
     KisOpenRasterSaveContext* saveContext;
     QDomDocument layerStack;
-    QDomElement* currentElement;
+    QDomElement currentElement;
     vKisNodeSP activeNodes;
 };
 
@@ -60,6 +60,8 @@ void KisOpenRasterStackSaveVisitor::saveLayerInfo(QDomElement& elt, KisLayer* la
     elt.setAttribute("name", layer->name());
     elt.setAttribute("opacity", QString().setNum(layer->opacity() / 255.0));
     elt.setAttribute("visibility", layer->visible() ? "visible" : "hidden");
+    elt.setAttribute("x", QString().setNum(layer->x()));
+    elt.setAttribute("y", QString().setNum(layer->y()));
     if (layer->userLocked()) {
         elt.setAttribute("edit-locked", "true");
     }
@@ -105,10 +107,10 @@ bool KisOpenRasterStackSaveVisitor::visit(KisGeneratorLayer* layer)
 
 bool KisOpenRasterStackSaveVisitor::visit(KisGroupLayer *layer)
 {
-    QDomElement* previousElt = d->currentElement;
+    QDomElement previousElt = d->currentElement;
 
     QDomElement elt = d->layerStack.createElement("stack");
-    d->currentElement = &elt;
+    d->currentElement = elt;
     saveLayerInfo(elt, layer);
     QString isolate = "isolate";
     if (layer->passThroughMode()) {
@@ -117,8 +119,8 @@ bool KisOpenRasterStackSaveVisitor::visit(KisGroupLayer *layer)
     elt.setAttribute("isolation", isolate);
     visitAll(layer);
 
-    if (previousElt) {
-        previousElt->insertBefore(elt, QDomNode());
+    if (!previousElt.isNull()) {
+        previousElt.insertBefore(elt, QDomNode());
         d->currentElement = previousElt;
     } else {
         QDomElement imageElt = d->layerStack.createElement("image");
@@ -134,7 +136,7 @@ bool KisOpenRasterStackSaveVisitor::visit(KisGroupLayer *layer)
         imageElt.setAttribute("yres", yRes);
         imageElt.appendChild(elt);
         d->layerStack.insertBefore(imageElt, QDomNode());
-        d->currentElement = 0;
+        d->currentElement = QDomElement();
         d->saveContext->saveStack(d->layerStack);
     }
 
@@ -161,12 +163,16 @@ bool KisOpenRasterStackSaveVisitor::visit(KisExternalLayer * layer)
 
 bool KisOpenRasterStackSaveVisitor::saveLayer(KisLayer *layer)
 {
-    QString filename = d->saveContext->saveDeviceData(layer->projection(), layer->metaData(), layer->image()->bounds(), layer->image()->xRes(), layer->image()->yRes());
+
+    // here we adjust the bounds to encompass the entire area of the layer with color data by adding the current offsets
+    QRect adjustedBounds = layer->image()->bounds();
+    adjustedBounds.adjust(layer->x(), layer->y(), layer->x(), layer->y());
+    QString filename = d->saveContext->saveDeviceData(layer->projection(), layer->metaData(), adjustedBounds, layer->image()->xRes(), layer->image()->yRes());
 
     QDomElement elt = d->layerStack.createElement("layer");
     saveLayerInfo(elt, layer);
     elt.setAttribute("src", filename);
-    d->currentElement->insertBefore(elt, QDomNode());
+    d->currentElement.insertBefore(elt, QDomNode());
 
     return true;
 }

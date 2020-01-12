@@ -22,15 +22,20 @@
 
 #include <QList>
 #include "kis_single_action_shortcut.h"
+#include "KisInputActionGroup.h"
+#include <functional>
 
 class QEvent;
 class QWheelEvent;
 class QTouchEvent;
+class QNativeGestureEvent;
 class QString;
 class QPointF;
 
 class KisStrokeShortcut;
 class KisTouchShortcut;
+class KisNativeGestureShortcut;
+
 
 /**
  * The class that manages connections between shortcuts and actions.
@@ -89,6 +94,7 @@ public:
     void addShortcut(KisSingleActionShortcut *shortcut);
     void addShortcut(KisStrokeShortcut *shortcut);
     void addShortcut(KisTouchShortcut *shortcut);
+    void addShortcut(KisNativeGestureShortcut *shortcut);
 
     /**
      * Returns true if the currently running shortcut supports
@@ -182,6 +188,11 @@ public:
     bool touchUpdateEvent(QTouchEvent *event);
     bool touchEndEvent(QTouchEvent *event);
 
+
+    bool nativeGestureBeginEvent(QNativeGestureEvent *event);
+    bool nativeGestureEvent(QNativeGestureEvent *event);
+    bool nativeGestureEndEvent(QNativeGestureEvent *event);
+
     /**
      * Resets the internal state of the matcher and activates the
      * prepared action if possible.
@@ -190,6 +201,16 @@ public:
      * some time, so that several events could be lost
      */
     void reinitialize();
+
+    /**
+     * Resets the internal state of the matcher, tries to resync it to the state
+     * passed via argument and activates the prepared action if possible.
+     *
+     * This synchronization should happen when the user hovers Krita windows,
+     * **without** having keyboard focus set to it (therefore matcher cannot
+     * get key press and release events).
+     */
+    void recoveryModifiersWithoutFocus(const QVector<Qt::Key> &keys);
 
     /**
      * Kirta lost focus, it means that all the running actions should be ended
@@ -211,6 +232,8 @@ public:
      */
     void clearShortcuts();
 
+    void setInputActionGroupsMaskCallback(std::function<KisInputActionGroupsMask()> func);
+
 private:
     friend class KisInputManagerTest;
 
@@ -226,9 +249,13 @@ private:
     void tryActivateReadyShortcut();
     bool tryEndRunningShortcut( Qt::MouseButton button, QEvent* event );
     void forceEndRunningShortcut(const QPointF &localPos);
+    void forceDeactivateAllActions();
 
     bool tryRunTouchShortcut(QTouchEvent *event);
     bool tryEndTouchShortcut(QTouchEvent *event);
+
+    bool tryRunNativeGestureShortcut(QNativeGestureEvent *event);
+    bool tryEndNativeGestureShortcut(QNativeGestureEvent *event);
 
 private:
     class Private;

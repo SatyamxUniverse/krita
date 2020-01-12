@@ -1,26 +1,30 @@
 #
 # From https://github.com/ampl/gsl. which adds CMake support to gsl
 #
+if (ANDROID)
 SET(EXTPREFIX_gsl "${EXTPREFIX}" )
-if (MSVC OR MINGW)
-ExternalProject_Add(
-    ext_gsl
-    DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-    GIT_REPOSITORY https://github.com/ampl/gsl.git
-    GIT_TAG 709cc572279e4a56b0e218b834f202c1b3f757af
-    INSTALL_DIR ${EXTPREFIX_gsl}
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTPREFIX_gsl} -DBUILD_TESTING=OFF -DCMAKE_BUILD_TYPE=${GLOBAL_BUILD_TYPE} ${GLOBAL_PROFILE}
-    UPDATE_COMMAND ""
-)
-else()
 ExternalProject_Add( ext_gsl
 
     DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-    URL http://files.kde.org/krita/build/dependencies/gsl-2.1.tar.gz
-    URL_MD5 625f4105fcf653822a96294c1b801ad4
+    URL http://files.kde.org/krita/build/dependencies/gsl-2.3.0.tar.gz
+    URL_MD5 7e0478f7c5e62696fef480b9a46f708c
 
+    PATCH_COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/gsl-android.patch
     INSTALL_DIR ${EXTPREFIX_gsl}
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTPREFIX_gsl} -DCMAKE_BUILD_TYPE=${GLOBAL_BUILD_TYPE} ${GLOBAL_PROFILE} -DGSL_SHARED=ON
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTPREFIX_gsl} -DCMAKE_BUILD_TYPE=${GLOBAL_BUILD_TYPE} ${GLOBAL_PROFILE} -DBUILD_SHARED_LIBS=ON -DBUILD_TESTING=OFF
     UPDATE_COMMAND ""
 )
+else()
+SET(EXTPREFIX_gsl "${EXTPREFIX}" )
+ExternalProject_Add( ext_gsl
+
+    DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
+    URL http://files.kde.org/krita/build/dependencies/gsl-2.3.0.tar.gz
+    URL_MD5 7e0478f7c5e62696fef480b9a46f708c
+
+    INSTALL_DIR ${EXTPREFIX_gsl}
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTPREFIX_gsl} -DCMAKE_BUILD_TYPE=${GLOBAL_BUILD_TYPE} ${GLOBAL_PROFILE} -DBUILD_TESTING=OFF
+    UPDATE_COMMAND ""
+)
+
 endif()

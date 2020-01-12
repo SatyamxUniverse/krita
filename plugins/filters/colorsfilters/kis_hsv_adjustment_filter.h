@@ -43,7 +43,7 @@ public:
 
 public:
 
-    KisConfigWidget * createConfigurationWidget(QWidget* parent, const KisPaintDeviceSP dev) const override;
+    KisConfigWidget * createConfigurationWidget(QWidget* parent, const KisPaintDeviceSP dev, bool useForMasks) const override;
 
     KoColorTransformation* createTransformation(const KoColorSpace* cs, const KisFilterConfigurationSP config) const override;
 
@@ -51,7 +51,7 @@ public:
         return KoID("hsvadjustment", i18n("HSV/HSL Adjustment"));
     }
 
-    KisFilterConfigurationSP factoryConfiguration() const override;
+    KisFilterConfigurationSP defaultConfiguration() const override;
 
 };
 
@@ -62,7 +62,7 @@ class KisHSVConfigWidget : public KisConfigWidget
     Q_OBJECT
 
 public:
-    KisHSVConfigWidget(QWidget * parent, Qt::WFlags f = 0);
+    KisHSVConfigWidget(QWidget * parent, Qt::WindowFlags f = 0);
     ~KisHSVConfigWidget() override;
 
     KisPropertiesConfigurationSP  configuration() const override;
@@ -72,6 +72,7 @@ public:
 private Q_SLOTS:
 
     void configureSliderLimitsAndLabels();
+    void resetFilter();
 };
 
 #endif

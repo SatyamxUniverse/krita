@@ -117,7 +117,6 @@ public:
      */
     QPolygonF estimatedTRCXYY() const;
 
-    QVector <qreal> colorants() const;
     QVector <qreal> lumaCoefficients() const;
 
     //========== Channels =====================================================//
@@ -131,6 +130,11 @@ public:
      * The total number of channels for a single pixel in this color model
      */
     virtual quint32 channelCount() const = 0;
+
+    /**
+     * Position of the alpha channel in a pixel
+     */
+    virtual quint32 alphaPos() const = 0;
 
     /**
      * The total number of color channels (excludes alpha) for a single
@@ -203,7 +207,7 @@ public:
 
     /**
      * User visible name which contains the name of the color model and of the color depth.
-     * For intance "RGBA (8-bits)" or "CMYKA (16-bits)".
+     * For instance "RGBA (8-bits)" or "CMYKA (16-bits)".
      */
     QString name() const;
 
@@ -251,7 +255,7 @@ public:
      * Retrieve a single composite op from the ones this colorspace offers.
      * If the requeste composite op does not exist, COMPOSITE_OVER is returned.
      */
-    virtual const KoCompositeOp * compositeOp(const QString & id) const;
+    const KoCompositeOp * compositeOp(const QString & id) const;
 
     /**
      * add a composite op to this colorspace.
@@ -306,6 +310,7 @@ public:
      * @param height in pixels
      * @param dstProfile destination profile
      * @param renderingIntent the rendering intent
+     * @param conversionFlags conversion flags
      */
     virtual QImage convertToQImage(const quint8 *data, qint32 width, qint32 height,
                                    const KoColorProfile *  dstProfile,
@@ -381,16 +386,10 @@ public:
                                                              quint8 *gamutWarning, double adaptationState) const;
     /**
      * @brief proofPixelsTo
-     * @param src
-     * @param dst
-     * @param dstColorSpace the colorspace to which we go to.
-     * @param proofingSpace the proofing space.
+     * @param src source
+     * @param dst destination
      * @param numPixels the amount of pixels.
-     * @param renderingIntent the rendering intent used for rendering.
-     * @param proofingIntent the intent used for proofing.
-     * @param conversionFlags the conversion flags.
-     * @param gamutWarning the data() of a KoColor.
-     * @param adaptationState the state of adaptation, only affects absolute colorimetric.
+     * @param proofingTransform the intent used for proofing.
      * @return
      */
     virtual bool proofPixelsTo(const quint8 * src,
@@ -493,7 +492,7 @@ public:
 
     /**
      * Get the difference between 2 colors, normalized in the range (0,255). Only completely
-     * opaque and completely transparent are taken into account when computing the different;
+     * opaque and completely transparent are taken into account when computing the difference;
      * other transparency levels are not regarded when finding the difference.
      */
     virtual quint8 difference(const quint8* src1, const quint8* src2) const = 0;
@@ -544,9 +543,11 @@ public:
      * colorspace.
      *
      * @param srcSpace the colorspace of the source pixels that will be composited onto "us"
-     * @param param the information needed for blitting e.g. the source and destination pixel data,
+     * @param params the information needed for blitting e.g. the source and destination pixel data,
      *        the opacity and flow, ...
      * @param op the composition operator to use, e.g. COPY_OVER
+     * @param renderingIntent the rendering intent
+     * @param conversionFlags the conversion flags.
      *
      */
     virtual void bitBlt(const KoColorSpace* srcSpace, const KoCompositeOp::ParameterInfo& params, const KoCompositeOp* op,
@@ -555,25 +556,25 @@ public:
 
     /**
      * Serialize this color following Create's swatch color specification available
-     * at http://create.freedesktop.org/wiki/index.php/Swatches_-_colour_file_format
+     * at https://web.archive.org/web/20110826002520/http://create.freedesktop.org/wiki/Swatches_-_colour_file_format/Draft
      *
-     * This function doesn't create the <color /> element but rather the <CMYK />,
-     * <sRGB />, <RGB /> ... elements. It is assumed that colorElt is the <color />
+     * This function doesn't create the \<color /\> element but rather the \<CMYK /\>,
+     * \<sRGB /\>, \<RGB /\> ... elements. It is assumed that colorElt is the \<color /\>
      * element.
      *
      * @param pixel buffer to serialized
      * @param colorElt root element for the serialization, it is assumed that this
-     *                 element is <color />
+     *                 element is \<color /\>
      * @param doc is the document containing colorElt
      */
     virtual void colorToXML(const quint8* pixel, QDomDocument& doc, QDomElement& colorElt) const = 0;
 
     /**
      * Unserialize a color following Create's swatch color specification available
-     * at http://create.freedesktop.org/wiki/index.php/Swatches_-_colour_file_format
+     * at https://web.archive.org/web/20110826002520/http://create.freedesktop.org/wiki/Swatches_-_colour_file_format/Draft
      *
      * @param pixel buffer where the color will be unserialized
-     * @param elt the element to unserialize (<CMYK />, <sRGB />, <RGB />)
+     * @param elt the element to unserialize (\<CMYK /\>, \<sRGB /\>, \<RGB /\>)
      * @return the unserialize color, or an empty color object if the function failed
      *         to unserialize the color
      */

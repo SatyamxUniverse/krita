@@ -23,6 +23,8 @@
 #include <QPoint>
 #include "kritaui_export.h"
 
+#include "KisInputActionGroup.h"
+
 class QPointF;
 class QEvent;
 class KisInputManager;
@@ -115,6 +117,11 @@ public:
     virtual bool supportsHiResInputEvents() const;
 
     /**
+     * \return the group of the action the specified \p shortcut belongs to
+     */
+    virtual KisInputActionGroup inputActionGroup(int shortcut) const;
+
+    /**
      * The indexes of shortcut behaviours available.
      */
     virtual QHash<QString, int> shortcutIndexes() const;
@@ -160,7 +167,7 @@ public:
     virtual bool isShortcutRequired(int shortcut) const;
 
     /**
-     * Some of the actions are available in particular sutiations
+     * Some of the actions are available in particular situations
      * only.  E.g. switch frame action is available iff a animated
      * layer is selected. If isAvailable() returns true then the
      * action will *not* be triggered by the shortcut matcher.
@@ -196,6 +203,7 @@ protected:
      * The default implementation of inputEvent calls this function.
      */
     virtual void cursorMoved(const QPointF &lastPos, const QPointF &pos);
+    virtual void cursorMovedAbsolute(const QPointF &startPos, const QPointF &pos);
 
     /**
      * Convenience method to extract the position from a cursor movement event.

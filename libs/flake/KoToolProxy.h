@@ -53,7 +53,7 @@ class QMenu;
  * the user to do anything.  Since the flake system is responsible for handling
  * tools and also to change the active tool when needed we provide one class
  * that can be used by an application canvas to route all the native events too
- * which will transparantly be routed to the active tool.  Without the application
+ * which will transparently be routed to the active tool.  Without the application
  * having to bother about which tool is active.
  */
 class KRITAFLAKE_EXPORT KoToolProxy : public QObject
@@ -118,12 +118,6 @@ public:
     /// shortcuts. call it from the canvas' event function and forward it to QWidget::event() later.
     void processEvent(QEvent *) const;
 
-    /**
-     * Retrieves the entire collection of actions for the active tool
-     * or an empty hash if there is no active tool yet.
-     */
-    QHash<QString, QAction *> actions() const;
-
     /// returns true if the current tool holds a selection
     bool hasSelection() const;
 
@@ -147,6 +141,8 @@ public:
 
     /// Set the new active tool.
     virtual void setActiveTool(KoToolBase *tool);
+
+    void touchEvent(QTouchEvent* event, const QPointF& point);
 
     /// \internal
     KoToolProxyPrivate *priv();

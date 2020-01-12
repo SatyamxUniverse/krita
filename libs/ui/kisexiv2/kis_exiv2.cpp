@@ -15,7 +15,7 @@
  *  along with this program; if not, write to the Free Software
  *  Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA 02110-1301, USA.
  */
- 
+
 #include "kis_exiv2.h"
 
 #include <QDateTime>
@@ -24,10 +24,10 @@
 #include "kis_exif_io.h"
 #include "kis_xmp_io.h"
 
-#include <metadata/kis_meta_data_value.h>
+#include <kis_meta_data_value.h>
 #include <kis_debug.h>
 
-// ---- Generic convertion functions ---- //
+// ---- Generic conversion functions ---- //
 
 // Convert an exiv value to a KisMetaData value
 KisMetaData::Value exivValueToKMDValue(const Exiv2::Value::AutoPtr value, bool forceSeq, KisMetaData::Value::ValueType arrayType)
@@ -37,10 +37,10 @@ KisMetaData::Value exivValueToKMDValue(const Exiv2::Value::AutoPtr value, bool f
     case Exiv2::invalidTypeId:
     case Exiv2::lastTypeId:
     case Exiv2::directory:
-        dbgFile << "Invalid value :" << value->typeId() << " value =" << value->toString().c_str();
+        dbgMetaData << "Invalid value :" << value->typeId() << " value =" << value->toString().c_str();
         return KisMetaData::Value();
     case Exiv2::undefined: {
-        dbgFile << "Undefined value :" << value->typeId() << " value =" << value->toString().c_str();
+        dbgMetaData << "Undefined value :" << value->typeId() << " value =" << value->toString().c_str();
         QByteArray array(value->count() , 0);
         value->copy((Exiv2::byte*)array.data(), Exiv2::invalidByteOrder);
         return KisMetaData::Value(QString(array.toBase64()));
@@ -66,15 +66,15 @@ KisMetaData::Value exivValueToKMDValue(const Exiv2::Value::AutoPtr value, bool f
     case Exiv2::unsignedRational:
         if(value->size() < 2)
         {
-          dbgFile << "Invalid size :" << value->size() << " value =" << value->toString().c_str();
-          return KisMetaData::Value();
+            dbgMetaData << "Invalid size :" << value->size() << " value =" << value->toString().c_str();
+            return KisMetaData::Value();
         }
         return KisMetaData::Value(KisMetaData::Rational(value->toRational().first , value->toRational().second));
     case Exiv2::signedRational:
         if(value->size() < 2)
         {
-          dbgFile << "Invalid size :" << value->size() << " value =" << value->toString().c_str();
-          return KisMetaData::Value();
+            dbgMetaData << "Invalid size :" << value->size() << " value =" << value->toString().c_str();
+            return KisMetaData::Value();
         }
         return KisMetaData::Value(KisMetaData::Rational(value->toRational().first , value->toRational().second));
     case Exiv2::date:
@@ -86,12 +86,12 @@ KisMetaData::Value exivValueToKMDValue(const Exiv2::Value::AutoPtr value, bool f
     case Exiv2::xmpSeq:
     case Exiv2::langAlt:
     default: {
-        dbgFile << "Unknown type id :" << value->typeId() << " value =" << value->toString().c_str();
+        dbgMetaData << "Unknown type id :" << value->typeId() << " value =" << value->toString().c_str();
         //Q_ASSERT(false); // This point must never be reached !
         return KisMetaData::Value();
     }
     }
-    dbgFile << "Unknown type id :" << value->typeId() << " value =" << value->toString().c_str();
+    dbgMetaData << "Unknown type id :" << value->typeId() << " value =" << value->toString().c_str();
     //Q_ASSERT(false); // This point must never be reached !
     return KisMetaData::Value();
 }
@@ -133,7 +133,7 @@ Exiv2::Value* variantToExivValue(const QVariant& variant, Exiv2::TypeId type)
     case Exiv2::comment:
         return new Exiv2::CommentValue(qPrintable(variant.toString()));
     default:
-        dbgFile << "Unhandled type:" << type;
+        dbgMetaData << "Unhandled type:" << type;
         //Q_ASSERT(false);
         return 0;
     }
@@ -144,7 +144,7 @@ Exiv2::Value* arrayToExivValue(const KisMetaData::Value& value)
 {
     Exiv2::ValueType<_TYPE_>* ev = new Exiv2::ValueType<_TYPE_>();
     for (int i = 0; i < value.asArray().size(); ++i) {
-        ev->value_.push_back(qVariantValue<_TYPE_>(value.asArray()[i].asVariant()));
+        ev->value_.push_back(qvariant_cast<_TYPE_>(value.asArray()[i].asVariant()));
     }
     return ev;
 }
@@ -166,7 +166,9 @@ Exiv2::Value* kmdValueToExivValue(const KisMetaData::Value& value, Exiv2::TypeId
             return new Exiv2::ValueType<Exiv2::URational>(Exiv2::URational(value.asRational().numerator, value.asRational().denominator));
         }
     case KisMetaData::Value::OrderedArray:
+        Q_FALLTHROUGH();
     case KisMetaData::Value::UnorderedArray:
+        Q_FALLTHROUGH();
     case KisMetaData::Value::AlternativeArray: {
         switch (type) {
         case Exiv2::unsignedByte:
@@ -182,19 +184,23 @@ Exiv2::Value* kmdValueToExivValue(const KisMetaData::Value& value, Exiv2::TypeId
         case Exiv2::string: {
             Exiv2::StringValue* ev = new Exiv2::StringValue();
             for (int i = 0; i < value.asArray().size(); ++i) {
-                ev->value_ += qVariantValue<QString>(value.asArray()[i].asVariant()).toLatin1().constData();
+                ev->value_ += qvariant_cast<QString>(value.asArray()[i].asVariant()).toLatin1().constData();
                 if (i != value.asArray().size() - 1) ev->value_ += ',';
             }
             return ev;
         }
+            break;
         default:
-            dbgFile << type << " " << value;
-            //Q_ASSERT(false);
+            dbgMetaData << type << " " << value;
+            KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(0 && "Unknown alternative array type", 0);
+            break;
         }
+        break;
     }
     default:
-        dbgFile << type << " " << value;
-        //Q_ASSERT(false);
+        dbgMetaData << type << " " << value;
+        KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(0 && "Unknown array type", 0);
+        break;
     }
     return 0;
 }
@@ -255,7 +261,7 @@ Exiv2::Value* kmdValueToExivXmpValue(const KisMetaData::Value& value)
         Exiv2::Value* arrV = new Exiv2::LangAltValue;
         QMap<QString, KisMetaData::Value> langArray = value.asLangArray();
         for (QMap<QString, KisMetaData::Value>::iterator it = langArray.begin();
-                it != langArray.end(); ++it) {
+             it != langArray.end(); ++it) {
             QString exivVal;
             if (it.key() != "x-default") {
                 exivVal = "lang=" + it.key() + ' ';

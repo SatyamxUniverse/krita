@@ -39,10 +39,12 @@ KisPipeBrushParasite::KisPipeBrushParasite(const QString& source)
             }
         } else if (index.startsWith(QString("sel"))) {
             int selIndex = index.mid(strlen("sel")).toInt();
+
             if (selIndex >= 0 && selIndex < dim) {
-                QString selectionMode = split.at(1);
+                selectionMode = split.at(1);
+
                 if (selectionMode == "incremental") {
-                    selection[selIndex] = KisParasite::Incremental;
+                    selection[selIndex] = KisParasite::Incremental;                    
                 }
                 else if (selectionMode == "angular") {
                     selection[selIndex] = KisParasite::Angular;
@@ -59,6 +61,9 @@ KisPipeBrushParasite::KisPipeBrushParasite(const QString& source)
                 }
                 else if (selectionMode == "ytilt") {
                     selection[selIndex] = KisParasite::TiltY;
+                }
+                else if (selectionMode == "velocity") {
+                    selection[selIndex] = KisParasite::Velocity;
                 }
                 else {
                     selection[selIndex] = KisParasite::Constant;
@@ -173,5 +178,5 @@ bool KisPipeBrushParasite::saveToDevice(QIODevice* dev) const
 bool loadFromDevice(QIODevice */*dev*/)
 {
     // XXX: implement...
-    return true;;
+    return true;
 }

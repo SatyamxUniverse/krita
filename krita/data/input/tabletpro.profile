@@ -13,8 +13,8 @@
 0={0;2;[59];1;0;0}
 
 [General]
-name=Tablet Pro
-version=3
+name=Tablet Pro (for use with the Tablet Pro application on Windows)
+version=4
 
 [Pan Canvas]
 0={4;1;[];0;0;0}

@@ -31,6 +31,9 @@
 
 class KisFilterConfiguration;
 class KoStore;
+class KoShapeControllerBase;
+class KoColorProfile;
+class KisNodeFilterInterface;
 
 class KRITALIBKRA_EXPORT KisKraLoadVisitor : public KisNodeVisitor
 {
@@ -39,6 +42,7 @@ public:
 
     KisKraLoadVisitor(KisImageSP image,
                       KoStore *store,
+                      KoShapeControllerBase *shapeController,
                       QMap<KisNode *, QString> &layerFilenames,
                       QMap<KisNode *, QString> &keyframeFilenames,
                       const QString & name,
@@ -73,13 +77,22 @@ private:
     bool loadPaintDeviceFrame(KisPaintDeviceSP device, const QString &location, DevicePolicy policy);
 
     bool loadProfile(KisPaintDeviceSP device,  const QString& location);
-    bool loadFilterConfiguration(KisFilterConfigurationSP kfc, const QString& location);
+    bool loadFilterConfiguration(KisNodeFilterInterface *nodeInterface, const QString& location);
+    void fixOldFilterConfigurations(KisFilterConfigurationSP kfc);
     bool loadMetaData(KisNode* node);
     void initSelectionForMask(KisMask *mask);
     bool loadSelection(const QString& location, KisSelectionSP dstSelection);
     QString getLocation(KisNode* node, const QString& suffix = QString());
     QString getLocation(const QString &filename, const QString &suffix = QString());
     void loadNodeKeyframes(KisNode *node);
+
+    /**
+     * Load deprecated filters.
+     * Most deprecated filters can be handled by this, but the brightnesscontact to perchannels
+     * conversion needs to be handled in the perchannel class because those filters
+     * have their own xml loading functionality.
+     */
+    void loadDeprecatedFilter(KisFilterConfigurationSP cfg);
 
 private:
     KisImageSP m_image;
@@ -92,6 +105,8 @@ private:
     int m_syntaxVersion;
     QStringList m_errorMessages;
     QStringList m_warningMessages;
+    KoShapeControllerBase *m_shapeController;
+    QMap<QByteArray, const KoColorProfile *> m_profileCache;
 };
 
 #endif // KIS_KRA_LOAD_VISITOR_H_

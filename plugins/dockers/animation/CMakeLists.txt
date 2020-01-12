@@ -1,8 +1,6 @@
 if (NOT WIN32 AND NOT APPLE)
     add_subdirectory(tests)
-endif()    
-
-include_directories(SYSTEM ${Boost_INCLUDE_DIRS})
+endif()
 
 set(KRITA_ANIMATIONDOCKER_SOURCES
     animation_dockers.cpp
@@ -22,6 +20,7 @@ set(KRITA_ANIMATIONDOCKER_SOURCES
     timeline_node_list_keeper.cpp
 
     timeline_color_scheme.cpp
+    timeline_insert_keyframe_dialog.cpp
 
     kis_draggable_tool_button.cpp
     kis_zoom_button.cpp

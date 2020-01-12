@@ -58,6 +58,8 @@ public:
     void setBrushSize(qreal dxPixels, qreal dyPixels);
     QSizeF brushSize() const;
 
+    void drawBrushPreviewArea();
+
 private Q_SLOTS:
     void paramChanged();
     void setStackedWidget(int);
@@ -72,7 +74,6 @@ protected:
 private:
     QImage m_brush;
     KisBrushSP m_autoBrush;
-    bool m_linkFade;
     QScopedPointer<KisSignalCompressor> m_updateCompressor;
     QScopedPointer<KisAspectRatioLocker> m_fadeAspectLocker;
 };

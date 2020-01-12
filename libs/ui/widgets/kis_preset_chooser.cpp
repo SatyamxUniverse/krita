@@ -29,8 +29,9 @@
 #include <QSortFilterProxyModel>
 #include <QApplication>
 
+#include <kis_config.h>
 #include <klocalizedstring.h>
-
+#include <KisKineticScroller.h>
 
 #include <KoIcon.h>
 #include <KoResourceItemChooser.h>
@@ -41,10 +42,9 @@
 
 #include <brushengine/kis_paintop_settings.h>
 #include <brushengine/kis_paintop_preset.h>
-#include "kis_resource_server_provider.h"
+#include "KisResourceServerProvider.h"
 #include "kis_global.h"
 #include "kis_slider_spin_box.h"
-#include "kis_config.h"
 #include "kis_config_notifier.h"
 #include <kis_icon.h>
 
@@ -101,13 +101,27 @@ void KisPresetDelegate::paint(QPainter * painter, const QStyleOptionViewItem & o
 
         // Put an asterisk after the preset if it is dirty. This will help in case the pixmap icon is too small
          QString dirtyPresetIndicator = QString("");
-        if (m_useDirtyPresets && preset->isPresetDirty()) {
+        if (m_useDirtyPresets && preset->isDirty()) {
             dirtyPresetIndicator = QString("*");
         }
 
-        painter->drawText(pixSize.width() + 10, option.rect.y() + option.rect.height() - 10, preset->name().append(dirtyPresetIndicator));
+        qreal brushSize = preset->settings()->paintOpSize();
+        QString brushSizeText;
+
+        // Disable displayed decimal precision beyond a certain brush size
+        if (brushSize < 100) {
+            brushSizeText = QString::number(brushSize, 'g', 3);
+        } else {
+            brushSizeText = QString::number(brushSize, 'f', 0);
+        }
+
+        painter->drawText(pixSize.width() + 10, option.rect.y() + option.rect.height() - 10, brushSizeText); // brush size
+
+        QString presetDisplayName = preset->name().replace("_", " "); // don't need underscores that might be part of the file name
+        painter->drawText(pixSize.width() + 40, option.rect.y() + option.rect.height() - 10, presetDisplayName.append(dirtyPresetIndicator));
+
     }
-    if (m_useDirtyPresets && preset->isPresetDirty()) {
+    if (m_useDirtyPresets && preset->isDirty()) {
         const QIcon icon = KisIconUtils::loadIcon(koIconName("dirty-preset"));
         QPixmap pixmap = icon.pixmap(QSize(15,15));
         painter->drawPixmap(paintRect.x() + 3, paintRect.y() + 3, pixmap);
@@ -189,7 +203,7 @@ KisPresetChooser::KisPresetChooser(QWidget *parent, const char *name)
     setObjectName(name);
     QVBoxLayout * layout = new QVBoxLayout(this);
     layout->setMargin(0);
-    KisPaintOpPresetResourceServer * rserver = KisResourceServerProvider::instance()->paintOpPresetServer(false);
+    KisPaintOpPresetResourceServer * rserver = KisResourceServerProvider::instance()->paintOpPresetServer();
 
     m_adapter = QSharedPointer<KoAbstractResourceServerAdapter>(new KisPresetProxyAdapter(rserver));
 
@@ -202,6 +216,13 @@ KisPresetChooser::KisPresetChooser(QWidget *parent, const char *name)
     m_chooser->setSynced(true);
     layout->addWidget(m_chooser);
 
+    {
+        QScroller *scroller = KisKineticScroller::createPreconfiguredScroller(this->itemChooser()->itemView());
+        if (scroller) {
+            connect(scroller, SIGNAL(stateChanged(QScroller::State)),
+                    this, SLOT(slotScrollerStateChanged(QScroller::State)));
+        }
+    }
     connect(m_chooser, SIGNAL(resourceSelected(KoResource*)),
             this, SIGNAL(resourceSelected(KoResource*)));
     connect(m_chooser, SIGNAL(resourceClicked(KoResource*)),
@@ -239,7 +260,7 @@ void KisPresetChooser::resizeEvent(QResizeEvent* event)
 
 void KisPresetChooser::notifyConfigChanged()
 {
-    KisConfig cfg;
+    KisConfig cfg(true);
     m_delegate->setUseDirtyPresets(cfg.useDirtyPresets());
     setIconSize(cfg.presetIconSize());
 
@@ -279,9 +300,8 @@ void KisPresetChooser::setCurrentResource(KoResource *resource)
      *             invalidated!
      *
      *             Ideally, we should call some method of KoResourceServer instead,
-     *             but ut seems like a bit too much effort for such a small fix.
+     *             but it seems like a bit too much effort for such a small fix.
      */
-
     if (resource == currentResource()) {
         KisPresetProxyAdapter *adapter = static_cast<KisPresetProxyAdapter*>(m_adapter.data());
         KisPaintOpPreset *preset = dynamic_cast<KisPaintOpPreset*>(resource);
@@ -338,6 +358,11 @@ int KisPresetChooser::iconSize()
 void KisPresetChooser::saveIconSize()
 {
     // save icon size
-    KisConfig cfg;
+    KisConfig cfg(false);
     cfg.setPresetIconSize(iconSize());
+}
+
+void KisPresetChooser::slotScrollerStateChanged(QScroller::State state)
+{
+    KisKineticScroller::updateCursor(this, state);
 }

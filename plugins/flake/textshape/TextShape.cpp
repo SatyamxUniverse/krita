@@ -28,7 +28,7 @@
 #include <KoTextEditor.h>
 
 #include <KoCanvasBase.h>
-#include <KoCanvasResourceManager.h>
+#include <KoCanvasResourceProvider.h>
 #include <KoChangeTracker.h>
 #include <KoInlineTextObjectManager.h>
 #include <KoTextRangeManager.h>
@@ -44,7 +44,6 @@
 #include <KoText.h>
 #include <KoTextDocument.h>
 #include <KoTextDocumentLayout.h>
-#include <KoTextEditor.h>
 #include <KoTextPage.h>
 #include <KoTextShapeContainerModel.h>
 #include <KoPageProvider.h>
@@ -63,8 +62,8 @@
 
 #include <QDebug>
 
+#include <KoShapeContainer_p.h>
 #include "kis_painting_tweaks.h"
-
 
 TextShape::TextShape(KoInlineTextObjectManager *inlineTextObjectManager, KoTextRangeManager *textRangeManager)
     : KoShapeContainer(new KoTextShapeContainerModel())
@@ -89,8 +88,44 @@ TextShape::TextShape(KoInlineTextObjectManager *inlineTextObjectManager, KoTextR
     QObject::connect(m_layout, SIGNAL(layoutIsDirty()), m_layout, SLOT(scheduleLayout()));
 }
 
+TextShape::TextShape(const TextShape &rhs)
+    : KoShapeContainer(rhs)
+    , KoFrameShape(rhs)
+    , m_textShapeData(dynamic_cast<KoTextShapeData*>(rhs.m_textShapeData->clone()))
+    , m_pageProvider(0)
+    , m_imageCollection(0)
+    , m_clip(rhs.m_clip)
+{
+    /// TODO: we need to clone the model
+    KoTextShapeContainerModel *origModel = dynamic_cast<KoTextShapeContainerModel *>(rhs.model());
+    if (origModel) {
+        setModel(new KoTextShapeContainerModel());
+    }
+    // XXX: ?
+    //reinterpret_cast<KoShapeContainerPrivate*>(rhs.d_ptr)->model = new KoTextShapeContainerModel();
+
+    setShapeId(TextShape_SHAPEID);
+    setUserData(m_textShapeData);
+
+    SimpleRootAreaProvider *provider = new SimpleRootAreaProvider(m_textShapeData, this);
+    m_layout = new KoTextDocumentLayout(m_textShapeData->document(), provider);
+    m_textShapeData->document()->setDocumentLayout(m_layout);
+
+    setCollisionDetection(true);
+    QObject::connect(m_layout, SIGNAL(layoutIsDirty()), m_layout, SLOT(scheduleLayout()));
+
+    updateDocumentData();
+    m_layout->scheduleLayout();
+}
+
+
 TextShape::~TextShape()
 {
+}
+
+KoShape *TextShape::cloneShape() const
+{
+    return new TextShape(*this);
 }
 
 void TextShape::paintComponent(QPainter &painter, const KoViewConverter &converter,
@@ -228,7 +263,7 @@ void TextShape::saveOdf(KoShapeSavingContext &context) const
     const_cast<TextShape *>(this)->removeAdditionalAttribute("fo:min-height");
     writer.startElement("draw:frame");
     // if the TextShape is wrapped in a shrink to fit container we need to save the geometry of the container as
-    // the geomerty of the shape might have been changed.
+    // the geometry of the shape might have been changed.
     if (ShrinkToFitShapeContainer *stf = dynamic_cast<ShrinkToFitShapeContainer *>(this->parent())) {
         stf->saveOdfAttributes(context, OdfSize | OdfPosition | OdfTransformation);
         saveOdfAttributes(context, OdfAdditionalAttributes | OdfMandatories | OdfCommonChildElements);
@@ -344,8 +379,8 @@ bool TextShape::loadOdf(const KoXmlElement &element, KoShapeLoadingContext &cont
     m_textShapeData->document()->setUndoRedoEnabled(false);
     loadOdfAttributes(element, context, OdfAllAttributes);
 
-    // this cannot be done in loadStyle as that fill the style stack wrongly and therefor it results
-    // in wrong data to be loaded.
+    // this cannot be done in loadStyle as that fills the style stack incorrectly and therefore
+    // it results in wrong data being loaded.
     m_textShapeData->loadStyle(element, context);
 
 #ifndef NWORKAROUND_ODF_BUGS

@@ -42,7 +42,7 @@ KisRandomAccessor2::~KisRandomAccessor2()
 {
     for (uint i = 0; i < m_tilesCacheSize; i++) {
         unlockTile(m_tilesCache[i]->tile);
-        unlockTile(m_tilesCache[i]->oldtile);
+        unlockOldTile(m_tilesCache[i]->oldtile);
         delete m_tilesCache[i];
     }
     delete [] m_tilesCache;
@@ -79,7 +79,7 @@ void KisRandomAccessor2::moveTo(qint32 x, qint32 y)
     // The tile wasn't in cache
     if (m_tilesCacheSize == KisRandomAccessor2::CACHESIZE) { // Remove last element of cache
         unlockTile(m_tilesCache[CACHESIZE-1]->tile);
-        unlockTile(m_tilesCache[CACHESIZE-1]->oldtile);
+        unlockOldTile(m_tilesCache[CACHESIZE-1]->oldtile);
         delete m_tilesCache[CACHESIZE-1];
     } else {
         m_tilesCacheSize++;
@@ -118,20 +118,20 @@ const quint8* KisRandomAccessor2::rawDataConst() const
 KisRandomAccessor2::KisTileInfo* KisRandomAccessor2::fetchTileData(qint32 col, qint32 row)
 {
     KisTileInfo* kti = new KisTileInfo;
-    kti->tile = m_ktm->getTile(col, row, m_writable);
-    lockTile(kti->tile);
 
+    m_ktm->getTilesPair(col, row, m_writable, &kti->tile, &kti->oldtile);
+
+    lockTile(kti->tile);
     kti->data = kti->tile->data();
+
+    lockOldTile(kti->oldtile);
+    kti->oldData = kti->oldtile->data();
 
     kti->area_x1 = col * KisTileData::HEIGHT;
     kti->area_y1 = row * KisTileData::WIDTH;
     kti->area_x2 = kti->area_x1 + KisTileData::HEIGHT - 1;
     kti->area_y2 = kti->area_y1 + KisTileData::WIDTH - 1;
 
-    // set old data
-    kti->oldtile = m_ktm->getOldTile(col, row);
-    lockOldTile(kti->oldtile);
-    kti->oldData = kti->oldtile->data();
     return kti;
 }
 

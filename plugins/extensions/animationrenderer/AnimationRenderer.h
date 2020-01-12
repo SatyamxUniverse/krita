@@ -20,9 +20,11 @@
 
 #include <QVariant>
 
-#include <kis_view_plugin.h>
+#include <KisActionPlugin.h>
+class KisAnimationRenderingOptions;
+class KisDocument;
 
-class AnimaterionRenderer : public KisViewPlugin
+class AnimaterionRenderer : public KisActionPlugin
 {
     Q_OBJECT
 public:
@@ -31,8 +33,27 @@ public:
 
 private Q_SLOTS:
 
+    /**
+     * @brief slotRenderAnimation
+     *
+     * Triggered from the renderanimation action. This calls a dialog
+     * to set the animation settings and then takes that to call the appropriate exporter,
+     * this can be a frame exporter, or it is a KisVideoExport object as defined in
+     *  plugins/extensions/impex.
+     */
     void slotRenderAnimation();
+    /**
+     * @brief slotRenderSequenceAgain
+     *
+     * triggered from the renderanimationagain action. This does not call a dialog, but
+     * instead uses the settings to set the animation settings and then takes that to
+     * call the appropriate exporter, this can be a frame exporter, or it is a
+     * KisVideoExport object as defined in plugins/extensions/impex.
+     */
     void slotRenderSequenceAgain();
+
+private:
+    void renderAnimationImpl(KisDocument *doc, KisAnimationRenderingOptions encoderOptions);
 
 };
 

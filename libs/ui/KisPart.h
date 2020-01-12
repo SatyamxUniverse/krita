@@ -2,7 +2,7 @@
    Copyright (C) 1998, 1999 Torben Weis <weis@kde.org>
    Copyright (C) 2000-2005 David Faure  <faure@kde.org>
    Copyright (C) 2007 Thorsten Zachmann <zachmann@kde.org>
-   Copyright (C) 2010 Boudewijn Rempt   <boud@kogmbh.com>
+   Copyright (C) 2010 Boudewijn Rempt   <boud@valdyas.org>
    Copyright (C) 2015 Michael Abrahams  <miabraha@gmail.com>
 
    This library is free software; you can redistribute it and/or
@@ -27,8 +27,10 @@
 #include <QList>
 #include <QPointer>
 #include <QUrl>
+#include <QUuid>
 
 #include "kritaui_export.h"
+#include <KConfigCore/kconfiggroup.h>
 #include <KoConfig.h>
 #include <KisMainWindow.h>
 
@@ -41,11 +43,10 @@ class KisView;
 class KisDocument;
 class KisIdleWatcher;
 class KisAnimationCachePopulator;
+class KisSessionResource;
 
 /**
- * KisPart is the Great Deku Tree of Krita.
- *
- * It is a singleton class which provides the main entry point to the application.
+ * KisPart a singleton class which provides the main entry point to the application.
  * Krita supports multiple documents, multiple main windows, and multiple
  * components.  KisPart manages these resources and provides them to the rest of
  * Krita.  It manages lists of Actions and shortcuts as well.
@@ -105,10 +106,11 @@ public:
 
     // ----------------- MainWindow management -----------------
 
+
     /**
      * Create a new main window.
      */
-    KisMainWindow *createMainWindow();
+    KisMainWindow *createMainWindow(QUuid id = QUuid());
 
     /**
      * Removes a main window from the list of managed windows.
@@ -134,16 +136,7 @@ public:
      */
     KisMainWindow *currentMainwindow() const;
 
-    /**
-     * Add a given action to the list of dynamically defined actions. On creating
-     * a mainwindow, all these actions will be added to the script manager.
-     */
-    void addScriptAction(KisAction *);
-
-    /**
-     * Load actions for currently active main window into KisActionRegistry.
-     */
-    void loadActions();
+    KisMainWindow *windowById(QUuid id) const;
 
     /**
      * @return the application-wide KisIdleWatcher.
@@ -154,7 +147,6 @@ public:
      * @return the application-wide AnimationCachePopulator.
      */
     KisAnimationCachePopulator *cachePopulator() const;
-
 
 public Q_SLOTS:
 
@@ -213,8 +205,7 @@ public:
      * views, and if the document wasn't known yet, it's registered as well.
      */
     KisView *createView(KisDocument *document,
-                        KoCanvasResourceManager *resourceManager,
-                        KActionCollection *actionCollection,
+                        KisViewManager *viewManager,
                         QWidget *parent);
 
     /**
@@ -241,6 +232,38 @@ public:
      */
     int viewCount(KisDocument *doc) const;
 
+    //------------------ Session management ------------------
+
+    void showSessionManager();
+
+    void startBlankSession();
+
+    /**
+     * Restores a saved session by name
+     */
+    bool restoreSession(const QString &sessionName);
+
+    void setCurrentSession(KisSessionResource *session);
+
+    /**
+     * Attempts to save the session and close all windows.
+     * This may involve asking the user to save open files.
+     * @return false, if closing was cancelled by the user
+     */
+    bool closeSession(bool keepWindows = false);
+
+    /**
+     * Are we in the process of closing the application through closeSession().
+     */
+    bool closingSession() const;
+
+    /**
+     * This function returns true if the instance has already been initialized,
+     * false otherwise. This to prevent premature initialization that causes crash
+     * on android see `1fbb25506a`
+     * @see QGlobalStatic::exists()
+     */
+    static bool exists();
 
 private Q_SLOTS:
 
@@ -252,7 +275,6 @@ private:
 
     class Private;
     Private *const d;
-
 
 };
 

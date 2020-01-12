@@ -33,13 +33,15 @@
 #include <boost/random/mersenne_twister.hpp>
 #include "kis_random_accessor_ng.h"
 #include "kis_iterator_ng.h"
-#include "kis_pixel_selection.h"
+#include "kis_cached_paint_device.h"
 
 
 struct Q_DECL_HIDDEN KisLayerStyleFilterEnvironment::Private
 {
     KisLayer *sourceLayer;
     KisPixelSelectionSP cachedRandomSelection;
+    KisCachedSelection globalCachedSelection;
+    KisCachedPaintDevice globalCachedPaintDevice;
 
     static KisPixelSelectionSP generateRandomSelection(const QRect &rc);
 };
@@ -55,23 +57,23 @@ generateRandomSelection(const QRect &rc)
     boost::mt11213b uniformSource;
 
     if (uniformSource.max() >= 0x00FFFFFF) {
-        do {
+        while (dstIt.nextPixel()) {
             int randValue = uniformSource();
             *dstIt.rawData() = (quint8) randValue;
-            if (!dstIt.nextPixel()) break;
 
+            if (!dstIt.nextPixel()) break;
             randValue >>= 8;
             *dstIt.rawData() = (quint8) randValue;
-            if (!dstIt.nextPixel()) break;
 
+            if (!dstIt.nextPixel()) break;
             randValue >>= 8;
             *dstIt.rawData() = (quint8) randValue;
-        } while(dstIt.nextPixel());
+        }
 
     } else {
-        do {
+        while (dstIt.nextPixel()) {
             *dstIt.rawData() = (quint8) uniformSource();
-        } while(dstIt.nextPixel());
+        }
     }
 
     return selection;
@@ -105,24 +107,6 @@ int KisLayerStyleFilterEnvironment::currentLevelOfDetail() const
         m_d->sourceLayer->original()->defaultBounds()->currentLevelOfDetail() : 0;
 }
 
-QPainterPath KisLayerStyleFilterEnvironment::layerOutlineCache() const
-{
-    // TODO: make it really cachable!
-    Q_ASSERT(m_d->sourceLayer);
-    KisPaintDeviceSP srcDevice = m_d->sourceLayer->projection();
-    QRect srcRect = srcDevice->exactBounds();
-    if (srcRect.isEmpty()) return QPainterPath();
-
-    KisSelectionSP baseSelection =
-        KisLsUtils::selectionFromAlphaChannel(srcDevice, srcRect);
-    KisPixelSelectionSP selection = baseSelection->pixelSelection();
-
-    // needs no 'invalidate' call
-    selection->recalculateOutlineCache();
-
-    return selection->outlineCache();
-}
-
 void KisLayerStyleFilterEnvironment::setupFinalPainter(KisPainter *gc,
                                                        quint8 opacity,
                                                        const QBitArray &channelFlags) const
@@ -149,4 +133,14 @@ KisPixelSelectionSP KisLayerStyleFilterEnvironment::cachedRandomSelection(const 
     }
 
     return m_d->cachedRandomSelection;
+}
+
+KisCachedSelection *KisLayerStyleFilterEnvironment::cachedSelection()
+{
+    return &m_d->globalCachedSelection;
+}
+
+KisCachedPaintDevice *KisLayerStyleFilterEnvironment::cachedPaintDevice()
+{
+    return &m_d->globalCachedPaintDevice;
 }

@@ -34,14 +34,18 @@
 #include "kis_signals_blocker.h"
 
 #include "kis_global.h"
+#include <kis_config.h>
 #include <resources/KoPattern.h>
 
-KisPatternChooser::KisPatternChooser(QWidget *parent)
-        : QFrame(parent)
-{
-    m_lbName = new QLabel(this);
+#include <ksqueezedtextlabel.h>
 
-    KoResourceServer<KoPattern> * rserver = KoResourceServerProvider::instance()->patternServer(false);
+KisPatternChooser::KisPatternChooser(QWidget *parent)
+    : QFrame(parent)
+{
+    m_lblName = new KSqueezedTextLabel(this);
+    m_lblName->setTextElideMode(Qt::ElideLeft);
+
+    KoResourceServer<KoPattern> * rserver = KoResourceServerProvider::instance()->patternServer();
     QSharedPointer<KoAbstractResourceServerAdapter> adapter (new KoResourceServerAdapter<KoPattern>(rserver));
     m_itemChooser = new KoResourceItemChooser(adapter, this, true);
     m_itemChooser->setPreviewTiled(true);
@@ -49,16 +53,16 @@ KisPatternChooser::KisPatternChooser(QWidget *parent)
     m_itemChooser->showTaggingBar(true);
     m_itemChooser->setSynced(true);
 
-    connect(m_itemChooser, SIGNAL(resourceSelected(KoResource *)),
-            this, SLOT(update(KoResource *)));
+    connect(m_itemChooser, SIGNAL(resourceSelected(KoResource*)),
+            this, SLOT(update(KoResource*)));
 
-    connect(m_itemChooser, SIGNAL(resourceSelected(KoResource *)),
-            this, SIGNAL(resourceSelected(KoResource *)));
+    connect(m_itemChooser, SIGNAL(resourceSelected(KoResource*)),
+            this, SIGNAL(resourceSelected(KoResource*)));
 
     QVBoxLayout *mainLayout = new QVBoxLayout(this);
-    mainLayout->setObjectName("main layout");
+    mainLayout->setSizeConstraint(QLayout::SetMinAndMaxSize);
     mainLayout->setMargin(0);
-    mainLayout->addWidget(m_lbName);
+    mainLayout->addWidget(m_lblName);
     mainLayout->addWidget(m_itemChooser, 10);
 
     setLayout(mainLayout);
@@ -71,7 +75,7 @@ KisPatternChooser::~KisPatternChooser()
 KoResource *  KisPatternChooser::currentResource()
 {
     if (!m_itemChooser->currentResource()) {
-        KoResourceServer<KoPattern> * rserver = KoResourceServerProvider::instance()->patternServer(false);
+        KoResourceServer<KoPattern> * rserver = KoResourceServerProvider::instance()->patternServer();
         if (rserver->resources().size() > 0) {
             KisSignalsBlocker blocker(m_itemChooser);
             m_itemChooser->setCurrentResource(rserver->resources().first());
@@ -100,10 +104,9 @@ void KisPatternChooser::setPreviewOrientation(Qt::Orientation orientation)
 
 void KisPatternChooser::update(KoResource * resource)
 {
+    m_lblName->setFixedWidth(m_itemChooser->width());
     KoPattern *pattern = static_cast<KoPattern *>(resource);
-
-    QString text = QString("%1 (%2 x %3)").arg(i18n(pattern->name().toUtf8().data())).arg(pattern->width()).arg(pattern->height());
-    m_lbName->setText(text);
+    m_lblName->setText(QString("%1 (%2 x %3)").arg(i18n(pattern->name().toUtf8().data())).arg(pattern->width()).arg(pattern->height()));
 }
 
 void KisPatternChooser::setGrayscalePreview(bool grayscale)

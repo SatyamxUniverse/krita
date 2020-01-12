@@ -24,6 +24,7 @@
 #include <KLocalizedString>
 #include <QMetaClassInfo>
 #include <QKeySequence>
+#include <QMessageBox>
 
 #include "kis_icon_utils.h"
 
@@ -222,6 +223,9 @@ Qt::ItemFlags KisActionShortcutsModel::flags(const QModelIndex &index) const
 
 bool KisActionShortcutsModel::canRemoveRow(int row) const
 {
+    if (row >= d->shortcuts.size()) {
+        return false;
+    }
     KisShortcutConfiguration* config = d->shortcuts.at(row);
     return !(d->action->isShortcutRequired(config->mode()) && d->shortcutModeCount(config->mode()) < 2);
 }
@@ -336,6 +340,10 @@ bool KisActionShortcutsModel::removeRows(int row, int count, const QModelIndex &
         KisShortcutConfiguration *s = d->shortcuts.at(i);
 
         if (!d->action->isShortcutRequired(s->mode()) && d->shortcutModeCount(s->mode()) < 2) {
+            QMessageBox shortcutMessage;
+            shortcutMessage.setText(i18n("Deleting last shortcut for this action!"));
+            shortcutMessage.setInformativeText(i18n("It is not allowed to erase some default shortcuts. Modify it instead."));
+            shortcutMessage.exec();
             continue;
         }
 

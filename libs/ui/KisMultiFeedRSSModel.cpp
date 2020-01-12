@@ -70,10 +70,10 @@ public:
                     item.link = streamReader.readElementText();
                 else if (streamReader.name() == QLatin1String("pubDate")) {
                     QString dateStr = streamReader.readElementText();
-                    // fixme: honor time zone!
-                    dateStr = dateStr.left(dateStr.indexOf('+')-1);
-                    item.pubDate = QLocale(QLocale::English).toDateTime(dateStr, "ddd, dd MMM yyyy HH:mm:ss");
+                    item.pubDate = QDateTime::fromString(dateStr, Qt::RFC2822Date);
                 }
+                else if (streamReader.name() == QLatin1String("category"))
+                    item.category = streamReader.readElementText();
                 else if (streamReader.name() == QLatin1String("description"))
                     item.description = streamReader.readElementText(); //shortenHtml(streamReader.readElementText());
                 break;
@@ -133,18 +133,25 @@ MultiFeedRssModel::MultiFeedRssModel(QObject *parent) :
     connect(m_networkAccessManager, SIGNAL(finished(QNetworkReply*)),
             SLOT(appendFeedData(QNetworkReply*)), Qt::QueuedConnection);
 
+}
+
+
+
+MultiFeedRssModel::~MultiFeedRssModel()
+{
+}
+
+QHash<int, QByteArray> MultiFeedRssModel::roleNames() const
+{
     QHash<int, QByteArray> roleNames;
     roleNames[TitleRole] = "title";
     roleNames[DescriptionRole] = "description";
     roleNames[PubDateRole] = "pubDate";
     roleNames[LinkRole] = "link";
+    roleNames[CategoryRole] = "category";
     roleNames[BlogNameRole] = "blogName";
     roleNames[BlogIconRole] = "blogIcon";
-    setRoleNames(roleNames);
-}
-
-MultiFeedRssModel::~MultiFeedRssModel()
-{
+    return roleNames;
 }
 
 void MultiFeedRssModel::addFeed(const QString& feed)
@@ -163,9 +170,12 @@ void MultiFeedRssModel::appendFeedData(QNetworkReply *reply)
 {
     RssReader reader;
     m_aggregatedFeed.append(reader.parse(reply));
-    qSort(m_aggregatedFeed.begin(), m_aggregatedFeed.end(), sortForPubDate);
+    std::sort(m_aggregatedFeed.begin(), m_aggregatedFeed.end(), sortForPubDate);
     setArticleCount(m_aggregatedFeed.size());
-    reset();
+    beginResetModel();
+    endResetModel();
+
+    emit feedDataChanged();
 }
 
 void MultiFeedRssModel::removeFeed(const QString &feed)
@@ -190,7 +200,12 @@ QVariant MultiFeedRssModel::data(const QModelIndex &index, int role) const
     RssItem item = m_aggregatedFeed.at(index.row());
 
     switch (role) {
-    case Qt::DisplayRole: // fall through
+    case Qt::DisplayRole:
+    {
+        return QString("<b><a href=\"" + item.link + "\">" + item.title + "</a></b>"
+               "<br><small>(" + item.pubDate.toLocalTime().toString(Qt::DefaultLocaleShortDate) + ") "
+               + item.description.left(90).append("...") + "</small><hr>");
+    }
     case TitleRole:
         return item.title;
     case DescriptionRole:
@@ -199,6 +214,8 @@ QVariant MultiFeedRssModel::data(const QModelIndex &index, int role) const
         return item.pubDate.toString("dd-MM-yyyy hh:mm");
     case LinkRole:
         return item.link;
+    case CategoryRole:
+        return item.category;
     case BlogNameRole:
         return item.blogName;
     case BlogIconRole:

@@ -18,9 +18,14 @@
 
 #include "kis_tool_line_helper.h"
 
+#include <QtMath>
+
 #include "kis_algebra_2d.h"
 #include "kis_painting_information_builder.h"
 #include "kis_image.h"
+
+#include "kis_canvas_resource_provider.h"
+#include <brushengine/kis_paintop_preset.h>
 
 struct KisToolLineHelper::Private
 {
@@ -38,11 +43,9 @@ struct KisToolLineHelper::Private
 };
 
 KisToolLineHelper::KisToolLineHelper(KisPaintingInformationBuilder *infoBuilder,
-                                     const KUndo2MagicString &transactionText,
-                                     KisRecordingAdapter *recordingAdapter)
+                                     const KUndo2MagicString &transactionText)
     : KisToolFreehandHelper(infoBuilder,
                             transactionText,
-                            recordingAdapter,
                             new KisSmoothingOptions(false)),
       m_d(new Private(infoBuilder))
 {
@@ -63,7 +66,7 @@ void KisToolLineHelper::setUseSensors(bool value)
     m_d->useSensors = value;
 }
 
-void KisToolLineHelper::repaintLine(KoCanvasResourceManager *resourceManager,
+void KisToolLineHelper::repaintLine(KoCanvasResourceProvider *resourceManager,
                                     KisImageWSP image, KisNodeSP node,
                                     KisStrokesFacade *strokesFacade)
 {
@@ -79,6 +82,20 @@ void KisToolLineHelper::repaintLine(KoCanvasResourceManager *resourceManager,
                                                           0.0);
     }
 
+
+    KisPaintOpPresetSP preset = resourceManager->resource(KisCanvasResourceProvider::CurrentPaintOpPreset)
+            .value<KisPaintOpPresetSP>();
+
+    if (preset->settings()->paintOpSize() <= 1) {
+        KisPaintInformation begin = m_d->linePoints.first();
+        KisPaintInformation end = m_d->linePoints.last();
+        m_d->linePoints.clear();
+        m_d->linePoints.append(begin);
+        m_d->linePoints.append(end);
+    }
+    // Always adjust line sections to avoid jagged sections.
+    adjustPointsToDDA(m_d->linePoints);
+
     QVector<KisPaintInformation>::const_iterator it = m_d->linePoints.constBegin();
     QVector<KisPaintInformation>::const_iterator end = m_d->linePoints.constEnd();
 
@@ -91,7 +108,7 @@ void KisToolLineHelper::repaintLine(KoCanvasResourceManager *resourceManager,
     }
 }
 
-void KisToolLineHelper::start(KoPointerEvent *event, KoCanvasResourceManager *resourceManager)
+void KisToolLineHelper::start(KoPointerEvent *event, KoCanvasResourceProvider *resourceManager)
 {
     if (!m_d->enabled) return;
 
@@ -164,7 +181,7 @@ void KisToolLineHelper::end()
     KIS_ASSERT_RECOVER_RETURN(isRunning());
 
     endPaint();
-    m_d->linePoints.clear();
+    clearPoints();
 }
 
 
@@ -174,6 +191,12 @@ void KisToolLineHelper::cancel()
     KIS_ASSERT_RECOVER_RETURN(isRunning());
 
     cancelPaint();
+    clearPoints();
+}
+
+
+void KisToolLineHelper::clearPoints()
+{
     m_d->linePoints.clear();
 }
 
@@ -183,4 +206,57 @@ void KisToolLineHelper::clearPaint()
     if (!m_d->enabled) return;
 
     cancelPaint();
+}
+
+void KisToolLineHelper::adjustPointsToDDA(QVector<KisPaintInformation> &points)
+{
+    int x = qFloor(points.first().pos().x());
+    int y = qFloor(points.first().pos().y());
+
+    int x2 = qFloor(points.last().pos().x());
+    int y2 = qFloor(points.last().pos().y());
+
+    // Width and height of the line
+    int xd = x2 - x;
+    int yd = y2 - y;
+
+    float m = 0;
+    bool lockAxis = true;
+
+    if (xd == 0) {
+        m = 2.0;
+    } else if ( yd != 0) {
+        lockAxis = false;
+        m = (float)yd / (float)xd;
+    }
+
+    float fx = x;
+    float fy = y;
+
+    int inc;
+    int dist;
+
+    if (fabs(m) > 1.0f) {
+        inc = (yd > 0) ? 1 : -1;
+        m = (lockAxis)? 0 : 1.0f / m;
+        m *= inc;
+
+        for (int i = 0; i < points.size(); i++){
+            dist = abs(qFloor(points.at(i).pos().y()) - y);
+            fy = y + (dist * inc);
+            fx = qRound(x + (dist * m));
+            points[i].setPos(QPointF(fx,fy));
+        }
+
+    } else {
+        inc = (xd > 0) ? 1 : -1;
+        m *= inc;
+
+        for (int i = 0; i < points.size(); i++){
+            dist = abs(qFloor(points.at(i).pos().x()) - x);
+            fx = x + (dist * inc);
+            fy = qRound(y + (dist * m));
+            points[i].setPos(QPointF(fx,fy));
+        }
+    }
 }

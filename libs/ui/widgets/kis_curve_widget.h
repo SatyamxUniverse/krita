@@ -42,7 +42,7 @@ class KisCubicCurve;
  * a new control point. Control points can be deleted by selecting a point
  * and pressing the delete key.
  *
- * (From: http://techbase.kde.org/Projects/Widgets_and_Classes#KisCurveWidget)
+ * (From: https://techbase.kde.org/Projects/Widgets_and_Classes#KisCurveWidget)
  * KisCurveWidget allows editing of spline based y=f(x) curves. Handy for cases
  * where you want the user to control such things as tablet pressure
  * response, color transformations, acceleration by time, aeroplane lift
@@ -59,7 +59,7 @@ public:
      * Create a new curve widget with a default curve, that is a straight
      * line from bottom-left to top-right.
      */
-    KisCurveWidget(QWidget *parent = 0, Qt::WFlags f = 0);
+    KisCurveWidget(QWidget *parent = 0, Qt::WindowFlags f = 0);
 
     ~KisCurveWidget() override;
 
@@ -105,9 +105,26 @@ Q_SIGNALS:
      * Emitted whenever the status of whether a control point is selected or not changes
      */
     void pointSelectedChanged();
+    /**
+     * Emitted to notify that the start() function in compressor can be activated.
+     * Thanks to that, blocking signals in curve widget blocks "sending signals"
+     * (calling start() function) *to* the signal compressor.
+     * It effectively makes signals work nearly the same way they worked before
+     * adding the signal compressor in between.
+     */
+    void compressorShouldEmitModified();
+
 
 protected Q_SLOTS:
     void inOutChanged(int);
+    void notifyModified();
+
+    /**
+     * This function is called when compressorShouldEmitModified() is emitted.
+     * For why it's needed, \see compressorShouldEmitModified()
+     */
+    void slotCompressorShouldEmitModified();
+
 
 
 protected:
@@ -131,20 +148,21 @@ public:
 
     /**
      * Replace the current curve with a curve specified by the curve defined by the control
-     * points in @param inlist.
+     * points in @p inlist.
      */
     void setCurve(KisCubicCurve inlist);
 
     /**
      * Connect/disconnect external spinboxes to the curve
-     * @min/@max - is the range for their values
+     * @p inMin / @p inMax - is the range for input values
+     * @p outMin / @p outMax - is the range for output values
      */
-    void setupInOutControls(QSpinBox *in, QSpinBox *out, int min, int max);
+    void setupInOutControls(QSpinBox *in, QSpinBox *out, int inMin, int inMax, int outMin, int outMax);
     void dropInOutControls();
 
     /**
      * Handy function that creates new point in the middle
-     * of the curve and sets focus on the m_intIn field,
+     * of the curve and sets focus on the @p m_intIn field,
      * so the user can move this point anywhere in a moment
      */
     void addPointInTheMiddle();

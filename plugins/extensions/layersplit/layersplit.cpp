@@ -53,7 +53,7 @@
 K_PLUGIN_FACTORY_WITH_JSON(LayerSplitFactory, "kritalayersplit.json", registerPlugin<LayerSplit>();)
 
 LayerSplit::LayerSplit(QObject *parent, const QVariantList &)
-    : KisViewPlugin(parent)
+    : KisActionPlugin(parent)
 {
     KisAction *action  = createAction("layersplit");
     connect(action, SIGNAL(triggered()), this, SLOT(slotLayerSplit()));
@@ -86,16 +86,14 @@ void LayerSplit::slotLayerSplit()
 
         QApplication::setOverrideCursor(Qt::WaitCursor);
 
-        KoProgressUpdater* pu = m_view->createProgressUpdater(KoProgressUpdater::Unthreaded);
-        pu->start(100, i18n("Split into Layers"));
-        QPointer<KoUpdater> updater = pu->startSubtask();
+        QPointer<KoUpdater> updater = viewManager()->createUnthreadedUpdater(i18n("Split into Layers"));
 
-        KisImageSP image = m_view->image();
+        KisImageSP image = viewManager()->image();
         if (!image) return;
 
         image->lock();
 
-        KisNodeSP node = m_view->activeNode();
+        KisNodeSP node = viewManager()->activeNode();
         if (!node) return;
 
         KisPaintDeviceSP projection = node->projection();
@@ -151,7 +149,7 @@ void LayerSplit::slotLayerSplit()
                 if (!found) {
                     QString name = "";
                     if (dlg.palette()) {
-                       name = dlg.palette()->closestColorName(c);
+                       name = dlg.palette()->getClosestColorInfo(c).swatch.name();
                     }
 
                     if (name.toLower() == "untitled" || name.toLower() == "none" || name.toLower() == "") {
@@ -183,12 +181,12 @@ void LayerSplit::slotLayerSplit()
 //        }
 
         if (dlg.sortLayers()) {
-            qSort(colorMap);
+            std::sort(colorMap.begin(), colorMap.end());
         }
 
         KisUndoAdapter *undo = image->undoAdapter();
         undo->beginMacro(kundo2_i18n("Split Layer"));
-        KisNodeCommandsAdapter adapter(m_view);
+        KisNodeCommandsAdapter adapter(viewManager());
 
         KisGroupLayerSP baseGroup = dynamic_cast<KisGroupLayer*>(node->parent().data());
         if (!baseGroup) {

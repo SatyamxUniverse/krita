@@ -30,9 +30,10 @@
 #include <kis_debug.h>
 #include <kpluginfactory.h>
 
+#include <filter/kis_filter_category_ids.h>
 #include <filter/kis_filter_registry.h>
 #include <kis_global.h>
-#include "kis_gradient_slider.h"
+#include "KisGradientSlider.h"
 #include "kis_histogram.h"
 #include <kis_layer.h>
 #include "kis_paint_device.h"
@@ -40,7 +41,7 @@
 #include <kis_processing_information.h>
 #include <kis_selection.h>
 #include <kis_types.h>
-#include <kis_iterator_ng.h>
+#include <KisSequentialIteratorProgress.h>
 
 #include <KoBasicHistogramProducers.h>
 #include "KoColorModelStandardIds.h"
@@ -61,7 +62,7 @@ KritaThreshold::~KritaThreshold()
 }
 
 KisFilterThreshold::KisFilterThreshold()
-    : KisFilter(id(), categoryAdjust(), i18n("&Threshold..."))
+    : KisFilter(id(), FiltersCategoryAdjustId, i18n("&Threshold..."))
 {
     setColorSpaceIndependence(FULLY_INDEPENDENT);
 
@@ -79,41 +80,36 @@ void KisFilterThreshold::processImpl(KisPaintDeviceSP device,
 {
     Q_ASSERT(!device.isNull());
 
-    if (progressUpdater) {
-        progressUpdater->setRange(0, applyRect.height() * applyRect.width());
-    }
-
-    int threshold = config->getInt("threshold");
+    const int threshold = config->getInt("threshold");
 
     KoColor white(Qt::white, device->colorSpace());
     KoColor black(Qt::black, device->colorSpace());
 
-    KisSequentialIterator it(device, applyRect);
-    int p = 0;
+    KisSequentialIteratorProgress it(device, applyRect, progressUpdater);
     const int pixelSize = device->colorSpace()->pixelSize();
-    do {
+
+    while (it.nextPixel()) {
         if (device->colorSpace()->intensity8(it.oldRawData()) > threshold) {
+            white.setOpacity(device->colorSpace()->opacityU8(it.oldRawData()));
             memcpy(it.rawData(), white.data(), pixelSize);
         }
         else {
+            black.setOpacity(device->colorSpace()->opacityU8(it.oldRawData()));
             memcpy(it.rawData(), black.data(), pixelSize);
         }
-
-        if (progressUpdater) progressUpdater->setValue(p++);
-
-    } while (it.nextPixel());
+    }
 
 }
 
 
-KisFilterConfigurationSP KisFilterThreshold::factoryConfiguration() const
+KisFilterConfigurationSP KisFilterThreshold::defaultConfiguration() const
 {
-    KisFilterConfigurationSP config = new KisFilterConfiguration("threshold", 1);
+    KisFilterConfigurationSP config = factoryConfiguration();
     config->setProperty("threshold", 128);
     return config;
 }
 
-KisConfigWidget *KisFilterThreshold::createConfigurationWidget(QWidget *parent, const KisPaintDeviceSP dev) const
+KisConfigWidget *KisFilterThreshold::createConfigurationWidget(QWidget *parent, const KisPaintDeviceSP dev, bool) const
 {
     return new KisThresholdConfigWidget(parent, dev);
 }

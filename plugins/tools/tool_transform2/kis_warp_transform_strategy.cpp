@@ -30,6 +30,9 @@
 #include "kis_cursor.h"
 #include "kis_transform_utils.h"
 #include "kis_algebra_2d.h"
+#include "KisHandlePainterHelper.h"
+#include "kis_signal_compressor.h"
+
 
 
 struct KisWarpTransformStrategy::Private
@@ -43,12 +46,13 @@ struct KisWarpTransformStrategy::Private
           currentArgs(_currentArgs),
           transaction(_transaction),
           lastNumPoints(0),
-          drawConnectionLines(true),
-          drawOrigPoints(true),
+          drawConnectionLines(false), // useful while developing
+          drawOrigPoints(false),
           drawTransfPoints(true),
           closeOnStartPointClick(false),
           clipOriginalPointsPosition(true),
-          pointWasDragged(false)
+          pointWasDragged(false),
+          recalculateSignalCompressor(40, KisSignalCompressor::FIRST_ACTIVE)
     {
     }
 
@@ -97,6 +101,10 @@ struct KisWarpTransformStrategy::Private
 
     QPointF lastMousePos;
 
+    // cage transform also uses this logic. This helps this class know what transform type we are using
+    TransformType transformType = TransformType::WARP_TRANSFORM;
+    KisSignalCompressor recalculateSignalCompressor;
+
     void recalculateTransformations();
     inline QPointF imageToThumb(const QPointF &pt, bool useFlakeOptimization);
 
@@ -110,6 +118,8 @@ KisWarpTransformStrategy::KisWarpTransformStrategy(const KisCoordinatesConverter
     : KisSimplifiedActionPolicyStrategy(converter),
       m_d(new Private(this, converter, currentArgs, transaction))
 {
+    connect(&m_d->recalculateSignalCompressor, SIGNAL(timeout()),
+            SLOT(recalculateTransformations()));
 }
 
 KisWarpTransformStrategy::~KisWarpTransformStrategy()
@@ -199,6 +209,10 @@ void KisWarpTransformStrategy::setClipOriginalPointsPosition(bool value)
     m_d->clipOriginalPointsPosition = value;
 }
 
+void KisWarpTransformStrategy::setTransformType(TransformType type) {
+    m_d->transformType = type;
+}
+
 void KisWarpTransformStrategy::drawConnectionLines(QPainter &gc,
                                                    const QVector<QPointF> &origPoints,
                                                    const QVector<QPointF> &transfPoints,
@@ -237,7 +251,6 @@ void KisWarpTransformStrategy::paint(QPainter &gc)
     gc.save();
     gc.setTransform(m_d->handlesTransform, true);
 
-    // draw connecting lines
     if (m_d->drawConnectionLines) {
         gc.setOpacity(0.5);
 
@@ -247,12 +260,15 @@ void KisWarpTransformStrategy::paint(QPainter &gc)
                             m_d->currentArgs.isEditingTransformPoints());
     }
 
+
+    QPen mainPen(Qt::black);
+    QPen outlinePen(Qt::white);
+
     // draw handles
     {
         const int numPoints = m_d->currentArgs.origPoints().size();
 
-        QPen mainPen(Qt::black);
-        QPen outlinePen(Qt::white);
+
 
         qreal handlesExtraScale = KisTransformUtils::scaleFromAffineMatrix(m_d->handlesTransform);
 
@@ -313,6 +329,43 @@ void KisWarpTransformStrategy::paint(QPainter &gc)
         }
 
     }
+
+    // draw grid lines only if we are using the GRID mode. Also only use this logic for warp, not cage transforms
+    if (m_d->currentArgs.warpCalculation() == KisWarpTransformWorker::WarpCalculation::GRID &&
+        m_d->transformType == TransformType::WARP_TRANSFORM ) {
+
+    // see how many rows we have. we are only going to do lines up to 6 divisions/
+    // it is almost impossible to use with 6 even.
+    const int numPoints = m_d->currentArgs.origPoints().size();
+
+    // grid is always square, so get the square root to find # of rows
+    int rowsInWarp = sqrt(m_d->currentArgs.origPoints().size());
+
+
+        KisHandlePainterHelper handlePainter(&gc);
+        handlePainter.setHandleStyle(KisHandleStyle::primarySelection());
+
+        // draw horizontal lines
+        for (int i = 0; i < numPoints; i++) {
+            if (i != 0 &&  i % rowsInWarp == rowsInWarp -1) {
+                // skip line if it is the last in the row
+            } else {
+                handlePainter.drawConnectionLine(m_d->currentArgs.transfPoints()[i], m_d->currentArgs.transfPoints()[i+1]  );
+            }
+        }
+
+        // draw vertical lines
+        for (int i = 0; i < numPoints; i++) {
+
+            if ( (numPoints - i - 1) < rowsInWarp ) {
+                // last row doesn't need to draw vertical lines
+            } else {
+                handlePainter.drawConnectionLine(m_d->currentArgs.transfPoints()[i], m_d->currentArgs.transfPoints()[i+rowsInWarp] );
+            }
+        }
+
+    } // end if statement
+
     gc.restore();
 }
 
@@ -349,8 +402,7 @@ bool KisWarpTransformStrategy::beginPrimaryAction(const QPointF &pt)
         m_d->mode = Private::OVER_POINT;
         m_d->pointIndexUnderCursor = m_d->currentArgs.origPoints().size() - 1;
 
-        m_d->recalculateTransformations();
-        emit requestCanvasUpdate();
+        m_d->recalculateSignalCompressor.start();
 
         retval = true;
     }
@@ -497,8 +549,8 @@ void KisWarpTransformStrategy::continuePrimaryAction(const QPointF &pt, bool shi
     }
 
     m_d->lastMousePos = pt;
-    m_d->recalculateTransformations();
-    emit requestCanvasUpdate();
+    m_d->recalculateSignalCompressor.start();
+
 }
 
 bool KisWarpTransformStrategy::Private::shouldCloseTheCage() const
@@ -574,6 +626,7 @@ void KisWarpTransformStrategy::Private::recalculateTransformations()
     }
 
     handlesTransform = scaleTransform;
+    emit q->requestCanvasUpdate();
 }
 
 QImage KisWarpTransformStrategy::calculateTransformedImage(ToolTransformArgs &currentArgs,
@@ -590,3 +643,5 @@ QImage KisWarpTransformStrategy::calculateTransformedImage(ToolTransformArgs &cu
         srcImage,
         srcOffset, dstOffset);
 }
+
+#include "moc_kis_warp_transform_strategy.cpp"

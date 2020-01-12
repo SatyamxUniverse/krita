@@ -61,8 +61,8 @@ void KoPagePreviewWidget::paintEvent(QPaintEvent *event)
     const bool pageSpread = (d->pageLayout.bindingSide >= 0 && d->pageLayout.pageEdge >= 0);
     qreal sheetWidth = pageWidth / (pageSpread?2:1);
 
-    qreal zoomH = (height() * 90 / 100) / pageHeight;
-    qreal zoomW = (width() * 90 / 100) / pageWidth;
+    qreal zoomH = (height() * 90.0 / 100.0) / pageHeight;
+    qreal zoomW = (width() * 90.0 / 100.0) / pageWidth;
     qreal zoom = qMin( zoomW, zoomH );
 
     pageWidth *= zoom;
@@ -115,7 +115,7 @@ void KoPagePreviewWidget::drawPage(QPainter &painter, qreal zoom, const QRect &d
             leftMargin = d->pageLayout.bindingSide;
             rightMargin = d->pageLayout.pageEdge;
             if(left)
-                qSwap(leftMargin, rightMargin);
+                std::swap(leftMargin, rightMargin);
         }
         textArea.setLeft(textArea.left() + qRound(zoom * leftMargin));
         textArea.setRight(textArea.right() - qRound(zoom * rightMargin));

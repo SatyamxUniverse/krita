@@ -50,10 +50,9 @@ public:
     struct KisFloatRepresentation {
 
         KisFloatRepresentation(uint nsize, uint ndepth)
-        throw(std::bad_alloc)
-                : coeffs(new float[nsize*nsize*ndepth])
-                , size(nsize)
-                , depth(ndepth) {
+            : coeffs(new float[nsize*nsize*ndepth])
+            , size(nsize)
+            , depth(ndepth) {
             // XXX: Valgrind shows that these are being used without being initialised.
             for (quint32 i = 0; i < nsize * nsize * ndepth; ++i) {
                 coeffs[i] = 0;
@@ -74,14 +73,16 @@ public:
     /**
      * This function initializes a wavelet structure
      * @param lay the layer that will be used for the transformation
+     * @param rect the rectangular for transformation
      */
-    inline KisWavelet* initWavelet(KisPaintDeviceSP lay, const QRect&) throw(std::bad_alloc);
+    inline KisWavelet* initWavelet(KisPaintDeviceSP lay, const QRect&);
 
     inline uint fastWaveletTotalSteps(const QRect&);
 
     /**
      * This function reconstruct the layer from the information of a wavelet
      * @param src layer from which the wavelet will be computed
+     * @param rect the rectangular for reconstruction
      * @param buff if set to 0, the buffer will be initialized by the function,
      * you might want to give a buff to the function if you want to use the same buffer
      * in transformToWavelet and in untransformToWavelet, use initWavelet to initialize
@@ -92,6 +93,7 @@ public:
     /**
      * This function reconstruct the layer from the information of a wavelet
      * @param dst layer on which the wavelet will be untransform
+     * @param rect the rectangular for reconstruction
      * @param wav the wavelet
      * @param buff if set to 0, the buffer will be initialized by the function,
      * you might want to give a buff to the function if you want to use the same buffer
@@ -126,7 +128,6 @@ private:
 };
 
 inline KisMathToolbox::KisWavelet* KisMathToolbox::initWavelet(KisPaintDeviceSP src, const QRect& rect)
-throw(std::bad_alloc)
 {
     int size;
     int maxrectsize = (rect.height() < rect.width()) ? rect.width() : rect.height();

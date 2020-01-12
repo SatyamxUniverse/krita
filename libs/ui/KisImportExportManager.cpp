@@ -19,6 +19,7 @@
 
 #include "KisImportExportManager.h"
 
+#include <QDir>
 #include <QFile>
 #include <QLabel>
 #include <QVBoxLayout>
@@ -33,11 +34,14 @@
 #include <QCheckBox>
 #include <QSaveFile>
 #include <QGroupBox>
+#include <QFuture>
+#include <QtConcurrent>
 
 #include <klocalizedstring.h>
 #include <ksqueezedtextlabel.h>
 #include <kpluginfactory.h>
 
+#include <KisUsageLogger.h>
 #include <KoFileDialog.h>
 #include <kis_icon_utils.h>
 #include <KoDialog.h>
@@ -46,7 +50,6 @@
 #include <KisMimeDatabase.h>
 #include <kis_config_widget.h>
 #include <kis_debug.h>
-#include <KisMimeDatabase.h>
 #include <KisPreExportChecker.h>
 #include <KisPart.h>
 #include "kis_config.h"
@@ -60,6 +63,7 @@
 #include "kis_popup_button.h"
 #include <kis_iterator_ng.h>
 #include "kis_async_action_feedback.h"
+#include "KisReferenceImagesLayer.h"
 
 // static cache for import and export mimetypes
 QStringList KisImportExportManager::m_importMimeTypes;
@@ -68,9 +72,54 @@ QStringList KisImportExportManager::m_exportMimeTypes;
 class Q_DECL_HIDDEN KisImportExportManager::Private
 {
 public:
-    bool batchMode {false};
-    QPointer<KoProgressUpdater> progressUpdater {0};
+    KoUpdaterPtr updater;
+
+    QString cachedExportFilterMimeType;
+    QSharedPointer<KisImportExportFilter> cachedExportFilter;
 };
+
+struct KisImportExportManager::ConversionResult {
+    ConversionResult()
+    {
+    }
+
+    ConversionResult(const QFuture<KisImportExportErrorCode> &futureStatus)
+        : m_isAsync(true),
+          m_futureStatus(futureStatus)
+    {
+    }
+
+    ConversionResult(KisImportExportErrorCode status)
+        : m_isAsync(false),
+          m_status(status)
+    {
+    }
+
+    bool isAsync() const {
+        return m_isAsync;
+    }
+
+    QFuture<KisImportExportErrorCode> futureStatus() const {
+        // if the result is not async, then it means some failure happened,
+        // just return a cancelled future
+        KIS_SAFE_ASSERT_RECOVER_NOOP(m_isAsync || !m_status.isOk());
+
+        return m_futureStatus;
+    }
+
+    KisImportExportErrorCode status() const {
+        return m_status;
+    }
+
+    void setStatus(KisImportExportErrorCode value) {
+        m_status = value;
+    }
+private:
+    bool m_isAsync = false;
+    QFuture<KisImportExportErrorCode> m_futureStatus;
+    KisImportExportErrorCode m_status = ImportExportCodes::InternalError;
+};
+
 
 KisImportExportManager::KisImportExportManager(KisDocument* document)
     : m_document(document)
@@ -83,19 +132,36 @@ KisImportExportManager::~KisImportExportManager()
     delete d;
 }
 
-KisImportExportFilter::ConversionStatus KisImportExportManager::importDocument(const QString& location, const QString& mimeType)
+KisImportExportErrorCode KisImportExportManager::importDocument(const QString& location, const QString& mimeType)
 {
-    return convert(Import, location, location, mimeType, false, 0);
+    ConversionResult result = convert(Import, location, location, mimeType, false, 0, false);
+    KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(!result.isAsync(), ImportExportCodes::InternalError);
+
+    return result.status();
 }
 
-KisImportExportFilter::ConversionStatus KisImportExportManager::exportDocument(const QString& location, const QString& realLocation, QByteArray& mimeType, bool showWarnings, KisPropertiesConfigurationSP exportConfiguration)
+KisImportExportErrorCode KisImportExportManager::exportDocument(const QString& location, const QString& realLocation, const QByteArray& mimeType, bool showWarnings, KisPropertiesConfigurationSP exportConfiguration)
 {
-    return convert(Export, location, realLocation, mimeType, showWarnings, exportConfiguration);
+    ConversionResult result = convert(Export, location, realLocation, mimeType, showWarnings, exportConfiguration, false);
+    KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(!result.isAsync(), ImportExportCodes::InternalError);
+
+    return result.status();
+}
+
+QFuture<KisImportExportErrorCode> KisImportExportManager::exportDocumentAsyc(const QString &location, const QString &realLocation, const QByteArray &mimeType,
+                                                                            KisImportExportErrorCode &status, bool showWarnings, KisPropertiesConfigurationSP exportConfiguration)
+{
+    ConversionResult result = convert(Export, location, realLocation, mimeType, showWarnings, exportConfiguration, true);
+    KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(result.isAsync() ||
+                                         !result.status().isOk(), QFuture<KisImportExportErrorCode>());
+
+    status = result.status();
+    return result.futureStatus();
 }
 
 // The static method to figure out to which parts of the
 // graph this mimetype has a connection to.
-QStringList KisImportExportManager::mimeFilter(Direction direction)
+QStringList KisImportExportManager::supportedMimeTypes(Direction direction)
 {
     // Find the right mimetype by the extension
     QSet<QString> mimeTypes;
@@ -103,8 +169,7 @@ QStringList KisImportExportManager::mimeFilter(Direction direction)
 
     if (direction == KisImportExportManager::Import) {
         if (m_importMimeTypes.isEmpty()) {
-            KoJsonTrader trader;
-            QList<QPluginLoader *>list = trader.query("Krita/FileFilter", "");
+            QList<QPluginLoader *>list = KoJsonTrader::instance()->query("Krita/FileFilter", "");
             Q_FOREACH(QPluginLoader *loader, list) {
                 QJsonObject json = loader->metaData().value("MetaData").toObject();
                 Q_FOREACH(const QString &mimetype, json.value("X-KDE-Import").toString().split(",", QString::SkipEmptyParts)) {
@@ -119,8 +184,7 @@ QStringList KisImportExportManager::mimeFilter(Direction direction)
     }
     else if (direction == KisImportExportManager::Export) {
         if (m_exportMimeTypes.isEmpty()) {
-            KoJsonTrader trader;
-            QList<QPluginLoader *>list = trader.query("Krita/FileFilter", "");
+            QList<QPluginLoader *>list = KoJsonTrader::instance()->query("Krita/FileFilter", "");
             Q_FOREACH(QPluginLoader *loader, list) {
                 QJsonObject json = loader->metaData().value("MetaData").toObject();
                 Q_FOREACH(const QString &mimetype, json.value("X-KDE-Export").toString().split(",", QString::SkipEmptyParts)) {
@@ -180,19 +244,14 @@ KisImportExportFilter *KisImportExportManager::filterForMimeType(const QString &
     return filter;
 }
 
-void KisImportExportManager::setBatchMode(const bool batch)
-{
-    d->batchMode = batch;
-}
-
 bool KisImportExportManager::batchMode(void) const
 {
-    return d->batchMode;
+    return m_document->fileBatchMode();
 }
 
-void KisImportExportManager::setProgresUpdater(KoProgressUpdater *updater)
+void KisImportExportManager::setUpdater(KoUpdaterPtr updater)
 {
-    d->progressUpdater = updater;
+    d->updater = updater;
 }
 
 QString KisImportExportManager::askForAudioFileName(const QString &defaultDir, QWidget *parent)
@@ -211,25 +270,44 @@ QString KisImportExportManager::askForAudioFileName(const QString &defaultDir, Q
     mimeTypes << "audio/flac";
 
     dialog.setMimeTypeFilters(mimeTypes);
-    dialog.setCaption(i18nc("@titile:window", "Open Audio"));
+    dialog.setCaption(i18nc("@title:window", "Open Audio"));
 
     return dialog.filename();
 }
 
-KisImportExportFilter::ConversionStatus KisImportExportManager::convert(KisImportExportManager::Direction direction, const QString &location, const QString& realLocation, const QString &mimeType, bool showWarnings, KisPropertiesConfigurationSP exportConfiguration)
+KisImportExportManager::ConversionResult KisImportExportManager::convert(KisImportExportManager::Direction direction, const QString &location, const QString& realLocation, const QString &mimeType, bool showWarnings, KisPropertiesConfigurationSP exportConfiguration, bool isAsync)
 {
     // export configuration is supported for export only
     KIS_SAFE_ASSERT_RECOVER_NOOP(direction == Export || !bool(exportConfiguration));
 
-
     QString typeName = mimeType;
     if (typeName.isEmpty()) {
-        typeName = KisMimeDatabase::mimeTypeForFile(location);
+        typeName = KisMimeDatabase::mimeTypeForFile(location, direction == KisImportExportManager::Export ? false : true);
     }
 
-    QSharedPointer<KisImportExportFilter> filter(filterForMimeType(typeName, direction));
+    QSharedPointer<KisImportExportFilter> filter;
+
+    /**
+     * Fetching a filter from the registry is a really expensive operation,
+     * because it blocks all the threads. Cache the filter if possible.
+     */
+    if (direction == KisImportExportManager::Export &&
+            d->cachedExportFilter &&
+            d->cachedExportFilterMimeType == typeName) {
+
+        filter = d->cachedExportFilter;
+    } else {
+
+        filter = toQShared(filterForMimeType(typeName, direction));
+
+        if (direction == Export) {
+            d->cachedExportFilter = filter;
+            d->cachedExportFilterMimeType = typeName;
+        }
+    }
+
     if (!filter) {
-        return KisImportExportFilter::FilterCreationError;
+        return KisImportExportErrorCode(ImportExportCodes::FileFormatIncorrect);
     }
 
     filter->setFilename(location);
@@ -237,8 +315,15 @@ KisImportExportFilter::ConversionStatus KisImportExportManager::convert(KisImpor
     filter->setBatchMode(batchMode());
     filter->setMimeType(typeName);
 
-    if (d->progressUpdater) {
-        filter->setUpdater(d->progressUpdater->startSubtask());
+    if (!d->updater.isNull()) {
+        // WARNING: The updater is not guaranteed to be persistent! If you ever want
+        // to add progress reporting to "Save also as .kra", make sure you create
+        // a separate KoProgressUpdater for that!
+
+        // WARNING2: the failsafe completion of the updater happens in the destructor
+        // the filter.
+
+        filter->setUpdater(d->updater);
     }
 
     QByteArray from, to;
@@ -253,14 +338,50 @@ KisImportExportFilter::ConversionStatus KisImportExportManager::convert(KisImpor
 
     KIS_ASSERT_RECOVER_RETURN_VALUE(
                 direction == Import || direction == Export,
-                KisImportExportFilter::BadConversionGraph);
+                KisImportExportErrorCode(ImportExportCodes::InternalError)); // "bad conversion graph"
 
-
-
-    KisImportExportFilter::ConversionStatus status = KisImportExportFilter::OK;
+    ConversionResult result = KisImportExportErrorCode(ImportExportCodes::OK);
     if (direction == Import) {
-            status = doImport(location, filter);
-    } else /* if (direction == Export) */ {
+
+        KisUsageLogger::log(QString("Importing %1 to %2. Location: %3. Real location: %4. Batchmode: %5")
+                            .arg(QString::fromLatin1(from))
+                            .arg(QString::fromLatin1(to))
+                            .arg(location)
+                            .arg(realLocation)
+                            .arg(batchMode()));
+
+
+
+        // async importing is not yet supported!
+        KIS_SAFE_ASSERT_RECOVER_NOOP(!isAsync);
+
+        // FIXME: Dmitry says "this progress reporting code never worked. Initial idea was to implement it his way, but I stopped and didn't finish it"
+        if (0 && !batchMode()) {
+            KisAsyncActionFeedback f(i18n("Opening document..."), 0);
+            result = f.runAction(std::bind(&KisImportExportManager::doImport, this, location, filter));
+        } else {
+            result = doImport(location, filter);
+        }
+        if (result.status().isOk()) {
+            KisImageSP image = m_document->image();
+            KisUsageLogger::log(QString("Loaded image from %1. Size: %2 * %3 pixels, %4 dpi. Color model: %6 %5 (%7). Layers: %8")
+                                .arg(QString::fromLatin1(from))
+                                .arg(image->width())
+                                .arg(image->height())
+                                .arg(image->xRes())
+                                .arg(image->colorSpace()->colorModelId().name())
+                                .arg(image->colorSpace()->colorDepthId().name())
+                                .arg(image->colorSpace()->profile()->name())
+                                .arg(image->nlayers()));
+
+
+        }
+        else {
+            KisUsageLogger::log(QString("Failed to load image from %1").arg(QString::fromLatin1(from)));
+        }
+
+    }
+    else /* if (direction == Export) */ {
         if (!exportConfiguration) {
             exportConfiguration = filter->lastSavedConfiguration(from, to);
         }
@@ -270,37 +391,52 @@ KisImportExportFilter::ConversionStatus KisImportExportManager::convert(KisImpor
         }
 
         bool alsoAsKra = false;
-        if (!askUserAboutExportConfiguration(filter, exportConfiguration,
-                                             from, to,
-                                             batchMode(), showWarnings,
-                                             &alsoAsKra)) {
+        bool askUser = askUserAboutExportConfiguration(filter, exportConfiguration,
+                                                       from, to,
+                                                       batchMode(), showWarnings,
+                                                       &alsoAsKra);
 
-            return KisImportExportFilter::UserCancelled;
+
+        if (!batchMode() && !askUser) {
+            return KisImportExportErrorCode(ImportExportCodes::Cancelled);
         }
 
-        if (!batchMode()) {
+        KisUsageLogger::log(QString("Converting from %1 to %2. Location: %3. Real location: %4. Batchmode: %5. Configuration: %6")
+                            .arg(QString::fromLatin1(from))
+                            .arg(QString::fromLatin1(to))
+                            .arg(location)
+                            .arg(realLocation)
+                            .arg(batchMode())
+                            .arg(exportConfiguration ? exportConfiguration->toXML() : "none"));
+
+
+
+        if (isAsync) {
+            result = QtConcurrent::run(std::bind(&KisImportExportManager::doExport, this, location, filter, exportConfiguration, alsoAsKra));
+
+            // we should explicitly report that the exporting has been initiated
+            result.setStatus(ImportExportCodes::OK);
+
+        } else if (!batchMode()) {
             KisAsyncActionFeedback f(i18n("Saving document..."), 0);
-            status = f.runAction(std::bind(&KisImportExportManager::doExport, this, location, filter, exportConfiguration, alsoAsKra));
+            result = f.runAction(std::bind(&KisImportExportManager::doExport, this, location, filter, exportConfiguration, alsoAsKra));
         } else {
-            status = doExport(location, filter, exportConfiguration, alsoAsKra);
+            result = doExport(location, filter, exportConfiguration, alsoAsKra);
         }
 
-        if (exportConfiguration) {
-            KisConfig().setExportConfiguration(typeName, exportConfiguration);
+        if (exportConfiguration && !batchMode()) {
+            KisConfig(false).setExportConfiguration(typeName, exportConfiguration);
         }
     }
-
-    return status;
+    return result;
 }
 
-void KisImportExportManager::fillStaticExportConfigurationProperties(KisPropertiesConfigurationSP exportConfiguration)
+void KisImportExportManager::fillStaticExportConfigurationProperties(KisPropertiesConfigurationSP exportConfiguration, KisImageSP image)
 {
-    // Fill with some meta information about the image
-    KisImageSP image = m_document->image();
     KisPaintDeviceSP dev = image->projection();
     const KoColorSpace* cs = dev->colorSpace();
     const bool isThereAlpha =
-        KisPainter::checkDeviceHasTransparency(image->projection());
+            KisPainter::checkDeviceHasTransparency(image->projection());
 
     exportConfiguration->setProperty(KisImportExportFilter::ImageContainsTransparencyTag, isThereAlpha);
     exportConfiguration->setProperty(KisImportExportFilter::ColorModelIDTag, cs->colorModelId().id());
@@ -312,15 +448,25 @@ void KisImportExportManager::fillStaticExportConfigurationProperties(KisProperti
     exportConfiguration->setProperty(KisImportExportFilter::sRGBTag, sRGB);
 }
 
-bool
-KisImportExportManager::askUserAboutExportConfiguration(
+
+void KisImportExportManager::fillStaticExportConfigurationProperties(KisPropertiesConfigurationSP exportConfiguration)
+{
+    return fillStaticExportConfigurationProperties(exportConfiguration, m_document->image());
+}
+
+bool KisImportExportManager::askUserAboutExportConfiguration(
         QSharedPointer<KisImportExportFilter> filter,
         KisPropertiesConfigurationSP exportConfiguration,
         const QByteArray &from,
         const QByteArray &to,
-        const bool batchMode, const bool showWarnings,
+        const bool batchMode,
+        const bool showWarnings,
         bool *alsoAsKra)
 {
+
+    // prevents the animation renderer from running this code
+
+
     const QString mimeUserDescription = KisMimeDatabase::descriptionForMimeType(to);
 
     QStringList warnings;
@@ -334,11 +480,24 @@ KisImportExportManager::askUserAboutExportConfiguration(
         errors = checker.errors();
     }
 
-    KisConfigWidget *wdg = filter->createConfigurationWidget(0, from, to);
+    KisConfigWidget *wdg = 0;
+
+    if (QThread::currentThread() == qApp->thread()) {
+        wdg = filter->createConfigurationWidget(0, from, to);
+
+        KisMainWindow *kisMain = KisPart::instance()->currentMainwindow();
+        if (wdg && kisMain) {
+            KisViewManager *manager = kisMain->viewManager();
+            wdg->setView(manager);
+        }
+    }
 
     // Extra checks that cannot be done by the checker, because the checker only has access to the image.
     if (!m_document->assistants().isEmpty() && to != m_document->nativeFormatMimeType()) {
         warnings.append(i18nc("image conversion warning", "The image contains <b>assistants</b>. The assistants will not be saved."));
+    }
+    if (m_document->referenceImagesLayer() && m_document->referenceImagesLayer()->shapeCount() > 0 && to != m_document->nativeFormatMimeType()) {
+        warnings.append(i18nc("image conversion warning", "The image contains <b>reference images</b>. The reference images will not be saved."));
     }
     if (m_document->guidesConfig().hasGuides() && to != m_document->nativeFormatMimeType()) {
         warnings.append(i18nc("image conversion warning", "The image contains <b>guides</b>. The guides will not be saved."));
@@ -350,7 +509,7 @@ KisImportExportManager::askUserAboutExportConfiguration(
     if (!batchMode && !errors.isEmpty()) {
         QString error =  "<html><body><p><b>"
                 + i18n("Error: cannot save this image as a %1.", mimeUserDescription)
-                + "</b> Reasons:</p>"
+                + "</b> " + i18n("Reasons:") + "</p>"
                 + "<p/><ul>";
         Q_FOREACH(const QString &w, errors) {
             error += "\n<li>" + w + "</li>";
@@ -376,7 +535,7 @@ KisImportExportManager::askUserAboutExportConfiguration(
             QHBoxLayout *hLayout = new QHBoxLayout();
 
             QLabel *labelWarning = new QLabel();
-            labelWarning->setPixmap(KisIconUtils::loadIcon("dialog-warning").pixmap(32, 32));
+            labelWarning->setPixmap(KisIconUtils::loadIcon("warning").pixmap(32, 32));
             hLayout->addWidget(labelWarning);
 
             KisPopupButton *bn = new KisPopupButton(0);
@@ -395,10 +554,10 @@ KisImportExportManager::askUserAboutExportConfiguration(
                     + i18n("You will lose information when saving this image as a %1.", mimeUserDescription);
 
             if (warnings.size() == 1) {
-                warning += "</b> Reason:</p>";
+                warning += "</b> " + i18n("Reason:") + "</p>";
             }
             else {
-                warning += "</b> Reasons:</p>";
+                warning += "</b> " + i18n("Reasons:") + "</p>";
             }
             warning += "<p/><ul>";
 
@@ -421,7 +580,7 @@ KisImportExportManager::askUserAboutExportConfiguration(
         QCheckBox *chkAlsoAsKra = 0;
         if (showWarnings && !warnings.isEmpty()) {
             chkAlsoAsKra = new QCheckBox(i18n("Also save your image as a Krita file."));
-            chkAlsoAsKra->setChecked(KisConfig().readEntry<bool>("AlsoSaveAsKra", false));
+            chkAlsoAsKra->setChecked(KisConfig(true).readEntry<bool>("AlsoSaveAsKra", false));
             layout->addWidget(chkAlsoAsKra);
         }
 
@@ -436,7 +595,7 @@ KisImportExportManager::askUserAboutExportConfiguration(
 
         *alsoAsKra = false;
         if (chkAlsoAsKra) {
-            KisConfig().writeEntry<bool>("AlsoSaveAsKra", chkAlsoAsKra->isChecked());
+            KisConfig(false).writeEntry<bool>("AlsoSaveAsKra", chkAlsoAsKra->isChecked());
             *alsoAsKra = chkAlsoAsKra->isChecked();
         }
 
@@ -448,19 +607,18 @@ KisImportExportManager::askUserAboutExportConfiguration(
     return true;
 }
 
-KisImportExportFilter::ConversionStatus KisImportExportManager::doImport(const QString &location, QSharedPointer<KisImportExportFilter> filter)
+KisImportExportErrorCode KisImportExportManager::doImport(const QString &location, QSharedPointer<KisImportExportFilter> filter)
 {
     QFile file(location);
     if (!file.exists()) {
-        return KisImportExportFilter::FileNotFound;
+        return ImportExportCodes::FileNotExist;
     }
 
     if (filter->supportsIO() && !file.open(QFile::ReadOnly)) {
-        return KisImportExportFilter::FileNotFound;
+        return KisImportExportErrorCode(KisImportExportErrorCannotRead(file.error()));
     }
 
-    KisImportExportFilter::ConversionStatus status =
-        filter->convert(m_document, &file, KisPropertiesConfigurationSP());
+    KisImportExportErrorCode status = filter->convert(m_document, &file, KisPropertiesConfigurationSP());
 
     if (file.isOpen()) {
         file.close();
@@ -469,16 +627,16 @@ KisImportExportFilter::ConversionStatus KisImportExportManager::doImport(const Q
     return status;
 }
 
-KisImportExportFilter::ConversionStatus KisImportExportManager::doExport(const QString &location, QSharedPointer<KisImportExportFilter> filter, KisPropertiesConfigurationSP exportConfiguration, bool alsoAsKra)
+KisImportExportErrorCode KisImportExportManager::doExport(const QString &location, QSharedPointer<KisImportExportFilter> filter, KisPropertiesConfigurationSP exportConfiguration, bool alsoAsKra)
 {
-    KisImportExportFilter::ConversionStatus status =
-        doExportImpl(location, filter, exportConfiguration);
+    KisImportExportErrorCode status =
+            doExportImpl(location, filter, exportConfiguration);
 
-    if (alsoAsKra && status == KisImportExportFilter::OK) {
+    if (alsoAsKra && status.isOk()) {
         QString kraLocation = location + ".kra";
         QByteArray mime = m_document->nativeFormatMimeType();
         QSharedPointer<KisImportExportFilter> filter(
-            filterForMimeType(QString::fromLatin1(mime), Export));
+                    filterForMimeType(QString::fromLatin1(mime), Export));
 
         KIS_SAFE_ASSERT_RECOVER_NOOP(filter);
 
@@ -486,37 +644,83 @@ KisImportExportFilter::ConversionStatus KisImportExportManager::doExport(const Q
             filter->setFilename(kraLocation);
 
             KisPropertiesConfigurationSP kraExportConfiguration =
-                filter->lastSavedConfiguration(mime, mime);
+                    filter->lastSavedConfiguration(mime, mime);
 
             status = doExportImpl(kraLocation, filter, kraExportConfiguration);
         } else {
-            status = KisImportExportFilter::FilterCreationError;
+            status = ImportExportCodes::FileFormatIncorrect;
         }
     }
 
     return status;
 }
 
-KisImportExportFilter::ConversionStatus KisImportExportManager::doExportImpl(const QString &location, QSharedPointer<KisImportExportFilter> filter, KisPropertiesConfigurationSP exportConfiguration)
+// Temporary workaround until QTBUG-57299 is fixed.
+// 02-10-2019 update: the bug is closed, but we've still seen this issue.
+//                    and without using QSaveFile the issue can still occur
+//                    when QFile::copy fails because Dropbox/Google/OneDrive
+//                    locks the target file.
+#ifndef Q_OS_WIN
+#define USE_QSAVEFILE
+#endif
+
+KisImportExportErrorCode KisImportExportManager::doExportImpl(const QString &location, QSharedPointer<KisImportExportFilter> filter, KisPropertiesConfigurationSP exportConfiguration)
 {
+#ifdef USE_QSAVEFILE
     QSaveFile file(location);
     file.setDirectWriteFallback(true);
-
     if (filter->supportsIO() && !file.open(QFile::WriteOnly)) {
+#else
+    QFileInfo fi(location);
+    QTemporaryFile file(QDir::tempPath() + "/.XXXXXX.kra");
+    if (filter->supportsIO() && !file.open()) {
+#endif
+        KisImportExportErrorCannotWrite result(file.error());
+#ifdef USE_QSAVEFILE
         file.cancelWriting();
-        return KisImportExportFilter::CreationError;
+#endif
+        return result;
     }
 
-    KisImportExportFilter::ConversionStatus status =
-        filter->convert(m_document, &file, exportConfiguration);
+    KisImportExportErrorCode status = filter->convert(m_document, &file, exportConfiguration);
 
-    if (status != KisImportExportFilter::OK) {
-        file.cancelWriting();
-    } else {
-        file.commit();
+    if (filter->supportsIO()) {
+        if (!status.isOk()) {
+#ifdef USE_QSAVEFILE
+            file.cancelWriting();
+#endif
+        } else {
+#ifdef USE_QSAVEFILE
+            if (!file.commit()) {
+                qWarning() << "Could not commit QSaveFile";
+                status = KisImportExportErrorCannotWrite(file.error());
+            }
+#else
+            file.flush();
+            file.close();
+            QFile target(location);
+            if (target.exists()) {
+                // There should already be a .kra~ backup
+                target.remove();
+            }
+            if (!file.copy(location)) {
+                file.setAutoRemove(false);
+                return KisImportExportErrorCannotWrite(file.error());
+            }
+#endif
+        }
     }
+
+    // Do some minimal verification
+    QString verificationResult = filter->verify(location);
+    if (!verificationResult.isEmpty()) {
+        status = KisImportExportErrorCode(ImportExportCodes::ErrorWhileWriting);
+        m_document->setErrorMessage(verificationResult);
+    }
+
 
     return status;
+
 }
 
 #include <KisMimeDatabase.h>

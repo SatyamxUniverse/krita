@@ -66,9 +66,7 @@ QVariant DockerStylesComboModel::data(const QModelIndex &index, int role) const
 
     switch (role) {
     case AbstractStylesModel::isTitleRole: {
-        if (index.internalId() == (quintptr)UsedStyleId || index.internalId() == (quintptr)UnusedStyleId) {
-            return true;
-        }
+        return (index.internalId() == (quintptr)UsedStyleId || index.internalId() == (quintptr)UnusedStyleId);
     }
     case Qt::DisplayRole: {
         if (index.internalId() == (quintptr)UsedStyleId) {
@@ -148,7 +146,7 @@ void DockerStylesComboModel::createMapping()
     }
 
     // The order of the styles is already correctly given by the source model.
-    // Therefor it is not needed to resort the styles again here. The source model
+    // Therefore it is not needed to resort the styles again here. The source model
     // makes sure to have the NoneStyleId as first style and the styles after
     // that are ordered by name.
     for (int i = 0; i < m_sourceModel->rowCount(QModelIndex()); ++i) {

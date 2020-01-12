@@ -28,7 +28,6 @@
 #include "kis_default_bounds.h"
 #include "kis_paint_device.h"
 #include "kis_merge_walker.h"
-#include "kis_image.h"
 
 class TestLayer : public KisLayer
 {
@@ -242,6 +241,7 @@ private Q_SLOTS:
     void testUsualVisiting();
     void testVisitingWithTopmostMask();
     void testMergeVisiting();
+    void testComplexGroupVisiting();
     void testComplexAccessVisiting();
     void testCloneNotificationsVisiting();
     void testRefreshSubtreeVisiting();

@@ -28,6 +28,8 @@
 #include "KoShapeContainer.h"
 #include "KoShapeManager.h"
 #include <KoRTree.h>
+#include <QMutex>
+#include "kis_thread_safe_signal_compressor.h"
 
 class KoCanvasBase;
 class KoShapeGroup;
@@ -38,11 +40,12 @@ class Q_DECL_HIDDEN KoShapeManager::Private
 {
 public:
     Private(KoShapeManager *shapeManager, KoCanvasBase *c)
-        : selection(new KoSelection()),
+        : selection(new KoSelection(shapeManager)),
           canvas(c),
           tree(4, 2),
           q(shapeManager),
-          shapeInterface(shapeManager)
+          shapeInterface(shapeManager),
+          updateCompressor(100, KisSignalCompressor::FIRST_ACTIVE)
     {
     }
 
@@ -56,11 +59,18 @@ public:
      */
     void updateTree();
 
+    void forwardCompressedUdpate();
+
     /**
      * Returns whether the shape should be added to the RTree for collision and ROI
      * detection.
      */
     bool shapeUsedInRenderingTree(KoShape *shape);
+
+    /**
+     * Recursively detach the shapes from this shape manager
+     */
+    void unlinkFromShapesRecursively(const QList<KoShape *> &shapes);
 
     /**
      * Recursively paints the given group shape to the specified painter
@@ -94,7 +104,7 @@ public:
 
         void fireSignals() {
             Q_FOREACH (KoShape *shape, shapesWithCollisionDetection)
-                shape->priv()->shapeChanged(KoShape::CollisionDetected);
+                shape->shapeChangedPriv(KoShape::CollisionDetected);
         }
 
     private:
@@ -102,7 +112,6 @@ public:
     };
 
     QList<KoShape *> shapes;
-    QList<KoShape *> additionalShapes; // these are shapes that are only handled for updates
     KoSelection *selection;
     KoCanvasBase *canvas;
     KoRTree<KoShape *> tree;
@@ -110,6 +119,14 @@ public:
     QHash<KoShape*, int> shapeIndexesBeforeUpdate;
     KoShapeManager *q;
     KoShapeManager::ShapeInterface shapeInterface;
+    QMutex shapesMutex;
+    QMutex treeMutex;
+
+    KisThreadSafeSignalCompressor updateCompressor;
+    QRectF compressedUpdate;
+    QSet<const KoShape*> compressedUpdatedShapes;
+
+    bool updatesBlocked = false;
 };
 
 #endif

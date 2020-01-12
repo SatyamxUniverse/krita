@@ -23,6 +23,15 @@
 #include "kritalibkis_export.h"
 #include "libkis.h"
 
+#include "GroupLayer.h"
+#include "CloneLayer.h"
+#include "FileLayer.h"
+#include "FilterLayer.h"
+#include "FillLayer.h"
+#include "VectorLayer.h"
+#include "FilterMask.h"
+#include "SelectionMask.h"
+
 class KisDocument;
 
 /**
@@ -42,7 +51,39 @@ public:
     bool operator==(const Document &other) const;
     bool operator!=(const Document &other) const;
 
+    /**
+     * @brief horizontalGuides
+     * The horizontal guides.
+     * @return a list of the horizontal positions of guides.
+     */
+    QList<qreal> horizontalGuides() const;
+    /**
+     * @brief verticalGuides
+     * The vertical guide lines.
+     * @return a list of vertical guides.
+     */
+    QList<qreal> verticalGuides() const;
+
+    /**
+     * @brief guidesVisible
+     * Returns guide visibility.
+     * @return whether the guides are visible.
+     */
+    bool guidesVisible() const;
+    /**
+     * @brief guidesLocked
+     * Returns guide lockedness.
+     * @return whether the guides are locked.
+     */
+    bool guidesLocked() const;
+
 public Q_SLOTS:
+
+    /**
+     * @brief clone create a shallow clone of this document.
+     * @return a new Document that should be identical to this one in every respect.
+     */
+    Document *clone() const;
 
     /**
      * Batchmode means that no actions on the document should show dialogs or popups.
@@ -51,7 +92,7 @@ public Q_SLOTS:
     bool batchmode() const;
 
     /**
-     * Set batchmode to @param value. If batchmode is true, then there should be no popups
+     * Set batchmode to @p value. If batchmode is true, then there should be no popups
      * or dialogs shown to the user.
      */
     void setBatchmode(bool value);
@@ -149,6 +190,22 @@ public Q_SLOTS:
      */
     bool setColorSpace(const QString &colorModel, const QString &colorDepth, const QString &colorProfile);
 
+    /**
+     * @brief backgroundColor returns the current background color of the document. The color will
+     * also include the opacity.
+     *
+     * @return QColor
+     */
+    QColor backgroundColor();
+
+    /**
+     * @brief setBackgroundColor sets the background color of the document. It will trigger a projection
+     * update.
+     *
+     * @param color A QColor. The color will be converted from sRGB.
+     * @return bool
+     */
+    bool setBackgroundColor(const QColor &color);
 
     /**
      * @brief documentInfo creates and XML document representing document and author information.
@@ -225,12 +282,12 @@ public Q_SLOTS:
     void setHeight(int value);
 
     /**
-     * @return the name of the document. This is the title field in the @see documentInfo
+     * @return the name of the document. This is the title field in the @ref documentInfo
      */
     QString name() const;
 
     /**
-     * @brief setName sets the name of the document to @param value. This is the title field in the @see documentInfo
+     * @brief setName sets the name of the document to @p value. This is the title field in the @ref documentInfo
      */
     void setName(QString value);
 
@@ -274,22 +331,47 @@ public Q_SLOTS:
     void setWidth(int value);
 
     /**
-     * @return xRes the horizontal resolution of the image in pixels per pt (there are 72 pts to an inch)
+     * @return the left edge of the canvas in pixels.
      */
+    int xOffset() const;
+
+    /**
+     * @brief setXOffset sets the left edge of the canvas to @p x.
+     */
+    void setXOffset(int x);
+
+    /**
+     * @return the top edge of the canvas in pixels.
+     */
+    int yOffset() const;
+
+    /**
+     * @brief setYOffset sets the top edge of the canvas to @p y.
+     */
+    void setYOffset(int y);
+
+    /**
+     * @return xRes the horizontal resolution of the image in pixels
+     * per inch
+     */
+
     double xRes() const;
 
     /**
-     * @brief setXRes set the horizontal resolution of the image to xRes in pixels per pt. (there are 72 pts to an inch)
+     * @brief setXRes set the horizontal resolution of the image to
+     * xRes in pixels per inch
      */
     void setXRes(double xRes) const;
 
     /**
-     * @return yRes the vertical resolution of the image in pixels per pt (there are 72 pts to an inch)
+     * @return yRes the vertical resolution of the image in pixels per
+     * inch
      */
     double yRes() const;
 
     /**
-     * @brief setYRes set the vertical resolution of the image to yRes in pixels per pt. (there are 72 pts to an inch)
+     * @brief setYRes set the vertical resolution of the image to yRes
+     * in pixels per inch
      */
     void setYRes(double yRes) const;
 
@@ -331,20 +413,60 @@ public Q_SLOTS:
      * @brief close Close the document: remove it from Krita's internal list of documents and
      * close all views. If the document is modified, you should save it first. There will be
      * no prompt for saving.
+     *
+     * After closing the document it becomes invalid.
+     *
      * @return true if the document is closed.
      */
     bool close();
 
     /**
-     * @brief crop the image to rectangle described by @param x, @param y,
-     * @param w and @param h
+     * @brief crop the image to rectangle described by @p x, @p y,
+     * @p w and @p h
+     * @param x x coordinate of the top left corner
+     * @param y y coordinate of the top left corner
+     * @param w width
+     * @param h height
      */
     void crop(int x, int y, int w, int h);
 
     /**
      * @brief exportImage export the image, without changing its URL to the given path.
      * @param filename the full path to which the image is to be saved
-     * @param exportConfiguration a configuration object appropriate to the file format
+     * @param exportConfiguration a configuration object appropriate to the file format.
+     * An InfoObject will used to that configuration.
+     *
+     * The supported formats have specific configurations that must be used when in
+     * batchmode. They are described below:
+     *
+     *\b png
+     * <ul>
+     * <li>alpha: bool (True or False)
+     * <li>compression: int (1 to 9)
+     * <li>forceSRGB: bool (True or False)
+     * <li>indexed: bool (True or False)
+     * <li>interlaced: bool (True or False)
+     * <li>saveSRGBProfile: bool (True or False)
+     * <li>transparencyFillcolor: rgb (Ex:[255,255,255])
+     * </ul>
+     *
+     *\b jpeg
+     * <ul>
+     * <li>baseline: bool (True or False)
+     * <li>exif: bool (True or False)
+     * <li>filters: bool (['ToolInfo', 'Anonymizer'])
+     * <li>forceSRGB: bool (True or False)
+     * <li>iptc: bool (True or False)
+     * <li>is_sRGB: bool (True or False)
+     * <li>optimize: bool (True or False)
+     * <li>progressive: bool (True or False)
+     * <li>quality: int (0 to 100)
+     * <li>saveProfile: bool (True or False)
+     * <li>smoothing: int (0 to 100)
+     * <li>subsampling: int (0 to 3)
+     * <li>transparencyFillcolor: rgb (Ex:[255,255,255])
+     * <li>xmp: bool (True or False)
+     * </ul>
      * @return true if the export succeeded, false if it failed.
      */
     bool exportImage(const QString &filename, const InfoObject &exportConfiguration);
@@ -355,12 +477,14 @@ public Q_SLOTS:
     void flatten();
 
     /**
-     * @brief resizeImage resizes the canvas to the given width and height.
+     * @brief resizeImage resizes the canvas to the given left edge, top edge, width and height.
      * Note: This doesn't scale, use scale image for that.
+     * @param x the new left edge
+     * @param y the new top edge
      * @param w the new width
      * @param h the new height
      */
-    void resizeImage(int w, int h);
+    void resizeImage(int x, int y, int w, int h);
 
     /**
     * @brief scaleImage
@@ -405,8 +529,8 @@ public Q_SLOTS:
     bool save();
 
     /**
-     * @brief saveAs save the document under the @param filename. The document's
-     * filename will be reset to @param filename.
+     * @brief saveAs save the document under the @p filename. The document's
+     * filename will be reset to @p filename.
      * @param filename the new filename (full path) for the document
      * @return true if saving succeeded, false otherwise.
      */
@@ -441,9 +565,116 @@ public Q_SLOTS:
      * The settings and selections for relevant layer and mask types can also be set
      * after the Node has been created.
      *
+@code
+d = Application.createDocument(1000, 1000, "Test", "RGBA", "U8", "", 120.0)
+root = d.rootNode();
+print(root.childNodes())
+l2 = d.createNode("layer2", "paintLayer")
+print(l2)
+root.addChildNode(l2, None)
+print(root.childNodes())
+@endcode
+     *
+     *
      * @return the new Node.
      */
     Node* createNode(const QString &name, const QString &nodeType);
+    /**
+     * @brief createGroupLayer
+     * Returns a grouplayer object. Grouplayers are nodes that can have
+     * other layers as children and have the passthrough mode.
+     * @param name the name of the layer.
+     * @return a GroupLayer object.
+     */
+    GroupLayer* createGroupLayer(const QString &name);
+    /**
+     * @brief createFileLayer returns a layer that shows an external image.
+     * @param name name of the file layer.
+     * @param fileName the absolute filename of the file referenced. Symlinks will be resolved.
+     * @param scalingMethod how the dimensions of the file are interpreted
+     *        can be either "None", "ImageToSize" or "ImageToPPI"
+     * @return a FileLayer
+     */
+    FileLayer* createFileLayer(const QString &name, const QString fileName, const QString scalingMethod);
+
+    /**
+     * @brief createFilterLayer creates a filter layer, which is a layer that represents a filter
+     * applied non-destructively.
+     * @param name name of the filterLayer
+     * @param filter the filter that this filter layer will us.
+     * @param selection the selection.
+     * @return a filter layer object.
+     */
+    FilterLayer* createFilterLayer(const QString &name, Filter &filter, Selection &selection);
+
+    /**
+     * @brief createFillLayer creates a fill layer object, which is a layer
+     * @param name
+     * @param generatorName - name of the generation filter.
+     * @param configuration - the configuration for the generation filter.
+     * @param selection - the selection.
+     * @return a filllayer object.
+     *
+     * @code
+     * from krita import *
+     * d = Krita.instance().activeDocument()
+     * i = InfoObject();
+     * i.setProperty("pattern", "Cross01.pat")
+     * s = Selection();
+     * s.select(0, 0, d.width(), d.height(), 255)
+     * n = d.createFillLayer("test", "pattern", i, s)
+     * r = d.rootNode();
+     * c = r.childNodes();
+     * r.addChildNode(n, c[0])
+     * d.refreshProjection()
+     * @endcode
+     */
+    FillLayer* createFillLayer(const QString &name, const QString generatorName, InfoObject &configuration, Selection &selection);
+
+    /**
+     * @brief createCloneLayer
+     * @param name
+     * @param source
+     * @return
+     */
+    CloneLayer* createCloneLayer(const QString &name, const Node* source);
+
+    /**
+     * @brief createVectorLayer
+     * Creates a vector layer that can contain vector shapes.
+     * @param name the name of this layer.
+     * @return a VectorLayer.
+     */
+    VectorLayer* createVectorLayer(const QString &name);
+
+    /**
+     * @brief createFilterMask
+     * Creates a filter mask object that much like a filterlayer can apply a filter non-destructively.
+     * @param name the name of the layer.
+     * @param filter the filter assigned.
+     * @param selection the selection to be used by the filter mask
+     * @return a FilterMask
+     */
+    FilterMask* createFilterMask(const QString &name, Filter &filter, Selection &selection);
+
+    /**
+     * @brief createFilterMask
+     * Creates a filter mask object that much like a filterlayer can apply a filter non-destructively.
+     * @param name the name of the layer.
+     * @param filter the filter assigned.
+     * @param selection_source a node from which the selection should be initialized
+     * @return a FilterMask
+     */
+    FilterMask* createFilterMask(const QString &name, Filter &filter, const Node* selection_source);
+
+    /**
+     * @brief createSelectionMask
+     * Creates a selection mask, which can be used to store selections.
+     * @param name - the name of the layer.
+     * @return a SelectionMask
+     */
+    SelectionMask* createSelectionMask(const QString &name);
+
 
     /**
      * @brief projection creates a QImage from the rendered image or
@@ -496,12 +727,138 @@ public Q_SLOTS:
      * wait until the image is fully recomputed.
      */
     void refreshProjection();
+    /**
+     * @brief setHorizontalGuides
+     * replace all existing horizontal guides with the entries in the list.
+     * @param lines a list of floats containing the new guides.
+     */
+    void setHorizontalGuides(const QList<qreal> &lines);
+    /**
+     * @brief setVerticalGuides
+     * replace all existing horizontal guides with the entries in the list.
+     * @param lines a list of floats containing the new guides.
+     */
+    void setVerticalGuides(const QList<qreal> &lines);
+
+    /**
+     * @brief setGuidesVisible
+     * set guides visible on this document.
+     * @param visible whether or not the guides are visible.
+     */
+    void setGuidesVisible(bool visible);
+
+    /**
+     * @brief setGuidesLocked
+     * set guides locked on this document
+     * @param locked whether or not to lock the guides on this document.
+     */
+    void setGuidesLocked(bool locked);
+
+    /**
+     * @brief modified returns true if the document has unsaved modifications.
+     */
+    bool modified() const;
+
+    /**
+     * @brief bounds return the bounds of the image
+     * @return the bounds
+     */
+    QRect bounds() const;
+
+
+
+
+
+
+
+    /****
+     * Animation Related API
+    *****/
+
+
+    /**
+     * @brief Import an image sequence of files from a directory. This will grab all
+     * images from the directory and import them with a potential offset (firstFrame)
+     * and step (images on 2s, 3s, etc)
+     * @returns whether the animation import was successful
+     */
+    bool importAnimation(const QList<QString> &files, int firstFrame, int step);
+
+    /**
+     * @brief frames per second of document
+     * @return the fps of the document
+     */
+    int framesPerSecond();
+
+    /**
+     * @brief set frames per second of document
+     */
+    void setFramesPerSecond(int fps);
+
+    /**
+     * @brief set start time of animation
+     */
+    void setFullClipRangeStartTime(int startTime);
+
+    /**
+     * @brief get the full clip range start time
+     * @return full clip range start time
+     */
+    int fullClipRangeStartTime();
+
+
+    /**
+     * @brief set full clip range end time
+     */
+    void setFullClipRangeEndTime(int endTime);
+
+    /**
+     * @brief get the full clip range end time
+     * @return full clip range end time
+     */
+    int fullClipRangeEndTime();
+
+    /**
+     * @brief get total frame range for animation
+     * @return total frame range for animation
+     */
+    int animationLength();
+
+    /**
+     * @brief set temporary playback range of document
+     */
+    void setPlayBackRange(int start, int stop);
+
+    /**
+     * @brief get start time of current playback
+     * @return start time of current playback
+     */
+    int playBackStartTime();
+
+    /**
+     * @brief get end time of current playback
+     * @return end time of current playback
+     */
+    int playBackEndTime();
+
+    /**
+     * @brief get current frame selected of animation
+     * @return current frame selected of animation
+     */
+    int currentTime();
+
+    /**
+     * @brief set current time of document's animation
+     */
+    void setCurrentTime(int time);
+
 
 private:
 
     friend class Krita;
     friend class Window;
     friend class Filter;
+    friend class View;
     QPointer<KisDocument> document() const;
 
 

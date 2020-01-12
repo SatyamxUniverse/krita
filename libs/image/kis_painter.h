@@ -53,6 +53,8 @@ class KoPattern;
 class KisPaintInformation;
 class KisPaintOp;
 class KisDistanceInformation;
+struct KisRenderedDab;
+class KisRunnableStrokeJobsInterface;
 
 /**
  * KisPainter contains the graphics primitives necessary to draw on a
@@ -189,10 +191,10 @@ public:
     /**
      * Convenience method that uses QPoint and QRect.
      *
-     * @param pos the destination coordinate, it replaces @param dstX and @param dstY.
+     * @param pos the destination coordinate, it replaces @p dstX and @p dstY.
      * @param srcDev the source device.
-     * @param srcRect the rectangle describing the area to blast from @param srcDev into the current paint device.
-     * @param srcRect replaces @param srcX, @param srcY, @param srcWidth and @param srcHeight.
+     * @param srcRect the rectangle describing the area to blast from @p srcDev into the current paint device.
+     * @p srcRect replaces @p srcX, @p srcY, @p srcWidth and @p srcHeight.
      *
      */
     void bitBlt(const QPoint & pos, const KisPaintDeviceSP srcDev, const QRect & srcRect);
@@ -216,10 +218,10 @@ public:
     /**
      * Convenience method that uses QPoint and QRect.
      *
-     * @param pos the destination coordinate, it replaces @param dstX and @param dstY.
+     * @param pos the destination coordinate, it replaces @p dstX and @p dstY.
      * @param srcDev the source device.
      * @param srcRect the rectangle describing the area to blast from @param srcDev into the current paint device.
-     * @param srcRect replaces @param srcX, @param srcY, @param srcWidth and @param srcHeight.
+     * @p srcRect replaces @p srcX, @p srcY, @p srcWidth and @p srcHeight.
      *
      */
     void bitBltOldData(const QPoint & pos, const KisPaintDeviceSP srcDev, const QRect & srcRect);
@@ -259,8 +261,8 @@ public:
                                   qint32 srcWidth, qint32 srcHeight);
 
     /**
-     * Convenience method that assumes @param selX, @param selY, @param srcX and @param srcY are
-     * equal to 0. Best used when @param selection and the desired area of @param srcDev have exactly
+     * Convenience method that assumes @p selX, @p selY, @p srcX and @p srcY are
+     * equal to 0. Best used when @p selection and the desired area of @p srcDev have exactly
      * the same dimensions and are specially made for each other.
      *
      * @param dstX the destination x-coordinate
@@ -276,10 +278,10 @@ public:
                                   qint32 srcWidth, qint32 srcHeight);
 
     /**
-     * Blast a region of srcWidth @param srcWidth and srcHeight @param srcHeight from @param srcDev onto the current
-     * paint device. @param srcX and @param srcY set the x and y positions of the
-     * origin top-left corner, @param dstX and @param dstY those of the destination.
-     * @param srcDev is a \ref KisFixedPaintDevice: this means that @param srcDev must have the same
+     * Blast a region of srcWidth @p srcWidth and srcHeight @p srcHeight from @p srcDev onto the current
+     * paint device. @p srcX and @p srcY set the x and y positions of the
+     * origin top-left corner, @p dstX and @p dstY those of the destination.
+     * @p srcDev is a @ref KisFixedPaintDevice : this means that @p srcDev must have the same
      * colorspace as the destination device.
      *
      * @param dstX the destination x-coordinate
@@ -295,32 +297,40 @@ public:
                   qint32 srcX, qint32 srcY,
                   qint32 srcWidth, qint32 srcHeight);
 
+
+    /**
+     * Render the area \p rc from \p srcDevices on the destination device.
+     * If \p rc doesn't cross the device's rect, then the device is not
+     * rendered at all.
+     */
+    void bltFixed(const QRect &rc, const QList<KisRenderedDab> allSrcDevices);
+
     /**
      * Convenience method that uses QPoint and QRect.
      *
-     * @param pos the destination coordinate, it replaces @param dstX and @param dstY.
+     * @param pos the destination coordinate, it replaces @p dstX and @p dstY.
      * @param srcDev the source device.
-     * @param srcRect the rectangle describing the area to blast from @param srcDev into the current paint device.
-     * @param srcRect replaces @param srcX, @param srcY, @param srcWidth and @param srcHeight.
+     * @param srcRect the rectangle describing the area to blast from @p srcDev into the current paint device.
+     * @param srcRect replaces @p srcX, @p srcY, @p srcWidth and @p srcHeight.
      *
      */
     void bltFixed(const QPoint & pos, const KisFixedPaintDeviceSP srcDev, const QRect & srcRect);
 
     /**
-     * Blasts a @param selection of srcWidth @param srcWidth and srcHeight @param srcHeight
-     * of @param srcDev on the current paint device. There is parameters to control
-     * the top-left corner of the area in each respective paint device (@param dstX,
-     * @param dstY, @param srcX, @param srcY).
-     * @param selection can be used as a mask to shape @param srcDev to something
+     * Blasts a @p selection of srcWidth @p srcWidth and srcHeight @p srcHeight
+     * of @p srcDev on the current paint device. There is parameters to control
+     * the top-left corner of the area in each respective paint device (@p dstX,
+     * @p dstY, @p srcX, @p srcY).
+     * @p selection can be used as a mask to shape @p srcDev to something
      * interesting in the same step it is rendered to the current paint device.
-     * @param srcDev is a \ref KisFixedPaintDevice: this means that @param srcDev
+     * @p srcDev is a @ref KisFixedPaintDevice : this means that @p srcDev
      * must have the same colorspace as the destination device.
-     * @param selection 's colorspace must be alpha8 (the colorspace for
+     * @p selection 's colorspace must be alpha8 (the colorspace for
      * selections/transparency).
      * The rectangle formed by the respective top-left coordinates of each device
-     * and @param srcWidth and @param srcHeight must not go beyond their limits, and
+     * and @p srcWidth and @p srcHeight must not go beyond their limits, and
      * they must be different from zero.
-     * @param selection and KisPainter's selection (the user selection) are
+     * @p selection and KisPainter's selection (the user selection) are
      * fused together through the composite operation COMPOSITE_MULT.
      *
      * @param dstX the destination x-coordinate
@@ -342,8 +352,8 @@ public:
                                     quint32 srcWidth, quint32 srcHeight);
 
     /**
-     * Convenience method that assumes @param selX, @param selY, @param srcX and @param srcY are
-     * equal to 0. Best used when @param selection and @param srcDev have exactly the same
+     * Convenience method that assumes @p selX, @p selY, @p srcX and @p srcY are
+     * equal to 0. Best used when @p selection and @p srcDev have exactly the same
      * dimensions and are specially made for each other.
      *
      * @param dstX the destination x-coordinate
@@ -359,8 +369,8 @@ public:
                                     quint32 srcWidth, quint32 srcHeight);
 
     /**
-     * fills a region of width @param width and height @param height of the current
-     * paint device with the color @param color. @param x and @param y set the x and y positions of the
+     * fills a region of width @p width and height @p height of the current
+     * paint device with the color @p color. @p x and @p y set the x and y positions of the
      * origin top-left corner.
      *
      * @param x the destination x-coordinate
@@ -399,8 +409,10 @@ public:
      * Convenience method for renderMirrorMask(), allows to choose whether
      * we need to preserve our fixed mask or do the transformations in-place.
      *
-     * @param rc rectangle area covered by dab
+     * @param rc rectangular area covered by dab
      * @param dab the device to render
+     * @param sx x coordinate of the top left corner of the area
+     * @param sy y coordinate of the top left corner of the area
      * @param mask mask to use for rendering
      * @param preserveMask states whether a temporary device should be
      *                    created to do the transformations
@@ -419,6 +431,12 @@ public:
     void renderDabWithMirroringNonIncremental(QRect rc, KisPaintDeviceSP dab);
 
     /**
+     * @return true if the painter has some rects marked as dirty
+     * @see takeDirtyRegion(), addDirtyRect()
+     */
+    bool hasDirtyRegion() const;
+
+    /**
       * The methods in this class do not tell the paintdevice to update, but they calculate the
       * dirty area. This method returns this dirty area and resets it.
       */
@@ -435,18 +453,18 @@ public:
      * If savedDist is less than zero, the brush is painted at pos1 before being
      * painted along the line using the spacing setting.
      * @return the drag distance, that is the remains of the distance between p1 and p2 not covered
-     * because the currenlty set brush has a spacing greater than that distance.
+     * because the currently set brush has a spacing greater than that distance.
      */
     void paintLine(const KisPaintInformation &pi1,
                    const KisPaintInformation &pi2,
-                   KisDistanceInformation *curentDistance);
+                   KisDistanceInformation *currentDistance);
 
     /**
-     * Draw a Bezier curve between pos1 and pos2 using control points 1 and 2.
+     * Draw a Bezier curve between @p pi1 and @p pi2 using control points @p control1 and @p control2.
      * If savedDist is less than zero, the brush is painted at pos1 before being
      * painted along the curve using the spacing setting.
-     * @return the drag distance, that is the remains of the distance between p1 and p2 not covered
-     * because the currenlty set brush has a spacing greater than that distance.
+     * @return the drag distance, that is the remains of the distance between @p pi1 and @p pi2 not covered
+     * because the currently set brush has a spacing greater than that distance.
      */
     void paintBezierCurve(const KisPaintInformation &pi1,
                           const QPointF &control1,
@@ -455,7 +473,7 @@ public:
                           KisDistanceInformation *currentDistance);
     /**
      * Fill the given vector points with the points needed to draw the Bezier curve between
-     * pos1 and pos2 using control points 1 and 2, excluding the final pos2.
+     * @p pos1 and @p pos2 using control points @p control1 and @p control2, excluding the final pos2.
      */
     void getBezierCurvePoints(const QPointF &pos1,
                               const QPointF &control1,
@@ -526,7 +544,8 @@ public:
     /**
      * Fills the portion of an area enclosed by the given QPainterPath
      *
-     * \param rect the portion of the path to fill
+     * \param path the portion of the path to fill
+     * \param requestedRect the rectangle containing the area
      */
     void fillPainterPath(const QPainterPath& path, const QRect &requestedRect);
 
@@ -576,7 +595,7 @@ public:
 
     /**
      * Paint an unstroked wide line from the specified start to the specified
-     * end position with width varying from @param w1 at the start to @param w2 at
+     * end position with width varying from @p start at the start to @p end at
      * the end.
      *
      * XXX: the width should be set in doubles, not integers.
@@ -591,7 +610,7 @@ public:
      * An empty channelFlags parameter means that all channels are
      * affected.
      *
-     * @param the bit array that masks the source channels; only
+     * @param channelFlags the bit array that masks the source channels; only
      * the channels where the corresponding bit is true will will be
      * composited onto the destination device.
      */
@@ -601,7 +620,7 @@ public:
     QBitArray channelFlags();
 
     /**
-     * Set the paintop preset to use. If @param image is given,
+     * Set the paintop preset to use. If @p image is given,
      * the paintop will be created using this image as parameter.
      * Some paintops really want to know about the image they work
      * for, e.g. the clone paintop.
@@ -619,16 +638,53 @@ public:
 
     void setMirrorInformation(const QPointF &axesCenter, bool mirrorHorizontally, bool mirrorVertically);
 
-    /**
-     * copy the mirror information to other painter
-     */
-    void copyMirrorInformation(KisPainter * painter);
+    void copyMirrorInformationFrom(const KisPainter *other);
 
     /**
      * Returns whether the mirroring methods will do any
      * work when called
      */
     bool hasMirroring() const;
+
+    /**
+     * Indicates if horizontal mirroring mode is activated
+     */
+    bool hasHorizontalMirroring() const;
+
+    /**
+     * Indicates if vertical mirroring mode is activated
+     */
+    bool hasVerticalMirroring() const;
+
+    /**
+     * Mirror \p rc in the requested \p direction around the center point defined
+     * in the painter.
+     */
+    void mirrorRect(Qt::Orientation direction, QRect *rc) const;
+
+    /**
+     * Mirror \p dab in the requested direction around the center point defined
+     * in the painter. The dab's offset is adjusted automatically.
+     */
+    void mirrorDab(Qt::Orientation direction, KisRenderedDab *dab) const;
+
+    /**
+     * Calculate the list of the mirrored rects that will be painted on the
+     * the canvas when calling renderMirrorMask() at al
+     */
+    const QVector<QRect> calculateAllMirroredRects(const QRect &rc);
+
+    /**
+     * Calculate the list of the mirrored points according to the current
+     * mirroring configuration.
+     */
+    const QVector<QPointF> calculateAllMirroredPoints(const QPointF &pos);
+
+    /**
+     * Calculate the list of the mirrored point pairs according to the current
+     * mirroring configuration.
+     */
+    const QVector<QPair<QPointF, QPointF>> calculateAllMirroredPoints(const QPair<QPointF, QPointF> &pair);
 
     /// Set the current pattern
     void setPattern(const KoPattern * pattern);
@@ -666,9 +722,7 @@ public:
         FillStyleForegroundColor,
         FillStyleBackgroundColor,
         FillStylePattern,
-        FillStyleGradient,
-        FillStyleStrokes,
-        FillStyleGenerator,
+        FillStyleGenerator
     };
 
     /// Set the current style with which to fill
@@ -706,6 +760,16 @@ public:
      */
     void setOpacityUpdateAverage(quint8 opacity);
 
+    /**
+     * Sets average opacity, that is used to make ALPHA_DARKEN painting look correct
+     */
+    void setAverageOpacity(qreal averageOpacity);
+
+    /**
+     * Calculate average opacity value after painting a single dab with \p opacity
+     */
+    static qreal blendAverageOpacity(qreal opacity, qreal averageOpacity);
+
     /// Set the opacity which is used in painting (like filling polygons)
     void setOpacity(quint8 opacity);
 
@@ -721,9 +785,14 @@ public:
     void setCompositeOp(const QString& op);
 
     /**
-     * Add the r to the current dirty rect.
+     * Add \p r to the current set of dirty rects
      */
-    void addDirtyRect(const QRect & r);
+    void addDirtyRect(const QRect &r);
+
+    /**
+     * Add \p rects to the current set of dirty rects
+     */
+    void addDirtyRects(const QVector<QRect> &rects);
 
     /**
      * Reset the selection to the given selection. All painter actions will be
@@ -763,6 +832,20 @@ public:
      * set the conversion flags in case pixels need to be converted before painting
      */
     void setColorConversionFlags(KoColorConversionTransformation::ConversionFlags conversionFlags);
+
+    /**
+     * Set interface for running asynchronous jobs by paintops.
+     *
+     * NOTE: the painter does *not* own the interface device. It is the responsibility
+     *       of the caller to ensure that the interface object is alive during the lifetime
+     *       of the painter.
+     */
+    void setRunnableStrokeJobsInterface(KisRunnableStrokeJobsInterface *interface);
+
+    /**
+     * Get the interface for running asynchronous jobs. It is used by paintops mostly.
+     */
+    KisRunnableStrokeJobsInterface* runnableStrokeJobsInterface() const;
 
 protected:
     /// Initialize, set everything to '0' or defaults

@@ -4,7 +4,8 @@
  *
  *  This library is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
- *  the Free Software Foundation; version 2.1 of the License.
+ *  the Free Software Foundation; version 2 of the License, or
+ *  (at your option) any later version.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -50,7 +51,7 @@ void KisDynamicSensor::reset()
 {
 }
 
-KisDynamicSensorSP KisDynamicSensor::id2Sensor(const KoID& id)
+KisDynamicSensorSP KisDynamicSensor::id2Sensor(const KoID& id, const QString &parentOptionName)
 {
     if (id.id() == PressureId.id()) {
         return new KisDynamicSensorPressure();
@@ -86,10 +87,10 @@ KisDynamicSensorSP KisDynamicSensor::id2Sensor(const KoID& id)
         return new KisDynamicSensorTime();
     }
     else if (id.id() == FuzzyPerDabId.id()) {
-        return new KisDynamicSensorFuzzy(false);
+        return new KisDynamicSensorFuzzy(false, parentOptionName);
     }
     else if (id.id() == FuzzyPerStrokeId.id()) {
-        return new KisDynamicSensorFuzzy(true);
+        return new KisDynamicSensorFuzzy(true, parentOptionName);
     }
     else if (id.id() == FadeId.id()) {
         return new KisDynamicSensorFade();
@@ -157,13 +158,13 @@ DynamicSensorType KisDynamicSensor::id2Type(const KoID &id)
     return UNKNOWN;
 }
 
-KisDynamicSensorSP KisDynamicSensor::type2Sensor(DynamicSensorType sensorType)
+KisDynamicSensorSP KisDynamicSensor::type2Sensor(DynamicSensorType sensorType, const QString &parentOptionName)
 {
     switch (sensorType) {
     case FUZZY_PER_DAB:
-        return new KisDynamicSensorFuzzy(false);
+        return new KisDynamicSensorFuzzy(false, parentOptionName);
     case FUZZY_PER_STROKE:
-        return new KisDynamicSensorFuzzy(true);
+        return new KisDynamicSensorFuzzy(true, parentOptionName);
     case SPEED:
         return new KisDynamicSensorSpeed();
     case FADE:
@@ -282,19 +283,118 @@ QString KisDynamicSensor::maximumLabel(DynamicSensorType sensorType, int max)
     };
 }
 
+int KisDynamicSensor::minimumValue(DynamicSensorType sensorType)
+{
+    switch (sensorType) {
+    case FUZZY_PER_DAB:
+    case FUZZY_PER_STROKE:
+    case FADE:
+    case DISTANCE:
+    case TIME:
+    case ANGLE:
+    case SPEED:
+    case ROTATION:
+    case PRESSURE:
+    case TILT_DIRECTION:
+    case PERSPECTIVE:
+    case PRESSURE_IN:
+        return 0;
+    case XTILT:
+    case YTILT:
+        return -30;
+    case TILT_ELEVATATION:
+        return 90;
+    case TANGENTIAL_PRESSURE:
+    default:
+        return 0;
+    }
 
-KisDynamicSensorSP KisDynamicSensor::createFromXML(const QString& s)
+}
+
+int KisDynamicSensor::maximumValue(DynamicSensorType sensorType, int max)
+{
+    switch (sensorType) {
+    case FUZZY_PER_DAB:
+    case FUZZY_PER_STROKE:
+    case SPEED:
+    case PERSPECTIVE:
+    case TANGENTIAL_PRESSURE:
+    case PRESSURE_IN:
+    case PRESSURE:
+        return 100;
+    case FADE:
+        if (max < 0) {
+            return 1000;
+	} else {
+            return  max;
+	}
+    case DISTANCE:
+        if (max < 0) {
+            return 30;
+	} else {
+            return max;
+	}
+    case TIME:
+        if (max < 0) {
+           return 3000;
+	} else {
+            return max;
+	}
+    case ANGLE:
+    case ROTATION:
+    case TILT_DIRECTION:
+        return 360;
+    case XTILT:
+    case YTILT:
+        return 30;
+    case TILT_ELEVATATION:
+        return 0;
+    default:
+        return 100;
+    };
+}
+
+QString KisDynamicSensor::valueSuffix(DynamicSensorType sensorType)
+{
+    switch (sensorType) {
+    case FUZZY_PER_DAB:
+    case FUZZY_PER_STROKE:
+    case SPEED:
+    case PRESSURE:
+    case PERSPECTIVE:
+    case TANGENTIAL_PRESSURE:
+    case PRESSURE_IN:
+        return i18n("%");
+    case FADE:
+        return QString();
+    case DISTANCE:
+        return i18n(" px");
+    case TIME:
+        return i18n(" ms");
+    case ANGLE:
+    case ROTATION:
+    case XTILT:
+    case YTILT:
+    case TILT_DIRECTION:
+    case TILT_ELEVATATION:
+        return i18n("°");
+    default:
+        return i18n("%");
+    };
+}
+
+KisDynamicSensorSP KisDynamicSensor::createFromXML(const QString& s, const QString &parentOptionName)
 {
     QDomDocument doc;
     doc.setContent(s);
     QDomElement e = doc.documentElement();
-    return createFromXML(e);
+    return createFromXML(e, parentOptionName);
 }
 
-KisDynamicSensorSP KisDynamicSensor::createFromXML(const QDomElement& e)
+KisDynamicSensorSP KisDynamicSensor::createFromXML(const QDomElement& e, const QString &parentOptionName)
 {
     QString id = e.attribute("id", "");
-    KisDynamicSensorSP sensor = id2Sensor(id);
+    KisDynamicSensorSP sensor = id2Sensor(id, parentOptionName);
     if (sensor) {
         sensor->fromXML(e);
     }
@@ -415,13 +515,17 @@ void KisDynamicSensor::fromXML(const QDomElement& e)
 
 qreal KisDynamicSensor::parameter(const KisPaintInformation& info)
 {
+    return parameter(info, m_curve, m_customCurve);
+}
+
+qreal KisDynamicSensor::parameter(const KisPaintInformation& info, const KisCubicCurve curve, const bool customCurve)
+{
     const qreal val = value(info);
-    if (m_customCurve) {
+    if (customCurve) {
         qreal scaledVal = isAdditive() ? additiveToScaling(val) : val;
 
-        int offset = qRound(256.0 * qAbs(scaledVal));
-        qreal newValue =  m_curve.floatTransfer(257)[qBound(0, offset, 256)];
-        scaledVal = KisAlgebra2D::copysign(newValue, scaledVal);
+        const QVector<qreal> transfer = curve.floatTransfer(256);
+        scaledVal = KisCubicCurve::interpolateLinear(scaledVal, transfer);
 
         return isAdditive() ? scalingToAdditive(scaledVal) : scaledVal;
     }

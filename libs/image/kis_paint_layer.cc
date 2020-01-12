@@ -59,6 +59,8 @@ public:
 
     KisSignalAutoConnectionsStore onionSkinConnection;
     KisOnionSkinCache onionSkinCache;
+
+    bool onionSkinVisibleOverride = true;
 };
 
 KisPaintLayer::KisPaintLayer(KisImageWSP image, const QString& name, quint8 opacity, KisPaintDeviceSP dev)
@@ -102,7 +104,7 @@ KisPaintLayer::KisPaintLayer(const KisPaintLayer& rhs)
     if (!copyFrames) {
         init(new KisPaintDevice(*rhs.m_d->paintDevice.data()), rhs.m_d->paintChannelFlags);
     } else {
-        init(new KisPaintDevice(*rhs.m_d->paintDevice.data(), true, this), rhs.m_d->paintChannelFlags);
+        init(new KisPaintDevice(*rhs.m_d->paintDevice.data(), KritaUtils::CopyAllFrames), rhs.m_d->paintChannelFlags);
 
         m_d->contentChannel = m_d->paintDevice->keyframeChannel();
         addKeyframeChannel(m_d->contentChannel);
@@ -163,6 +165,7 @@ void KisPaintLayer::copyOriginalToProjection(const KisPaintDeviceSP original,
     if (m_d->contentChannel &&
             m_d->contentChannel->keyframeCount() > 1 &&
             onionSkinEnabled() &&
+            m_d->onionSkinVisibleOverride &&
             !m_d->paintDevice->defaultBounds()->externalFrameActive()) {
 
         KisPaintDeviceSP skins = m_d->onionSkinCache.projection(m_d->paintDevice);
@@ -174,8 +177,7 @@ void KisPaintLayer::copyOriginalToProjection(const KisPaintDeviceSP original,
     }
 
     if (!m_d->contentChannel ||
-            (m_d->contentChannel && m_d->contentChannel->keyframeCount() <= 1) ||
-            !onionSkinEnabled()) {
+        (m_d->contentChannel->keyframeCount() <= 1) || !onionSkinEnabled()) {
 
         m_d->onionSkinCache.reset();
     }
@@ -249,7 +251,7 @@ QRect KisPaintLayer::extent() const
 {
     KisPaintDeviceSP t = temporaryTarget();
     QRect rect = t ? t->extent() : QRect();
-    if (onionSkinEnabled()) rect |= KisOnionSkinCompositor::instance()->calculateExtent(m_d->paintDevice);
+    if (onionSkinEnabled() && m_d->onionSkinVisibleOverride) rect |= KisOnionSkinCompositor::instance()->calculateExtent(m_d->paintDevice);
     return rect | KisLayer::extent();
 }
 
@@ -257,7 +259,7 @@ QRect KisPaintLayer::exactBounds() const
 {
     KisPaintDeviceSP t = temporaryTarget();
     QRect rect = t ? t->extent() : QRect();
-    if (onionSkinEnabled()) rect |= KisOnionSkinCompositor::instance()->calculateExtent(m_d->paintDevice);
+    if (onionSkinEnabled() && m_d->onionSkinVisibleOverride) rect |= KisOnionSkinCompositor::instance()->calculateExtent(m_d->paintDevice);
     return rect | KisLayer::exactBounds();
 }
 
@@ -306,13 +308,11 @@ void KisPaintLayer::setOnionSkinEnabled(bool state)
         m_d->onionSkinConnection.clear();
     }
 
-    nodeProperties().setProperty("onionskin", state);
-
     if (m_d->contentChannel) {
         m_d->contentChannel->setOnionSkinsEnabled(state);
     }
 
-    baseNodeChangedCallback();
+    setNodeProperty("onionskin", state);
 }
 
 void KisPaintLayer::slotExternalUpdateOnionSkins()
@@ -347,4 +347,22 @@ KisPaintDeviceList KisPaintLayer::getLodCapableDevices() const
     }
 
     return list;
+}
+
+bool KisPaintLayer::decorationsVisible() const
+{
+    return m_d->onionSkinVisibleOverride;
+}
+
+void KisPaintLayer::setDecorationsVisible(bool value, bool update)
+{
+    if (value == decorationsVisible()) return;
+
+    const QRect oldExtent = extent();
+
+    m_d->onionSkinVisibleOverride = value;
+
+    if (update && onionSkinEnabled()) {
+        setDirty(oldExtent | extent());
+    }
 }

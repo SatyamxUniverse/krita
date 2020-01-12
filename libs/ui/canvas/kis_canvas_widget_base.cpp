@@ -39,6 +39,8 @@
 #include "KisViewManager.h"
 #include "kis_selection_manager.h"
 #include "KisDocument.h"
+#include "kis_update_info.h"
+
 
 struct KisCanvasWidgetBase::Private
 {
@@ -59,7 +61,7 @@ public:
     KoToolProxy * toolProxy;
     QTimer blockMouseEvent;
 
-    bool ignorenextMouseEventExceptRightMiddleClick; // HACK work around Qt bug not sending tablet right/dblclick http://bugreports.qt.nokia.com/browse/QTBUG-8598
+    bool ignorenextMouseEventExceptRightMiddleClick; // HACK work around Qt bug not sending tablet right/dblclick https://bugreports.qt.io/browse/QTBUG-8598
     QColor borderColor;
 };
 
@@ -72,7 +74,7 @@ KisCanvasWidgetBase::KisCanvasWidgetBase(KisCanvas2 * canvas, KisCoordinatesConv
 KisCanvasWidgetBase::~KisCanvasWidgetBase()
 {
     /**
-     * Clear all the attached decoration. Oherwise they might decide
+     * Clear all the attached decoration. Otherwise they might decide
      * to process some events or signals after the canvas has been
      * destroyed
      */
@@ -95,8 +97,8 @@ void KisCanvasWidgetBase::drawDecorations(QPainter & gc, const QRect &updateWidg
     gc.setRenderHint(QPainter::Antialiasing);
     gc.setRenderHint(QPainter::TextAntialiasing);
 
-    // This option does not do anything anymore with Qt4.6, so don't reenable it since it seems to break display
-    // http://www.archivum.info/qt-interest@trolltech.com/2010-01/00481/Re:-(Qt-interest)-Is-QPainter::HighQualityAntialiasing-render-hint-broken-in-Qt-4.6.html
+    // This option does not do anything anymore with Qt4.6, so don't re-enable it since it seems to break display
+    // https://lists.qt-project.org/pipermail/qt-interest-old/2009-December/017078.html
     // gc.setRenderHint(QPainter::HighQualityAntialiasing);
 
     gc.setRenderHint(QPainter::SmoothPixmapTransform);
@@ -143,10 +145,6 @@ void KisCanvasWidgetBase::drawDecorations(QPainter & gc, const QRect &updateWidg
         gc.restore();
     }
 
-    // - some tools do not restore gc, but that is not important here
-    // - we need to disable clipping to draw handles properly
-    gc.setClipping(false);
-    toolProxy()->paint(gc, *m_d->viewConverter);
     gc.restore();
 
     // ask the decorations to paint themselves
@@ -154,12 +152,29 @@ void KisCanvasWidgetBase::drawDecorations(QPainter & gc, const QRect &updateWidg
         deco->paint(gc, m_d->coordinatesConverter->widgetToDocument(updateWidgetRect), m_d->coordinatesConverter,m_d->canvas);
     }
 
+    gc.setTransform(transform);
+    // - some tools do not restore gc, but that is not important here
+    // - we need to disable clipping to draw handles properly
+    gc.setClipping(false);
+    toolProxy()->paint(gc, *m_d->viewConverter);
+
     gc.restore();
 }
 
 void KisCanvasWidgetBase::addDecoration(KisCanvasDecorationSP deco)
 {
     m_d->decorations.push_back(deco);
+    std::stable_sort(m_d->decorations.begin(), m_d->decorations.end(), KisCanvasDecoration::comparePriority);
+}
+
+void KisCanvasWidgetBase::removeDecoration(const QString &id)
+{
+    for (auto it = m_d->decorations.begin(); it != m_d->decorations.end(); ++it) {
+        if ((*it)->id() == id) {
+            it = m_d->decorations.erase(it);
+            break;
+        }
+    }
 }
 
 KisCanvasDecorationSP KisCanvasWidgetBase::decoration(const QString& id) const
@@ -175,6 +190,7 @@ KisCanvasDecorationSP KisCanvasWidgetBase::decoration(const QString& id) const
 void KisCanvasWidgetBase::setDecorations(const QList<KisCanvasDecorationSP > &decorations)
 {
     m_d->decorations=decorations;
+    std::stable_sort(m_d->decorations.begin(), m_d->decorations.end(), KisCanvasDecoration::comparePriority);
 }
 
 QList<KisCanvasDecorationSP > KisCanvasWidgetBase::decorations() const
@@ -189,7 +205,7 @@ void KisCanvasWidgetBase::setWrapAroundViewingMode(bool value)
 
 QImage KisCanvasWidgetBase::createCheckersImage(qint32 checkSize)
 {
-    KisConfig cfg;
+    KisConfig cfg(true);
 
     if(checkSize < 0)
         checkSize = cfg.checkSize();
@@ -209,7 +225,7 @@ QImage KisCanvasWidgetBase::createCheckersImage(qint32 checkSize)
 
 void KisCanvasWidgetBase::notifyConfigChanged()
 {
-    KisConfig cfg;
+    KisConfig cfg(true);
     m_d->borderColor = cfg.canvasBorderColor();
 }
 
@@ -226,6 +242,17 @@ KisCanvas2 *KisCanvasWidgetBase::canvas() const
 KisCoordinatesConverter* KisCanvasWidgetBase::coordinatesConverter() const
 {
     return m_d->coordinatesConverter;
+}
+
+QVector<QRect> KisCanvasWidgetBase::updateCanvasProjection(const QVector<KisUpdateInfoSP> &infoObjects)
+{
+    QVector<QRect> dirtyViewRects;
+
+    Q_FOREACH (KisUpdateInfoSP info, infoObjects) {
+        dirtyViewRects << this->updateCanvasProjection(info);
+    }
+
+    return dirtyViewRects;
 }
 
 KoToolProxy *KisCanvasWidgetBase::toolProxy() const

@@ -46,7 +46,7 @@ KarbonCalligraphicShape::KarbonCalligraphicShape(qreal caps)
 }
 
 KarbonCalligraphicShape::KarbonCalligraphicShape(const KarbonCalligraphicShape &rhs)
-    : KoParameterShape(new KoParameterShapePrivate(*rhs.d_func(), this)),
+    : KoParameterShape(rhs),
       m_points(rhs.m_points),
       m_lastWasFlip(rhs.m_lastWasFlip),
       m_caps(rhs.m_caps)
@@ -260,7 +260,7 @@ bool KarbonCalligraphicShape::flipDetected(const QPointF &p1, const QPointF &p2)
 
 int KarbonCalligraphicShape::ccw(const QPointF &p1, const QPointF &p2,const QPointF &p3)
 {
-    // calculate two times the area of the triangle fomed by the points given
+    // calculate two times the area of the triangle formed by the points given
     qreal area2 = (p2.x() - p1.x()) * (p3.y() - p1.y()) -
                   (p2.y() - p1.y()) * (p3.x() - p1.x());
     if (area2 > 0) {

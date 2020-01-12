@@ -39,8 +39,8 @@ public:
         return KoID("unsharp", i18n("Unsharp Mask"));
     }
 
-    KisConfigWidget * createConfigurationWidget(QWidget* parent, const KisPaintDeviceSP dev) const override;
-    KisFilterConfigurationSP factoryConfiguration() const override;
+    KisConfigWidget * createConfigurationWidget(QWidget* parent, const KisPaintDeviceSP dev, bool useForMasks) const override;
+    KisFilterConfigurationSP defaultConfiguration() const override;
 
     QRect changedRect(const QRect & rect, const KisFilterConfigurationSP _config, int lod) const override;
     QRect neededRect(const QRect & rect, const KisFilterConfigurationSP _config, int lod) const override;
@@ -51,14 +51,14 @@ private:
                               quint8 threshold,
                               qreal weights[2],
                               qreal factor,
-                              const QBitArray &channelFlags) const;
+                              const QBitArray &channelFlags, KoUpdater *progressUpdater) const;
 
     void processRaw(KisPaintDeviceSP device,
                     const QRect &rect,
                     quint8 threshold,
                     qreal weights[2],
                     qreal factor,
-                    const QBitArray &channelFlags) const;
+                    const QBitArray &channelFlags, KoUpdater *progressUpdater) const;
 };
 
 #endif

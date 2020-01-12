@@ -24,9 +24,13 @@
 #include <QRectF>
 
 class QString;
-class SvgGraphicsContext;
 class QTransform;
+class QStringList;
+class KoXmlWriter;
+
 #include <KoXmlReaderForward.h>
+
+class SvgGraphicsContext;
 
 class KRITAFLAKE_EXPORT SvgUtil
 {
@@ -49,10 +53,10 @@ public:
 
     /**
      * Parses the given string containing a percentage number.
-     * @param s the input string containing the percentage
+     * @param value the input number containing the percentage
      * @return the percentage number normalized to 0..100
      */
-    static double toPercentage(QString s);
+    static QString toPercentage(qreal value);
 
     /**
      * Parses the given string containing a percentage number.
@@ -84,8 +88,11 @@ public:
     /// Converts specified transformation to a string
     static QString transformToString(const QTransform &transform);
 
+    /// Writes a \p transform as an attribute \p name iff the transform is not empty
+    static void writeTransformAttributeLazy(const QString &name, const QTransform &transform, KoXmlWriter &shapeWriter);
+
     /// Parses a viewbox attribute into an rectangle
-    static bool parseViewBox(SvgGraphicsContext *gc, const KoXmlElement &e, const QRectF &elementBounds, QRectF *_viewRect, QTransform *_viewTransform);
+    static bool parseViewBox(const KoXmlElement &e, const QRectF &elementBounds, QRectF *_viewRect, QTransform *_viewTransform);
 
     struct PreserveAspectRatioParser;
     static void parseAspectRatio(const PreserveAspectRatioParser &p, const QRectF &elementBounds, const QRectF &viewRect, QTransform *_viewTransform);
@@ -112,7 +119,9 @@ public:
 
     static QString mapExtendedShapeTag(const QString &tagName, const KoXmlElement &element);
 
-    struct PreserveAspectRatioParser
+    static QStringList simplifyList(const QString &str);
+
+    struct KRITAFLAKE_EXPORT PreserveAspectRatioParser
     {
         PreserveAspectRatioParser(const QString &str);
 

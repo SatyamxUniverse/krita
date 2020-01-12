@@ -39,7 +39,6 @@ public:
     void setCurrentIndex(int index);
     int findIndexOf(QString tagName);
     void insertItem(QString tagName);
-    void insertItemAt(int index, QString tag);
     QString currentlySelectedTag();
     QStringList allTags();
     bool selectedTagIsReadOnly();
@@ -63,9 +62,9 @@ private Q_SLOTS:
     void tagRenamingRequested(const QString &newName);
     void tagOptionsContextMenuAboutToShow();
     void contextDeleteCurrentTag();
+    void tagChanged(int index);
 
 private:
-    /// pimpl because chooser will most likely get upgraded at some point
     class Private;
     Private* const d;
 

@@ -39,7 +39,8 @@
 #include "kis_layer_style_filter_environment.h"
 #include "kis_selection_filters.h"
 #include "kis_multiple_projection.h"
-
+#include "kis_default_bounds_base.h"
+#include "kis_cached_paint_device.h"
 
 namespace KisLsUtils
 {
@@ -50,35 +51,35 @@ namespace KisLsUtils
 
         if (growSize > 0) {
             KisGrowSelectionFilter filter(growSize, growSize);
-            changeRect = filter.changeRect(applyRect);
+            changeRect = filter.changeRect(applyRect, selection->defaultBounds());
             filter.process(selection, applyRect);
         } else if (growSize < 0) {
             KisShrinkSelectionFilter filter(qAbs(growSize), qAbs(growSize), false);
-            changeRect = filter.changeRect(applyRect);
+            changeRect = filter.changeRect(applyRect, selection->defaultBounds());
             filter.process(selection, applyRect);
         }
 
         return changeRect;
     }
 
-    KisSelectionSP selectionFromAlphaChannel(KisPaintDeviceSP device,
-                                             const QRect &srcRect)
+    void selectionFromAlphaChannel(KisPaintDeviceSP srcDevice,
+                                      KisSelectionSP dstSelection,
+                                      const QRect &srcRect)
     {
-        const KoColorSpace *cs = device->colorSpace();
+        const KoColorSpace *cs = srcDevice->colorSpace();
 
-        KisSelectionSP baseSelection = new KisSelection(new KisSelectionEmptyBounds(0));
-        KisPixelSelectionSP selection = baseSelection->pixelSelection();
 
-        KisSequentialConstIterator srcIt(device, srcRect);
+        KisPixelSelectionSP selection = dstSelection->pixelSelection();
+
+        KisSequentialConstIterator srcIt(srcDevice, srcRect);
         KisSequentialIterator dstIt(selection, srcRect);
 
-        do {
+        while (srcIt.nextPixel() && dstIt.nextPixel()) {
             quint8 *dstPtr = dstIt.rawData();
             const quint8* srcPtr = srcIt.rawDataConst();
             *dstPtr = cs->opacityU8(srcPtr);
-        } while(srcIt.nextPixel() && dstIt.nextPixel());
+        }
 
-        return baseSelection;
     }
 
     void findEdge(KisPixelSelectionSP selection, const QRect &applyRect, const bool edgeHidden)
@@ -86,20 +87,20 @@ namespace KisLsUtils
         KisSequentialIterator dstIt(selection, applyRect);
 
         if (edgeHidden) {
-            do {
+            while(dstIt.nextPixel()) {
                 quint8 *pixelPtr = dstIt.rawData();
 
                 *pixelPtr =
                     (*pixelPtr < 24) ?
                     *pixelPtr * 10 : 0xFF;
 
-            } while(dstIt.nextPixel());
+            }
         } else {
-            do {
+            while(dstIt.nextPixel()) {
                 quint8 *pixelPtr = dstIt.rawData();
                 *pixelPtr = 0xFF;
 
-            } while(dstIt.nextPixel());
+            }
         }
     }
 
@@ -109,13 +110,13 @@ namespace KisLsUtils
         return rc.adjusted(-halfSize, -halfSize, halfSize, halfSize);
     }
 
-    void applyGaussian(KisPixelSelectionSP selection,
-                       const QRect &applyRect,
-                       qreal radius)
+    void applyGaussianWithTransaction(KisPixelSelectionSP selection,
+                                      const QRect &applyRect,
+                                      qreal radius)
     {
         KisGaussianKernel::applyGaussian(selection, applyRect,
                                          radius, radius,
-                                         QBitArray(), 0);
+                                         QBitArray(), 0, true);
     }
 
     namespace Private {
@@ -190,7 +191,10 @@ namespace KisLsUtils
 
             if (edgeHidden) {
 
-                do {
+                while (selIt.nextPixel() &&
+                       dstIt.nextPixel() &&
+                       indexFetcher.nextPixel()) {
+
                     quint8 selAlpha = *selIt.rawDataConst();
                     int gradientIndex = indexFetcher.popOneIndex(selAlpha);
                     const KoColor &color = table[gradientIndex];
@@ -203,20 +207,18 @@ namespace KisLsUtils
                         cs->setOpacity(dstIt.rawData(), tableAlpha, 1);
                     }
 
-                } while(selIt.nextPixel() &&
-                        dstIt.nextPixel() &&
-                        indexFetcher.nextPixel());
+                }
 
             } else {
 
-                do {
+                while (selIt.nextPixel() &&
+                       dstIt.nextPixel() &&
+                       indexFetcher.nextPixel()) {
+
                     int gradientIndex = indexFetcher.popOneIndex(*selIt.rawDataConst());
                     const KoColor &color = table[gradientIndex];
                     memcpy(dstIt.rawData(), color.data(), pixelSize);
-                } while(selIt.nextPixel() &&
-                        dstIt.nextPixel() &&
-                        indexFetcher.nextPixel());
-
+                }
             }
         }
 
@@ -244,20 +246,23 @@ namespace KisLsUtils
                     const QRect &applyRect,
                     int noise,
                     const psd_layer_effects_context *context,
-                    const KisLayerStyleFilterEnvironment *env)
+                    KisLayerStyleFilterEnvironment *env)
     {
         Q_UNUSED(context);
 
         const QRect overlayRect = kisGrowRect(applyRect, noiseNeedBorder);
 
         KisPixelSelectionSP randomSelection = env->cachedRandomSelection(overlayRect);
-        KisPixelSelectionSP randomOverlay = new KisPixelSelection();
+
+
+        KisCachedSelection::Guard s1(*env->cachedSelection());
+        KisPixelSelectionSP randomOverlay = s1.selection()->pixelSelection();
 
         KisSequentialConstIterator noiseIt(randomSelection, overlayRect);
         KisSequentialConstIterator srcIt(selection, overlayRect);
         KisRandomAccessorSP dstIt = randomOverlay->createRandomAccessorNG(overlayRect.x(), overlayRect.y());
 
-        do {
+        while (noiseIt.nextPixel() && srcIt.nextPixel()) {
             int itX = noiseIt.x();
             int itY = noiseIt.y();
 
@@ -274,8 +279,7 @@ namespace KisLsUtils
             int value = qMin(255, dstAlpha + srcAlpha);
 
             *dstIt->rawData() = value;
-
-        } while(noiseIt.nextPixel() && srcIt.nextPixel());
+        }
 
         noise = noise * 255 / 100;
 
@@ -299,10 +303,10 @@ namespace KisLsUtils
 
         KisSequentialIterator dstIt(selection, applyRect);
 
-        do {
+        while (dstIt.nextPixel()) {
             quint8 *pixelPtr = dstIt.rawData();
             *pixelPtr = rangeTable[*pixelPtr];
-        } while(dstIt.nextPixel());
+        }
     }
 
     void applyContourCorrection(KisPixelSelectionSP selection,
@@ -352,10 +356,10 @@ namespace KisLsUtils
         }
 
         KisSequentialIterator dstIt(selection, applyRect);
-        do {
+        while (dstIt.nextPixel()) {
             quint8 *pixelPtr = dstIt.rawData();
             *pixelPtr = contour[*pixelPtr];
-        } while(dstIt.nextPixel());
+        }
     }
 
     void knockOutSelection(KisPixelSelectionSP selection,
@@ -387,6 +391,7 @@ namespace KisLsUtils
         if (scale != 100) {
             warnKrita << "KisLsOverlayFilter::applyOverlay(): Pattern scaling is NOT implemented!";
         }
+        KIS_SAFE_ASSERT_RECOVER_RETURN(pattern);
 
         QSize psize(pattern->width(), pattern->height());
 
@@ -405,11 +410,8 @@ namespace KisLsUtils
 
         KisFillPainter gc(fillDevice);
         gc.fillRect(fillRect.x(), fillRect.y(),
-                    fillRect.width(), fillRect.height(), pattern);
+                    fillRect.width(), fillRect.height(), pattern, -patternOffset);
         gc.end();
-
-        fillDevice->setX(-patternOffset.x());
-        fillDevice->setY(-patternOffset.y());
     }
 
     void fillOverlayDevice(KisPaintDeviceSP fillDevice,
@@ -549,13 +551,12 @@ namespace KisLsUtils
 
         const QRect effectRect(dstRect);
         const QString compositeOp = config->blendMode();
-        const quint8 opacityU8 = 255.0 / 100.0 * config->opacity();
-        KisPaintDeviceSP dstDevice = dst->getProjection(projectionId, compositeOp, srcDevice);
+        const quint8 opacityU8 = quint8(qRound(255.0 / 100.0 * config->opacity()));
+        KisPaintDeviceSP dstDevice = dst->getProjection(projectionId, compositeOp, opacityU8, QBitArray(), srcDevice);
 
         if (config->fillType() == psd_fill_solid_color) {
             KisFillPainter gc(dstDevice);
-            gc.setCompositeOp(COMPOSITE_OVER);
-            env->setupFinalPainter(&gc, opacityU8, QBitArray());
+            gc.setCompositeOp(COMPOSITE_COPY);
             gc.setSelection(baseSelection);
             gc.fillSelection(effectRect, effectColor);
             gc.end();
@@ -566,21 +567,12 @@ namespace KisLsUtils
                 return;
             }
 
-            KisPaintDeviceSP overlayDevice =
-                new KisPaintDevice(dstDevice->colorSpace());
-
             QVector<KoColor> table(256);
             Private::getGradientTable(config->gradient().data(), &table, dstDevice->colorSpace());
 
-            Private::applyGradient(overlayDevice, baseSelection->pixelSelection(),
+            Private::applyGradient(dstDevice, baseSelection->pixelSelection(),
                                    effectRect, table,
                                    true, config->jitter(), env);
-
-            KisPainter gc(dstDevice);
-            gc.setCompositeOp(COMPOSITE_OVER);
-            env->setupFinalPainter(&gc, opacityU8, QBitArray());
-            gc.bitBlt(effectRect.topLeft(), overlayDevice, effectRect);
-            gc.end();
         }
 
         //dstDevice->convertToQImage(0, QRect(0,0,300,300)).save("6_device_shadow.png");

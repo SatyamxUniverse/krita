@@ -19,20 +19,20 @@
 #ifndef __KIS_STROKE_JOB_H
 #define __KIS_STROKE_JOB_H
 
-#include "kis_runnable.h"
+#include "kis_runnable_with_debug_name.h"
 #include "kis_stroke_job_strategy.h"
 
-class KisStrokeJob : public KisRunnable
+class KisStrokeJob : public KisRunnableWithDebugName
 {
 public:
     KisStrokeJob(KisStrokeJobStrategy *strategy,
                  KisStrokeJobData *data,
                  int levelOfDetail,
-                 bool isCancellable)
+                 bool isOwnJob)
         : m_dabStrategy(strategy),
           m_dabData(data),
           m_levelOfDetail(levelOfDetail),
-          m_isCancellable(isCancellable)
+          m_isOwnJob(isOwnJob)
     {
     }
 
@@ -42,6 +42,10 @@ public:
 
     void run() override {
         m_dabStrategy->run(m_dabData);
+    }
+
+    KisStrokeJobData::Sequentiality sequentiality() const {
+        return m_dabData ? m_dabData->sequentiality() : KisStrokeJobData::SEQUENTIAL;
     }
 
     bool isSequential() const {
@@ -64,7 +68,16 @@ public:
     }
 
     bool isCancellable() const {
-        return m_isCancellable;
+        return m_isOwnJob &&
+            (!m_dabData || m_dabData->isCancellable());
+    }
+
+    bool isOwnJob() const {
+        return m_isOwnJob;
+    }
+
+    QString debugName() const override {
+        return m_dabStrategy->debugId();
     }
 
 private:
@@ -89,7 +102,7 @@ private:
     KisStrokeJobData *m_dabData;
 
     int m_levelOfDetail;
-    bool m_isCancellable;
+    bool m_isOwnJob;
 };
 
 #endif /* __KIS_STROKE_JOB_H */

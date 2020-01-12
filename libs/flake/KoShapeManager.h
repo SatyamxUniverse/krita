@@ -36,7 +36,6 @@ class KoCanvasBase;
 class KoPointerEvent;
 class KoShapePaintingContext;
 
-
 class QPainter;
 class QPointF;
 class QRectF;
@@ -131,7 +130,8 @@ public:
     /**
      * Returns the shapes which intersects the specific rect in the document.
      * @param rect the rectangle in the document coordinate system.
-     * @param omitHiddenShapes if true, only visible shapes are considered
+     * @param omitHiddenShapes if @c true, only visible shapes are considered
+     * @param containedMode if @c true use contained mode
      */
     QList<KoShape *> shapesAt(const QRectF &rect, bool omitHiddenShapes = true, bool containedMode = false);
 
@@ -150,6 +150,17 @@ public:
     void update(const QRectF &rect, const KoShape *shape = 0, bool selectionHandles = false);
 
     /**
+     * Block all updates initiated with update() call. The incoming updates will
+     * be dropped completely.
+     */
+    void setUpdatesBlocked(bool value);
+
+    /**
+     * \see setUpdatesBlocked()
+     */
+    bool updatesBlocked() const;
+
+    /**
      * Update the tree for finding the shapes.
      * This will remove the shape from the tree and will reinsert it again.
      * The update to the tree will be posponed until it is needed so that successive calls
@@ -164,6 +175,7 @@ public:
      * @param shape the shape to paint
      * @param painter the painter to paint to.
      * @param converter to convert between document and view coordinates.
+     * @param paintContext the painting context
      */
     static void paintShape(KoShape *shape, QPainter &painter, const KoViewConverter &converter, KoShapePaintingContext &paintContext);
 
@@ -200,8 +212,6 @@ Q_SIGNALS:
     void selectionContentChanged();
     /// emitted when any object changed (moved/rotated etc)
     void contentChanged();
-    /// emitted when any shape changed.
-    void shapeChanged(KoShape *);
 
 private:
     KoCanvasBase *canvas();
@@ -210,6 +220,7 @@ private:
     class Private;
     Private * const d;
     Q_PRIVATE_SLOT(d, void updateTree())
+    Q_PRIVATE_SLOT(d, void forwardCompressedUdpate())
 };
 
 #endif

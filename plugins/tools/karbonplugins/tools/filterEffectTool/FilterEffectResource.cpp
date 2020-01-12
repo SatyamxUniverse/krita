@@ -124,17 +124,14 @@ FilterEffectResource *FilterEffectResource::fromFilterEffectStack(KoFilterEffect
 
 KoFilterEffectStack *FilterEffectResource::toFilterStack() const
 {
-    KoFilterEffectStack *filterStack = new KoFilterEffectStack();
-    if (!filterStack) {
-        return 0;
-    }
+    QScopedPointer<KoFilterEffectStack> filterStack(new KoFilterEffectStack());
 
     QByteArray data = m_data.toByteArray();
     KoXmlDocument doc;
     doc.setContent(data);
     KoXmlElement e = doc.documentElement();
 
-    // only allow obect bounding box units
+    // only allow object bounding box units
     if (e.hasAttribute("filterUnits") && e.attribute("filterUnits") != "objectBoundingBox") {
         return 0;
     }
@@ -183,7 +180,7 @@ KoFilterEffectStack *FilterEffectResource::toFilterStack() const
         filterStack->appendFilterEffect(filterEffect);
     }
 
-    return filterStack;
+    return filterStack.take();
 }
 
 QByteArray FilterEffectResource::generateMD5() const

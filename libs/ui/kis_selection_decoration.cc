@@ -3,7 +3,8 @@
  *
  *  This library is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU Lesser General Public License as published by
- *  the Free Software Foundation; version 2.1 of the License.
+ *  the Free Software Foundation; version 2 of the License, or
+ *  (at your option) any later version.
  *
  *  This library is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -35,8 +36,13 @@
 #include "kis_canvas_resource_provider.h"
 #include "kis_coordinates_converter.h"
 #include "kis_config.h"
+#include "kis_config_notifier.h"
+#include "kis_image_config.h"
+#include "KisImageConfigNotifier.h"
 #include "kis_painting_tweaks.h"
 #include "KisView.h"
+#include "kis_selection_mask.h"
+#include <KisPart.h>
 
 static const unsigned int ANT_LENGTH = 4;
 static const unsigned int ANT_SPACE = 4;
@@ -51,12 +57,19 @@ KisSelectionDecoration::KisSelectionDecoration(QPointer<KisView>view)
     KisPaintingTweaks::initAntsPen(&m_antsPen, &m_outlinePen,
                                    ANT_LENGTH, ANT_SPACE);
 
+    connect(KisConfigNotifier::instance(), SIGNAL(configChanged()), SLOT(slotConfigChanged()));
+    connect(KisImageConfigNotifier::instance(), SIGNAL(configChanged()), SLOT(slotConfigChanged()));
+    slotConfigChanged();
+
     m_antsTimer = new QTimer(this);
     m_antsTimer->setInterval(150);
     m_antsTimer->setSingleShot(false);
     connect(m_antsTimer, SIGNAL(timeout()), SLOT(antsAttackEvent()));
 
     connect(&m_signalCompressor, SIGNAL(timeout()), SLOT(slotStartUpdateSelection()));
+
+    // selections should be at the top of the stack
+    setPriority(100);
 }
 
 KisSelectionDecoration::~KisSelectionDecoration()
@@ -87,9 +100,20 @@ bool KisSelectionDecoration::selectionIsActive()
 
 void KisSelectionDecoration::selectionChanged()
 {
+    KisSelectionMaskSP mask = qobject_cast<KisSelectionMask*>(view()->currentNode().data());
+    if (!mask || !mask->active() || !mask->visible(true)) {
+        mask = 0;
+    }
+
+    if (!view()->isCurrent() ||
+        view()->viewManager()->mainWindow() == KisPart::instance()->currentMainwindow()) {
+
+        view()->image()->setOverlaySelectionMask(mask);
+    }
+
     KisSelectionSP selection = view()->selection();
 
-    if (selection && selectionIsActive()) {
+    if (!mask && selection && selectionIsActive()) {
         if ((m_mode == Ants && selection->outlineCacheValid()) ||
             (m_mode == Mask && selection->thumbnailImageValid())) {
 
@@ -124,10 +148,16 @@ void KisSelectionDecoration::slotStartUpdateSelection()
     KisSelectionSP selection = view()->selection();
     if (!selection) return;
 
-    KisConfig cfg;
-    QColor maskColor = cfg.selectionOverlayMaskColor();
+    view()->image()->addSpontaneousJob(new KisUpdateOutlineJob(selection, m_mode == Mask, m_maskColor));
+}
 
-    view()->image()->addSpontaneousJob(new KisUpdateOutlineJob(selection, m_mode == Mask, maskColor));
+void KisSelectionDecoration::slotConfigChanged()
+{
+    KisImageConfig imageConfig(true);
+    KisConfig cfg(true);
+
+    m_maskColor = imageConfig.selectionOverlayMaskColor();
+    m_antialiasSelectionOutline = cfg.antialiasSelectionOutline();
 }
 
 void KisSelectionDecoration::antsAttackEvent()
@@ -151,7 +181,6 @@ void KisSelectionDecoration::drawDecoration(QPainter& gc, const QRectF& updateRe
     if ((m_mode == Ants && m_outlinePath.isEmpty()) ||
         (m_mode == Mask && m_thumbnailImage.isNull())) return;
 
-    KisConfig cfg;
     QTransform transform = converter->imageToWidgetTransform();
 
     gc.save();
@@ -173,14 +202,12 @@ void KisSelectionDecoration::drawDecoration(QPainter& gc, const QRectF& updateRe
         QPainterPath p2;
         p2.addRect(r2);
 
-        QColor maskColor = cfg.selectionOverlayMaskColor();
-
-        gc.setBrush(maskColor);
+        gc.setBrush(m_maskColor);
         gc.setPen(Qt::NoPen);
         gc.drawPath(p1 - p2);
 
     } else /* if (m_mode == Ants) */ {
-        gc.setRenderHints(QPainter::Antialiasing | QPainter::HighQualityAntialiasing, cfg.antialiasSelectionOutline());
+        gc.setRenderHints(QPainter::Antialiasing | QPainter::HighQualityAntialiasing, m_antialiasSelectionOutline);
 
         // render selection outline in white
         gc.setPen(m_outlinePen);

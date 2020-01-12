@@ -25,7 +25,6 @@
 #include <kis_config.h>
 
 #include <QGlobalStatic>
-#include <QMessageBox>
 
 #include <klocalizedstring.h>
 
@@ -70,6 +69,7 @@ QString KisTabletDebugger::exTypeToString(QEvent::Type type) {
         type == QEvent::Enter ? "Enter" :
         type == QEvent::Leave ? "Leave" :
         type == QEvent::FocusIn ? "FocusIn" :
+        type == QEvent::FocusOut ? "FocusOut" :
         type == QEvent::Wheel ? "Wheel" :
         type == QEvent::KeyPress ? "KeyPress" :
         type == QEvent::KeyRelease ? "KeyRelease" :
@@ -88,7 +88,7 @@ QString KisTabletDebugger::exTypeToString(QEvent::Type type) {
 KisTabletDebugger::KisTabletDebugger()
     : m_debugEnabled(false)
 {
-    KisConfig cfg;
+    KisConfig cfg(true);
     m_shouldEatDriverShortcuts = cfg.shouldEatDriverShortcuts();
 }
 
@@ -140,6 +140,7 @@ QString KisTabletDebugger::eventToString(const QMouseEvent &ev, const QString &p
 
     dumpBaseParams(s, ev, prefix);
     dumpMouseRelatedParams(s, ev);
+    s << "hires: " << qSetFieldWidth(8) << ev.screenPos().x() << qSetFieldWidth(0) << "," << qSetFieldWidth(8) << ev.screenPos().y() << qSetFieldWidth(0) << " ";
     s << "Source:" << ev.source();
 
     return string;

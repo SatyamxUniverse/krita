@@ -92,24 +92,25 @@ public:
         bool stateInStasis;
 
         bool operator==(const Property &rhs) const {
-            return rhs.name == name;
+            return rhs.name == name && rhs.state == state && isInStasis == rhs.isInStasis;
         }
 
-        Property(): isMutable( false ) { }
+        Property(): isMutable( false ), isInStasis(false) { }
 
         /// Constructor for a mutable property.
         Property( const KoID &n, const QIcon &on, const QIcon &off, bool isOn )
-                : id(n.id()), name( n.name() ), isMutable( true ), onIcon( on ), offIcon( off ), state( isOn ), canHaveStasis( false ) { }
+                : id(n.id()), name( n.name() ), isMutable( true ), onIcon( on ), offIcon( off ), state( isOn ),
+                  canHaveStasis( false ), isInStasis(false) { }
 
         /** Constructor for a mutable property accepting stasis */
         Property( const KoID &n, const QIcon &on, const QIcon &off, bool isOn,
-                  bool _isInStasis, bool _stateInStasis )
+                  bool _isInStasis, bool _stateInStasis = false )
                 : id(n.id()), name(n.name()), isMutable( true ), onIcon( on ), offIcon( off ), state( isOn ),
                   canHaveStasis( true ), isInStasis( _isInStasis ), stateInStasis( _stateInStasis ) { }
 
         /// Constructor for a nonmutable property.
         Property( const KoID &n, const QString &s )
-                : id(n.id()), name(n.name()), isMutable( false ), state( s ) { }
+                : id(n.id()), name(n.name()), isMutable( false ), state( s ), isInStasis(false) { }
     };
 
     /** Return this type for PropertiesRole. */
@@ -121,7 +122,7 @@ public:
      * Create a new, empty base node. The node is unnamed, unlocked
      * visible and unlinked.
      */
-    KisBaseNode();
+    KisBaseNode(KisImageWSP image);
 
     /**
      * Create a copy of this node.
@@ -155,6 +156,13 @@ public:
      * rendered original and its effect masks. Can be 0.
      */
     virtual KisPaintDeviceSP projection() const = 0;
+
+    /**
+     * @return a special device from where the color picker tool should pick
+     * color when in layer-only mode. For most of the nodes just shortcuts
+     * to projection() device. TODO: can it be null?
+     */
+    virtual KisPaintDeviceSP colorPickSourceDevice() const;
 
     virtual const KoColorSpace *colorSpace() const = 0;
 
@@ -263,11 +271,18 @@ public:
      * Return all the properties of this layer as a KoProperties-based
      * serializable key-value list.
      */
-    KoProperties & nodeProperties() const;
+    const KoProperties & nodeProperties() const;
+
+    /**
+     * Set a node property.
+     * @param name name of the property to be set.
+     * @param value value to set the property to.
+     */
+    void setNodeProperty(const QString & name, const QVariant & value);
 
     /**
      * Merge the specified properties with the properties of this
-     * layer. Whereever these properties overlap, the value of the
+     * layer. Wherever these properties overlap, the value of the
      * node properties is changed. No properties on the node are
      * deleted. If there are new properties in this list, they will be
      * added on the node.
@@ -341,6 +356,9 @@ public:
      * @return true if this node is visible (i.e, active (except for
      * selection masks where visible and active properties are
      * different)) in the graph
+     *
+     * @param bool recursive if true, check whether all parents of
+     * this node are visible as well.
      */
     virtual bool visible(bool recursive = false) const;
 
@@ -358,7 +376,7 @@ public:
      * @param visible the new visibility state
      * @param isLoading if true, the property is set during loading.
      */
-    virtual void setVisible(bool visibile, bool loading = false);
+    virtual void setVisible(bool visible, bool loading = false);
 
     /**
      * Return the locked status of this node. Locked nodes cannot be
@@ -370,7 +388,7 @@ public:
      * Set the locked status of this node. Locked nodes cannot be
      * edited.
      */
-    void setUserLocked(bool l);
+    virtual void setUserLocked(bool l);
 
     /**
      * @return true if the node can be edited:
@@ -482,9 +500,17 @@ public:
     void setUseInTimeline(bool value);
 
     bool isAnimated() const;
-    virtual void enableAnimation();
+    void enableAnimation();
 
     virtual void setImage(KisImageWSP image);
+    KisImageWSP image() const;
+
+
+    /**
+     * Fake node is not present in the layer stack and is not used
+     * for normal projection rendering algorithms.
+     */
+    virtual bool isFakeNode() const;
 
 protected:
 
@@ -515,6 +541,16 @@ protected:
     virtual void baseNodeChangedCallback() {
     }
 
+    /**
+     * This callback is called when collapsed state of the base node
+     * has changed. This signal is forwarded by the KisNode and
+     * KisNodeGraphListener to the model in KisLayerBox, so it can
+     * update its controls when information changes.
+     */
+    virtual void baseNodeCollapsedChangedCallback() {
+    }
+
+
     virtual void baseNodeInvalidateAllFramesCallback() {
     }
 
@@ -537,17 +573,6 @@ protected:
     virtual KisKeyframeChannel * requestKeyframeChannel(const QString &id);
 
 Q_SIGNALS:
-
-    /**
-     * This signal is emitted when the visibility of the layer is changed with \ref setVisible.
-     */
-    void visibilityChanged(bool);
-
-    /**
-     * This signal is emitted when the node is locked or unlocked with \ref setUserLocked.
-     */
-    void userLockingChanged(bool);
-
     void keyframeChannelAdded(KisKeyframeChannel *channel);
 
 private:

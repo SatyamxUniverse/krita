@@ -47,7 +47,6 @@
 #include <QBuffer>
 #include <QDomDocument>
 #include <QDomElement>
-#include <QTemporaryFile>
 #include <QDesktopWidget>
 #include <QDir>
 
@@ -102,6 +101,7 @@ KisDocument *createDocument(QList<KisNodeSP> nodes, KisImageSP srcImage)
     }
 
     KisImageSP image = new KisImage(0, rc.width(), rc.height(), nodes.first()->colorSpace(), nodes.first()->name());
+    image->setAllowMasksOnRootNode(true);
 
     {
         KisImageBarrierLockerWithFeedbackAllowNull locker(srcImage);
@@ -118,15 +118,31 @@ KisDocument *createDocument(QList<KisNodeSP> nodes, KisImageSP srcImage)
 QByteArray serializeToByteArray(QList<KisNodeSP> nodes, KisImageSP srcImage)
 {
     QScopedPointer<KisDocument> doc(createDocument(nodes, srcImage));
-    return doc->serializeToNativeByteArray();
+    QByteArray result = doc->serializeToNativeByteArray();
+
+    // avoid a sanity check failure caused by the fact that the image outlives
+    // the document (and it does)
+    doc->setCurrentImage(0);
+
+    return result;
 }
 
 QVariant KisMimeData::retrieveData(const QString &mimetype, QVariant::Type preferredType) const
 {
+    /**
+     * HACK ALERT:
+     *
+     * Sometimes Qt requests the data *after* destruction of Krita,
+     * we cannot load the nodes in that case, because we need signals
+     * and timers. So we just skip serializing.
+     */
+    if (!QApplication::instance()) return QVariant();
+
+
     Q_ASSERT(m_nodes.size() > 0);
 
     if (mimetype == "application/x-qt-image") {
-        KisConfig cfg;
+        KisConfig cfg(true);
 
         KisDocument *doc = createDocument(m_nodes, m_image);
 
@@ -187,11 +203,9 @@ void KisMimeData::initializeExternalNode(KisNodeSP *node,
                                          KisImageWSP image,
                                          KisShapeController *shapeController)
 {
-    // layers store a link to the image, so update it
-    KisLayer *layer = qobject_cast<KisLayer*>(node->data());
-    if (layer) {
-        layer->setImage(image);
-    }
+    // adjust the link to a correct image object
+    (*node)->setImage(image);
+
     KisShapeLayer *shapeLayer = dynamic_cast<KisShapeLayer*>(node->data());
     if (shapeLayer) {
         // attach the layer to a new shape controller
@@ -280,7 +294,7 @@ QList<KisNodeSP> KisMimeData::loadNodes(const QMimeData *data,
         QBuffer buf(&ba);
         KisImportExportFilter *filter = tempDoc->importExportManager()->filterForMimeType(tempDoc->nativeFormatMimeType(), KisImportExportManager::Import);
         filter->setBatchMode(true);
-        bool result = (filter->convert(tempDoc, &buf) == KisImportExportFilter::OK);
+        bool result = (filter->convert(tempDoc, &buf).isOk());
 
         if (result) {
             KisImageWSP tempImage = tempDoc->image();
@@ -317,7 +331,10 @@ QList<KisNodeSP> KisMimeData::loadNodes(const QMimeData *data,
 
         KisPaintDeviceSP device = new KisPaintDevice(KoColorSpaceRegistry::instance()->rgb8());
         device->convertFromQImage(qimage, 0);
-        nodes << new KisPaintLayer(image.data(), image->nextLayerName(), OPACITY_OPAQUE_U8, device);
+
+        if (image) {
+            nodes << new KisPaintLayer(image.data(), image->nextLayerName(), OPACITY_OPAQUE_U8, device);
+        }
 
         alwaysRecenter = true;
     }
@@ -392,13 +409,11 @@ bool correctNewNodeLocation(KisNodeList nodes,
     return result;
 }
 
-bool KisMimeData::insertMimeLayers(const QMimeData *data,
-                                   KisImageSP image,
-                                   KisShapeController *shapeController,
-                                   KisNodeDummy *parentDummy,
-                                   KisNodeDummy *aboveThisDummy,
-                                   bool copyNode,
-                                   KisNodeInsertionAdapter *nodeInsertionAdapter)
+KisNodeList KisMimeData::loadNodesFast(
+    const QMimeData *data,
+    KisImageSP image,
+    KisShapeController *shapeController,
+    bool &copyNode)
 {
     QList<KisNodeSP> nodes =
         KisMimeData::tryLoadInternalNodes(data,
@@ -418,6 +433,19 @@ bool KisMimeData::insertMimeLayers(const QMimeData *data,
          */
         copyNode = true;
     }
+
+    return nodes;
+}
+
+bool KisMimeData::insertMimeLayers(const QMimeData *data,
+                                   KisImageSP image,
+                                   KisShapeController *shapeController,
+                                   KisNodeDummy *parentDummy,
+                                   KisNodeDummy *aboveThisDummy,
+                                   bool copyNode,
+                                   KisNodeInsertionAdapter *nodeInsertionAdapter)
+{
+    QList<KisNodeSP> nodes = loadNodesFast(data, image, shapeController, copyNode /* IN-OUT */);
 
     if (nodes.isEmpty()) return false;
 

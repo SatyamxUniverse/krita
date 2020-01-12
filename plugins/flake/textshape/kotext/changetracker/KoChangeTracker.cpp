@@ -1,6 +1,6 @@
 /* This file is part of the KDE project
  * Copyright (C) 2008 Pierre Stirnweiss \pierre.stirnweiss_calligra@gadz.org>
- * Copyright (C) 2011 Boudewijn Rempt <boud@kogmbh.com>
+ * Copyright (C) 2011 Boudewijn Rempt <boud@valdyas.org>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Library General Public
@@ -536,7 +536,7 @@ void KoChangeTracker::insertDeleteFragment(QTextCursor &cursor)
 
         QTextList *previousTextList = currentBlock.previous().isValid() ? QTextCursor(currentBlock.previous()).currentList():0;
         if (textList && previousTextList && (textList != previousTextList) && (KoList::level(currentBlock) == KoList::level(currentBlock.previous()))) {
-            //Even though we are already in a list, the QTextList* of the current block is differnt from that of the previous block
+            //Even though we are already in a list, the QTextList* of the current block is different from that of the previous block
             //Also the levels of the list-items ( previous and current ) are the same.
             //This can happen only when two lists are merged together without any intermediate content.
             //So we need to create a new list.

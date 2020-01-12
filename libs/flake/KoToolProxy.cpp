@@ -23,8 +23,9 @@
 #include <QMimeData>
 #include <QUrl>
 #include <QTimer>
-#include <QClipboard>
 #include <QApplication>
+#include <QTouchEvent>
+#include <QClipboard>
 
 #include <kundo2command.h>
 #include <KoProperties.h>
@@ -50,14 +51,9 @@
 
 
 KoToolProxyPrivate::KoToolProxyPrivate(KoToolProxy *p)
-    : activeTool(0),
-      tabletPressed(false),
-      hasSelection(false),
-      controller(0),
-      parent(p)
+    : parent(p)
 {
     scrollTimer.setInterval(100);
-    mouseLeaveWorkaround = false;
 }
 
 void KoToolProxyPrivate::timeout() // Auto scroll the canvas
@@ -93,7 +89,9 @@ void KoToolProxyPrivate::checkAutoScroll(const KoPointerEvent &event)
     if (!activeTool) return;
     if (!activeTool->wantsAutoScroll()) return;
     if (!event.isAccepted()) return;
+    if (!isToolPressed) return;
     if (event.buttons() != Qt::LeftButton) return;
+
 
     widgetScrollPoint = event.pos();
 
@@ -116,7 +114,7 @@ bool KoToolProxyPrivate::isActiveLayerEditable()
 
     KoShapeManager * shapeManager = activeTool->canvas()->shapeManager();
     KoShapeLayer * activeLayer = shapeManager->selection()->activeLayer();
-    if (activeLayer && !activeLayer->isEditable())
+    if (activeLayer && !activeLayer->isShapeEditable())
         return false;
     return true;
 }
@@ -203,9 +201,60 @@ void KoToolProxy::mousePressEvent(KoPointerEvent *ev)
     KoToolManager::instance()->priv()->switchInputDevice(id);
     d->mouseDownPoint = ev->pos();
 
-    if (d->tabletPressed) { // refuse to send a press unless there was a release first.
+
+    // this tries to make sure another mouse press event doesn't happen
+    // before a release event happens
+    if (d->isToolPressed) {
+        mouseReleaseEvent(ev);
+        d->tabletPressed = false;
+        d->scrollTimer.stop();
+
+        if (d->activeTool) {
+            d->activeTool->mouseReleaseEvent(ev);
+        }
+
+        d->isToolPressed = false;
+
         return;
     }
+
+    QPointF globalPoint = ev->globalPos();
+    if (d->multiClickGlobalPoint != globalPoint) {
+        if (qAbs(globalPoint.x() - d->multiClickGlobalPoint.x()) > 5||
+                qAbs(globalPoint.y() - d->multiClickGlobalPoint.y()) > 5) {
+            d->multiClickCount = 0;
+        }
+        d->multiClickGlobalPoint = globalPoint;
+    }
+
+    if (d->multiClickCount && d->multiClickTimeStamp.elapsed() < QApplication::doubleClickInterval()) {
+        // One more multiclick;
+        d->multiClickCount++;
+    } else {
+        d->multiClickTimeStamp.start();
+        d->multiClickCount = 1;
+    }
+
+    if (d->activeTool) {
+        switch (d->multiClickCount) {
+        case 0:
+        case 1:
+            d->activeTool->mousePressEvent(ev);
+            break;
+        case 2:
+            d->activeTool->mouseDoubleClickEvent(ev);
+            break;
+        case 3:
+        default:
+            d->activeTool->mouseTripleClickEvent(ev);
+            break;
+        }
+    } else {
+        d->multiClickCount = 0;
+        ev->ignore();
+    }
+
+    d->isToolPressed = true;
 }
 
 void KoToolProxy::mousePressEvent(QMouseEvent *event, const QPointF &point)
@@ -222,7 +271,8 @@ void KoToolProxy::mouseDoubleClickEvent(QMouseEvent *event, const QPointF &point
 
 void KoToolProxy::mouseDoubleClickEvent(KoPointerEvent *event)
 {
-    d->activeTool->mouseDoubleClickEvent(event);
+    // let us handle it as any other mousepress (where we then detect multi clicks
+    mousePressEvent(event);
 }
 
 void KoToolProxy::mouseMoveEvent(QMouseEvent *event, const QPointF &point)
@@ -267,6 +317,8 @@ void KoToolProxy::mouseReleaseEvent(KoPointerEvent* event)
     } else {
         event->ignore();
     }
+
+    d->isToolPressed = false;
 }
 
 void KoToolProxy::keyPressEvent(QKeyEvent *event)
@@ -283,6 +335,8 @@ void KoToolProxy::keyReleaseEvent(QKeyEvent *event)
         d->activeTool->keyReleaseEvent(event);
     else
         event->ignore();
+
+    d->isToolPressed = false;
 }
 
 void KoToolProxy::explicitUserStrokeEndRequest()
@@ -321,14 +375,32 @@ void KoToolProxy::setActiveTool(KoToolBase *tool)
     }
 }
 
+void KoToolProxy::touchEvent(QTouchEvent* event, const QPointF& point)
+{
+    // only one "touchpoint" events should be here
+    KoPointerEvent ev(event, point);
+
+    if (!d->activeTool) return;
+
+    switch (event->touchPointStates())
+    {
+    case Qt::TouchPointPressed:
+        d->activeTool->mousePressEvent(&ev);
+        break;
+    case Qt::TouchPointMoved:
+        d->activeTool->mouseMoveEvent(&ev);
+        break;
+    case Qt::TouchPointReleased:
+        d->activeTool->mouseReleaseEvent(&ev);
+        break;
+    default: // don't care
+        ;
+    }
+}
+
 void KoToolProxyPrivate::setCanvasController(KoCanvasController *c)
 {
     controller = c;
-}
-
-QHash<QString, QAction *> KoToolProxy::actions() const
-{
-    return d->activeTool ? d->activeTool->actions() : QHash<QString, QAction *>();
 }
 
 bool KoToolProxy::hasSelection() const
@@ -351,62 +423,11 @@ void KoToolProxy::copy() const
 bool KoToolProxy::paste()
 {
     bool success = false;
-    KoCanvasBase *canvas = d->controller->canvas();
 
     if (d->activeTool && d->isActiveLayerEditable()) {
         success = d->activeTool->paste();
     }
 
-    if (!success) {
-        const QMimeData *data = QApplication::clipboard()->mimeData();
-
-        QList<QImage> imageList;
-
-        QImage image = QApplication::clipboard()->image();
-
-        if (!image.isNull()) {
-            imageList << image;
-        }
-        // QT5TODO: figure out how to download data synchronously, which is deprecated in frameworks.
-        else if (data->hasUrls()) {
-            QList<QUrl> urls = QApplication::clipboard()->mimeData()->urls();
-            foreach (const QUrl &url, urls) {
-                QImage image;
-                image.load(url.toLocalFile());
-                if (!image.isNull()) {
-                    imageList << image;
-                }
-            }
-        }
-
-        KoShapeFactoryBase *factory = KoShapeRegistry::instance()->value("PictureShape");
-        QWidget *canvasWidget = canvas->canvasWidget();
-        const KoViewConverter *converter = canvas->viewConverter();
-        if (imageList.length() > 0 && factory && canvasWidget) {
-            KUndo2Command *cmd = new KUndo2Command(kundo2_i18n("Paste Image"));
-            QList<KoShape*> pastedShapes;
-
-            Q_FOREACH (const QImage &image, imageList) {
-                if (!image.isNull()) {
-                    QPointF p = converter->viewToDocument(canvasWidget->mapFromGlobal(QCursor::pos()) + canvas->canvasController()->documentOffset()- canvasWidget->pos());
-                    KoProperties params;
-                    params.setProperty("qimage", image);
-
-                    KoShape *shape = factory->createShape(&params, canvas->shapeController()->resourceManager());
-                    shape->setPosition(p);
-                    pastedShapes << shape;
-
-                    success = true;
-                }
-            }
-
-            if (!pastedShapes.isEmpty()) {
-                // add shape to the document
-                canvas->shapeController()->addShapesDirect(pastedShapes, cmd);
-                canvas->addCommand(cmd);
-            }
-        }
-    }
     return success;
 }
 

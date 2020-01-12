@@ -1,7 +1,7 @@
 /* This file is part of the KDE project
  * Copyright (C) 2009-2012 Pierre Stirnweiss <pstirnweiss@googlemail.com>
  * Copyright (C) 2006-2010 Thomas Zander <zander@kde.org>
- * Copyright (c) 2011 Boudewijn Rempt <boud@kogmbh.com>
+ * Copyright (c) 2011 Boudewijn Rempt <boud@valdyas.org>
  * Copyright (C) 2011-2015 C. Boemann <cbo@boemann.dk>
  * Copyright (C) 2014-2015 Denis Kuplyakov <dener.kup@gmail.com>
  * Copyright (C) 2015 Soma Schliszka <soma.schliszka@gmail.com>
@@ -32,7 +32,6 @@
 #include "KoInlineTextObjectManager.h"
 #include "KoInlineNote.h"
 #include "KoInlineCite.h"
-#include "BibliographyGenerator.h"
 #include <KoTextShapeDataBase.h>
 #include <KoSelection.h>
 #include <KoShapeController.h>
@@ -117,7 +116,7 @@ void KoTextEditor::Private::newLine(KUndo2Command *parent)
         // a table before or we are at the beginning of a cell or a document.
         // So here is a better approach
         // 1) create block
-        // 2) select the previous block so it get's deleted and replaced
+        // 2) select the previous block so it gets deleted and replaced
         // 3) remove HiddenByTable from both new and previous block
         // 4) actually make new line replacing the block we just inserted
         // 5) set HiddenByTable on the block just before the table again
@@ -640,7 +639,7 @@ bool KoTextEditor::atEnd() const
     QTextFrame *auxFrame = cursor.currentFrame();
 
     if (auxFrame->format().intProperty(KoText::SubFrameType) == KoText::AuxillaryFrameType) {
-        //auxFrame really is the auxillary frame
+        //auxFrame really is the auxiliary frame
         if (d->caret.position() == auxFrame->firstPosition() - 1) {
             return true;
         }
@@ -1202,8 +1201,6 @@ void KoTextEditor::insertBibliography(KoBibliographyInfo *info)
     d->caret.movePosition(QTextCursor::Left);
     d->caret.insertBlock(bibFormat);
     d->caret.movePosition(QTextCursor::Right);
-
-    new BibliographyGenerator(bibDocument, block(), newBibInfo);
 
     if (hasSelection) {
         d->caret.endEditBlock();

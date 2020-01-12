@@ -70,6 +70,7 @@ protected:
     void mouseMoveEvent(QMouseEvent* e) override;
     void keyPressEvent(QKeyEvent* e) override;
     void wheelEvent(QWheelEvent *) override;
+    bool event(QEvent *event) override;
 
     bool eventFilter(QObject* recv, QEvent* e) override;
 
@@ -90,6 +91,11 @@ protected:
      * so that, in specific cases, we have a performance improvement. See setIgnoreMouseMoveEvents.
      */
     virtual void setInternalValue(int value, bool blockUpdateSignal) = 0;
+
+    /**
+     * Allows inheriting classes to directly set the value
+     */
+    void setPrivateValue(int value);
 
 protected Q_SLOTS:
     void contextMenuEvent(QContextMenuEvent * event) override;

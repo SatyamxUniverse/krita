@@ -24,7 +24,7 @@
 
 #include "kis_tool_paint.h"
 
-#include "KoToolFactoryBase.h"
+#include "KisToolPaintFactoryBase.h"
 
 #include <flake/kis_node_shape.h>
 #include <kis_icon.h>
@@ -56,7 +56,7 @@ public:
     void continuePrimaryAction(KoPointerEvent *event) override;
     void endPrimaryAction(KoPointerEvent *event) override;
     void paint(QPainter &painter, const KoViewConverter &converter) override;
-    int flags() const override { return KisTool::FLAG_USES_CUSTOM_SIZE; }
+    int flags() const override { return KisTool::FLAG_USES_CUSTOM_SIZE | KisTool::FLAG_USES_CUSTOM_PRESET; }
 
 protected Q_SLOTS:
     void resetCursorStyle() override;
@@ -80,19 +80,18 @@ private:
 };
 
 
-class KisToolSmartPatchFactory : public KoToolFactoryBase
+class KisToolSmartPatchFactory : public KisToolPaintFactoryBase
 {
 
 public:
     KisToolSmartPatchFactory()
-        : KoToolFactoryBase("KritaShape/KisToolSmartPatch")
+        : KisToolPaintFactoryBase("KritaShape/KisToolSmartPatch")
     {
 
         setToolTip(i18n("Smart Patch Tool"));
 
         setSection(TOOL_TYPE_FILL);
         setIconName(koIconNameCStr("krita_tool_smart_patch"));
-        setShortcut(QKeySequence(Qt::Key_Shift + Qt::Key_I));
         setPriority(4);
         setActivationShapeId(KRITA_TOOL_ACTIVATION_ID);
     }

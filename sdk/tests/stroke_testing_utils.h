@@ -20,7 +20,7 @@
 #define __STROKE_TESTING_UTILS_H
 
 #include <QString>
-#include <KoCanvasResourceManager.h>
+#include <KoCanvasResourceProvider.h>
 #include "kis_node.h"
 #include "kis_types.h"
 #include "kis_stroke_strategy.h"
@@ -33,7 +33,7 @@ class KisUndoStore;
 namespace utils {
 
     KisImageSP createImage(KisUndoStore *undoStore, const QSize &imageSize);
-    KoCanvasResourceManager* createResourceManager(KisImageWSP image,
+    KoCanvasResourceProvider* createResourceManager(KisImageWSP image,
                                              KisNodeSP node = 0,
                                              const QString &presetFileName = "autobrush_300px.kpp");
 
@@ -46,30 +46,32 @@ namespace utils {
         void testSimpleStroke();
         void test();
         void benchmark();
+        void testSimpleStrokeNoVerification();
 
         void setNumIterations(int value);
         void setBaseFuzziness(int value);
+
+        int lastStrokeTime() const;
 
     protected:
         KisStrokeId strokeId() {
             return m_strokeId;
         }
 
-        virtual void modifyResourceManager(KoCanvasResourceManager *manager,
+        virtual void modifyResourceManager(KoCanvasResourceProvider *manager,
                                            KisImageWSP image, int iteration);
 
         virtual void initImage(KisImageWSP image, KisNodeSP activeNode, int iteration);
 
         // overload
-        virtual void modifyResourceManager(KoCanvasResourceManager *manager,
+        virtual void modifyResourceManager(KoCanvasResourceProvider *manager,
                                            KisImageWSP image);
 
         // overload
         virtual void initImage(KisImageWSP image, KisNodeSP activeNode);
         virtual void beforeCheckingResult(KisImageWSP image, KisNodeSP activeNode);
 
-        virtual KisStrokeStrategy* createStroke(bool indirectPainting,
-                                                KisResourcesSnapshotSP resources,
+        virtual KisStrokeStrategy* createStroke(KisResourcesSnapshotSP resources,
                                                 KisImageWSP image) = 0;
 
         virtual void addPaintingJobs(KisImageWSP image,
@@ -84,7 +86,7 @@ namespace utils {
         void testOneStroke(bool cancelled, bool indirectPainting,
                            bool externalLayer, bool testUpdates = false);
 
-        QImage doStroke(bool cancelled, bool indirectPainting,
+        QImage doStroke(bool cancelled,
                         bool externalLayer, bool testUpdates = false,
                         bool needQImage = true);
 
@@ -101,6 +103,7 @@ namespace utils {
         QString m_presetFilename;
         int m_numIterations;
         int m_baseFuzziness;
+        int m_strokeTime = 0;
     };
 }
 

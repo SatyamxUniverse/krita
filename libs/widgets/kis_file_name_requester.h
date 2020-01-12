@@ -33,7 +33,7 @@ namespace Ui {
 
 /**
  * This represents an editable file name.
- * Visual it presents a QLineEdit + a buton that pops up
+ * Visual it presents a QLineEdit + a button that pops up
  * a file chooser.
  *
  * Signals are fired when the user changes the text
@@ -48,6 +48,8 @@ public:
     ~KisFileNameRequester() override;
 
     void setStartDir(const QString &path);
+    /// Set the name used to store the last-used directory in the settings
+    void setConfigurationName(const QString &name);
 
     QString fileName() const;
     void setFileName(const QString &path);
@@ -75,6 +77,7 @@ private:
     KoFileDialog::DialogType m_mode;
     QStringList m_mime_filter_list;
     QString m_mime_default_filter;
+    QString m_name;
 };
 
 #endif // KIS_FILE_NAME_REQUESTER_H

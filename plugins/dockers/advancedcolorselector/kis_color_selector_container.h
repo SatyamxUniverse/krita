@@ -27,6 +27,7 @@ class KisMyPaintShadeSelector;
 class KisMinimalShadeSelector;
 class QBoxLayout;
 class QAction;
+class KisGamutMaskToolbar;
 
 class KisColorSelectorContainer : public QWidget
 {
@@ -35,8 +36,12 @@ public:
     explicit KisColorSelectorContainer(QWidget *parent = 0);
     void setCanvas(KisCanvas2* canvas);
     void unsetCanvas();
+    bool doesAtleastOneDocumentExist();
 
     enum ShadeSelectorType{MyPaintSelector, MinimalSelector, NoSelector};
+
+public Q_SLOTS:
+    void slotUpdateIcons();
 
 Q_SIGNALS:
     void openSettings();
@@ -44,7 +49,6 @@ Q_SIGNALS:
 
 protected Q_SLOTS:
     void updateSettings();
-    void reactOnLayerChange();
 
 protected:
     void resizeEvent(QResizeEvent *) override;
@@ -54,8 +58,10 @@ private:
     KisMyPaintShadeSelector* m_myPaintShadeSelector;
     KisMinimalShadeSelector* m_minimalShadeSelector;
     QWidget* m_shadeSelector;
+    KisGamutMaskToolbar* m_gamutMaskToolbar;
 
     int m_onDockerResizeSetting;
+    bool m_showColorSelector;
 
     QBoxLayout* m_widgetLayout;
 

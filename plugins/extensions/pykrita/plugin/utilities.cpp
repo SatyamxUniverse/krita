@@ -25,31 +25,134 @@
 
 #include "config.h"
 #include "utilities.h"
+#include "PythonPluginManager.h"
 
 #include <algorithm>
 
 #include <cmath>
 #include <Python.h>
 
-
+#include <QDir>
 #include <QLibrary>
 #include <QString>
 #include <QStringList>
+#include <QVector>
+#include <QFileInfo>
 
 #include <kconfigbase.h>
 #include <kconfiggroup.h>
 #include <klocalizedstring.h>
+#include <KoResourcePaths.h>
 
 #include <kis_debug.h>
+
+#include "PykritaModule.h"
 
 #define THREADED 1
 
 namespace PyKrita
 {
-namespace
+    static InitResult initStatus = INIT_UNINITIALIZED;
+    static QScopedPointer<PythonPluginManager> pluginManagerInstance;
+
+    InitResult initialize()
+    {
+        // Already initialized?
+        if (initStatus == INIT_OK) return INIT_OK;
+
+        dbgScript << "Initializing Python plugin for Python" << PY_MAJOR_VERSION << "," << PY_MINOR_VERSION;
+
+        if (!Python::libraryLoad()) {
+            return INIT_CANNOT_LOAD_PYTHON_LIBRARY;
+        }
+
+        // Update PYTHONPATH
+        // 0) custom plugin directories (prefer local dir over systems')
+        // 1) shipped krita module's dir
+        QStringList pluginDirectories = KoResourcePaths::findDirs("pythonscripts");
+        dbgScript << "Plugin Directories: " << pluginDirectories;
+        if (!Python::setPath(pluginDirectories)) {
+            initStatus = INIT_CANNOT_SET_PYTHON_PATHS;
+            return initStatus;
+        }
+
+#if defined(IS_PY3K)
+        if (0 != PyImport_AppendInittab(Python::PYKRITA_ENGINE, PyInit_pykrita)) {
+#else
+        if (0 != PyImport_AppendInittab(Python::PYKRITA_ENGINE, initpykrita)) {
+#endif
+            initStatus = INIT_CANNOT_LOAD_PYKRITA_MODULE;
+            return initStatus;
+        }
+
+        Python::ensureInitialized();
+        Python py = Python();
+
+        // NOTE: This code is not needed on Python 3.
+        //       This might also fail if private sip module for PyQt5 is used,
+        //       as required by newer PyQt5. It's fine since any exceptions
+        //       in this script will be ignored.
+        PyRun_SimpleString(
+                "import sip\n"
+                        "sip.setapi('QDate', 2)\n"
+                        "sip.setapi('QTime', 2)\n"
+                        "sip.setapi('QDateTime', 2)\n"
+                        "sip.setapi('QUrl', 2)\n"
+                        "sip.setapi('QTextStream', 2)\n"
+                        "sip.setapi('QString', 2)\n"
+                        "sip.setapi('QVariant', 2)\n"
+        );
+
+        // Initialize 'plugins' dict of module 'pykrita'
+        PyObject* plugins = PyDict_New();
+        py.itemStringSet("plugins", plugins);
+
+        pluginManagerInstance.reset(new PythonPluginManager());
+
+#if defined(IS_PY3K)
+        // Initialize our built-in module.
+        auto pykritaModule = PyInit_pykrita();
+
+        if (!pykritaModule) {
+            initStatus = INIT_CANNOT_LOAD_PYKRITA_MODULE;
+            return initStatus;
+            //return i18nc("@info:tooltip ", "No <icode>pykrita</icode> built-in module");
+        }
+#else
+        initpykrita();
+#endif
+
+        initStatus = INIT_OK;
+        return initStatus;
+    }
+
+    PythonPluginManager *pluginManager()
+    {
+        auto pluginManager = pluginManagerInstance.data();
+        KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(pluginManager, nullptr);
+        return pluginManager;
+    }
+
+    void finalize() {
+        dbgScript << "Going to destroy the Python engine";
+        if (pluginManagerInstance) {
+            pluginManagerInstance->unloadAllModules();
+
+            PyKrita::Python::maybeFinalize();
+            PyKrita::Python::libraryUnload();
+
+            pluginManagerInstance.reset();
+            initStatus = INIT_UNINITIALIZED;
+        }
+    }
+
+    namespace
 {
+#ifndef Q_OS_WIN
 QLibrary* s_pythonLibrary = 0;
+#endif
 PyThreadState* s_pythonThreadState = 0;
+bool isPythonPathSet = false;
 }                                                           // anonymous namespace
 
 const char* Python::PYKRITA_ENGINE = "pykrita";
@@ -163,21 +266,185 @@ QString Python::lastTraceback() const
     return result;
 }
 
-void Python::libraryLoad()
+bool Python::libraryLoad()
 {
+    // no-op on Windows
+#if defined(Q_OS_UNIX) && !defined(Q_OS_MAC)
     if (!s_pythonLibrary) {
-        dbgScript << "Creating s_pythonLibrary" << PYKRITA_PYTHON_LIBRARY;
-        s_pythonLibrary = new QLibrary(PYKRITA_PYTHON_LIBRARY);
-        if (!s_pythonLibrary)
-            errScript << "Could not create" << PYKRITA_PYTHON_LIBRARY;
 
+        QFileInfo fi(PYKRITA_PYTHON_LIBRARY);
+        // get the filename of the configured Python library, without the .so suffix
+        const QString libraryName = fi.completeBaseName();
+        // 1.0 is the SONAME of the shared Python library
+        s_pythonLibrary = new QLibrary(libraryName, "1.0");
         s_pythonLibrary->setLoadHints(QLibrary::ExportExternalSymbolsHint);
-        if (!s_pythonLibrary->load())
-            errScript << "Could not load" << PYKRITA_PYTHON_LIBRARY;
+        if (!s_pythonLibrary->load()) {
+            dbgScript << QString("Could not load %1 -- Reason: %2").arg(s_pythonLibrary->fileName()).arg(s_pythonLibrary->errorString());
+            delete s_pythonLibrary;
+            s_pythonLibrary = 0;
+            return false;
+        }
+        dbgScript << QString("Loaded %1").arg(s_pythonLibrary->fileName());
+    }
+#endif
+    return true;
+}
 
+namespace
+{
+
+QString findKritaPythonLibsPath(const QString &libdir)
+{
+    QDir rootDir(KoResourcePaths::getApplicationRoot());
+    QFileInfoList candidates =  rootDir.entryInfoList(QStringList() << "lib*", QDir::Dirs | QDir::NoDotAndDotDot) + rootDir.entryInfoList(QStringList() << "Frameworks", QDir::Dirs | QDir::NoDotAndDotDot);
+    Q_FOREACH (const QFileInfo &entry, candidates) {
+        QDir libDir(entry.absoluteFilePath());
+        if (libDir.cd(libdir)) {
+            return libDir.absolutePath();
+        } else {
+            // Handle cases like Linux where libs are placed in a sub-dir
+            // with the ABI name
+            Q_FOREACH (const QFileInfo &subEntry, libDir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot)) {
+                QDir subDir(subEntry.absoluteFilePath());
+                if (subDir.cd(libdir)) {
+                    return subDir.absolutePath();
+                }
+            }
+        }
+    }
+    return QString();
+}
+
+} // namespace
+
+bool Python::setPath(const QStringList& scriptPaths)
+{
+
+    KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(!Py_IsInitialized(), false);
+    KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(!isPythonPathSet, false);
+
+//    qDebug() << ">>>>>>>>>>>" << qgetenv("APPDIR")
+//             << KoResourcePaths::getApplicationRoot()
+//             << (!qgetenv("APPDIR").isNull() && KoResourcePaths::getApplicationRoot().contains(qgetenv("APPDIR")));
+
+
+    bool runningInBundle = ((!qgetenv("APPDIR").isNull() && KoResourcePaths::getApplicationRoot().contains(qgetenv("APPDIR"))) || KoResourcePaths::getApplicationRoot().toLower().contains("krita.app"));
+    dbgScript << "Python::setPath. Script paths:" << scriptPaths << runningInBundle;
+
+#ifdef Q_OS_WIN
+    constexpr char pathSeparator = ';';
+#else
+    constexpr char pathSeparator = ':';
+#endif
+
+    QString originalPath;
+    // Start with the script paths
+    QStringList paths(scriptPaths);
+
+    // Append the Krita libraries path
+    QString pythonLibsPath = findKritaPythonLibsPath("krita-python-libs");
+    dbgScript << "pythonLibsPath (krita-python-libs)" << pythonLibsPath;
+    if (pythonLibsPath.isEmpty()) {
+        dbgScript << "Cannot find krita-python-libs";
+        return false;
+    }
+    dbgScript << "Found krita-python-libs at" << pythonLibsPath;
+    paths.append(pythonLibsPath);
+
+#ifndef Q_OS_WIN
+    // Append the sip libraries path
+    pythonLibsPath = findKritaPythonLibsPath("sip");
+    dbgScript << "pythonLibsPath (sip)" << pythonLibsPath;
+    if (!pythonLibsPath.isEmpty()) {
+        dbgScript << "Found sip at" << pythonLibsPath;
+        paths.append(pythonLibsPath);
+    }
+#endif
+
+#ifdef Q_OS_WIN
+    // Find embeddable Python at <root>/python
+    QDir pythonDir(KoResourcePaths::getApplicationRoot());
+    if (pythonDir.cd("python")) {
+        dbgScript << "Found bundled Python at" << pythonDir.absolutePath();
+        // The default paths for Windows embeddable Python is ./python36.zip;./
+        // HACK: Assuming bundled Python is version 3.6.*
+        // FIXME: Should we read python36._pth for the paths or use Py_GetPath?
+        paths.append(pythonDir.absoluteFilePath("python36.zip"));
+        paths.append(pythonDir.absolutePath());
+    } else {
+        errScript << "Bundled Python not found, cannot set Python library paths";
+        return false;
+    }
+#else
+    // If using a system Python install, respect the current PYTHONPATH
+    if (runningInBundle) {
+        // We're running from an appimage, so we need our local python
+        QString p = QFileInfo(PYKRITA_PYTHON_LIBRARY).fileName();
+#ifdef Q_OS_MAC
+        QString p2 = p.remove("lib").remove("m.dy");
+#else
+        QString p2 = p.remove("lib").remove("m.so");
+#endif
+        dbgScript << "\t" << p << p2;
+        originalPath = findKritaPythonLibsPath(p);
+#ifdef Q_OS_MAC
+        // Are we running with a system Python library instead?
+        if (originalPath.isEmpty()) {
+            // Keep the original Python search path.
+            originalPath = QString::fromWCharArray(Py_GetPath());
+            QString d = QFileInfo(PYKRITA_PYTHON_LIBRARY).absolutePath();
+
+            paths.append(d + "/" + p2 + "/site-packages");
+            paths.append(d + "/" + p2 + "/site-packages/PyQt5");
+        }
+        else {
+#endif
+            paths.append(originalPath + "/lib-dynload");
+            paths.append(originalPath + "/site-packages");
+            paths.append(originalPath + "/site-packages/PyQt5");
+#ifdef Q_OS_MAC
+        }
+#endif
+    }
+    else {
+        // Use the system path
+        originalPath = QString::fromLocal8Bit(qgetenv("PYTHONPATH"));
+    }
+#endif
+
+    QString joinedPaths = paths.join(pathSeparator);
+    if (!originalPath.isEmpty()) {
+        joinedPaths = joinedPaths + pathSeparator + originalPath;
+    }
+    dbgScript << "Setting python paths:" << joinedPaths;
+#ifdef Q_OS_WIN
+    QVector<wchar_t> joinedPathsWChars(joinedPaths.size() + 1, 0);
+    joinedPaths.toWCharArray(joinedPathsWChars.data());
+    Py_SetPath(joinedPathsWChars.data());
+#else
+    if (runningInBundle) {
+        QVector<wchar_t> joinedPathsWChars(joinedPaths.size() + 1, 0);
+        joinedPaths.toWCharArray(joinedPathsWChars.data());
+        Py_SetPath(joinedPathsWChars.data());
+    }
+    else {
+        qputenv("PYTHONPATH", joinedPaths.toLocal8Bit());
+    }
+#endif
+    isPythonPathSet = true;
+    return true;
+}
+
+void Python::ensureInitialized()
+{
+    if (Py_IsInitialized()) {
+        warnScript << "Python interpreter is already initialized, not initializing again";
+    } else {
+        dbgScript << "Initializing Python interpreter";
         Py_InitializeEx(0);
-        if (!Py_IsInitialized())
-            errScript << "Could not initialise" << PYKRITA_PYTHON_LIBRARY;
+        if (!Py_IsInitialized()) {
+            errScript << "Could not initialize Python interpreter";
+        }
 #if THREADED
         PyEval_InitThreads();
         s_pythonThreadState = PyGILState_GetThisThreadState();
@@ -186,22 +453,31 @@ void Python::libraryLoad()
     }
 }
 
+void Python::maybeFinalize()
+{
+    if (!Py_IsInitialized()) {
+        warnScript << "Python interpreter not initialized, no need to finalize";
+    } else {
+#if THREADED
+        PyEval_AcquireThread(s_pythonThreadState);
+#endif
+        Py_Finalize();
+    }
+}
+
 void Python::libraryUnload()
 {
+    // no-op on Windows
+#ifndef Q_OS_WIN
     if (s_pythonLibrary) {
         // Shut the interpreter down if it has been started.
-        if (Py_IsInitialized()) {
-#if THREADED
-            PyEval_AcquireThread(s_pythonThreadState);
-#endif
-            //Py_Finalize();
-        }
         if (s_pythonLibrary->isLoaded()) {
             s_pythonLibrary->unload();
         }
         delete s_pythonLibrary;
         s_pythonLibrary = 0;
     }
+#endif
 }
 
 PyObject* Python::moduleActions(const char* moduleName)
@@ -246,33 +522,7 @@ PyObject* Python::moduleImport(const char* const moduleName)
     return 0;
 }
 
-void* Python::objectUnwrap(PyObject* o)
-{
-    PyObject* const arguments = Py_BuildValue("(O)", o);
-    PyObject* const result = functionCall("unwrapinstance", "sip", arguments);
-    if (!result)
-        return 0;
-
-    void* const r = reinterpret_cast<void*>(ptrdiff_t(PyLong_AsLongLong(result)));
-    Py_DECREF(result);
-    return r;
-}
-
-PyObject* Python::objectWrap(void* const o, const QString& fullClassName)
-{
-    const QString classModuleName = fullClassName.section('.', 0, -2);
-    const QString className = fullClassName.section('.', -1);
-    PyObject* const classObject = itemString(PQ(className), PQ(classModuleName));
-    if (!classObject)
-        return 0;
-
-    PyObject* const arguments = Py_BuildValue("NO", PyLong_FromVoidPtr(o), classObject);
-    PyObject* const result = functionCall("wrapinstance", "sip", arguments);
-
-    return result;
-}
-
-// Inspired by http://www.gossamer-threads.com/lists/python/python/150924.
+// Inspired by https://lists.gt.net/python/python/150924.
 void Python::traceback(const QString& description)
 {
     m_traceback.clear();
@@ -337,19 +587,19 @@ void Python::traceback(const QString& description)
 PyObject* Python::unicode(const QString& string)
 {
 #if PY_MAJOR_VERSION < 3
-    /* Python 2.x. http://docs.python.org/2/c-api/unicode.html */
+    /* Python 2.x. https://docs.python.org/2/c-api/unicode.html */
     PyObject* s = PyString_FromString(PQ(string));
     PyObject* u = PyUnicode_FromEncodedObject(s, "utf-8", "strict");
     Py_DECREF(s);
     return u;
 #elif PY_MINOR_VERSION < 3
-    /* Python 3.2 or less. http://docs.python.org/3.2/c-api/unicode.html#unicode-objects */
+    /* Python 3.2 or less. https://docs.python.org/3.2/c-api/unicode.html#unicode-objects */
 # ifdef Py_UNICODE_WIDE
     return PyUnicode_DecodeUTF16((const char*)string.constData(), string.length() * 2, 0, 0);
 # else
     return PyUnicode_FromUnicode(string.constData(), string.length());
 # endif
-#else /* Python 3.3 or greater. http://docs.python.org/3.3/c-api/unicode.html#unicode-objects */
+#else /* Python 3.3 or greater. https://docs.python.org/3.3/c-api/unicode.html#unicode-objects */
     return PyUnicode_FromKindAndData(PyUnicode_2BYTE_KIND, string.constData(), string.length());
 #endif
 }
@@ -357,7 +607,7 @@ PyObject* Python::unicode(const QString& string)
 QString Python::unicode(PyObject* const string)
 {
 #if PY_MAJOR_VERSION < 3
-    /* Python 2.x. http://docs.python.org/2/c-api/unicode.html */
+    /* Python 2.x. https://docs.python.org/2/c-api/unicode.html */
     if (PyString_Check(string))
         return QString(PyString_AsString(string));
     else if (PyUnicode_Check(string)) {
@@ -373,7 +623,7 @@ QString Python::unicode(PyObject* const string)
 # endif
     } else return QString();
 #elif PY_MINOR_VERSION < 3
-    /* Python 3.2 or less. http://docs.python.org/3.2/c-api/unicode.html#unicode-objects */
+    /* Python 3.2 or less. https://docs.python.org/3.2/c-api/unicode.html#unicode-objects */
     if (!PyUnicode_Check(string))
         return QString();
 
@@ -387,7 +637,7 @@ QString Python::unicode(PyObject* const string)
     return QString::fromUtf16(PyUnicode_AsUnicode(string), unichars);
 #   endif
 # endif
-#else /* Python 3.3 or greater. http://docs.python.org/3.3/c-api/unicode.html#unicode-objects */
+#else /* Python 3.3 or greater. https://docs.python.org/3.3/c-api/unicode.html#unicode-objects */
     if (!PyUnicode_Check(string))
         return QString();
 
@@ -416,75 +666,6 @@ bool Python::isUnicode(PyObject* const string)
 #else
     return PyUnicode_Check(string);
 #endif
-}
-
-void Python::updateConfigurationFromDictionary(KConfigBase* const config, PyObject* const dictionary)
-{
-    PyObject* groupKey;
-    PyObject* groupDictionary;
-    Py_ssize_t position = 0;
-    while (PyDict_Next(dictionary, &position, &groupKey, &groupDictionary)) {
-        if (!isUnicode(groupKey)) {
-            traceback(QString("Configuration group name not a string"));
-            continue;
-        }
-        QString groupName = unicode(groupKey);
-        if (!PyDict_Check(groupDictionary)) {
-            traceback(QString("Configuration group %1 top level key not a dictionary").arg(groupName));
-            continue;
-        }
-
-        // There is a group per module.
-        KConfigGroup group = config->group(groupName);
-        PyObject* key;
-        PyObject* value;
-        Py_ssize_t x = 0;
-        while (PyDict_Next(groupDictionary, &x, &key, &value)) {
-            if (!isUnicode(key)) {
-                traceback(QString("Configuration group %1 itemKey not a string").arg(groupName));
-                continue;
-            }
-            PyObject* arguments = Py_BuildValue("(Oi)", value, 0);
-            PyObject* pickled = functionCall("dumps", "pickle", arguments);
-            if (pickled) {
-#if PY_MAJOR_VERSION < 3
-                QString ascii(unicode(pickled));
-#else
-                QString ascii(PyBytes_AsString(pickled));
-#endif
-                group.writeEntry(unicode(key), ascii);
-                Py_DECREF(pickled);
-            } else {
-                errScript << "Cannot write" << groupName << unicode(key) << unicode(PyObject_Str(value));
-            }
-        }
-    }
-}
-
-void Python::updateDictionaryFromConfiguration(PyObject* const dictionary, const KConfigBase* const config)
-{
-    qDebug() << config->groupList();
-    Q_FOREACH(QString groupName, config->groupList()) {
-        KConfigGroup group = config->group(groupName);
-        PyObject* groupDictionary = PyDict_New();
-        PyDict_SetItemString(dictionary, PQ(groupName), groupDictionary);
-        Q_FOREACH(QString key, group.keyList()) {
-            QString pickled = group.readEntry(key);
-#if PY_MAJOR_VERSION < 3
-            PyObject* arguments = Py_BuildValue("(s)", PQ(pickled));
-#else
-            PyObject* arguments = Py_BuildValue("(y)", PQ(pickled));
-#endif
-            PyObject* value = functionCall("loads", "pickle", arguments);
-            if (value) {
-                PyDict_SetItemString(groupDictionary, PQ(key), value);
-                Py_DECREF(value);
-            } else {
-                errScript << "Cannot read" << groupName << key << pickled;
-            }
-        }
-        Py_DECREF(groupDictionary);
-    }
 }
 
 bool Python::prependPythonPaths(const QString& path)

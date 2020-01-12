@@ -23,13 +23,10 @@
 #include <QCommandLineOption>
 
 #include <KisApplication.h>
-#include <KoGlobal.h>
 #include <resources/KoHashGeneratorProvider.h>
 #include "kis_md5_generator.h"
+#include "PythonPluginManager.h"
 #include <opengl/kis_opengl.h>
-
-#include <engine.h>
-#include <utilities.h>
 
 extern "C" int main(int argc, char **argv)
 {
@@ -37,11 +34,7 @@ extern "C" int main(int argc, char **argv)
     qsrand(time(0));
     KLocalizedString::setApplicationDomain("kritarunner");
     QCoreApplication::setAttribute(Qt::AA_ShareOpenGLContexts, true);
-    KisOpenGL::setDefaultFormat();
-
-    QLoggingCategory::setFilterRules("krita*.debug=false\n"
-                                     "krita*.warning=false\n"
-                                     "krita.tabletlog=false");
+    KisOpenGL::testingInitializeDefaultSurfaceFormat();
 
 
     // first create the application so we can create a pixmap
@@ -62,7 +55,7 @@ extern "C" int main(int argc, char **argv)
                                       "The function to call (by default __main__ is called).", "function", "__main__");
     parser.addOption(functionOption);
 
-    parser.addPositionalArgument("[argument(s)]", "The argumetns for the script");
+    parser.addPositionalArgument("[argument(s)]", "The arguments for the script");
     parser.process(app);
 
     if (!parser.isSet(scriptOption)) {
@@ -74,7 +67,6 @@ extern "C" int main(int argc, char **argv)
     qDebug() << parser.positionalArguments();
 
     KoHashGeneratorProvider::instance()->setGenerator("MD5", new KisMD5Generator());
-    KoGlobal::initialize();
     app.addResourceTypes();
     app.loadResources();
     app.loadPlugins();
@@ -84,12 +76,26 @@ extern "C" int main(int argc, char **argv)
     qDebug() << "\tPython path:" << pythonPath;
 
     qDebug() << "Creating engine";
-    PyKrita::Engine engine;
-    QString r = engine.tryInitializeGetFailureReason();
 
-    if (!r.isEmpty()) {
-        qDebug("Could not initialize the Python engine");
-        return 1;
+    // TODO: refactor to share common parts with plugin.cpp
+
+    PyKrita::InitResult initResult = PyKrita::initialize();
+
+    switch (initResult) {
+        case PyKrita::INIT_OK:
+            break;
+        case PyKrita::INIT_CANNOT_LOAD_PYTHON_LIBRARY:
+            qWarning() << i18n("Cannot load Python library");
+            return 1;
+        case PyKrita::INIT_CANNOT_SET_PYTHON_PATHS:
+            qWarning() << i18n("Cannot set Python paths");
+            return 1;
+        case PyKrita::INIT_CANNOT_LOAD_PYKRITA_MODULE:
+            qWarning() << i18n("Cannot load built-in pykrita module");
+            return 1;
+        default:
+            qWarning() << i18n("Unexpected error initializing python plugin.");
+            return 1;
     }
 
     qDebug() << "Try to import the pykrita module";

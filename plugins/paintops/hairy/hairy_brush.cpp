@@ -145,8 +145,10 @@ void HairyBrush::paintLine(KisPaintDeviceSP dab, KisPaintDeviceSP layer, const K
         initAndCache();
     }
 
-    // if this is first time the brush touches the canvas and we use soak the ink from canvas
-    if (firstStroke() && m_properties->useSoakInk) {
+    /*If this is first time the brush touches the canvas and
+    we are using soak ink while ink depletion is enabled...*/
+    if (m_properties->inkDepletionEnabled &&
+            firstStroke() && m_properties->useSoakInk) {
         if (layer) {
             colorifyBristles(layer, pi1.pos());
         }
@@ -165,7 +167,7 @@ void HairyBrush::paintLine(KisPaintDeviceSP dab, KisPaintDeviceSP layer, const K
     int inkDepletionSize = m_properties->inkDepletionCurve.size();
     int bristleCount = m_bristles.size();
     int bristlePathSize;
-    qreal treshold = 1.0 - pi2.pressure();
+    qreal threshold = 1.0 - pi2.pressure();
     for (int i = 0; i < bristleCount; i++) {
 
         if (!m_bristles.at(i)->enabled()) continue;
@@ -205,10 +207,15 @@ void HairyBrush::paintLine(KisPaintDeviceSP dab, KisPaintDeviceSP layer, const K
         fx2 += x2;
         fy2 += y2;
 
-        if (m_properties->threshold && (bristle->length() < treshold)) continue;
+        if (m_properties->threshold && (bristle->length() < threshold)) continue;
         // paint between first and last dab
         const QVector<QPointF> bristlePath = m_trajectory.getLinearTrajectory(QPointF(fx1, fy1), QPointF(fx2, fy2), 1.0);
         bristlePathSize = m_trajectory.size();
+
+        // avoid overlapping bristle caps with antialias on
+        if (m_properties->antialias) {
+            bristlePathSize -= 1;
+        }
 
         memcpy(bristleColor.data(), bristle->color().data() , m_pixelSize);
         for (int i = 0; i < bristlePathSize ; i++) {
@@ -272,11 +279,11 @@ void HairyBrush::saturationDepletion(Bristle * bristle, KoColor &bristleColor, q
                          (1.0 - inkDeplation)) - 1.0;
 
     }
-	m_transfo->setParameter(m_transfo->parameterId("h"), 0.0);
-	m_transfo->setParameter(m_transfo->parameterId("v"), 0.0);
+    m_transfo->setParameter(m_transfo->parameterId("h"), 0.0);
+    m_transfo->setParameter(m_transfo->parameterId("v"), 0.0);
     m_transfo->setParameter(m_saturationId, saturation);
-	m_transfo->setParameter(3, 1);//sets the type to
-	m_transfo->setParameter(4, false);//sets the colorize to none.
+    m_transfo->setParameter(3, 1);//sets the type to
+    m_transfo->setParameter(4, false);//sets the colorize to none.
     m_transfo->transform(bristleColor.data(), bristleColor.data() , 1);
 }
 
@@ -284,18 +291,18 @@ void HairyBrush::opacityDepletion(Bristle* bristle, KoColor& bristleColor, qreal
 {
     qreal opacity = OPACITY_OPAQUE_F;
     if (m_properties->useWeights) {
-        opacity = qBound(0.0,
-                         (pressure * m_properties->pressureWeight) +
-                         (bristle->length() * m_properties->bristleLengthWeight) +
-                         (bristle->inkAmount() * m_properties->bristleInkAmountWeight) +
-                         ((1.0 - inkDeplation) * m_properties->inkDepletionWeight), 1.0);
-
+        opacity = pressure * m_properties->pressureWeight +
+                  bristle->length() * m_properties->bristleLengthWeight +
+                  bristle->inkAmount() * m_properties->bristleInkAmountWeight +
+                  (1.0 - inkDeplation) * m_properties->inkDepletionWeight;
     }
     else {
         opacity =
             bristle->length() *
             bristle->inkAmount();
     }
+
+    opacity = qBound(0.0, opacity, 1.0);
     bristleColor.setOpacity(opacity);
 }
 
@@ -329,8 +336,8 @@ void HairyBrush::paintParticle(QPointF pos, const KoColor& color, qreal weight)
 
     int ipx = int (pos.x());
     int ipy = int (pos.y());
-    qreal fx = pos.x() - ipx;
-    qreal fy = pos.y() - ipy;
+    qreal fx = qAbs(pos.x() - ipx);
+    qreal fy = qAbs(pos.y() - ipy);
 
     quint8 btl = qRound((1.0 - fx) * (1.0 - fy) * opacity);
     quint8 btr = qRound((fx)  * (1.0 - fy) * opacity);
@@ -368,8 +375,8 @@ void HairyBrush::paintParticle(QPointF pos, const KoColor& color)
 
     int ipx = int (pos.x());
     int ipy = int (pos.y());
-    qreal fx = pos.x() - ipx;
-    qreal fy = pos.y() - ipy;
+    qreal fx = qAbs(pos.x() - ipx);
+    qreal fy = qAbs(pos.y() - ipy);
 
     quint8 btl = qRound((1.0 - fx) * (1.0 - fy) * opacity);
     quint8 btr = qRound((fx)  * (1.0 - fy) * opacity);

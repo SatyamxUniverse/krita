@@ -22,14 +22,19 @@
 
 #include <QVariant>
 
-#include <kis_view_plugin.h>
+#include <KisActionPlugin.h>
+#include "kis_types.h"
 
-class RotateImage : public KisViewPlugin
+class RotateImage : public KisActionPlugin
 {
     Q_OBJECT
 public:
     RotateImage(QObject *parent, const QVariantList &);
     ~RotateImage() override;
+
+private:
+    void rotateLayerCustomImpl(KisNodeSP rootNode);
+    void rotateLayerImpl(KisNodeSP rootNode, qreal radians);
 
 private Q_SLOTS:
 
@@ -40,6 +45,13 @@ private Q_SLOTS:
     void slotMirrorImageVertical();
     void slotMirrorImageHorizontal();
     void slotRotateLayer();
+    void slotRotateLayerCW90();
+    void slotRotateLayerCCW90();
+    void slotRotateLayer180();
+    void slotRotateAllLayers();
+    void slotRotateAllLayersCW90();
+    void slotRotateAllLayersCCW90();
+    void slotRotateAllLayers180();
 };
 
 #endif // ROTATEIMAGE_H

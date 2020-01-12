@@ -20,6 +20,7 @@
 #define __KIS_LS_UTILS_H
 
 #include "kis_types.h"
+#include "kritaimage_export.h"
 
 #include "kis_lod_transform.h"
 
@@ -30,6 +31,7 @@ struct psd_layer_effects_overlay_base;
 class KisLayerStyleFilterEnvironment;
 class KoPattern;
 class KisMultipleProjection;
+class KisCachedSelection;
 
 
 namespace KisLsUtils
@@ -37,14 +39,15 @@ namespace KisLsUtils
 
     QRect growSelectionUniform(KisPixelSelectionSP selection, int growSize, const QRect &applyRect);
 
-    KisSelectionSP selectionFromAlphaChannel(KisPaintDeviceSP device,
-                                             const QRect &srcRect);
+    KRITAIMAGE_EXPORT void selectionFromAlphaChannel(KisPaintDeviceSP srcDevice,
+                                                        KisSelectionSP dstSelection,
+                                                        const QRect &srcRect);
 
     void findEdge(KisPixelSelectionSP selection, const QRect &applyRect, const bool edgeHidden);
     QRect growRectFromRadius(const QRect &rc, int radius);
-    void applyGaussian(KisPixelSelectionSP selection,
-                       const QRect &applyRect,
-                       qreal radius);
+    void applyGaussianWithTransaction(KisPixelSelectionSP selection,
+                                      const QRect &applyRect,
+                                      qreal radius);
 
     static const int FULL_PERCENT_RANGE = 100;
     void adjustRange(KisPixelSelectionSP selection, const QRect &applyRect, const int range);
@@ -61,7 +64,7 @@ namespace KisLsUtils
                     const QRect &applyRect,
                     int noise,
                     const psd_layer_effects_context *context,
-                    const KisLayerStyleFilterEnvironment *env);
+                    KisLayerStyleFilterEnvironment *env);
 
     void knockOutSelection(KisPixelSelectionSP selection,
                            KisPixelSelectionSP knockOutSelection,

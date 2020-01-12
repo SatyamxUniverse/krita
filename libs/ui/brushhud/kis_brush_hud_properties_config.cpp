@@ -77,7 +77,7 @@ QList<QString> KisBrushHudPropertiesConfig::selectedProperties(const QString &pa
 
 void KisBrushHudPropertiesConfig::Private::readConfig()
 {
-    KisConfig cfg;
+    KisConfig cfg(true);
     doc = QDomDocument();
 
     QString docContent = cfg.brushHudSetting();
@@ -89,7 +89,7 @@ void KisBrushHudPropertiesConfig::Private::readConfig()
         if (!KisDomUtils::loadValue(root, "version", &version) ||
             version != 1) {
 
-            warnKrita << "Unknows Brush HUD XML document type or version!";
+            warnKrita << "Unknown Brush HUD XML document type or version!";
             doc = QDomDocument();
         }
     }
@@ -105,7 +105,7 @@ void KisBrushHudPropertiesConfig::Private::readConfig()
 
 void KisBrushHudPropertiesConfig::Private::writeConfig()
 {
-    KisConfig cfg;
+    KisConfig cfg(false);
     cfg.setBrushHudSetting(doc.toString());
 }
 

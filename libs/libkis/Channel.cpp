@@ -69,11 +69,12 @@ bool Channel::visible() const
 {
     if (!d->node || !d->channel) return false;
     if (!d->node->inherits("KisLayer")) return false;
+
     for (uint i = 0; i < d->node->colorSpace()->channelCount(); ++i) {
         if (d->node->colorSpace()->channels()[i] == d->channel) {
             KisLayerSP layer = qobject_cast<KisLayer*>(d->node.data());
-            QBitArray flags = layer->channelFlags();
-            return flags.testBit(i);
+            const QBitArray& flags = layer->channelFlags();
+            return flags.isEmpty() || flags.testBit(i);
         }
     }
     return false;
@@ -136,11 +137,11 @@ QRect Channel::bounds() const
     KisSequentialConstIterator srcIt(d->node->projection(), rect);
     KisSequentialIterator dstIt(dev, rect);
 
-    do {
+    while(srcIt.nextPixel() && dstIt.nextPixel()) {
         const quint8 *srcPtr = srcIt.rawDataConst();
         memcpy(dstIt.rawData(), srcPtr + d->channel->pos(), d->channel->size());
 
-    } while(srcIt.nextPixel() && dstIt.nextPixel());
+    }
 
     if (dev) {
         return dev->exactBounds();
@@ -159,27 +160,27 @@ QByteArray Channel::pixelData(const QRect &rect) const
     KisSequentialConstIterator srcIt(d->node->projection(), rect);
 
     if (d->node->colorSpace()->colorDepthId() == Integer8BitsColorDepthID) {
-        do {
-            stream << (quint8) *srcIt.rawDataConst();
-        } while(srcIt.nextPixel());
+        while(srcIt.nextPixel()) {
+            stream << (quint8) *srcIt.rawDataConst() + (d->channel->pos() * d->channel->size());
+        }
     }
     else if (d->node->colorSpace()->colorDepthId() ==  Integer16BitsColorDepthID) {
-        do {
-            stream << (quint16) *srcIt.rawDataConst();
-        } while(srcIt.nextPixel());
+        while(srcIt.nextPixel()) {
+            stream << (quint16) *srcIt.rawDataConst() + (d->channel->pos() * d->channel->size());
+        }
     }
 #ifdef HAVE_OPENEXR
     else if (d->node->colorSpace()->colorDepthId() == Float16BitsColorDepthID) {
-        do {
-            half h = (half)*srcIt.rawDataConst();
+        while(srcIt.nextPixel()) {
+            half h = (half)*srcIt.rawDataConst() + (d->channel->pos() * d->channel->size());
             stream << (float)h;
-        } while(srcIt.nextPixel());
+        }
     }
 #endif
     else if (d->node->colorSpace()->colorDepthId() == Float32BitsColorDepthID) {
-        do {
-            stream << (float) *srcIt.rawDataConst();
-        } while(srcIt.nextPixel());
+        while(srcIt.nextPixel()) {
+            stream << (float) *srcIt.rawDataConst() + (d->channel->pos() * d->channel->size());
+        }
 
     }
 
@@ -194,36 +195,36 @@ void Channel::setPixelData(QByteArray value, const QRect &rect)
     KisSequentialIterator dstIt(d->node->paintDevice(), rect);
 
     if (d->node->colorSpace()->colorDepthId() == Integer8BitsColorDepthID) {
-        do {
+        while (dstIt.nextPixel()) {
             quint8 v;
             stream >> v;
-            *dstIt.rawData() = v ;
-        } while(dstIt.nextPixel());
+            *(dstIt.rawData() + (d->channel->pos() * d->channel->size())) = v ;
+        }
     }
     else if (d->node->colorSpace()->colorDepthId() ==  Integer16BitsColorDepthID) {
-        do {
+        while (dstIt.nextPixel()) {
             quint16 v;
             stream >> v;
-            *dstIt.rawData() = v ;
-        } while(dstIt.nextPixel());
+            *(dstIt.rawData() + (d->channel->pos() * d->channel->size())) = v ;
+        }
     }
 #ifdef HAVE_OPENEXR
     else if (d->node->colorSpace()->colorDepthId() == Float16BitsColorDepthID) {
-        do {
+        while (dstIt.nextPixel()) {
             float f;
             stream >> f;
             half v = f;
-            *dstIt.rawData() = v ;
-        } while(dstIt.nextPixel());
+            *(dstIt.rawData() + (d->channel->pos() * d->channel->size())) = v ;
+        }
 
     }
 #endif
     else if (d->node->colorSpace()->colorDepthId() == Float32BitsColorDepthID) {
-        do {
+        while (dstIt.nextPixel()) {
             float v;
             stream >> v;
-            *dstIt.rawData() = v ;
-        } while(dstIt.nextPixel());
+            *(dstIt.rawData() + (d->channel->pos() * d->channel->size())) = v ;
+        }
     }
 }
 

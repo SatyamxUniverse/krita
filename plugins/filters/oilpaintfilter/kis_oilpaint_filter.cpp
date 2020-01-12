@@ -40,18 +40,19 @@
 
 #include <KisDocument.h>
 #include <kis_image.h>
-#include <kis_iterator_ng.h>
+#include <KisSequentialIteratorProgress.h>
 #include <kis_layer.h>
 #include <filter/kis_filter_registry.h>
 #include <kis_global.h>
 #include <kis_types.h>
+#include <filter/kis_filter_category_ids.h>
 #include <filter/kis_filter_configuration.h>
 #include <kis_processing_information.h>
 #include <kis_paint_device.h>
 #include "widgets/kis_multi_integer_filter_widget.h"
 
 
-KisOilPaintFilter::KisOilPaintFilter() : KisFilter(id(), KisFilter::categoryArtistic(), i18n("&Oilpaint..."))
+KisOilPaintFilter::KisOilPaintFilter() : KisFilter(id(), FiltersCategoryArtisticId, i18n("&Oilpaint..."))
 {
     setSupportsPainting(true);
     setSupportsThreading(false);
@@ -64,17 +65,13 @@ void KisOilPaintFilter::processImpl(KisPaintDeviceSP device,
                                     KoUpdater* progressUpdater
                                     ) const
 {
-    QPoint srcTopLeft = applyRect.topLeft();
     Q_ASSERT(!device.isNull());
 
-    qint32 width = applyRect.width();
-    qint32 height = applyRect.height();
-
     //read the filter configuration values from the KisFilterConfiguration object
-    quint32 brushSize = config ? config->getInt("brushSize", 1) : 1;
-    quint32 smooth = config ? config->getInt("smooth", 30) : 30;
+    const quint32 brushSize = config ? config->getInt("brushSize", 1) : 1;
+    const quint32 smooth = config ? config->getInt("smooth", 30) : 30;
 
-    OilPaint(device, device, srcTopLeft, applyRect.topLeft(), width, height, brushSize, smooth, progressUpdater);
+    OilPaint(device, device, applyRect, brushSize, smooth, progressUpdater);
 }
 
 // This method have been ported from Pieter Z. Voloshyn algorithm code.
@@ -91,27 +88,14 @@ void KisOilPaintFilter::processImpl(KisPaintDeviceSP device,
  *                     a matrix and simply write at the original position.
  */
 
-void KisOilPaintFilter::OilPaint(const KisPaintDeviceSP src, KisPaintDeviceSP dst, const QPoint& srcTopLeft, const QPoint& dstTopLeft, int w, int h,
+void KisOilPaintFilter::OilPaint(const KisPaintDeviceSP src, KisPaintDeviceSP dst, const QRect &applyRect,
                                  int BrushSize, int Smoothness, KoUpdater* progressUpdater) const
 {
-    if (progressUpdater) {
-        progressUpdater->setRange(0, w * h);
-    }
+    KisSequentialConstIteratorProgress it(src, applyRect, progressUpdater);
+    KisSequentialIterator dstIt(dst, applyRect);
 
-    QRect bounds(srcTopLeft.x(), srcTopLeft.y(), w, h);
-
-    KisHLineConstIteratorSP it = src->createHLineConstIteratorNG(srcTopLeft.x(), srcTopLeft.y(), w);
-    KisHLineIteratorSP dstIt = dst->createHLineIteratorNG(dstTopLeft.x(), dstTopLeft.y(), w);
-
-    int progress = 0;
-    for (qint32 yOffset = 0; yOffset < h; yOffset++) {
-        do {  //&& !cancelRequested()) {
-                MostFrequentColor(src, dstIt->rawData(), bounds, it->x(), it->y(), BrushSize, Smoothness);
-        }  while (it->nextPixel() && dstIt->nextPixel());
-        it->nextRow();
-        dstIt->nextRow();
-
-        if (progressUpdater) progressUpdater->setValue(progress += w);
+    while (it.nextPixel() && dstIt.nextPixel()) {
+        MostFrequentColor(src, dstIt.rawData(), applyRect, it.x(), it.y(), BrushSize, Smoothness);
     }
 }
 
@@ -157,7 +141,7 @@ void KisOilPaintFilter::MostFrequentColor(KisPaintDeviceSP src, quint8* dst, con
     if ((starty + height) > bounds.bottom()) height = bounds.bottom() - starty + 1;
     Q_ASSERT((starty + height - 1) <= bounds.bottom());
     KisSequentialConstIterator srcIt(src, QRect(startx, starty, width, height));
-    do {
+    while (srcIt.nextPixel()) {
 
         cs->normalisedChannelsValue(srcIt.rawDataConst(), channel);
 
@@ -171,7 +155,7 @@ void KisOilPaintFilter::MostFrequentColor(KisPaintDeviceSP src, quint8* dst, con
                 AverageChannels[I][i] += channel[i];
             }
         }
-    } while (srcIt.nextPixel());
+    }
 
     I = 0;
     int MaxInstance = 0;
@@ -200,19 +184,19 @@ void KisOilPaintFilter::MostFrequentColor(KisPaintDeviceSP src, quint8* dst, con
 }
 
 
-KisConfigWidget * KisOilPaintFilter::createConfigurationWidget(QWidget* parent, const KisPaintDeviceSP) const
+KisConfigWidget * KisOilPaintFilter::createConfigurationWidget(QWidget* parent, const KisPaintDeviceSP, bool) const
 {
     vKisIntegerWidgetParam param;
     param.push_back(KisIntegerWidgetParam(1, 5, 1, i18n("Brush size"), "brushSize"));
     param.push_back(KisIntegerWidgetParam(10, 255, 30, i18nc("smooth out the painting strokes the filter creates", "Smooth"), "smooth"));
     KisMultiIntegerFilterWidget * w = new KisMultiIntegerFilterWidget(id().id(),  parent,  id().id(),  param);
-    w->setConfiguration(factoryConfiguration());
+    w->setConfiguration(defaultConfiguration());
     return w;
 }
 
-KisFilterConfigurationSP KisOilPaintFilter::factoryConfiguration() const
+KisFilterConfigurationSP KisOilPaintFilter::defaultConfiguration() const
 {
-    KisFilterConfigurationSP config = new KisFilterConfiguration("oilpaint", 1);
+    KisFilterConfigurationSP config = factoryConfiguration();
     config->setProperty("brushSize", 1);
     config->setProperty("smooth", 30);
 

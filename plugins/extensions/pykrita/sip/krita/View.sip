@@ -11,15 +11,16 @@ public:
 public Q_SLOTS:
     Window * window() const /Factory/;
     Document * document() const /Factory/;
+    void setDocument(Document *document);
     bool visible() const;
     void setVisible();
     Canvas * canvas() const /Factory/;
     void activateResource(Resource *resource);
 
-    ManagedColor *foreGroundColor() const /Factory/;
+    ManagedColor *foregroundColor() const /Factory/;
     void setForeGroundColor(ManagedColor *color);
 
-    ManagedColor *backGroundColor() const /Factory/;
+    ManagedColor *backgroundColor() const /Factory/;
     void setBackGroundColor(ManagedColor *color);
 
     Resource *currentBrushPreset() const /Factory/;
@@ -48,5 +49,7 @@ public Q_SLOTS:
 
     qreal paintingFlow() const;
     void setPaintingFlow(qreal flow);
+
+    QList<Node *> selectedNodes() const /Factory/;
 private:
 };

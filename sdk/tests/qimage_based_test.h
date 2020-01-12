@@ -19,6 +19,10 @@
 #ifndef __QIMAGE_BASED_TEST_H
 #define __QIMAGE_BASED_TEST_H
 
+#ifndef USE_DOCUMENT
+#define USE_DOCUMENT 1
+#endif /* USE_DOCUMENT */
+
 #include "testutil.h"
 
 
@@ -28,8 +32,13 @@
 #include <KoShapeContainer.h>
 #include <KoShapeRegistry.h>
 #include <KoShapeFactoryBase.h>
+
+#if USE_DOCUMENT
 #include "KisDocument.h"
 #include "kis_shape_layer.h"
+#else
+#include "kis_filter_configuration.h"
+#endif /* USE_DOCUMENT */
 
 #include "kis_undo_stores.h"
 #include "kis_image.h"
@@ -128,13 +137,15 @@ protected:
     void addGlobalSelection(KisImageSP image) {
         QRect selectionRect(40,40,300,300);
 
-        KisSelectionSP selection = new KisSelection(new KisSelectionDefaultBounds(0, image));
+        KisSelectionSP selection = new KisSelection(new KisDefaultBounds(image));
         KisPixelSelectionSP pixelSelection = selection->pixelSelection();
         pixelSelection->select(selectionRect);
 
         KUndo2Command *cmd = new KisSetGlobalSelectionCommand(image, selection);
         image->undoAdapter()->addCommand(cmd);
     }
+
+#if USE_DOCUMENT
 
     void addShapeLayer(KisDocument *doc, KisImageSP image) {
 
@@ -155,6 +166,8 @@ protected:
 
         QApplication::processEvents();
     }
+
+#endif /* USE_DOCUMENT*/
 
     bool checkLayersInitial(KisImageWSP image, int baseFuzzyness = 0) {
         QString prefix = "initial_with_selection";
@@ -259,7 +272,7 @@ private:
         }
 
         if(ref != image &&
-           !TestUtil::compareQImages(temp, ref, image, fuzzy)) {
+           !TestUtil::compareQImages(temp, ref, image, fuzzy, fuzzy)) {
 
 
             dbgKrita << "--- Wrong image:" << realName;

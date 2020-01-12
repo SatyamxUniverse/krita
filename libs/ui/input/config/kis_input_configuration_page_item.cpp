@@ -29,10 +29,13 @@
 #include "kis_input_editor_delegate.h"
 #include "ui_kis_input_configuration_page_item.h"
 
+#include <QAction>
+
 KisInputConfigurationPageItem::KisInputConfigurationPageItem(QWidget *parent, Qt::WindowFlags f)
     : QWidget(parent, f)
 {
     ui = new Ui::KisInputConfigurationPageItem;
+    this->setContentsMargins(0,0,0,0);
     ui->setupUi(this);
 
     m_shortcutsModel = new KisActionShortcutsModel(this);
@@ -40,7 +43,7 @@ KisInputConfigurationPageItem::KisInputConfigurationPageItem(QWidget *parent, Qt
     ui->shortcutsView->setItemDelegateForColumn(0, new KisInputTypeDelegate(ui->shortcutsView));
     ui->shortcutsView->setItemDelegateForColumn(1, new KisInputEditorDelegate(ui->shortcutsView));
     ui->shortcutsView->setItemDelegateForColumn(2, new KisInputModeDelegate(ui->shortcutsView));
-    ui->shortcutsView->header()->setResizeMode(QHeaderView::Stretch);
+    ui->shortcutsView->header()->setSectionResizeMode(QHeaderView::Stretch);
     setExpanded(false);
 
     QAction *deleteAction = new QAction(KisIconUtils::loadIcon("edit-delete"), i18n("Delete Shortcut"), ui->shortcutsView);

@@ -80,9 +80,12 @@ public:
     QString defaultFileExtension() const override {
         return ".kpp";
     }
-    void setPresetDirty(bool value);
 
-    bool isPresetDirty() const;
+    /// Mark the preset as modified but not saved
+    void setDirty(bool value);
+
+    /// @return true if the preset has been modified, but not saved
+    bool isDirty() const;
 
     /**
      * Never use manual save/restore calls to
@@ -90,15 +93,15 @@ public:
      * hard-to-tack-down bugs when the dirty state will not be
      * restored on jumps like 'return', 'break' or exception.
      */
-    class DirtyStateSaver {
+    class KRITAIMAGE_EXPORT DirtyStateSaver {
     public:
         DirtyStateSaver(KisPaintOpPreset *preset)
-            : m_preset(preset), m_isDirty(preset->isPresetDirty())
+            : m_preset(preset), m_isDirty(preset->isDirty())
         {
         }
 
         ~DirtyStateSaver() {
-            m_preset->setPresetDirty(m_isDirty);
+            m_preset->setDirty(m_isDirty);
         }
 
     private:
@@ -110,7 +113,7 @@ public:
      * @brief The UpdatedPostponer class
      * @see KisPaintopSettingsUpdateProxy::postponeSettingsChanges()
      */
-    class UpdatedPostponer{
+    class KRITAIMAGE_EXPORT UpdatedPostponer{
     public:
         UpdatedPostponer(KisPaintOpPreset *preset);
 
@@ -126,6 +129,19 @@ public:
     KisPaintopSettingsUpdateProxy* updateProxyNoCreate() const;
 
     QList<KisUniformPaintOpPropertySP> uniformProperties();
+
+    /**
+     * @return true if this preset demands a secondary masked brush running
+     *         alongside it
+     */
+    bool hasMaskingPreset() const;
+
+    /**
+     * @return a newly created preset of the masked brush that should be run
+     *         alongside the current brush
+     */
+    KisPaintOpPresetSP createMaskingPreset() const;
+
 
 private:
 

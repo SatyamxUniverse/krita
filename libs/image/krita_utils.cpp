@@ -37,26 +37,32 @@
 #include "kis_sequential_iterator.h"
 #include "kis_random_accessor_ng.h"
 
+#include <KisRenderedDab.h>
+
 
 namespace KritaUtils
 {
 
     QSize optimalPatchSize()
     {
-        KisImageConfig cfg;
+        KisImageConfig cfg(true);
         return QSize(cfg.updatePatchWidth(),
                      cfg.updatePatchHeight());
     }
 
     QVector<QRect> splitRectIntoPatches(const QRect &rc, const QSize &patchSize)
     {
+        using namespace KisAlgebra2D;
+
+
         QVector<QRect> patches;
 
-        qint32 firstCol = rc.x() / patchSize.width();
-        qint32 firstRow = rc.y() / patchSize.height();
+        const qint32 firstCol = divideFloor(rc.x(), patchSize.width());
+        const qint32 firstRow = divideFloor(rc.y(), patchSize.height());
 
-        qint32 lastCol = (rc.x() + rc.width()) / patchSize.width();
-        qint32 lastRow = (rc.y() + rc.height()) / patchSize.height();
+        // TODO: check if -1 is needed here
+        const qint32 lastCol = divideFloor(rc.x() + rc.width(), patchSize.width());
+        const qint32 lastRow = divideFloor(rc.y() + rc.height(), patchSize.height());
 
         for(qint32 i = firstRow; i <= lastRow; i++) {
             for(qint32 j = firstCol; j <= lastCol; j++) {
@@ -176,7 +182,7 @@ namespace KritaUtils
 
     QString KRITAIMAGE_EXPORT prettyFormatReal(qreal value)
     {
-        return QString("%1").arg(value, 6, 'f', 1);
+        return QLocale().toString(value, 'f', 1);
     }
 
     qreal KRITAIMAGE_EXPORT maxDimensionPortion(const QRectF &bounds, qreal portion, qreal minValue)
@@ -377,11 +383,11 @@ namespace KritaUtils
 
         // TODO: if someone feel bored, a more optimized version of this would be welcome
         const QSize size = image.size();
-        for(int i = 0; i < size.height(); ++i) {
-            for(int j = 0; j < size.width(); ++j) {
-                const QRgb pixel = image.pixel(i,j);
+        for(int y = 0; y < size.height(); ++y) {
+            for(int x = 0; x < size.width(); ++x) {
+                const QRgb pixel = image.pixel(x,y);
                 const int gray = qGray(pixel);
-                dstImage.setPixel(i, j, qRgba(gray, gray, gray, qAlpha(pixel)));
+                dstImage.setPixel(x, y, qRgba(gray, gray, gray, qAlpha(pixel)));
             }
         }
 
@@ -400,18 +406,18 @@ namespace KritaUtils
 
     void applyToAlpha8Device(KisPaintDeviceSP dev, const QRect &rc, std::function<void(quint8)> func) {
         KisSequentialConstIterator dstIt(dev, rc);
-        do {
+        while (dstIt.nextPixel()) {
             const quint8 *dstPtr = dstIt.rawDataConst();
             func(*dstPtr);
-        } while (dstIt.nextPixel());
+        }
     }
 
     void filterAlpha8Device(KisPaintDeviceSP dev, const QRect &rc, std::function<quint8(quint8)> func) {
         KisSequentialIterator dstIt(dev, rc);
-        do {
+        while (dstIt.nextPixel()) {
             quint8 *dstPtr = dstIt.rawData();
             *dstPtr = func(*dstPtr);
-        } while (dstIt.nextPixel());
+        }
     }
 
     qreal estimatePortionOfTransparentPixels(KisPaintDeviceSP dev, const QRect &rect, qreal samplePortion) {
@@ -441,4 +447,72 @@ namespace KritaUtils
 
         return qreal(numTransparentPixels) / numPixels;
     }
+
+    void mirrorDab(Qt::Orientation dir, const QPoint &center, KisRenderedDab *dab)
+    {
+        const QRect rc = dab->realBounds();
+
+        if (dir == Qt::Horizontal) {
+            const int mirrorX = -((rc.x() + rc.width()) - center.x()) + center.x();
+
+            dab->device->mirror(true, false);
+            dab->offset.rx() = mirrorX;
+        } else /* if (dir == Qt::Vertical) */ {
+            const int mirrorY = -((rc.y() + rc.height()) - center.y()) + center.y();
+
+            dab->device->mirror(false, true);
+            dab->offset.ry() = mirrorY;
+        }
+    }
+
+    void mirrorRect(Qt::Orientation dir, const QPoint &center, QRect *rc)
+    {
+        if (dir == Qt::Horizontal) {
+            const int mirrorX = -((rc->x() + rc->width()) - center.x()) + center.x();
+            rc->moveLeft(mirrorX);
+        } else /* if (dir == Qt::Vertical) */ {
+            const int mirrorY = -((rc->y() + rc->height()) - center.y()) + center.y();
+            rc->moveTop(mirrorY);
+        }
+    }
+
+    void mirrorPoint(Qt::Orientation dir, const QPoint &center, QPointF *pt)
+    {
+        if (dir == Qt::Horizontal) {
+            pt->rx() = -(pt->x() - qreal(center.x())) + center.x();
+        } else /* if (dir == Qt::Vertical) */ {
+            pt->ry() = -(pt->y() - qreal(center.y())) + center.y();
+        }
+    }
+
+    qreal colorDifference(const QColor &c1, const QColor &c2)
+    {
+        const qreal dr = c1.redF() - c2.redF();
+        const qreal dg = c1.greenF() - c2.greenF();
+        const qreal db = c1.blueF() - c2.blueF();
+
+        return std::sqrt(2 * pow2(dr) + 4 * pow2(dg) + 3 * pow2(db));
+    }
+
+    void dragColor(QColor *color, const QColor &baseColor, qreal threshold)
+    {
+        while (colorDifference(*color, baseColor) < threshold) {
+
+            QColor newColor = *color;
+
+            if (newColor.lightnessF() > baseColor.lightnessF()) {
+                newColor = newColor.lighter(120);
+            } else {
+                newColor = newColor.darker(120);
+            }
+
+            if (newColor == *color) {
+                break;
+            }
+
+            *color = newColor;
+        }
+    }
+
+
 }

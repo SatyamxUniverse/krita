@@ -67,8 +67,8 @@ void mk_scaletable(void);
 extern const rgba graytable[256] ;
 extern rgba colormap[256] ;
 extern unsigned colormapLength ;
-void initLayer(struct xcfLayer *);
-void initColormap();
+int initLayer(struct xcfLayer *);
+int initColormap();
 
 int degrayPixel(rgba); /* returns -1 for non-gray pixels */
 
@@ -93,7 +93,7 @@ typedef int refcount_t ;
 #define TILESUMMARY_UPTODATE 8
 #define TILESUMMARY_ALLNULL 4
 #define TILESUMMARY_ALLFULL 2
-#define TILESUMMARY_CRISP   1 /* everyting either null or full */
+#define TILESUMMARY_CRISP   1 /* everything either null or full */
 struct Tile {
   refcount_t refcount ;
   summary_t summary ; /* a combination of TIMESUMMARY_FOO constatns */

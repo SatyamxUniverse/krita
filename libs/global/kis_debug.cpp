@@ -77,31 +77,30 @@ QString kisBacktrace()
         s += QString::number(i) + QLatin1String(": ") +
              maybeDemangledName(strings[i]) + QLatin1Char('\n');
     s += QLatin1String("]\n");
-    if (strings) {
-        free(strings);
-    }
+    free(strings);
 #endif
     return s;
 }
 
-Q_LOGGING_CATEGORY(_30009, "krita.lib.resources")
-Q_LOGGING_CATEGORY(_41000, "krita.general")
-Q_LOGGING_CATEGORY(_41001, "krita.core")
-Q_LOGGING_CATEGORY(_41002, "krita.registry")
-Q_LOGGING_CATEGORY(_41003, "krita.tools")
-Q_LOGGING_CATEGORY(_41004, "krita.tiles")
-Q_LOGGING_CATEGORY(_41005, "krita.filters")
-Q_LOGGING_CATEGORY(_41006, "krita.plugins")
-Q_LOGGING_CATEGORY(_41007, "krita.ui")
-Q_LOGGING_CATEGORY(_41008, "krita.file")
-Q_LOGGING_CATEGORY(_41009, "krita.math")
-Q_LOGGING_CATEGORY(_41010, "krita.render")
-Q_LOGGING_CATEGORY(_41011, "krita.scripting")
-Q_LOGGING_CATEGORY(_41012, "krita.input")
-Q_LOGGING_CATEGORY(_41013, "krita.action")
-Q_LOGGING_CATEGORY(_41014, "krita.tabletlog")
-Q_LOGGING_CATEGORY(_41015, "krita.opengl")
-
+Q_LOGGING_CATEGORY(_30009, "krita.lib.resources", QtInfoMsg)
+Q_LOGGING_CATEGORY(_41000, "krita.general", QtInfoMsg)
+Q_LOGGING_CATEGORY(_41001, "krita.core", QtInfoMsg)
+Q_LOGGING_CATEGORY(_41002, "krita.registry", QtInfoMsg)
+Q_LOGGING_CATEGORY(_41003, "krita.tools", QtInfoMsg)
+Q_LOGGING_CATEGORY(_41004, "krita.tiles", QtInfoMsg)
+Q_LOGGING_CATEGORY(_41005, "krita.filters", QtInfoMsg)
+Q_LOGGING_CATEGORY(_41006, "krita.plugins", QtInfoMsg)
+Q_LOGGING_CATEGORY(_41007, "krita.ui", QtInfoMsg)
+Q_LOGGING_CATEGORY(_41008, "krita.file", QtInfoMsg)
+Q_LOGGING_CATEGORY(_41009, "krita.math", QtInfoMsg)
+Q_LOGGING_CATEGORY(_41010, "krita.render", QtInfoMsg)
+Q_LOGGING_CATEGORY(_41011, "krita.scripting", QtInfoMsg)
+Q_LOGGING_CATEGORY(_41012, "krita.input", QtInfoMsg)
+Q_LOGGING_CATEGORY(_41013, "krita.action", QtInfoMsg)
+Q_LOGGING_CATEGORY(_41014, "krita.tabletlog", QtDebugMsg)
+Q_LOGGING_CATEGORY(_41015, "krita.opengl", QtInfoMsg)
+Q_LOGGING_CATEGORY(_41016, "krita.metadata", QtInfoMsg)
+Q_LOGGING_CATEGORY(_41017, "krita.android", QtDebugMsg)
 
 QString __methodName(const char *_prettyFunction)
 {

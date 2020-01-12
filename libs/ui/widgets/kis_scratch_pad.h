@@ -85,7 +85,11 @@ public Q_SLOTS:
     void fillDefault();
     void fillGradient();
     void fillBackground();
+    void fillTransparent();
+
+    /// Fill the area with what is on your current canvas
     void fillLayer();
+
 
     /**
      * Set the icon of the current preset
@@ -99,6 +103,12 @@ public Q_SLOTS:
      * \see setPresetImage
      */
     void paintPresetImage();
+
+    /**
+     * Paint the icon of a custom image that is being loaded
+     *
+     */
+    void paintCustomImage(const QImage& loadedImage);
 
 private Q_SLOTS:
     void setOnScreenResolution(qreal scaleX, qreal scaleY);

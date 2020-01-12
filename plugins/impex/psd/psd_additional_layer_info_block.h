@@ -252,7 +252,7 @@ struct psd_layer_type_tool {
 /**
  * @brief The PsdAdditionalLayerInfoBlock class implements the Additional Layer Information block
  *
- * See: http://www.adobe.com/devnet-apps/photoshop/fileformatashtml/#50577409_71546
+ * See: https://www.adobe.com/devnet-apps/photoshop/fileformatashtml/#50577409_71546
  */
 class PsdAdditionalLayerInfoBlock
 {
@@ -268,7 +268,7 @@ public:
 
     void writeLuniBlockEx(QIODevice* io, const QString &layerName);
     void writeLsctBlockEx(QIODevice* io, psd_section_type sectionType, bool isPassThrough, const QString &blendModeKey);
-    void writeLfx2BlockEx(QIODevice* io, const QDomDocument &stylesXmlDoc);
+    void writeLfx2BlockEx(QIODevice* io, const QDomDocument &stylesXmlDoc, bool useLfxsLayerStyleFormat);
     void writePattBlockEx(QIODevice* io, const QDomDocument &patternsXmlDoc);
 
 

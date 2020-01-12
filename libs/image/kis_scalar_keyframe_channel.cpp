@@ -56,6 +56,13 @@ public:
         : minValue(min), maxValue(max), firstFreeIndex(0), defaultInterpolation(defaultInterpolation)
     {}
 
+    Private(const Private &rhs)
+        : minValue(rhs.minValue),
+          maxValue(rhs.maxValue),
+          firstFreeIndex(rhs.firstFreeIndex),
+          defaultInterpolation(rhs.defaultInterpolation)
+    {}
+
     qreal minValue;
     qreal maxValue;
     int firstFreeIndex;
@@ -70,6 +77,12 @@ public:
 KisScalarKeyframeChannel::KisScalarKeyframeChannel(const KoID &id, qreal minValue, qreal maxValue, KisDefaultBoundsBaseSP defaultBounds, KisKeyframe::InterpolationMode defaultInterpolation)
     : KisKeyframeChannel(id, defaultBounds),
       m_d(new Private(minValue, maxValue, defaultInterpolation))
+{
+}
+
+KisScalarKeyframeChannel::KisScalarKeyframeChannel(const KisScalarKeyframeChannel &rhs, KisNode *newParentNode)
+    : KisKeyframeChannel(rhs, newParentNode),
+      m_d(new Private(*rhs.m_d))
 {
 }
 
@@ -392,8 +405,10 @@ void KisScalarKeyframeChannel::uploadExternalKeyframe(KisKeyframeChannel *srcCha
     KIS_ASSERT_RECOVER_RETURN(srcFrame);
 
     KisScalarKeyframe *dstKey = dynamic_cast<KisScalarKeyframe*>(dstFrame.data());
-    dstKey->value = srcChannel->scalarValue(srcFrame);
-    notifyKeyframeChanged(dstFrame);
+    if (dstKey) {
+        dstKey->value = srcChannel->scalarValue(srcFrame);
+        notifyKeyframeChanged(dstFrame);
+    }
 }
 
 QRect KisScalarKeyframeChannel::affectedRect(KisKeyframeSP key)
@@ -429,7 +444,9 @@ void KisScalarKeyframeChannel::saveKeyframe(KisKeyframeSP keyframe, QDomElement 
 
 KisKeyframeSP KisScalarKeyframeChannel::loadKeyframe(const QDomElement &keyframeNode)
 {
-    int time = keyframeNode.toElement().attribute("time").toUInt();
+    int time = keyframeNode.toElement().attribute("time").toInt();
+    workaroundBrokenFrameTimeBug(&time);
+
     qreal value = KisDomUtils::toDouble(keyframeNode.toElement().attribute("value"));
 
     KUndo2Command tempParentCommand;

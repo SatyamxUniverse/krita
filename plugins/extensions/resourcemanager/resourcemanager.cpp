@@ -27,7 +27,7 @@
 
 #include <QMessageBox>
 #include <QGlobalStatic>
-#include <QDesktopServices>
+#include <QStandardPaths>
 
 #include <klocalizedstring.h>
 #include <KoResourcePaths.h>
@@ -41,13 +41,15 @@
 #include <kis_debug.h>
 #include <kis_action.h>
 #include <KisViewManager.h>
-#include <kis_resource_server_provider.h>
+#include <KisResourceServerProvider.h>
 #include <kis_workspace_resource.h>
 #include <brushengine/kis_paintop_preset.h>
 #include <kis_brush_server.h>
 #include <kis_paintop_settings.h>
 #include "dlg_bundle_manager.h"
 #include "dlg_create_bundle.h"
+#include <KisPaintopSettingsIds.h>
+#include "krita_container_utils.h"
 
 class ResourceManager::Private {
 
@@ -55,12 +57,13 @@ public:
 
     Private()
     {
-        brushServer = KisBrushServer::instance()->brushServer(false);
-        paintopServer = KisResourceServerProvider::instance()->paintOpPresetServer(false);
-        gradientServer = KoResourceServerProvider::instance()->gradientServer(false);
-        patternServer = KoResourceServerProvider::instance()->patternServer(false);
-        paletteServer = KoResourceServerProvider::instance()->paletteServer(false);
-        workspaceServer = KisResourceServerProvider::instance()->workspaceServer(false);
+        brushServer = KisBrushServer::instance()->brushServer();
+        paintopServer = KisResourceServerProvider::instance()->paintOpPresetServer();
+        gradientServer = KoResourceServerProvider::instance()->gradientServer();
+        patternServer = KoResourceServerProvider::instance()->patternServer();
+        paletteServer = KoResourceServerProvider::instance()->paletteServer();
+        workspaceServer = KisResourceServerProvider::instance()->workspaceServer();
+        gamutMaskServer = KoResourceServerProvider::instance()->gamutMaskServer();
     }
 
     KisBrushResourceServer* brushServer;
@@ -69,13 +72,13 @@ public:
     KoResourceServer<KoPattern> *patternServer;
     KoResourceServer<KoColorSet>* paletteServer;
     KoResourceServer<KisWorkspaceResource>* workspaceServer;
-
+    KoResourceServer<KoGamutMask>* gamutMaskServer;
 };
 
 K_PLUGIN_FACTORY_WITH_JSON(ResourceManagerFactory, "kritaresourcemanager.json", registerPlugin<ResourceManager>();)
 
 ResourceManager::ResourceManager(QObject *parent, const QVariantList &)
-    : KisViewPlugin(parent)
+    : KisActionPlugin(parent)
     , d(new Private())
 {
     KisAction *action = new KisAction(i18n("Import Bundles..."), this);
@@ -173,17 +176,19 @@ KisResourceBundle *ResourceManager::saveBundle(const DlgCreateBundle &dlgCreateB
         KoResource *res = preset.data();
         newBundle->addResource("kis_paintoppresets", res->filename(), d->paintopServer->assignedTagsList(res), res->md5());
         KisPaintOpSettingsSP settings = preset->settings();
-        if (settings->hasProperty("requiredBrushFile")) {
-            QString brushFile = settings->getString("requiredBrushFile");
+
+        QStringList requiredFiles = settings->getStringList(KisPaintOpUtils::RequiredBrushFilesListTag);
+        requiredFiles << settings->getString(KisPaintOpUtils::RequiredBrushFileTag);
+        KritaUtils::makeContainerUnique(requiredFiles);
+
+        Q_FOREACH (const QString &brushFile, requiredFiles) {
             KisBrush *brush = d->brushServer->resourceByFilename(brushFile).data();
             if (brush) {
                 newBundle->addResource("kis_brushes", brushFile, d->brushServer->assignedTagsList(brush), brush->md5());
-            }
-            else {
+            } else {
                 qWarning() << "There is no brush with name" << brushFile;
             }
         }
-
     }
 
     res = dlgCreateBundle.selectedWorkspaces();
@@ -192,22 +197,28 @@ KisResourceBundle *ResourceManager::saveBundle(const DlgCreateBundle &dlgCreateB
         newBundle->addResource("kis_workspaces", res->filename(), d->workspaceServer->assignedTagsList(res), res->md5());
     }
 
+    res = dlgCreateBundle.selectedGamutMasks();
+    Q_FOREACH (const QString &r, res) {
+        KoResource *res = d->gamutMaskServer->resourceByFilename(r);
+        newBundle->addResource("ko_gamutmasks", res->filename(), d->gamutMaskServer->assignedTagsList(res), res->md5());
+    }
+
     newBundle->addMeta("fileName", bundlePath);
-    newBundle->addMeta("created", QDate::currentDate().toString("dd/MM/yyyy"));
+    newBundle->addMeta("created", QDateTime::currentDateTime().toOffsetFromUtc(0).toString(Qt::ISODate));
 
     if (!newBundle->save()) {
-        QMessageBox::critical(m_view->mainWindow(), i18nc("@title:window", "Krita"), i18n("Could not create the new bundle."));
+        QMessageBox::critical(viewManager()->mainWindow(), i18nc("@title:window", "Krita"), i18n("Could not create the new bundle."));
     }
     else {
         newBundle->setValid(true);
-        if (QDir(KisResourceServerProvider::instance()->resourceBundleServer()->saveLocation()) != QDir(QFileInfo(bundlePath).path())) {
-            newBundle->setFilename(KisResourceServerProvider::instance()->resourceBundleServer()->saveLocation() + "/" + dlgCreateBundle.bundleName() + ".bundle");
+        if (QDir(KisResourceBundleServerProvider::instance()->resourceBundleServer()->saveLocation()) != QDir(QFileInfo(bundlePath).path())) {
+            newBundle->setFilename(KisResourceBundleServerProvider::instance()->resourceBundleServer()->saveLocation() + "/" + dlgCreateBundle.bundleName() + ".bundle");
         }
-        if (KisResourceServerProvider::instance()->resourceBundleServer()->resourceByName(newBundle->name())) {
-            KisResourceServerProvider::instance()->resourceBundleServer()->removeResourceFromServer(
-                        KisResourceServerProvider::instance()->resourceBundleServer()->resourceByName(newBundle->name()));
+        if (KisResourceBundleServerProvider::instance()->resourceBundleServer()->resourceByName(newBundle->name())) {
+            KisResourceBundleServerProvider::instance()->resourceBundleServer()->removeResourceFromServer(
+                        KisResourceBundleServerProvider::instance()->resourceBundleServer()->resourceByName(newBundle->name()));
         }
-        KisResourceServerProvider::instance()->resourceBundleServer()->addResource(newBundle, true);
+        KisResourceBundleServerProvider::instance()->resourceBundleServer()->addResource(newBundle, true);
         newBundle->load();
     }
 
@@ -216,7 +227,7 @@ KisResourceBundle *ResourceManager::saveBundle(const DlgCreateBundle &dlgCreateB
 
 void ResourceManager::slotManageBundles()
 {
-    DlgBundleManager* dlg = new DlgBundleManager(this, m_view->actionManager());
+    DlgBundleManager* dlg = new DlgBundleManager(this, viewManager()->actionManager());
     if (dlg->exec() != QDialog::Accepted) {
         return;
     }
@@ -224,8 +235,8 @@ void ResourceManager::slotManageBundles()
 
 QStringList ResourceManager::importResources(const QString &title, const QStringList &mimes) const
 {
-    KoFileDialog dialog(m_view->mainWindow(), KoFileDialog::OpenFiles, "krita_resources");
-    dialog.setDefaultDir(QDesktopServices::storageLocation(QDesktopServices::HomeLocation));
+    KoFileDialog dialog(viewManager()->mainWindow(), KoFileDialog::OpenFiles, "krita_resources");
+    dialog.setDefaultDir(QStandardPaths::writableLocation(QStandardPaths::HomeLocation));
     dialog.setCaption(title);
     dialog.setMimeTypeFilters(mimes);
     return dialog.filenames();
@@ -254,8 +265,7 @@ void ResourceManager::slotImportPresets()
 void ResourceManager::slotImportGradients()
 {
     QStringList resources = importResources(i18n("Import Gradients"), QStringList() << "image/svg+xml"
-                                   << "application/x-gimp-gradient"
-                                   << "applicaition/x-karbon-gradient");
+                                   << "application/x-gimp-gradient");
     Q_FOREACH (const QString &res, resources) {
         d->gradientServer->importResourceFile(res);
     }
@@ -265,29 +275,29 @@ void ResourceManager::slotImportBundles()
 {
     QStringList resources = importResources(i18n("Import Bundles"), QStringList() << "application/x-krita-bundle");
     Q_FOREACH (const QString &res, resources) {
-        KisResourceBundle *bundle = KisResourceServerProvider::instance()->resourceBundleServer()->createResource(res);
+        KisResourceBundle *bundle = KisResourceBundleServerProvider::instance()->resourceBundleServer()->createResource(res);
         bundle->load();
         if (bundle->valid()) {
             if (!bundle->install()) {
-                QMessageBox::warning(0, i18nc("@title:window", "Krita"), i18n("Could not install the resources for bundle %1.").arg(res));
+                QMessageBox::warning(0, i18nc("@title:window", "Krita"), i18n("Could not install the resources for bundle %1.", res));
             }
         }
         else {
-            QMessageBox::warning(0, i18nc("@title:window", "Krita"), i18n("Could not load bundle %1.").arg(res));
+            QMessageBox::warning(0, i18nc("@title:window", "Krita"), i18n("Could not load bundle %1.", res));
         }
 
         QFileInfo fi(res);
-        QString newFilename = KisResourceServerProvider::instance()->resourceBundleServer()->saveLocation() + fi.baseName() + bundle->defaultFileExtension();
+        QString newFilename = KisResourceBundleServerProvider::instance()->resourceBundleServer()->saveLocation() + fi.completeBaseName() + bundle->defaultFileExtension();
         QFileInfo fileInfo(newFilename);
 
         int i = 1;
         while (fileInfo.exists()) {
-            fileInfo.setFile(KisResourceServerProvider::instance()->resourceBundleServer()->saveLocation() + fi.baseName() + QString("%1").arg(i) + bundle->defaultFileExtension());
+            fileInfo.setFile(KisResourceBundleServerProvider::instance()->resourceBundleServer()->saveLocation() + fi.completeBaseName() + QString("%1").arg(i) + bundle->defaultFileExtension());
             i++;
         }
         bundle->setFilename(fileInfo.filePath());
         QFile::copy(res, newFilename);
-        KisResourceServerProvider::instance()->resourceBundleServer()->addResource(bundle, false);
+        KisResourceBundleServerProvider::instance()->resourceBundleServer()->addResource(bundle, false);
     }
 }
 
