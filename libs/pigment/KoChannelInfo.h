@@ -261,6 +261,15 @@ public:
         return m_uiMinMax.maxVal;
     }
 
+    /**
+     * @brief getUIUnitValue
+     * Gets the unit value for this channel.
+     * This is suitable for converting between representations.
+     */
+    inline double getUIUnitValue(void) const {
+        return m_uiMinMax.maxVal - m_uiMinMax.minVal;
+    }
+
 private:
 
     QString m_name;
