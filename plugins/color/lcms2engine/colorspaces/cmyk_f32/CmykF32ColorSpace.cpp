@@ -1,5 +1,6 @@
 /*
  *  Copyright (c) 2006 Cyrille Berger <cberger@cberger.net>
+ *  Copyright (c) 2020 L. E. Segovia <amy@amyspark.me>
  *
  * This library is free software; you can redistribute it and/or
  * modify it under the terms of the GNU Lesser General Public
