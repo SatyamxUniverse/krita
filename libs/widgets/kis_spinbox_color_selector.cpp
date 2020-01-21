@@ -69,7 +69,6 @@ void KisSpinboxColorSelector::slotSetColorSpace(const KoColorSpace *cs)
     }
 
     m_d->cs = cs;
-    
     //remake spinboxes
     delete m_d->layout;
     m_d->layout = new QFormLayout(this);
@@ -140,8 +139,8 @@ void KisSpinboxColorSelector::slotSetColorSpace(const KoColorSpace *cs)
 #ifdef HAVE_OPENEXR
         case KoChannelInfo::FLOAT16: {
             KisDoubleParseSpinBox *input = new KisDoubleParseSpinBox(this);
-            input->setMinimum(0);
-            input->setMaximum(KoColorSpaceMathsTraits<half>::max);
+            input->setMinimum(channel->getUIMin());
+            input->setMaximum(channel->getUIMax());
             input->setSingleStep(0.1);
             m_d->doubleSpinBoxList.append(input);
             m_d->layout->addRow(inlb,input);
@@ -156,8 +155,8 @@ void KisSpinboxColorSelector::slotSetColorSpace(const KoColorSpace *cs)
 #endif
         case KoChannelInfo::FLOAT32: {
             KisDoubleParseSpinBox *input = new KisDoubleParseSpinBox(this);
-            input->setMinimum(0);
-            input->setMaximum(KoColorSpaceMathsTraits<float>::max);
+            input->setMinimum(channel->getUIMin());
+            input->setMaximum(channel->getUIMax());
             input->setSingleStep(0.1);
             m_d->doubleSpinBoxList.append(input);
             m_d->layout->addRow(inlb,input);
