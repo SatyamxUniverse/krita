@@ -29,6 +29,7 @@
 #include <kis_image.h>
 
 #include <kis_meta_data_store.h>
+#include <libs/ui/flake/kis_shape_layer.h>
 
 #include "kis_png_converter.h"
 
@@ -43,6 +44,17 @@ QString KisOpenRasterSaveContext::saveDeviceData(KisPaintDeviceSP dev, KisMetaDa
     QString filename = QString("data/layer%1.png").arg(m_id++);
     if (KisPNGConverter::saveDeviceToStore(filename, imageRect, xRes, yRes, dev, m_store, metaData)) {
         return filename;
+    }
+    return "";
+}
+
+QString KisOpenRasterSaveContext::saveSVGData(KisShapeLayer* dev)
+{
+    QString filename = QString("data/layer%1.svg").arg(m_id++);
+    if (m_store->open(filename)) {
+        if(dev->saveLayer(m_store)){
+            return filename;
+        }
     }
     return "";
 }

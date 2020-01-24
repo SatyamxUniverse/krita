@@ -493,8 +493,11 @@ void KisShapeLayer::forceUpdateHiddenAreaOnOriginal()
 
 bool KisShapeLayer::saveShapesToStore(KoStore *store, QList<KoShape *> shapes, const QSizeF &sizeInPt)
 {
-    if (!store->open("content.svg")) {
-        return false;
+
+    if (!store->isOpen()){
+        if (!store->open("content.svg")) {
+            return false;
+        }
     }
 
     KoStoreDevice storeDev(store);
@@ -567,14 +570,18 @@ bool KisShapeLayer::loadSvg(QIODevice *device, const QString &baseXmlDir)
     return true;
 }
 
-bool KisShapeLayer::loadLayer(KoStore* store)
+bool KisShapeLayer::loadLayer(KoStore* store){
+    return KisShapeLayer::loadLayer(store, "content.svg");
+}
+
+bool KisShapeLayer::loadLayer(KoStore* store, const QString& filename)
 {
     if (!store) {
         warnKrita << i18n("No store backend");
         return false;
     }
 
-    if (store->open("content.svg")) {
+    if (store->open(filename)) {
         KoStoreDevice storeDev(store);
         storeDev.open(QIODevice::ReadOnly);
 

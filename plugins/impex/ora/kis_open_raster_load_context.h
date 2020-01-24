@@ -34,6 +34,7 @@ class KisOpenRasterLoadContext
 public:
     KisOpenRasterLoadContext(KoStore *store);
     KisImageSP loadDeviceData(const QString &fileName);
+    void loadSVGData(const QString & filename, KisShapeLayerSP shapeLayer);
     QDomDocument loadStack();
 private:
     KoStore *m_store;

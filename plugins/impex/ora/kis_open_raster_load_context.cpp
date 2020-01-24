@@ -25,6 +25,7 @@
 
 #include <kis_image.h>
 #include <kis_paint_device.h>
+#include <libs/ui/flake/kis_shape_layer.h>
 #include "kis_png_converter.h"
 
 KisOpenRasterLoadContext::KisOpenRasterLoadContext(KoStore* _store)
@@ -49,6 +50,14 @@ KisImageSP KisOpenRasterLoadContext::loadDeviceData(const QString & filename)
 
     }
     return 0;
+}
+
+void KisOpenRasterLoadContext::loadSVGData(const QString & filename, KisShapeLayerSP shapeLayer)
+{
+    // 'loadDeviceData' seemed to indicate that splitting out the part that involves reading from disk
+    // is best practice. When using shapeLayer->loadLayer, it is done in just one line
+    // but we are keeping this in the load_context class for consistency
+    shapeLayer->loadLayer(m_store, filename);
 }
 
 QDomDocument KisOpenRasterLoadContext::loadStack()

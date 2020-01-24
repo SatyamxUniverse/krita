@@ -127,6 +127,7 @@ public:
 
     bool saveLayer(KoStore * store) const;
     bool loadLayer(KoStore* store);
+    bool loadLayer(KoStore* store, const QString&);
 
     KUndo2Command* crop(const QRect & rect) override;
     KUndo2Command* transform(const QTransform &transform) override;

@@ -54,7 +54,7 @@ KisImportExportErrorCode OraConverter::buildImage(QIODevice *io)
     }
 
     KisOpenRasterLoadContext olc(store);
-    KisOpenRasterStackLoadVisitor orslv(m_doc->createUndoStore(), &olc);
+    KisOpenRasterStackLoadVisitor orslv(m_doc->createUndoStore(), &olc, m_doc);
     orslv.loadImage();
     m_image = orslv.image();
     m_activeNodes = orslv.activeNodes();

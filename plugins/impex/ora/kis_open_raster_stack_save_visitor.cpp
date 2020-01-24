@@ -29,6 +29,7 @@
 #include "filter/kis_filter.h"
 #include "filter/kis_filter_configuration.h"
 #include "kis_group_layer.h"
+#include "kis_shape_layer.h"
 #include "kis_paint_layer.h"
 #include <generator/kis_generator_layer.h>
 #include "kis_open_raster_save_context.h"
@@ -42,6 +43,8 @@ struct KisOpenRasterStackSaveVisitor::Private {
     QDomElement currentElement;
     vKisNodeSP activeNodes;
 };
+
+
 
 KisOpenRasterStackSaveVisitor::KisOpenRasterStackSaveVisitor(KisOpenRasterSaveContext* saveContext, vKisNodeSP activeNodes)
     : d(new Private)
@@ -158,6 +161,7 @@ bool KisOpenRasterStackSaveVisitor::visit(KisCloneLayer *layer)
     return saveLayer(layer);
 }
 
+
 bool KisOpenRasterStackSaveVisitor::visit(KisExternalLayer * layer)
 {
     return saveLayer(layer);
@@ -165,9 +169,16 @@ bool KisOpenRasterStackSaveVisitor::visit(KisExternalLayer * layer)
 
 bool KisOpenRasterStackSaveVisitor::saveLayer(KisLayer *layer)
 {
-    QString filename = d->saveContext->saveDeviceData(layer->projection(), layer->metaData(), layer->image()->bounds(), layer->image()->xRes(), layer->image()->yRes());
+    QDomElement elt;
+    QString filename;
+    if (auto *shapeLayer = dynamic_cast<KisShapeLayer*>(layer)) {
+        elt = d->layerStack.createElement("vector");
+        filename = d->saveContext->saveSVGData(shapeLayer);
+    }else{
+        elt = d->layerStack.createElement("layer");
+        filename = d->saveContext->saveDeviceData(layer->projection(), layer->metaData(), layer->image()->bounds(), layer->image()->xRes(), layer->image()->yRes());
+    }
 
-    QDomElement elt = d->layerStack.createElement("layer");
     saveLayerInfo(elt, layer);
     elt.setAttribute("src", filename);
     d->currentElement.insertBefore(elt, QDomNode());

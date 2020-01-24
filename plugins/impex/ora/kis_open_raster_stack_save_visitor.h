@@ -53,6 +53,8 @@ public:
         return true;
     }
 
+
+
     bool visit(KisCloneLayer*) override;
 
     bool visit(KisFilterMask*) override {

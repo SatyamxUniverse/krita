@@ -31,6 +31,7 @@ class KisOpenRasterSaveContext
 public:
     KisOpenRasterSaveContext(KoStore *store);
     QString saveDeviceData(KisPaintDeviceSP dev, KisMetaData::Store *metaData, const QRect &imageRect, qreal xRes, qreal yRes);
+    QString saveSVGData(KisShapeLayer* dev);
     void saveStack(const QDomDocument& doc);
 private:
     int m_id;

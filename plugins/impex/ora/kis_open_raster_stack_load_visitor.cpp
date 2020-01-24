@@ -36,6 +36,7 @@
 #include <kis_png_converter.h>
 #include <kis_selection.h>
 #include <kis_dom_utils.h>
+#include <kis_shape_layer.h>
 
 #include "KisDocument.h"
 
@@ -46,15 +47,17 @@ struct KisOpenRasterStackLoadVisitor::Private {
     vKisNodeSP activeNodes;
     KisUndoStore* undoStore;
     KisOpenRasterLoadContext* loadContext;
+    KisDocument* kDoc;
     double xRes;
     double yRes;
 };
 
-KisOpenRasterStackLoadVisitor::KisOpenRasterStackLoadVisitor(KisUndoStore* undoStore, KisOpenRasterLoadContext* orlc)
+KisOpenRasterStackLoadVisitor::KisOpenRasterStackLoadVisitor(KisUndoStore* undoStore, KisOpenRasterLoadContext* orlc, KisDocument* kDoc)
         : d(new Private)
 {
     d->undoStore = undoStore;
     d->loadContext = orlc;
+    d->kDoc = kDoc;
 }
 
 KisOpenRasterStackLoadVisitor::~KisOpenRasterStackLoadVisitor()
@@ -228,6 +231,19 @@ void KisOpenRasterStackLoadVisitor::loadGroupLayer(const QDomElement& elem, KisG
                         loadPaintLayer(subelem, layer);
                         dbgFile << "Loading was successful";
                     }
+                }
+            } else if (node.nodeName() == "vector") {
+                QString filename = subelem.attribute("src");
+                if (!filename.isNull()) {
+                    const qreal opacity = KisDomUtils::toDouble(subelem.attribute("opacity", "1.0"));
+
+
+                    KisShapeLayerSP layer  = new KisShapeLayer(d->kDoc->shapeController(),  groupLayer->image() , "", opacity * 255);
+                    d->image->setResolution(d->xRes, d->yRes);
+                    d->image->addNode(layer, groupLayer, 0);
+                    d->loadContext->loadSVGData(filename, layer);
+
+
                 }
             } else if (node.nodeName() == "filter") {
 

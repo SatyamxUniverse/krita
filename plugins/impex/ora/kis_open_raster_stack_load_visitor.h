@@ -18,6 +18,7 @@
 #ifndef KIS_OPEN_RASTER_STACK_LOAD_VISITOR_H_
 #define KIS_OPEN_RASTER_STACK_LOAD_VISITOR_H_
 
+#include <libs/ui/KisDocument.h>
 #include "kis_global.h"
 #include "kis_types.h"
 
@@ -29,7 +30,7 @@ class KisOpenRasterLoadContext;
 class KisOpenRasterStackLoadVisitor
 {
 public:
-    KisOpenRasterStackLoadVisitor(KisUndoStore *undoStore, KisOpenRasterLoadContext* orlc);
+    KisOpenRasterStackLoadVisitor(KisUndoStore *undoStore, KisOpenRasterLoadContext* orlc, KisDocument* kDoc);
     virtual ~KisOpenRasterStackLoadVisitor();
 
 public:
