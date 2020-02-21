@@ -493,13 +493,6 @@ void KisShapeLayer::forceUpdateHiddenAreaOnOriginal()
 
 bool KisShapeLayer::saveShapesToStore(KoStore *store, QList<KoShape *> shapes, const QSizeF &sizeInPt)
 {
-
-    if (!store->isOpen()){
-        if (!store->open("content.svg")) {
-            return false;
-        }
-    }
-
     KoStoreDevice storeDev(store);
     storeDev.open(QIODevice::WriteOnly);
 

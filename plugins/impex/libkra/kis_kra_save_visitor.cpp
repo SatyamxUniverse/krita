@@ -117,6 +117,7 @@ bool KisKraSaveVisitor::visit(KisExternalLayer * layer)
             m_errorMessages << i18n("Failed to open %1.", location);
         }
         else {
+            m_store->open("content.svg");
             result = shapeLayer->saveLayer(m_store);
             m_store->popDirectory();
         }
@@ -462,6 +463,7 @@ bool KisKraSaveVisitor::saveSelection(KisNode* node)
                 retval = false;
             }
 
+            m_store->open("content.svg");
             if (retval && !shapeSelection->saveSelection(m_store)) {
                 m_errorMessages << i18n("Failed to save the vector selection data for layer %1.", node->name());
                 retval = false;
