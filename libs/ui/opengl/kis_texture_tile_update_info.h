@@ -161,8 +161,8 @@ public:
     void retrieveData(KisPaintDeviceSP projectionDevice, const QBitArray &channelFlags, bool onlyOneChannelSelected, int selectedChannelIndex)
     {
         m_patchColorSpace = projectionDevice->colorSpace();
-        //This seems like a dangerous thing to do at this place...?
-        bool isLab = m_patchColorSpace->colorModelId() == LABAColorModelID;
+        const bool isLab = m_patchColorSpace->colorModelId() == LABAColorModelID;
+        const KoID depth = m_patchColorSpace->colorDepthId();
         m_patchPixels.allocate(m_patchColorSpace->pixelSize());
 
         projectionDevice->readBytes(m_patchPixels.data(),
@@ -188,71 +188,24 @@ public:
 
                         if (channelInfo[channelIndex]->channelType() == KoChannelInfo::COLOR) {
                             if (isLab) {
-                                //if we're in lab, only copy the data into the first color channel(l), and the others filled with gray.
-                                if (channelIndex==0) {
+                                // if we're in lab, only copy the data into the first color channel (l), and the others filled with gray.
+                                if (channelIndex == 0) {
                                     memcpy(conversionCache.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize),
                                            m_patchPixels.data() + (pixelIndex * pixelSize) + selectedChannelPos,
                                            channelSize);
                                 } else {
-                                    if (m_patchColorSpace->colorDepthId() == Integer8BitsColorDepthID) {
-                                        KoLabU8Traits::channels_type v;
-                                        switch (channelIndex) {
-                                        case KoLabU8Traits::L_pos:
-                                            v = KoLabU8Traits::math_trait::halfValueL;
-                                            break;
-                                        case KoLabU8Traits::a_pos:
-                                        case KoLabU8Traits::b_pos:
-                                            v = KoLabU8Traits::math_trait::halfValueAB;
-                                            break;
-                                        default:
-                                            v = 0;
-                                            break;
-                                        }
+                                    if (depth == Integer8BitsColorDepthID) {
+                                        KoLabU8Traits::channels_type v = KoLabU8Traits::math_trait::halfValueAB;
                                         memset(conversionCache.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), v, channelSize);
-                                    } else if (m_patchColorSpace->colorDepthId() == Integer16BitsColorDepthID) {
-                                        KoLabU16Traits::channels_type v;
-                                        switch (channelIndex) {
-                                        case KoLabU16Traits::L_pos:
-                                            v = KoLabU16Traits::math_trait::halfValueL;
-                                            break;
-                                        case KoLabU16Traits::a_pos:
-                                        case KoLabU16Traits::b_pos:
-                                            v = KoLabU16Traits::math_trait::halfValueAB;
-                                            break;
-                                        default:
-                                            v = 0;
-                                            break;
-                                        }
+                                    } else if (depth == Integer16BitsColorDepthID) {
+                                        KoLabU16Traits::channels_type v = KoLabU16Traits::math_trait::halfValueAB;
                                         memset(conversionCache.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), v, channelSize);
-                                    } else if (m_patchColorSpace->colorDepthId() == Float16BitsColorDepthID) {
-                                        KoLabF16Traits::channels_type v;
-                                        switch (channelIndex) {
-                                        case KoLabF16Traits::L_pos:
-                                            v = KoLabF16Traits::math_trait::halfValueL;
-                                            break;
-                                        case KoLabF16Traits::a_pos:
-                                        case KoLabF16Traits::b_pos:
-                                            v = KoLabF16Traits::math_trait::halfValueAB;
-                                            break;
-                                        default:
-                                            v = 0;
-                                            break;
-                                        }
+                                    } else if (depth == Float16BitsColorDepthID) {
+                                        KoLabF16Traits::channels_type v = KoLabF16Traits::math_trait::halfValueAB;
+
                                         memset(conversionCache.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), v, channelSize);
-                                    } else if (m_patchColorSpace->colorDepthId() == Float32BitsColorDepthID) {
-                                        KoLabF32Traits::channels_type v;
-                                        switch (channelIndex) {
-                                        case KoLabF32Traits::L_pos:
-                                            v = KoLabF32Traits::math_trait::halfValueL;
-                                            break;
-                                        case KoLabF32Traits::a_pos:
-                                        case KoLabF32Traits::b_pos:
-                                            v = KoLabF32Traits::math_trait::halfValueAB;
-                                            break;
-                                        default:
-                                            v = KoLabF32Traits::math_trait::min;
-                                            break;
-                                        }
+                                    } else if (depth == Float32BitsColorDepthID) {
+                                        KoLabF32Traits::channels_type v = KoLabF32Traits::math_trait::halfValueAB;
                                         memset(conversionCache.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), v, channelSize);
                                     } else {
                                         memset(conversionCache.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), 0, channelSize);
@@ -280,7 +233,7 @@ public:
                                    m_patchPixels.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize),
                                    channelSize);
                         } else if (isLab) {
-                            if (m_patchColorSpace->colorDepthId() == Integer8BitsColorDepthID) {
+                            if (depth == Integer8BitsColorDepthID) {
                                 KoLabU8Traits::channels_type v;
                                 switch (channelIndex) {
                                 case KoLabU8Traits::L_pos:
@@ -295,7 +248,7 @@ public:
                                     break;
                                 }
                                 memset(conversionCache.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), v, channelSize);
-                            } else if (m_patchColorSpace->colorDepthId() == Integer16BitsColorDepthID) {
+                            } else if (depth == Integer16BitsColorDepthID) {
                                 KoLabU16Traits::channels_type v;
                                 switch (channelIndex) {
                                 case KoLabU16Traits::L_pos:
@@ -310,7 +263,7 @@ public:
                                     break;
                                 }
                                 memset(conversionCache.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), v, channelSize);
-                            } else if (m_patchColorSpace->colorDepthId() == Float16BitsColorDepthID) {
+                            } else if (depth == Float16BitsColorDepthID) {
                                 KoLabF16Traits::channels_type v;
                                 switch (channelIndex) {
                                 case KoLabF16Traits::L_pos:
@@ -325,7 +278,7 @@ public:
                                     break;
                                 }
                                 memset(conversionCache.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), v, channelSize);
-                            } else if (m_patchColorSpace->colorDepthId() == Float32BitsColorDepthID) {
+                            } else if (depth == Float32BitsColorDepthID) {
                                 KoLabF32Traits::channels_type v;
                                 switch (channelIndex) {
                                 case KoLabF32Traits::L_pos:
@@ -336,7 +289,7 @@ public:
                                     v = KoLabF32Traits::math_trait::halfValueAB;
                                     break;
                                 default:
-                                    v = KoLabF32Traits::math_trait::min;
+                                    v = 0;
                                     break;
                                 }
                                 memset(conversionCache.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), v, channelSize);
