@@ -292,11 +292,76 @@ void KisImagePyramid::retrieveImageData(const QRect &rect)
                 int selectedChannelPos = channelInfo[m_selectedChannelIndex]->pos();
                 for (uint pixelIndex = 0; pixelIndex < numPixels; ++pixelIndex) {
                     for (uint channelIndex = 0; channelIndex < projectionCs->channelCount(); ++channelIndex) {
-
                         if (channelInfo[channelIndex]->channelType() == KoChannelInfo::COLOR) {
-                            memcpy(dst.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize),
-                                   originalBytes.data() + (pixelIndex * pixelSize) + selectedChannelPos,
-                                   channelSize);
+                            if (projectionCs->colorModelId() == LABAColorModelID) {
+                                if (channelIndex == 0) {
+                                    memcpy(dst.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), originalBytes.data() + (pixelIndex * pixelSize) + selectedChannelPos, channelSize);
+                                } else if (projectionCs->colorDepthId() == Integer8BitsColorDepthID) {
+                                    KoLabU8Traits::channels_type v;
+                                    switch (channelIndex) {
+                                    case KoLabU8Traits::L_pos:
+                                        v = KoLabU8Traits::math_trait::halfValueL;
+                                        break;
+                                    case KoLabU8Traits::a_pos:
+                                    case KoLabU8Traits::b_pos:
+                                        v = KoLabU8Traits::math_trait::halfValueAB;
+                                        break;
+                                    default:
+                                        v = 0;
+                                        break;
+                                    }
+                                    memset(dst.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), v, channelSize);
+                                } else if (projectionCs->colorDepthId() == Integer16BitsColorDepthID) {
+                                    KoLabU16Traits::channels_type v;
+                                    switch (channelIndex) {
+                                    case KoLabU16Traits::L_pos:
+                                        v = KoLabU16Traits::math_trait::halfValueL;
+                                        break;
+                                    case KoLabU16Traits::a_pos:
+                                    case KoLabU16Traits::b_pos:
+                                        v = KoLabU16Traits::math_trait::halfValueAB;
+                                        break;
+                                    default:
+                                        v = 0;
+                                        break;
+                                    }
+                                    memset(dst.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), v, channelSize);
+                                } else if (projectionCs->colorDepthId() == Float16BitsColorDepthID) {
+                                    KoLabF16Traits::channels_type v;
+                                    switch (channelIndex) {
+                                    case KoLabF16Traits::L_pos:
+                                        v = KoLabF16Traits::math_trait::halfValueL;
+                                        break;
+                                    case KoLabF16Traits::a_pos:
+                                    case KoLabF16Traits::b_pos:
+                                        v = KoLabF16Traits::math_trait::halfValueAB;
+                                        break;
+                                    default:
+                                        v = 0;
+                                        break;
+                                    }
+                                    memset(dst.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), v, channelSize);
+                                } else if (projectionCs->colorDepthId() == Float32BitsColorDepthID) {
+                                    KoLabF32Traits::channels_type v;
+                                    switch (channelIndex) {
+                                    case KoLabF32Traits::L_pos:
+                                        v = KoLabF32Traits::math_trait::halfValueL;
+                                        break;
+                                    case KoLabF32Traits::a_pos:
+                                    case KoLabF32Traits::b_pos:
+                                        v = KoLabF32Traits::math_trait::halfValueAB;
+                                        break;
+                                    default:
+                                        v = KoLabF32Traits::math_trait::min;
+                                        break;
+                                    }
+                                    memset(dst.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), v, channelSize);
+                                } else {
+                                    memset(dst.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), 0, channelSize);
+                                }
+                            } else {
+                                memcpy(dst.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), originalBytes.data() + (pixelIndex * pixelSize) + selectedChannelPos, channelSize);
+                            }
                         }
                         else if (channelInfo[channelIndex]->channelType() == KoChannelInfo::ALPHA) {
                             memcpy(dst.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize),
@@ -315,7 +380,73 @@ void KisImagePyramid::retrieveImageData(const QRect &rect)
                                    channelSize);
                         }
                         else {
-                            memset(dst.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), 0, channelSize);
+                            if (projectionCs->colorModelId() == LABAColorModelID) {
+                                if (projectionCs->colorDepthId() == Integer8BitsColorDepthID) {
+                                    KoLabU8Traits::channels_type v;
+                                    switch (channelIndex) {
+                                        case KoLabU8Traits::L_pos:
+                                            v = KoLabU8Traits::math_trait::halfValueL;
+                                            break;
+                                        case KoLabU8Traits::a_pos:
+                                        case KoLabU8Traits::b_pos:
+                                            v = KoLabU8Traits::math_trait::halfValueAB;
+                                            break;
+                                        default:
+                                            v = 0;
+                                            break;
+                                    }
+                                    memset(dst.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), v, channelSize);
+                                } else if (projectionCs->colorDepthId() == Integer16BitsColorDepthID) {
+                                    KoLabU16Traits::channels_type v;
+                                    switch (channelIndex) {
+                                    case KoLabU16Traits::L_pos:
+                                        v = KoLabU16Traits::math_trait::halfValueL;
+                                        break;
+                                    case KoLabU16Traits::a_pos:
+                                    case KoLabU16Traits::b_pos:
+                                        v = KoLabU16Traits::math_trait::halfValueAB;
+                                        break;
+                                    default:
+                                        v = 0;
+                                        break;
+                                    }
+                                    memset(dst.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), v, channelSize);
+                                } else if (projectionCs->colorDepthId() == Float16BitsColorDepthID) {
+                                    KoLabF16Traits::channels_type v;
+                                    switch (channelIndex) {
+                                    case KoLabF16Traits::L_pos:
+                                        v = KoLabF16Traits::math_trait::halfValueL;
+                                        break;
+                                    case KoLabF16Traits::a_pos:
+                                    case KoLabF16Traits::b_pos:
+                                        v = KoLabF16Traits::math_trait::halfValueAB;
+                                        break;
+                                    default:
+                                        v = 0;
+                                        break;
+                                    }
+                                    memset(dst.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), v, channelSize);
+                                } else if (projectionCs->colorDepthId() == Float32BitsColorDepthID) {
+                                    KoLabF32Traits::channels_type v;
+                                    switch (channelIndex) {
+                                    case KoLabF32Traits::L_pos:
+                                        v = KoLabF32Traits::math_trait::halfValueL;
+                                        break;
+                                    case KoLabF32Traits::a_pos:
+                                    case KoLabF32Traits::b_pos:
+                                        v = KoLabF32Traits::math_trait::halfValueAB;
+                                        break;
+                                    default:
+                                        v = KoLabF32Traits::math_trait::min;
+                                        break;
+                                    }
+                                    memset(dst.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), v, channelSize);
+                                } else {
+                                    memset(dst.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), 0, channelSize);
+                                }
+                            } else {
+                                memset(dst.data() + (pixelIndex * pixelSize) + (channelIndex * channelSize), 0, channelSize);
+                            }
                         }
                     }
                 }
