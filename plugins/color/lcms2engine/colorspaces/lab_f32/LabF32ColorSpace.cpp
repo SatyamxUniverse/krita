@@ -117,6 +117,29 @@ QVector <double> LabF32ColorSpace::fromYUV(qreal *y, qreal *u, qreal *v) const
     return channelValues;
 }
 
+quint8 LabF32ColorSpace::scaleToU8(const quint8 * srcPixel, qint32 channelIndex) const {
+    typename ColorSpaceTraits::channels_type c = ColorSpaceTraits::nativeArray(srcPixel)[channelIndex];
+    qreal b = 0;
+    switch (channelIndex) {
+        case ColorSpaceTraits::L_pos:
+            b = c / ColorSpaceTraits::math_trait::unitValueL;
+        case ColorSpaceTraits::a_pos:
+        case ColorSpaceTraits::b_pos:
+            if (c <= ColorSpaceTraits::math_trait::halfValueAB) {
+                b = ((qreal)c - ColorSpaceTraits::math_trait::zeroValueAB) / (2.0 * (ColorSpaceTraits::math_trait::halfValueAB - ColorSpaceTraits::math_trait::zeroValueAB));
+            } else {
+                b = 0.5 + ((qreal)c - ColorSpaceTraits::math_trait::halfValueAB) / (2.0 * (ColorSpaceTraits::math_trait::unitValueAB - ColorSpaceTraits::math_trait::halfValueAB));
+            }
+            break;
+        default:
+            b = (c / ColorSpaceTraits::math_trait::unitValue);
+            break;
+    }
+
+    return KoColorSpaceMaths<qreal, quint8>::scaleToA(b);
+}
+
+
 void LabF32ColorSpace::convertChannelToVisualRepresentation(const quint8 *src, quint8 *dst, quint32 nPixels, const QBitArray selectedChannels, bool singleChannelAsColor) const
 {
     if (selectedChannels.count(true) == 1 && !singleChannelAsColor) {
