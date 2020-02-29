@@ -582,6 +582,21 @@ public:
 
     KoColorTransformation* createColorTransformation(const QString & id, const QHash<QString, QVariant> & parameters) const;
 
+    /**
+     * Copy the selected channels of the image to a new buffer, setting the
+     * rest to a neutral value.
+     * 
+     * @param src source buffer
+     * @param dst destination buffer
+     * @param nPixels length of the buffers in number of pixels
+     * @param pixelSize stride of each pixel in the destination buffer
+     * @param selectedChannelPos Index of the selected channel
+     * @param singleChannelAsColor If a single channel, render it as color
+     */
+    virtual void copyChannelImageData(const quint8 *src, quint8 *dst, quint32 nPixels, const qint32 selectedChannelPos) const = 0;
+
+    virtual void copyChannelImageData(const quint8 *src, quint8 *dst, quint32 nPixels, const QBitArray selectedChannels) const = 0;
+
 protected:
 
     /**

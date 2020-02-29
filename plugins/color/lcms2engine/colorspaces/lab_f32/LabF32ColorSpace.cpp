@@ -116,3 +116,49 @@ QVector <double> LabF32ColorSpace::fromYUV(qreal *y, qreal *u, qreal *v) const
     channelValues[3]=1.0;
     return channelValues;
 }
+
+void LabF32ColorSpace::copyChannelImageData(const quint8 *src, quint8 *dst, quint32 nPixels, const qint32 selectedChannelPos) const
+{
+    for (uint pixelIndex = 0; pixelIndex < nPixels; ++pixelIndex) {
+        for (uint channelIndex = 0; channelIndex < this->channelCount(); ++channelIndex) {
+            KoChannelInfo *channel = this->channels().at(channelIndex);
+            qint32 channelSize = channel->size();
+            if (channel->channelType() == KoChannelInfo::COLOR) {
+                if (channelIndex == ColorSpaceTraits::L_pos) {
+                    memcpy(dst + (pixelIndex * ColorSpaceTraits::pixelSize) + (channelIndex * channelSize), src + (pixelIndex * ColorSpaceTraits::pixelSize) + selectedChannelPos, channelSize);
+                } else {
+                    reinterpret_cast<ColorSpaceTraits::channels_type *>(dst + (pixelIndex * ColorSpaceTraits::pixelSize) + (channelIndex * channelSize))[0] = ColorSpaceTraits::math_trait::halfValueAB;
+                }
+            } else if (channel->channelType() == KoChannelInfo::ALPHA) {
+                memcpy(dst + (pixelIndex * ColorSpaceTraits::pixelSize) + (channelIndex * channelSize), src + (pixelIndex * ColorSpaceTraits::pixelSize) + (channelIndex * channelSize), channelSize);
+            }
+        }
+    }
+}
+void LabF32ColorSpace::copyChannelImageData(const quint8 *src, quint8 *dst, quint32 nPixels, const QBitArray selectedChannels) const
+{
+    for (uint pixelIndex = 0; pixelIndex < nPixels; ++pixelIndex) {
+        for (uint channelIndex = 0; channelIndex < this->channelCount(); ++channelIndex) {
+            KoChannelInfo *channel = this->channels().at(channelIndex);
+            qint32 channelSize = channel->size();
+            if (selectedChannels.testBit(channelIndex)) {
+                memcpy(dst + (pixelIndex * ColorSpaceTraits::pixelSize) + (channelIndex * channelSize), src + (pixelIndex * ColorSpaceTraits::pixelSize) + (channelIndex * channelSize), channelSize);
+            } else {
+                ColorSpaceTraits::channels_type v;
+                switch (channelIndex) {
+                case ColorSpaceTraits::L_pos:
+                    v = ColorSpaceTraits::math_trait::halfValueL;
+                    break;
+                case ColorSpaceTraits::a_pos:
+                case ColorSpaceTraits::b_pos:
+                    v = ColorSpaceTraits::math_trait::halfValueAB;
+                    break;
+                default:
+                    v = ColorSpaceTraits::math_trait::zeroValue;
+                    break;
+                }
+                reinterpret_cast<ColorSpaceTraits::channels_type *>(dst + (pixelIndex * ColorSpaceTraits::pixelSize) + (channelIndex * channelSize))[0] = v;
+            }
+        }
+    }
+}

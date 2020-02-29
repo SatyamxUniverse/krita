@@ -58,6 +58,8 @@ public:
     QVector <double> fromHSY(qreal *hue, qreal *sat, qreal *luma) const override;
     void toYUV(const QVector<double> &channelValues, qreal *y, qreal *u, qreal *v) const override;
     QVector <double> fromYUV(qreal *y, qreal *u, qreal *v) const override;
+    void copyChannelImageData(const quint8 *src, quint8 *dst, quint32 nPixels, const qint32 selectedChannelPos) const override;
+    void copyChannelImageData(const quint8 *src, quint8 *dst, quint32 nPixels, const QBitArray selectedChannels) const override;
 
     bool hasHighDynamicRange() const override
     {
