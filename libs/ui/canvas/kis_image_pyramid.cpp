@@ -232,7 +232,6 @@ void KisImagePyramid::retrieveImageData(const QRect &rect)
     const KoColorSpace *projectionCs = m_originalImage->projection()->colorSpace();
     KisPaintDeviceSP originalProjection = m_originalImage->projection();
     quint32 numPixels = rect.width() * rect.height();
-    const bool isLab = projectionCs->colorModelId() == LABAColorModelID;
     const KoID depth = projectionCs->colorDepthId();
 
     QScopedArrayPointer<quint8> originalBytes(
@@ -285,18 +284,10 @@ void KisImagePyramid::retrieveImageData(const QRect &rect)
         if (!m_channelFlags.isEmpty() && !m_allChannelsSelected) {
             QScopedArrayPointer<quint8> dst(new quint8[projectionCs->pixelSize() * numPixels]);
 
-            int channelSize = channelInfo[m_selectedChannelIndex]->size();
-            int pixelSize = projectionCs->pixelSize();
-
             KisConfig cfg(true);
 
-            if (m_onlyOneChannelSelected && !cfg.showSingleChannelAsColor()) {
-                int selectedChannelPos = channelInfo[m_selectedChannelIndex]->pos();
-                projectionCs->copyChannelImageData(originalBytes.data(), dst.data(), numPixels, selectedChannelPos);
-            }
-            else {
-                projectionCs->copyChannelImageData(originalBytes.data(), dst.data(), numPixels, m_channelFlags);
-            }
+            projectionCs->convertChannelToVisualRepresentation(originalBytes.data(), dst.data(), numPixels, m_channelFlags, cfg.showSingleChannelAsColor());
+
             originalBytes.swap(dst);
         }
 

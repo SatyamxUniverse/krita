@@ -160,8 +160,9 @@ public:
 
     void retrieveData(KisPaintDeviceSP projectionDevice, const QBitArray &channelFlags, bool onlyOneChannelSelected, int selectedChannelIndex)
     {
+        Q_UNUSED(onlyOneChannelSelected);
+
         m_patchColorSpace = projectionDevice->colorSpace();
-        const bool isLab = m_patchColorSpace->colorModelId() == LABAColorModelID;
         const KoID depth = m_patchColorSpace->colorDepthId();
         m_patchPixels.allocate(m_patchColorSpace->pixelSize());
 
@@ -174,20 +175,11 @@ public:
         if (!channelFlags.isEmpty() && selectedChannelIndex >= 0 && selectedChannelIndex < m_patchColorSpace->channels().size()) {
             DataBuffer conversionCache(m_patchColorSpace->pixelSize(), m_pool);
 
-            QList<KoChannelInfo*> channelInfo = m_patchColorSpace->channels();
-            int channelSize = channelInfo[selectedChannelIndex]->size();
-            int pixelSize = m_patchColorSpace->pixelSize();
             quint32 numPixels = m_patchRect.width() * m_patchRect.height();
 
             KisConfig cfg(true);
 
-            if (onlyOneChannelSelected && !cfg.showSingleChannelAsColor()) {
-                int selectedChannelPos = channelInfo[selectedChannelIndex]->pos();
-                m_patchColorSpace->copyChannelImageData(m_patchPixels.data(), conversionCache.data(), numPixels, selectedChannelPos);
-            }
-            else {
-                m_patchColorSpace->copyChannelImageData(m_patchPixels.data(), conversionCache.data(), numPixels, channelFlags);
-            }
+            m_patchColorSpace->convertChannelToVisualRepresentation(m_patchPixels.data(), conversionCache.data(), numPixels, channelFlags, cfg.showSingleChannelAsColor());
 
             conversionCache.swap(m_patchPixels);
         }

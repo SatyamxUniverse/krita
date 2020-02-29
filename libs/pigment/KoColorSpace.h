@@ -583,19 +583,22 @@ public:
     KoColorTransformation* createColorTransformation(const QString & id, const QHash<QString, QVariant> & parameters) const;
 
     /**
-     * Copy the selected channels of the image to a new buffer, setting the
-     * rest to a neutral value.
-     * 
-     * @param src source buffer
-     * @param dst destination buffer
+     * Convert @p nPixels pixels in @p src into their human-visible
+     * visual representation. If  @p singleChannelAsColor is false,
+     * then the channel is shown as grayscale, otherwise the channel
+     * is shown as if other channels were null (or, if Lab, L = 1.0,
+     * a = b = 0.0).
+     *
+     * Both buffers are in the same color space.
+     *
+     * @param src source buffer in (*this) color space
+     * @param dst destination buffer in the same color space as @p src
      * @param nPixels length of the buffers in number of pixels
      * @param pixelSize stride of each pixel in the destination buffer
      * @param selectedChannelPos Index of the selected channel
      * @param singleChannelAsColor If a single channel, render it as color
      */
-    virtual void copyChannelImageData(const quint8 *src, quint8 *dst, quint32 nPixels, const qint32 selectedChannelPos) const = 0;
-
-    virtual void copyChannelImageData(const quint8 *src, quint8 *dst, quint32 nPixels, const QBitArray selectedChannels) const = 0;
+    virtual void convertChannelToVisualRepresentation(const quint8 *src, quint8 *dst, quint32 nPixels, const QBitArray selectedChannels, bool singleChannelAsColor) const = 0;
 
 protected:
 
