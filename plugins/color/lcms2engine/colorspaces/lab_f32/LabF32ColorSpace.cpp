@@ -122,7 +122,8 @@ quint8 LabF32ColorSpace::scaleToU8(const quint8 * srcPixel, qint32 channelIndex)
     qreal b = 0;
     switch (channelIndex) {
         case ColorSpaceTraits::L_pos:
-            b = c / ColorSpaceTraits::math_trait::unitValueL;
+            b = ((qreal)c) / ColorSpaceTraits::math_trait::unitValueL;
+            break;
         case ColorSpaceTraits::a_pos:
         case ColorSpaceTraits::b_pos:
             if (c <= ColorSpaceTraits::math_trait::halfValueAB) {
@@ -132,7 +133,7 @@ quint8 LabF32ColorSpace::scaleToU8(const quint8 * srcPixel, qint32 channelIndex)
             }
             break;
         default:
-            b = (c / ColorSpaceTraits::math_trait::unitValue);
+            b = ((qreal)c) / ColorSpaceTraits::math_trait::unitValue;
             break;
     }
 
