@@ -198,40 +198,31 @@ public:
         return KoColorSpace::convertPixelsTo(src, dst, dstColorSpace, numPixels, renderingIntent, conversionFlags);
     }
 
-    void convertChannelToVisualRepresentation(const quint8 *src, quint8 *dst, quint32 nPixels, const QBitArray selectedChannels, bool singleChannelAsColor) const override
+    virtual void convertChannelToVisualRepresentation(const quint8 *src, quint8 *dst, quint32 nPixels, const qint32 selectedChannelPos) const override
     {
-        if (selectedChannels.count(true) == 1 && !singleChannelAsColor)
-        {
-            int selectedChannelPos = 0;
-
-            for (int i = 0; i < selectedChannels.size(); ++i) {
-                KoChannelInfo *channel = this->channels().at(i);
-                if (selectedChannels.testBit(i) && channel->channelType() == KoChannelInfo::COLOR) {
-                    selectedChannelPos = i;
+        for (uint pixelIndex = 0; pixelIndex < nPixels; ++pixelIndex) {
+            for (uint channelIndex = 0; channelIndex < this->channelCount(); ++channelIndex) {
+                KoChannelInfo *channel = this->channels().at(channelIndex);
+                qint32 channelSize = channel->size();
+                if (channel->channelType() == KoChannelInfo::COLOR) {
+                    memcpy(dst + (pixelIndex * _CSTrait::pixelSize) + (channelIndex * channelSize), src + (pixelIndex * _CSTrait::pixelSize) + selectedChannelPos, channelSize);
+                } else if (channel->channelType() == KoChannelInfo::ALPHA) {
+                    memcpy(dst + (pixelIndex * _CSTrait::pixelSize) + (channelIndex * channelSize), src + (pixelIndex * _CSTrait::pixelSize) + (channelIndex * channelSize), channelSize);
                 }
             }
+        }
+    }
 
-            for (uint pixelIndex = 0; pixelIndex < nPixels; ++pixelIndex) {
-                for (uint channelIndex = 0; channelIndex < this->channelCount(); ++channelIndex) {
-                    KoChannelInfo *channel = this->channels().at(channelIndex);
-                    qint32 channelSize = channel->size();
-                    if (channel->channelType() == KoChannelInfo::COLOR) {
-                        memcpy(dst + (pixelIndex * _CSTrait::pixelSize) + (channelIndex * channelSize), src + (pixelIndex * _CSTrait::pixelSize) + selectedChannelPos, channelSize);
-                    } else if (channel->channelType() == KoChannelInfo::ALPHA) {
-                        memcpy(dst + (pixelIndex * _CSTrait::pixelSize) + (channelIndex * channelSize), src + (pixelIndex * _CSTrait::pixelSize) + (channelIndex * channelSize), channelSize);
-                    }
-                }
-            }
-        } else  {
-            for (uint pixelIndex = 0; pixelIndex < nPixels; ++pixelIndex) {
-                for (uint channelIndex = 0; channelIndex < this->channelCount(); ++channelIndex) {
-                    KoChannelInfo *channel = this->channels().at(channelIndex);
-                    qint32 channelSize = channel->size();
-                    if (selectedChannels.testBit(channelIndex)) {
-                        memcpy(dst + (pixelIndex * _CSTrait::pixelSize) + (channelIndex * channelSize), src + (pixelIndex * _CSTrait::pixelSize) + (channelIndex * channelSize), channelSize);
-                    } else {
-                        reinterpret_cast<typename _CSTrait::channels_type *>(dst + (pixelIndex * _CSTrait::pixelSize) + (channelIndex * channelSize))[0] = _CSTrait::math_trait::zeroValue;
-                    }
+    virtual void convertChannelToVisualRepresentation(const quint8 *src, quint8 *dst, quint32 nPixels, const QBitArray selectedChannels) const override
+    {
+        for (uint pixelIndex = 0; pixelIndex < nPixels; ++pixelIndex) {
+            for (uint channelIndex = 0; channelIndex < this->channelCount(); ++channelIndex) {
+                KoChannelInfo *channel = this->channels().at(channelIndex);
+                qint32 channelSize = channel->size();
+                if (selectedChannels.testBit(channelIndex)) {
+                    memcpy(dst + (pixelIndex * _CSTrait::pixelSize) + (channelIndex * channelSize), src + (pixelIndex * _CSTrait::pixelSize) + (channelIndex * channelSize), channelSize);
+                } else {
+                    reinterpret_cast<typename _CSTrait::channels_type *>(dst + (pixelIndex * _CSTrait::pixelSize) + (channelIndex * channelSize))[0] = _CSTrait::math_trait::zeroValue;
                 }
             }
         }

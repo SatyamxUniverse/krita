@@ -232,7 +232,6 @@ void KisImagePyramid::retrieveImageData(const QRect &rect)
     const KoColorSpace *projectionCs = m_originalImage->projection()->colorSpace();
     KisPaintDeviceSP originalProjection = m_originalImage->projection();
     quint32 numPixels = rect.width() * rect.height();
-    const KoID depth = projectionCs->colorDepthId();
 
     QScopedArrayPointer<quint8> originalBytes(
         new quint8[originalProjection->colorSpace()->pixelSize() * numPixels]);
@@ -286,8 +285,13 @@ void KisImagePyramid::retrieveImageData(const QRect &rect)
 
             KisConfig cfg(true);
 
-            projectionCs->convertChannelToVisualRepresentation(originalBytes.data(), dst.data(), numPixels, m_channelFlags, cfg.showSingleChannelAsColor());
-
+            if (m_onlyOneChannelSelected && !cfg.showSingleChannelAsColor()) {
+                qint32 selectedChannelPos = channelInfo[m_selectedChannelIndex]->pos();
+                projectionCs->convertChannelToVisualRepresentation(originalBytes.data(), dst.data(), numPixels, selectedChannelPos);
+            }
+            else {
+                projectionCs->convertChannelToVisualRepresentation(originalBytes.data(), dst.data(), numPixels, m_channelFlags);
+            }
             originalBytes.swap(dst);
         }
 
