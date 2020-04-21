@@ -350,9 +350,11 @@ void KisPixelSelection::invert()
     if (m_d->outlineCacheValid) {
         QPainterPath path;
         path.addRect(defaultBounds()->bounds());
+        qDebug() << "path" << path;
 
         m_d->outlineCache = path - m_d->outlineCache;
     }
+    qDebug() << "outline?" << m_d->outlineCache;
 
     m_d->invalidateThumbnailImage();
 }
@@ -411,6 +413,12 @@ QVector<QPolygon> KisPixelSelection::outline() const
     if (*defaultPixel().data() != MIN_SELECTED) {
         selectionExtent &= defaultBounds()->bounds();
     }
+    /**
+     * HACK: adjust extent to be a slightest
+     * bit bigger so there's always an outline,
+     * even when doing selectall and then invert.
+     */
+    selectionExtent.adjust(-1, -1, 1, 1);
 
     qint32 xOffset = selectionExtent.x();
     qint32 yOffset = selectionExtent.y();
