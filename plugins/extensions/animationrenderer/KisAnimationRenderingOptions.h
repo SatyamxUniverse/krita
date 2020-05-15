@@ -42,6 +42,7 @@ public:
     bool shouldDeleteSequence = false;
     bool includeAudio = false;
     bool wantsOnlyUniqueFrameSequence = false;
+    bool useSavedFrames = false;
 
     QString ffmpegPath;
     int frameRate = 25;

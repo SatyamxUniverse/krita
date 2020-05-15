@@ -104,6 +104,7 @@ KisPropertiesConfigurationSP KisAnimationRenderingOptions::toProperties() const
     config->setProperty("include_audio", includeAudio);
     config->setProperty("filename", videoFileName);
     config->setProperty("custom_ffmpeg_options", customFFMpegOptions);
+    config->setProperty("use_saved_frames", useSavedFrames);
 
     config->setPrefixedProperties("frame_export/", frameExportConfig);
 
@@ -132,6 +133,7 @@ void KisAnimationRenderingOptions::fromProperties(KisPropertiesConfigurationSP c
     includeAudio = config->getPropertyLazy("include_audio", true);
     videoFileName = config->getPropertyLazy("filename", "");
     customFFMpegOptions = config->getPropertyLazy("custom_ffmpeg_options", "");
+    useSavedFrames = config->getPropertyLazy("use_saved_frames", false);
 
     frameExportConfig = new KisPropertiesConfiguration();
     frameExportConfig->setPrefixedProperties("frame_export/", frameExportConfig);

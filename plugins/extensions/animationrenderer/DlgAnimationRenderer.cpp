@@ -68,6 +68,8 @@ DlgAnimationRenderer::DlgAnimationRenderer(KisDocument *doc, QWidget *parent)
 
     m_page->dirRequester->setMode(KoFileDialog::OpenDirectory);
 
+    m_page->chkUseSavedFrames->setChecked(false);
+    m_page->chkUseSavedFrames->setEnabled(false);
     m_page->intStart->setMinimum(0);
     m_page->intStart->setMaximum(doc->image()->animationInterface()->fullClipRange().end());
     m_page->intStart->setValue(doc->image()->animationInterface()->playbackRange().start());
@@ -133,6 +135,7 @@ DlgAnimationRenderer::DlgAnimationRenderer(KisDocument *doc, QWidget *parent)
     connect(m_page->shouldExportOnlyImageSequence, SIGNAL(toggled(bool)), this, SLOT(slotExportTypeChanged()));
     connect(m_page->shouldExportOnlyVideo, SIGNAL(toggled(bool)), this, SLOT(slotExportTypeChanged()));
     connect(m_page->shouldExportAll, SIGNAL(toggled(bool)), this, SLOT(slotExportTypeChanged()));
+    connect(m_page->chkUseSavedFrames, SIGNAL(clicked(bool)), this , SLOT(slotExportTypeChanged()));
 
     connect(m_page->intFramesPerSecond, SIGNAL(valueChanged(int)), SLOT(frameRateChanged(int)));
 
@@ -225,6 +228,9 @@ void DlgAnimationRenderer::loadAnimationOptions(const KisAnimationRenderingOptio
 
         m_page->dirRequester->setStartDir(options.resolveAbsoluteDocumentFilePath(documentPath));
         m_page->dirRequester->setFileName(options.directory);
+        m_page->chkUseSavedFrames->setEnabled(options.shouldEncodeVideo);       //the only setEnabled for chkUseSavedFrames
+        m_page->chkUseSavedFrames->setChecked(options.shouldEncodeVideo && options.useSavedFrames);       // and the only setChecked
+
     } else {
         m_page->intStart->setValue(m_image->animationInterface()->playbackRange().start());
         m_page->intEnd->setValue(m_image->animationInterface()->playbackRange().end());
@@ -429,6 +435,7 @@ KisAnimationRenderingOptions DlgAnimationRenderer::getEncoderOptions() const
     options.shouldDeleteSequence = m_page->shouldExportOnlyVideo->isChecked();
     options.includeAudio = m_page->chkIncludeAudio->isChecked();
     options.wantsOnlyUniqueFrameSequence = m_page->chkOnlyUniqueFrames->isChecked();
+    options.useSavedFrames = m_page->chkUseSavedFrames->isChecked();
 
     options.ffmpegPath = m_page->ffmpegLocation->fileName();
     options.frameRate = m_page->intFramesPerSecond->value();
@@ -585,6 +592,10 @@ void DlgAnimationRenderer::slotExportTypeChanged()
     m_page->fpsLabel->setVisible(willEncodeVideo);
     m_page->lblWidth->setVisible(willEncodeVideo);
     m_page->lblHeight->setVisible(willEncodeVideo);
+    m_page->dirRequester->setEnabled(true);
+    m_page->txtBasename->setEnabled(true);
+    m_page->sequenceStart->setEnabled(true);
+    m_page->videoOptionsGroup->setEnabled(true);
 
     // if only exporting video
     if (m_page->shouldExportOnlyVideo->isChecked()) {
@@ -592,6 +603,7 @@ void DlgAnimationRenderer::slotExportTypeChanged()
         m_page->imageSequenceOptionsGroup->setVisible(false);
         m_page->videoOptionsGroup->setVisible(false); //shrinks the horizontal space temporarily to help resize() work
         m_page->videoOptionsGroup->setVisible(true);
+        m_page->chkUseSavedFrames->setVisible(true);
     }
 
 
@@ -601,14 +613,22 @@ void DlgAnimationRenderer::slotExportTypeChanged()
         m_page->videoOptionsGroup->setVisible(false);
         m_page->imageSequenceOptionsGroup->setVisible(false);
         m_page->imageSequenceOptionsGroup->setVisible(true);
+        m_page->chkUseSavedFrames->setVisible(false);
     }
 
     // show all options
      if (m_page->shouldExportAll->isChecked() ) {
-         m_page->imageSequenceOptionsGroup->setVisible(true);
-         m_page->videoOptionsGroup->setVisible(true);
-     }
+        m_page->imageSequenceOptionsGroup->setVisible(true);
+        m_page->videoOptionsGroup->setVisible(true);
+        m_page->chkUseSavedFrames->setVisible(true);
+    }
 
+    if (m_page->chkUseSavedFrames->isChecked() && m_page->chkUseSavedFrames->isEnabled()){
+        m_page->dirRequester->setEnabled(false);
+        m_page->txtBasename->setEnabled(false);
+        m_page->sequenceStart->setEnabled(false);
+        m_page->videoOptionsGroup->setEnabled(false);
+    }
 
      // for the resize to work as expected, try to hide elements first before displaying other ones.
      // if the widget gets bigger at any point, the resize will use that, even if elements are hidden later to make it smaller

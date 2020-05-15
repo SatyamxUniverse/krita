@@ -6,8 +6,8 @@
    <rect>
     <x>0</x>
     <y>0</y>
-    <width>621</width>
-    <height>381</height>
+    <width>678</width>
+    <height>495</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -71,6 +71,13 @@
        </spacer>
       </item>
      </layout>
+    </widget>
+   </item>
+   <item>
+    <widget class="QCheckBox" name="chkUseSavedFrames">
+     <property name="text">
+      <string>Use already Saved frames</string>
+     </property>
     </widget>
    </item>
    <item>

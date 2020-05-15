@@ -19,6 +19,7 @@
 #include "AnimationRenderer.h"
 
 #include <QMessageBox>
+#include  <QCollator>
 
 #include <klocalizedstring.h>
 #include <kpluginfactory.h>
@@ -129,14 +130,35 @@ void AnimaterionRenderer::renderAnimationImpl(KisDocument *doc, KisAnimationRend
         }
     }
 
+    int firsrNonExistingFrame = 0;                                     //stores the first un-rendered image frame's index
+    if (encoderOptions.useSavedFrames && encoderOptions.shouldEncodeVideo){
+        QDir d(framesDirectory);
+
+        QStringList existingFiles = d.entryList(QStringList() << encoderOptions.basename + "*." + extension, QDir::Files);
+        
+        if( existingFiles.size() != 0){
+            QCollator collator;
+            collator.setNumericMode(true);
+            std::sort(existingFiles.begin(), existingFiles.end(), collator);    // sort existing files base on the numeric suffix
+    
+            QRegularExpression rx( "([0-9]+)");
+            QRegularExpressionMatch match = rx.match(existingFiles[existingFiles.size()-1]);
+            
+            if( match.hasMatch()){
+                QString matched = match.captured(1);
+                firsrNonExistingFrame = matched.toInt() + 1;
+            }
+        }
+    }
     const bool batchMode = false; // TODO: fetch correctly!
     KisAsyncAnimationFramesSaveDialog exporter(doc->image(),
-                                               KisTimeRange::fromTime(encoderOptions.firstFrame,
-                                                                      encoderOptions.lastFrame),
-                                               baseFileName,
-                                               encoderOptions.sequenceStart,
-                                               encoderOptions.wantsOnlyUniqueFrameSequence && !encoderOptions.shouldEncodeVideo,
-                                               encoderOptions.frameExportConfig);
+                                               KisTimeRange::fromTime(
+                                                std::max(firsrNonExistingFrame, encoderOptions.firstFrame),
+                                                encoderOptions.lastFrame),
+                                                baseFileName,
+                                                encoderOptions.sequenceStart,
+                                                encoderOptions.wantsOnlyUniqueFrameSequence && !encoderOptions.shouldEncodeVideo,
+                                                encoderOptions.frameExportConfig);
     exporter.setBatchMode(batchMode);
 
 
