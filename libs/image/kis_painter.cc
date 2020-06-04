@@ -116,6 +116,7 @@ void KisPainter::init()
     d->paramInfo = KoCompositeOp::ParameterInfo();
     d->renderingIntent = KoColorConversionTransformation::internalRenderingIntent();
     d->conversionFlags = KoColorConversionTransformation::internalConversionFlags();
+    d->patternTransform = QTransform();
 }
 
 KisPainter::~KisPainter()
@@ -1429,7 +1430,7 @@ void KisPainter::Private::fillPainterPathImpl(const QPainterPath& path, const QR
         break;
     case FillStylePattern:
         if (pattern) { // if the user hasn't got any patterns installed, we shouldn't crash...
-            fillPainter->fillRect(fillRect, pattern, QTransform());
+            fillPainter->fillRect(fillRect, pattern, patternTransform);
         }
         break;
     case FillStyleGenerator:
@@ -2568,6 +2569,16 @@ void KisPainter::setFillStyle(FillStyle fillStyle)
 KisPainter::FillStyle KisPainter::fillStyle() const
 {
     return d->fillStyle;
+}
+
+void KisPainter::setPatternTransform(QTransform transform)
+{
+    d->patternTransform = transform;
+}
+
+QTransform KisPainter::patternTransform()
+{
+    return d->patternTransform;
 }
 
 void KisPainter::setAntiAliasPolygonFill(bool antiAliasPolygonFill)
