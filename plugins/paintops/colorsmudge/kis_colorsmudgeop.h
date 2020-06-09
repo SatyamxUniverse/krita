@@ -32,6 +32,7 @@
 #include <kis_pressure_scatter_option.h>
 #include <kis_pressure_gradient_option.h>
 #include <kis_pressure_hsv_option.h>
+#include <kis_pressure_lightness_strength_option.h>
 #include <kis_airbrush_option_widget.h>
 
 #include "KoColorTransformation.h"
@@ -62,11 +63,14 @@ protected:
 private:
     // Sets the m_maskDab _and m_maskDabRect
     void updateMask(const KisPaintInformation& info, const KisDabShape &shape, const QPointF &cursorPoint);
+    KoColor getDullingFillColor(const KisPaintInformation& info, KisPrecisePaintDeviceWrapper& activeWrapper, QPoint canvasLocalSamplePoint);
+    void mixSmudgePaintAt(const KisPaintInformation& info, KisPrecisePaintDeviceWrapper& activeWrapper, QRect srcDabRect, QPoint canvasLocalSamplePoint, bool useDullingMode);
 
     inline void getTopLeftAligned(const QPointF &pos, const QPointF &hotSpot, qint32 *x, qint32 *y);
 
 private:
     bool                      m_firstRun;
+
     KisImageWSP               m_image;
     KisPrecisePaintDeviceWrapper m_precisePainterWrapper;
     KoColor                   m_paintColor;
@@ -82,6 +86,7 @@ private:
     KisPressureRatioOption    m_ratioOption;
     KisPressureSpacingOption  m_spacingOption;
     KisPressureRateOption     m_rateOption;
+    KisPressureLightnessStrengthOption   m_lightnessStrengthOption;
     KisSmudgeOption           m_smudgeRateOption;
     KisRateOption             m_colorRateOption;
     KisSmudgeRadiusOption     m_smudgeRadiusOption;
@@ -93,6 +98,11 @@ private:
     KisAirbrushOptionProperties m_airbrushOption;
     QRect                     m_dstDabRect;
     KisFixedPaintDeviceSP     m_maskDab;
+    KisFixedPaintDeviceSP     m_canvasDab;
+    KisFixedPaintDeviceSP     m_canvasSrc;
+    KisFixedPaintDeviceSP     m_mixedDab;
+    KisFixedPaintDeviceSP     m_origDab;
+    KisFixedPaintDeviceSP     m_origDabCopy;
     QPointF                   m_lastPaintPos;
 
     KoColorTransformation *m_hsvTransform {0};
