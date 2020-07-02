@@ -275,6 +275,7 @@ KisProjectionLeafSP KisNode::projectionLeaf() const
 
 void KisNode::setImage(KisImageWSP image)
 {
+    emit sigBeginImageReset(this, this->image());
     KisBaseNode::setImage(image);
 
     KisNodeSP node = firstChild();
@@ -286,6 +287,7 @@ void KisNode::setImage(KisImageWSP image)
 
         node = node->nextSibling();
     }
+    emit sigEndImageReset(this);
 }
 
 bool KisNode::accept(KisNodeVisitor &v)
