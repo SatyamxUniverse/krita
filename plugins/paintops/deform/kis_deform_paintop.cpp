@@ -50,7 +50,7 @@
 #endif
 
 KisDeformPaintOp::KisDeformPaintOp(const KisPaintOpSettingsSP settings, KisPainter * painter, KisNodeSP node, KisImageSP image)
-    : KisPaintOp(painter)
+    : KisPaintOp(painter), m_precisePainterWrapper(painter->device())
 {
     Q_UNUSED(image);
     Q_UNUSED(node);
@@ -125,13 +125,23 @@ KisSpacingInformation KisDeformPaintOp::paintAt(const KisPaintInformation& info)
 
     splitCoordinate(pos.x(), &x, &subPixelX);
     splitCoordinate(pos.y(), &y, &subPixelY);
+    
+    QRect bounds = dab->bounds();
+    bounds.moveCenter(pt.toPoint());
+    bounds.adjust(-2, -2, 2, 2);
+    
+    if (!m_properties.deform_use_old_data) {
+        m_precisePainterWrapper.resetCachedRegion();
+    }
+    m_precisePainterWrapper.readRect(bounds);
 
-    KisFixedPaintDeviceSP mask = m_deformBrush.paintMask(dab, m_dev,
+    KisFixedPaintDeviceSP mask = m_deformBrush.paintMask(dab, m_precisePainterWrapper.preciseDevice(),
                                  scale, rotation,
                                  info.pos(),
                                  subPixelX, subPixelY,
                                  x, y
                                                         );
+    
 
     // this happens for the first dab of the move mode, we need more information for being able to move
     if (!mask) {
@@ -142,6 +152,7 @@ KisSpacingInformation KisDeformPaintOp::paintAt(const KisPaintInformation& info)
     painter()->bltFixedWithFixedSelection(x, y, dab, mask, mask->bounds().width() , mask->bounds().height());
     painter()->renderMirrorMask(QRect(QPoint(x, y), QSize(mask->bounds().width() , mask->bounds().height())), dab, mask);
     painter()->setOpacity(origOpacity);
+    
 
     return updateSpacingImpl(info);
 }

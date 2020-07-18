@@ -22,6 +22,8 @@
 #include <brushengine/kis_paintop.h>
 #include <kis_types.h>
 
+#include <KisPrecisePaintDeviceWrapper.h>
+
 #include <kis_airbrush_option_widget.h>
 #include <kis_pressure_size_option.h>
 #include <kis_pressure_opacity_option.h>
@@ -64,6 +66,8 @@ private:
     KisPressureOpacityOption m_opacityOption;
     KisPressureRotationOption m_rotationOption;
     KisPressureRateOption m_rateOption;
+    
+    KisPrecisePaintDeviceWrapper m_precisePainterWrapper;
 
     qreal m_xSpacing;
     qreal m_ySpacing;
