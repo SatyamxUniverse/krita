@@ -127,7 +127,7 @@ KisSpacingInformation KisDeformPaintOp::paintAt(const KisPaintInformation& info)
     splitCoordinate(pos.y(), &y, &subPixelY);
     
     QRect bounds = dab->bounds();
-    bounds.moveCenter(pt.toPoint());
+    bounds.moveCenter(info.pos().toPoint());
     bounds.adjust(-2, -2, 2, 2);
     
     if (!m_properties.deform_use_old_data) {
