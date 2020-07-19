@@ -75,8 +75,6 @@ KisDeformPaintOp::KisDeformPaintOp(const KisPaintOpSettingsSP settings, KisPaint
 
     m_deformBrush.initDeformAction();
 
-    m_dev = source();
-
     if ((m_sizeProperties.brush_diameter * 0.5) > 1) {
         m_ySpacing = m_xSpacing = m_sizeProperties.brush_diameter * 0.5 * m_sizeProperties.brush_spacing;
     }
@@ -96,7 +94,7 @@ KisDeformPaintOp::~KisDeformPaintOp()
 KisSpacingInformation KisDeformPaintOp::paintAt(const KisPaintInformation& info)
 {
     if (!painter()) return KisSpacingInformation(m_spacing);
-    if (!m_dev) return KisSpacingInformation(m_spacing);
+    if (!m_precisePainterWrapper.sourceDevice()) return KisSpacingInformation(m_spacing);
 
     KisFixedPaintDeviceSP dab = cachedDab(source()->compositionSourceColorSpace());
 

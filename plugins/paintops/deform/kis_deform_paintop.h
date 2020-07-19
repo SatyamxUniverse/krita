@@ -53,8 +53,6 @@ protected:
 
 private:
 
-    KisPaintDeviceSP m_dab;
-    KisPaintDeviceSP m_dev;
 
     DeformBrush m_deformBrush;
     DeformOption m_properties;
