@@ -30,12 +30,12 @@ public:
     KoMixColorsOpImpl() {
     }
     ~KoMixColorsOpImpl() override { }
-    void mixColors(const quint8 * const* colors, const qint16 *weights, quint32 nColors, quint8 *dst) const override {
-        mixColorsImpl(ArrayOfPointers(colors), WeightsWrapper(weights, nColors), nColors, dst);
+    void mixColors(const quint8 * const* colors, const qint16 *weights, quint32 nColors, quint8 *dst, int weightSum = 255) const override {
+        mixColorsImpl(ArrayOfPointers(colors), WeightsWrapper(weights, weightSum), nColors, dst);
     }
 
-    void mixColors(const quint8 *colors, const qint16 *weights, quint32 nColors, quint8 *dst) const override {
-        mixColorsImpl(PointerToArray(colors, _CSTrait::pixelSize), WeightsWrapper(weights, nColors), nColors, dst);
+    void mixColors(const quint8 *colors, const qint16 *weights, quint32 nColors, quint8 *dst, int weightSum = 255) const override {
+        mixColorsImpl(PointerToArray(colors, _CSTrait::pixelSize), WeightsWrapper(weights, weightSum), nColors, dst);
     }
 
     void mixColors(const quint8 * const* colors, quint32 nColors, quint8 *dst) const override {
@@ -89,12 +89,9 @@ private:
     {
         typedef typename KoColorSpaceMathsTraits<typename _CSTrait::channels_type>::compositetype compositetype;
 
-        WeightsWrapper(const qint16 *weights, int size)
-            : m_weights(weights)
+        WeightsWrapper(const qint16 *weights, int weightSum)
+            : m_weights(weights), m_sumOfWeights(weightSum)
         {
-            for (int i=0; i<size; i++) {
-                m_sumOfWeights += weights[i];
-            }
         }
 
         inline void nextPixel() {
