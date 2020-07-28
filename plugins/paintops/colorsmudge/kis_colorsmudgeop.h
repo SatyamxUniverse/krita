@@ -70,6 +70,7 @@ private:
 
 private:
     bool                      m_firstRun;
+    bool                      m_useNewEngine;
 
     KisImageWSP               m_image;
     KisPrecisePaintDeviceWrapper m_precisePainterWrapper;
