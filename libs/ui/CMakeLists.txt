@@ -414,6 +414,8 @@ set(kritaui_LIB_SRCS
 
     KoDocumentInfoDlg.cpp
     KoDocumentInfo.cpp
+
+    StoryboardItem.cpp
 )
 
 if (SeExpr2_FOUND)
