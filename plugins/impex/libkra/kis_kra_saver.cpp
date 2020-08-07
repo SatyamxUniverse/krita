@@ -62,7 +62,6 @@
 #include "kis_grid_config.h"
 #include "kis_guides_config.h"
 #include "KisProofingConfiguration.h"
-#include "StoryboardItem.h"
 
 #include <KisMirrorAxisConfig.h>
 
@@ -149,7 +148,7 @@ QDomElement KisKraSaver::saveXML(QDomDocument& doc,  KisImageSP image)
     saveMirrorAxis(doc, imageElement);
     saveAudio(doc, imageElement);
     savePalettesToXML(doc, imageElement);
-    saveStoryboardItems(doc, imageElement);
+    saveStoryboard(doc, imageElement);
 
     QDomElement animationElement = doc.createElement("animation");
     KisDomUtils::saveValue(&animationElement, "framerate", image->animationInterface()->framerate());
@@ -204,8 +203,19 @@ void KisKraSaver::savePalettesToXML(QDomDocument &doc, QDomElement &element)
     element.appendChild(ePalette);
 }
 
-void KisKraSaver:: saveStoryboardItems(QDomDocument& doc, QDomElement &element)
+void KisKraSaver:: saveStoryboard(QDomDocument& doc, QDomElement &element)
 {
+    //saving storyboard comments
+    QDomElement eCommentList = doc.createElement("StoryboardCommentList");
+    for (Comment comment: m_d->doc->getStoryboardCommentsList()) {
+        QDomElement commentElement = doc.createElement("storyboardcomment");
+        commentElement.setAttribute("name", comment.name);
+        commentElement.setAttribute("visibility", comment.visibility);
+        eCommentList.appendChild(commentElement);
+    }
+    element.appendChild(eCommentList);
+
+    //saving storyboard items
     QDomElement eItemList = doc.createElement("StoryboardItemList");
     for (StoryboardItem *item : m_d->doc->getStoryboardItemList()) {
         QDomElement eItem =  item->toXML(doc);
