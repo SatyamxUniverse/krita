@@ -19,6 +19,7 @@
 
 #include <KoShapeCreateCommand.h>
 #include <KoShapeDeleteCommand.h>
+#include <KoSelection.h>
 #include <kis_node_visitor.h>
 #include <kis_processing_visitor.h>
 #include <kis_shape_layer_canvas.h>
@@ -44,10 +45,21 @@ struct AddReferenceImagesCommand : KoShapeCreateCommand
         }
 
         KoShapeCreateCommand::redo();
+
+        m_oldSelection = m_layer->shapeManager()->selection();
+        m_layer->shapeManager()->selection()->deselectAll();
+        m_layer->shapeManager()->selection()->select(m_layer->shapes().last());
     }
 
     void undo() override {
         KoShapeCreateCommand::undo();
+
+        m_layer->shapeManager()->selection()->deselectAll();
+        if (m_oldSelection) {
+            for (int i=0; i<m_oldSelection->selectedShapes().size(); i++) {
+                m_layer->shapeManager()->selection()->select(m_oldSelection->selectedShapes().at(i));
+            }
+        }
 
         if (m_layer->shapeCount() == 0) {
             m_document->setReferenceImagesLayer(nullptr, true);
@@ -57,6 +69,7 @@ struct AddReferenceImagesCommand : KoShapeCreateCommand
 private:
     KisDocument *m_document;
     KisSharedPtr<KisReferenceImagesLayer> m_layer;
+    KoSelection *m_oldSelection;
 };
 
 struct RemoveReferenceImagesCommand : KoShapeDeleteCommand
