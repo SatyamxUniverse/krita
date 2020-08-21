@@ -346,6 +346,16 @@ struct LowerRaiseLayer : public KisCommandUtils::AggregateCommand {
             AllMasks;
     }
 
+    bool allowsAsChildren(KisNodeSP parent, KisNodeList nodes) {
+        if (!parent->isEditable(false)) return false;
+
+        Q_FOREACH (KisNodeSP node, nodes) {
+            if (!parent->allowAsChild(node)) return false;
+        }
+
+        return true;
+    }
+
     void populateChildCommands() override {
         KisNodeList sortedNodes = KisLayerUtils::sortAndFilterAnyMergableNodesSafe(m_nodes, m_image);
         KisNodeSP headNode = m_lower ? sortedNodes.first() : sortedNodes.last();
@@ -354,6 +364,8 @@ struct LowerRaiseLayer : public KisCommandUtils::AggregateCommand {
         KisNodeSP parent = headNode->parent();
         KisNodeSP grandParent = parent ? parent->parent() : 0;
 
+        if (!parent->isEditable(false)) return;
+
         KisNodeSP newAbove;
         KisNodeSP newParent;
 
@@ -361,11 +373,8 @@ struct LowerRaiseLayer : public KisCommandUtils::AggregateCommand {
             KisNodeSP prevNode = headNode->prevSibling();
 
             if (prevNode) {
-                if ((prevNode->inherits("KisGroupLayer") &&
-                     !prevNode->collapsed())
-                    ||
-                    (nodesType == AllMasks &&
-                     prevNode->inherits("KisLayer"))) {
+                if (allowsAsChildren(prevNode, sortedNodes) &&
+                    !prevNode->collapsed()) {
 
                     newAbove = prevNode->lastChild();
                     newParent = prevNode;
@@ -390,12 +399,8 @@ struct LowerRaiseLayer : public KisCommandUtils::AggregateCommand {
             KisNodeSP nextNode = headNode->nextSibling();
 
             if (nextNode) {
-                if ((nextNode->inherits("KisGroupLayer") &&
-                     !nextNode->collapsed())
-                    ||
-                    (nodesType == AllMasks &&
-                     nextNode->inherits("KisLayer"))) {
-
+                if (allowsAsChildren(nextNode, sortedNodes) &&
+                        !nextNode->collapsed()) {
                     newAbove = 0;
                     newParent = nextNode;
                 } else {
@@ -476,6 +481,12 @@ struct DuplicateLayers : public KisCommandUtils::AggregateCommand {
         if (filteredNodes.isEmpty()) return;
 
         KisNodeSP newAbove = filteredNodes.last();
+
+        // make sure we don't add the new layer into a locked group
+        while (newAbove->parent() && !newAbove->parent()->isEditable(false)) {
+            newAbove = newAbove->parent();
+        }
+
         KisNodeSP newParent = newAbove->parent();
 
         // override parent if provided externally
