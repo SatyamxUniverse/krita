@@ -19,6 +19,7 @@
 
 #include <KoShapeCreateCommand.h>
 #include <KoShapeDeleteCommand.h>
+#include <KoKeepShapesSelectedCommand.h>
 #include <KoSelection.h>
 #include <kis_node_visitor.h>
 #include <kis_processing_visitor.h>
@@ -30,8 +31,8 @@
 
 struct AddReferenceImagesCommand : KoShapeCreateCommand
 {
-    AddReferenceImagesCommand(KisDocument *document, KisSharedPtr<KisReferenceImagesLayer> layer, const QList<KoShape*> referenceImages)
-        : KoShapeCreateCommand(layer->shapeController(), referenceImages, layer.data(), nullptr, kundo2_i18n("Add reference image"))
+    AddReferenceImagesCommand(KisDocument *document, KisSharedPtr<KisReferenceImagesLayer> layer, const QList<KoShape*> referenceImages, KUndo2Command *parent = nullptr)
+        : KoShapeCreateCommand(layer->shapeController(), referenceImages, layer.data(), parent, kundo2_i18n("Add reference image"))
         , m_document(document)
         , m_layer(layer)
     {}
@@ -45,21 +46,10 @@ struct AddReferenceImagesCommand : KoShapeCreateCommand
         }
 
         KoShapeCreateCommand::redo();
-
-        m_oldSelection = m_layer->shapeManager()->selection();
-        m_layer->shapeManager()->selection()->deselectAll();
-        m_layer->shapeManager()->selection()->select(m_layer->shapes().last());
     }
 
     void undo() override {
         KoShapeCreateCommand::undo();
-
-        m_layer->shapeManager()->selection()->deselectAll();
-        if (m_oldSelection) {
-            for (int i=0; i<m_oldSelection->selectedShapes().size(); i++) {
-                m_layer->shapeManager()->selection()->select(m_oldSelection->selectedShapes().at(i));
-            }
-        }
 
         if (m_layer->shapeCount() == 0) {
             m_document->setReferenceImagesLayer(nullptr, true);
@@ -69,13 +59,12 @@ struct AddReferenceImagesCommand : KoShapeCreateCommand
 private:
     KisDocument *m_document;
     KisSharedPtr<KisReferenceImagesLayer> m_layer;
-    KoSelection *m_oldSelection;
 };
 
 struct RemoveReferenceImagesCommand : KoShapeDeleteCommand
 {
-    RemoveReferenceImagesCommand(KisDocument *document, KisSharedPtr<KisReferenceImagesLayer> layer, QList<KoShape *> referenceImages)
-        : KoShapeDeleteCommand(layer->shapeController(), referenceImages)
+    RemoveReferenceImagesCommand(KisDocument *document, KisSharedPtr<KisReferenceImagesLayer> layer, QList<KoShape *> referenceImages, KUndo2Command *parent = nullptr)
+        : KoShapeDeleteCommand(layer->shapeController(), referenceImages, parent)
         , m_document(document)
         , m_layer(layer)
     {}
@@ -152,14 +141,21 @@ KisReferenceImagesLayer::KisReferenceImagesLayer(const KisReferenceImagesLayer &
     : KisShapeLayer(rhs, rhs.shapeController(), new ReferenceImagesCanvas(this, rhs.image()))
 {}
 
-KUndo2Command * KisReferenceImagesLayer::addReferenceImages(KisDocument *document, const QList<KoShape*> referenceImages)
+KUndo2Command * KisReferenceImagesLayer::addReferenceImages(KoCanvasBase *canvas, KisDocument *document, const QList<KoShape*> referenceImages)
 {
     KisSharedPtr<KisReferenceImagesLayer> layer = document->referenceImagesLayer();
     if (!layer) {
         layer = new KisReferenceImagesLayer(document->shapeController(), document->image());
     }
 
-    return new AddReferenceImagesCommand(document, layer, referenceImages);
+    KUndo2Command *parentCommand = new KUndo2Command();
+
+    new KoKeepShapesSelectedCommand(layer->shapeManager()->selection()->selectedShapes(), {}, canvas->selectedShapesProxy(), KisCommandUtils::FlipFlopCommand::State::INITIALIZING, parentCommand);
+    AddReferenceImagesCommand *cmd = new AddReferenceImagesCommand(document, layer, referenceImages, parentCommand);
+    parentCommand->setText(cmd->text());
+    new KoKeepShapesSelectedCommand({}, referenceImages, canvas->selectedShapesProxy(), KisCommandUtils::FlipFlopCommand::State::FINALIZING, parentCommand);
+
+    return parentCommand;
 }
 
 KUndo2Command * KisReferenceImagesLayer::removeReferenceImages(KisDocument *document, QList<KoShape*> referenceImages)

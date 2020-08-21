@@ -111,7 +111,7 @@ void ToolReferenceImages::addReferenceImage()
 
     if (reference) {
         KisDocument *doc = document();
-        doc->addCommand(KisReferenceImagesLayer::addReferenceImages(doc, {reference}));
+        doc->addCommand(KisReferenceImagesLayer::addReferenceImages(kisCanvas, doc, {reference}));
     }
 }
 
@@ -127,7 +127,7 @@ void ToolReferenceImages::pasteReferenceImage()
 
     if(reference) {
         KisDocument *doc = document();
-        doc->addCommand(KisReferenceImagesLayer::addReferenceImages(doc, {reference}));
+        doc->addCommand(KisReferenceImagesLayer::addReferenceImages(kisCanvas, doc, {reference}));
     }
 }
 
@@ -181,7 +181,7 @@ void ToolReferenceImages::loadReferenceImages()
         }
 
         KisDocument *doc = document();
-        doc->addCommand(KisReferenceImagesLayer::addReferenceImages(doc, shapes));
+        doc->addCommand(KisReferenceImagesLayer::addReferenceImages(kisCanvas, doc, shapes));
     } else {
         QMessageBox::critical(nullptr, i18nc("@title:window", "Krita"), i18n("Could not load reference images from '%1'.", filename));
     }

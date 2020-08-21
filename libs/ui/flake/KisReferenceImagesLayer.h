@@ -25,6 +25,7 @@
 #include <kis_types.h>
 
 class KisDocument;
+class KoCanvasBase;
 
 class KRITAUI_EXPORT KisReferenceImagesLayer : public KisShapeLayer
 {
@@ -34,7 +35,7 @@ public:
     KisReferenceImagesLayer(KoShapeControllerBase* shapeController, KisImageWSP image);
     KisReferenceImagesLayer(const KisReferenceImagesLayer &rhs);
 
-    static KUndo2Command * addReferenceImages(KisDocument *document, QList<KoShape*> referenceImages);
+    static KUndo2Command * addReferenceImages(KoCanvasBase *canvas, KisDocument *document, QList<KoShape*> referenceImages);
     KUndo2Command * removeReferenceImages(KisDocument *document, QList<KoShape*> referenceImages);
     QVector<KisReferenceImage*> referenceImages() const;
 
