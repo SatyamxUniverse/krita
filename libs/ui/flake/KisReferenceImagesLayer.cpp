@@ -141,7 +141,7 @@ KisReferenceImagesLayer::KisReferenceImagesLayer(const KisReferenceImagesLayer &
     : KisShapeLayer(rhs, rhs.shapeController(), new ReferenceImagesCanvas(this, rhs.image()))
 {}
 
-KUndo2Command * KisReferenceImagesLayer::addReferenceImages(KoCanvasBase *canvas, KisDocument *document, const QList<KoShape*> referenceImages)
+KUndo2Command * KisReferenceImagesLayer::addReferenceImages(KisDocument *document, const QList<KoShape*> referenceImages)
 {
     KisSharedPtr<KisReferenceImagesLayer> layer = document->referenceImagesLayer();
     if (!layer) {
@@ -150,10 +150,10 @@ KUndo2Command * KisReferenceImagesLayer::addReferenceImages(KoCanvasBase *canvas
 
     KUndo2Command *parentCommand = new KUndo2Command();
 
-    new KoKeepShapesSelectedCommand(layer->shapeManager()->selection()->selectedShapes(), {}, canvas->selectedShapesProxy(), KisCommandUtils::FlipFlopCommand::State::INITIALIZING, parentCommand);
+    new KoKeepShapesSelectedCommand(layer->shapeManager()->selection()->selectedShapes(), {}, layer->selectedShapesProxy(), KisCommandUtils::FlipFlopCommand::State::INITIALIZING, parentCommand);
     AddReferenceImagesCommand *cmd = new AddReferenceImagesCommand(document, layer, referenceImages, parentCommand);
     parentCommand->setText(cmd->text());
-    new KoKeepShapesSelectedCommand({}, referenceImages, canvas->selectedShapesProxy(), KisCommandUtils::FlipFlopCommand::State::FINALIZING, parentCommand);
+    new KoKeepShapesSelectedCommand({}, referenceImages, layer->selectedShapesProxy(), KisCommandUtils::FlipFlopCommand::State::FINALIZING, parentCommand);
 
     return parentCommand;
 }
