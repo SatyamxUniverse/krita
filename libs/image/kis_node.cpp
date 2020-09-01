@@ -275,12 +275,6 @@ KisProjectionLeafSP KisNode::projectionLeaf() const
 
 void KisNode::setImage(KisImageWSP newImage)
 {
-    if (image()) {
-        foreach (const QString &id, keyframeChannels().keys()){
-            keyframeChannels()[id]->unbindChannelToAnimationInterface(image());
-        }
-    }
-
     KisBaseNode::setImage(newImage);
 
     KisNodeSP node = firstChild();
@@ -291,12 +285,6 @@ void KisNode::setImage(KisImageWSP newImage)
                                            });
 
         node = node->nextSibling();
-    }
-
-    if (newImage) {
-        foreach (const QString &id, keyframeChannels().keys()){
-            keyframeChannels()[id]->bindChannelToAnimationInterface(newImage);
-        }
     }
 }
 

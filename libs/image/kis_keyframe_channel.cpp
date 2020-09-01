@@ -24,6 +24,8 @@
 #include "kis_node.h"
 #include "kis_time_span.h"
 #include "kundo2command.h"
+#include "kis_image.h"
+#include "kis_image_animation_interface.h"
 #include "kis_keyframe_commands.h"
 #include "kis_scalar_keyframe_channel.h"
 
@@ -96,7 +98,7 @@ KisKeyframeChannel::KisKeyframeChannel(const KisKeyframeChannel &rhs, KisNodeWSP
     : KisKeyframeChannel(rhs.m_d->id, KisDefaultBoundsNodeWrapperSP( new KisDefaultBoundsNodeWrapper(newParent)))
 {
     m_d.reset(new Private(*rhs.m_d));
-    m_d->parentNode = newParent;
+    setNode(newParent);
 }
 
 KisKeyframeChannel::~KisKeyframeChannel()
@@ -289,6 +291,7 @@ void KisKeyframeChannel::setNode(KisNodeWSP node)
 {
     if (m_d->parentNode.isValid()) { // Disconnect old..
         disconnect(this, &KisKeyframeChannel::sigChannelUpdated, m_d->parentNode, &KisNode::handleKeyframeChannelUpdate);
+        unbindChannelToAnimationInterface(m_d->parentNode->image());
     }
 
     m_d->parentNode = node;
@@ -296,6 +299,7 @@ void KisKeyframeChannel::setNode(KisNodeWSP node)
 
     if (m_d->parentNode) { // Connect new..
         connect(this, &KisKeyframeChannel::sigChannelUpdated, m_d->parentNode, &KisNode::handleKeyframeChannelUpdate);
+        bindChannelToAnimationInterface(m_d->parentNode->image());
     }
 }
 
@@ -412,5 +416,21 @@ void KisKeyframeChannel::workaroundBrokenFrameTimeBug(int *time)
         while (keyframeAt(*time)) {
             (*time)++;
         }
+    }
+}
+
+void KisKeyframeChannel::bindChannelToAnimationInterface(KisImageWSP image)
+{
+    if (image && image->animationInterface()) {
+        connect(this, SIGNAL(sigAddedKeyframe(const KisKeyframeChannel*, int)), image->animationInterface(), SIGNAL(sigKeyframeAdded(const KisKeyframeChannel*, int)), Qt::UniqueConnection);
+        connect(this, SIGNAL(sigRemovingKeyframe(const KisKeyframeChannel*,int)), image->animationInterface(), SIGNAL(sigKeyframeRemoved(const KisKeyframeChannel*, int)), Qt::UniqueConnection);
+    }
+}
+
+void KisKeyframeChannel::unbindChannelToAnimationInterface(KisImageWSP image)
+{
+    if (image && image->animationInterface()) {
+        disconnect(this, SIGNAL(sigAddedKeyframe(const KisKeyframeChannel*, int)), image->animationInterface(), SIGNAL(sigKeyframeAdded(const KisKeyframeChannel*, int)));
+        disconnect(this, SIGNAL(sigRemovingKeyframe(const KisKeyframeChannel*,int)), image->animationInterface(), SIGNAL(sigKeyframeRemoved(const KisKeyframeChannel*, int)));
     }
 }
