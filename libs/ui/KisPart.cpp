@@ -67,7 +67,7 @@
 #include "KisResourceServerProvider.h"
 #include "kis_animation_cache_populator.h"
 #include "kis_image_animation_interface.h"
-#include "kis_time_range.h"
+#include "kis_time_span.h"
 #include "kis_idle_watcher.h"
 #include "kis_image.h"
 #include "KisOpenPane.h"
@@ -486,10 +486,9 @@ KisAnimationCachePopulator* KisPart::cachePopulator() const
 
 void KisPart::prioritizeFrameForCache(KisImageSP image, int frame) {
     KisImageAnimationInterface* animInterface = image->animationInterface();
-    KIS_SAFE_ASSERT_RECOVER_RETURN(animInterface->fullClipRange().contains(frame));
-
-    d->animationCachePopulator.requestRegenerationWithPriorityFrame(image, frame);
-
+    if ( animInterface && animInterface->fullClipRange().contains(frame)) {
+        d->animationCachePopulator.requestRegenerationWithPriorityFrame(image, frame);
+    }
 }
 
 void KisPart::openExistingFile(const QUrl &url)
@@ -523,7 +522,7 @@ void KisPart::updateShortcuts()
             if (action->shortcut() == QKeySequence(0))
                 action->setToolTip(strippedTooltip);
             else
-                action->setToolTip( strippedTooltip + " (" + action->shortcut().toString() + ")");
+                action->setToolTip( strippedTooltip + " (" + action->shortcut().toString(QKeySequence::NativeText) + ")");
         }
     }
 }

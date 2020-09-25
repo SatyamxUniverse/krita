@@ -1,4 +1,7 @@
 /*
+ *  Copyright (c) 2020 Emmet O'Neill <emmetoneill.pdx@gmail.com>
+ *  Copyright (c) 2020 Eoin O'Neill <eoinoneill1991@gmail.com>
+ *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation; either version 2 of the License, or
@@ -19,53 +22,126 @@
 
 #include "kis_keyframe_channel.h"
 #include "kundo2command.h"
+#include "kis_scalar_keyframe_channel.h"
 #include "kritaimage_export.h"
 
-class KRITAIMAGE_EXPORT KisReplaceKeyframeCommand : public KUndo2Command
+
+class KisInsertKeyframeCommand : public KUndo2Command
 {
 public:
-    KisReplaceKeyframeCommand(KisKeyframeChannel *channel, int time, KisKeyframeSP keyframe, KUndo2Command *parentCommand);
+    KisInsertKeyframeCommand(KisKeyframeChannel *channel, int time, KisKeyframeSP keyframe, KUndo2Command *parentCmd);
 
     void redo() override;
     void undo() override;
 
 private:
-    void doSwap(bool insert);
-
-private:
-    KisKeyframeChannel *m_channel;
+    KisKeyframeChannel* m_channel;
     int m_time;
     KisKeyframeSP m_keyframe;
-    KisKeyframeSP m_existingKeyframe;
+
+    KisKeyframeSP m_overwritten = nullptr;
 };
 
-class KRITAIMAGE_EXPORT KisMoveFrameCommand : public KUndo2Command
+
+class KisRemoveKeyframeCommand : public KUndo2Command
 {
 public:
-    KisMoveFrameCommand(KisKeyframeChannel *channel, KisKeyframeSP keyframe, int oldTime, int newTime, KUndo2Command *parentCommand);
+    KisRemoveKeyframeCommand(KisKeyframeChannel *channel, int time, KUndo2Command* parentCmd);
 
     void redo() override;
     void undo() override;
 
 private:
-    KisKeyframeChannel *m_channel;
-    KisKeyframeSP m_keyframe;
-    int m_oldTime;
-    int m_newTime;
+    KisKeyframeChannel* m_channel;
+    int m_time;
+
+    KisKeyframeSP m_cached;
 };
 
-class KRITAIMAGE_EXPORT KisSwapFramesCommand : public KUndo2Command
+class KisMoveKeyframeInternalCommand : public KUndo2Command
 {
 public:
-    KisSwapFramesCommand(KisKeyframeChannel *channel, KisKeyframeSP lhsFrame, KisKeyframeSP rhsFrame, KUndo2Command *parentCommand);
+    KisMoveKeyframeInternalCommand(KisKeyframeChannel *channel, int srcTime, int dstTime, KUndo2Command* parentCmd);
 
     void redo() override;
     void undo() override;
 
 private:
-    KisKeyframeChannel *m_channel;
-    KisKeyframeSP m_lhsFrame;
-    KisKeyframeSP m_rhsFrame;
+    KisKeyframeChannel* m_channel;
+    int m_srcTime;
+    int m_dstTime;
 };
+
+class KisSwapKeyframesInternalCommand : public KUndo2Command
+{
+public:
+    KisSwapKeyframesInternalCommand(KisKeyframeChannel *channel, int timeA, int timeB, KUndo2Command* parentCmd);
+
+    void redo() override;
+    void undo() override;
+
+private:
+    KisKeyframeChannel* m_channel;
+    int m_timeA;
+    int m_timeB;
+};
+
+
+class KisScalarKeyframeUpdateCommand : public KUndo2Command
+{
+public:
+    KisScalarKeyframeUpdateCommand(KisScalarKeyframe* keyframe,
+                                   qreal value,
+                                   KisScalarKeyframe::InterpolationMode interpolationMode,
+                                   KisScalarKeyframe::TangentsMode tangentMode,
+                                   QPointF tangentLeft,
+                                   QPointF tangentRight,
+                                   KUndo2Command *parentCmd);
+
+    KisScalarKeyframeUpdateCommand(KisScalarKeyframe* keyframe,
+                                   qreal value,
+                                   KUndo2Command *parentCmd)
+        : KisScalarKeyframeUpdateCommand(keyframe, value, keyframe->m_interpolationMode,
+                                         keyframe->m_tangentsMode, keyframe->m_leftTangent,
+                                         keyframe->m_rightTangent, parentCmd) {};
+
+    KisScalarKeyframeUpdateCommand(KisScalarKeyframe* keyframe,
+                                   KisScalarKeyframe::InterpolationMode interpMode,
+                                   KUndo2Command *parentCmd)
+        : KisScalarKeyframeUpdateCommand(keyframe, keyframe->m_value, interpMode,
+                                         keyframe->m_tangentsMode, keyframe->m_leftTangent,
+                                         keyframe->m_rightTangent, parentCmd) {};
+
+    KisScalarKeyframeUpdateCommand(KisScalarKeyframe* keyframe,
+                                   KisScalarKeyframe::TangentsMode tangentMode,
+                                   KUndo2Command *parentCmd)
+        : KisScalarKeyframeUpdateCommand(keyframe, keyframe->m_value, keyframe->m_interpolationMode,
+                                         tangentMode, keyframe->m_leftTangent,
+                                         keyframe->m_rightTangent, parentCmd) {};
+
+    KisScalarKeyframeUpdateCommand(KisScalarKeyframe* keyframe,
+                                   QPointF tangentLeft,
+                                   QPointF tangentRight,
+                                   KUndo2Command *parentCmd)
+        : KisScalarKeyframeUpdateCommand(keyframe, keyframe->m_value, keyframe->m_interpolationMode,
+                                         keyframe->m_tangentsMode, tangentLeft,
+                                         tangentRight, parentCmd) {};
+
+    void redo() override;
+    void undo() override;
+
+    template<typename T>
+    using UndoStore = QPair<T, T>;
+
+private:
+    KisScalarKeyframe* keyframe;
+    UndoStore<qreal> cachedValue;
+    UndoStore<KisScalarKeyframe::InterpolationMode> cachedInterpolationMode;
+    UndoStore<KisScalarKeyframe::TangentsMode> cachedTangentsMode;
+    UndoStore<QPointF> cachedTangentLeft;
+    UndoStore<QPointF> cachedTangentRight;
+
+};
+
 
 #endif
