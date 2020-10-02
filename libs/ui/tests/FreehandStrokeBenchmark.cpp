@@ -155,4 +155,38 @@ void FreehandStrokeBenchmark::testColorsmudgeDefaultTip()
     benchmarkBrush("testing_200px_colorsmudge_default.kpp");
 }
 
+void FreehandStrokeBenchmark::testColorsmudgeDefaultTipNew()
+{
+    benchmarkBrush("testing_200px_colorsmudge_default_new.kpp");
+}
+
+void FreehandStrokeBenchmark::testColorsmudgeDefaultTipAlphaOff()
+{
+    benchmarkBrush("testing_200px_colorsmudge_default_alphaoff.kpp");
+}
+
+void FreehandStrokeBenchmark::testColorsmudgeDefaultTipAlphaOffNew()
+{
+    benchmarkBrush("testing_200px_colorsmudge_default_alphaoff_new.kpp");
+}
+
+void FreehandStrokeBenchmark::testColorsmudgeDefaultTipSmearing()
+{
+    benchmarkBrush("testing_200px_colorsmudge_default_smearing.kpp");
+}
+
+void FreehandStrokeBenchmark::testColorsmudgeDefaultTipSmearingNew()
+{
+    benchmarkBrush("testing_200px_colorsmudge_default_smearing_new.kpp");
+}
+
+void FreehandStrokeBenchmark::testColorsmudgeDefaultTipSmearingAlphaOff()
+{
+    benchmarkBrush("testing_200px_colorsmudge_default_smearing_alphaoff.kpp");
+}
+
+void FreehandStrokeBenchmark::testColorsmudgeDefaultTipSmearingAlphaOffNew()
+{
+    benchmarkBrush("testing_200px_colorsmudge_default_smearing_alphaoff_new.kpp");
+}
 KISTEST_MAIN(FreehandStrokeBenchmark)

@@ -58,12 +58,14 @@ protected:
     KisSpacingInformation paintAt(const KisPaintInformation& info) override;
 
     KisSpacingInformation updateSpacingImpl(const KisPaintInformation &info) const override;
-    KisTimingInformation updateTimingImpl(const KisPaintInformation &info) const;
+    KisTimingInformation updateTimingImpl(const KisPaintInformation &info) const override;
 
 private:
     // Sets the m_maskDab _and m_maskDabRect
     void updateMask(const KisPaintInformation& info, const KisDabShape &shape, const QPointF &cursorPoint);
+    KoColor getOverlayDullingFillColor( QPoint canvasLocalSamplePoint);
     KoColor getDullingFillColor(const KisPaintInformation& info, KisPrecisePaintDeviceWrapper& activeWrapper, QPoint canvasLocalSamplePoint);
+    //void colorPainterBltFixed(const KisFixedPaintDeviceSP srcDev, qint32 srcWidth, qint32 srcHeight, float opacity);
     void mixSmudgePaintAt(const KisPaintInformation& info, KisPrecisePaintDeviceWrapper& activeWrapper, QRect srcDabRect, QPoint canvasLocalSamplePoint, bool useDullingMode);
 
     inline void getTopLeftAligned(const QPointF &pos, const QPointF &hotSpot, qint32 *x, qint32 *y);
@@ -79,6 +81,7 @@ private:
     QScopedPointer<KisPrecisePaintDeviceWrapper> m_preciseImageDeviceWrapper;
     QScopedPointer<KisPainter> m_backgroundPainter;
     QScopedPointer<KisPainter> m_smudgePainter;
+    QScopedPointer<KisPainter> m_overlayPainter;
     QScopedPointer<KisPainter> m_colorRatePainter;
     QScopedPointer<KisPainter> m_finalPainter;
     const KoAbstractGradient* m_gradient {0};
@@ -99,11 +102,8 @@ private:
     KisAirbrushOptionProperties m_airbrushOption;
     QRect                     m_dstDabRect;
     KisFixedPaintDeviceSP     m_maskDab;
-    KisFixedPaintDeviceSP     m_canvasDab;
-    KisFixedPaintDeviceSP     m_canvasSrc;
-    KisFixedPaintDeviceSP     m_mixedDab;
     KisFixedPaintDeviceSP     m_origDab;
-    KisFixedPaintDeviceSP     m_origDabCopy;
+    KisFixedPaintDeviceSP     m_tempDevData;
     QPointF                   m_lastPaintPos;
 
     KoColorTransformation *m_hsvTransform {0};
