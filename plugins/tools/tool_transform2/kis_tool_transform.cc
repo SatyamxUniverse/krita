@@ -67,6 +67,8 @@
 #include <kis_selection_manager.h>
 #include <krita_utils.h>
 #include <kis_resources_snapshot.h>
+#include <kis_action_manager.h>
+#include <kis_node_manager.h>
 
 #include <KoShapeTransformCommand.h>
 
@@ -778,7 +780,28 @@ void KisToolTransform::startStroke(ToolTransformArgs::TransformMode mode, bool f
                           "Layer type cannot use the transform tool"),
                     koIcon("object-locked"), 4000, KisFloatingMessage::High);
         }
-        else{
+        // If attempting to transform Clone Layer, find or add transform mask
+        else if (currentNode->inherits("KisCloneLayer")) {
+            KisNodeSP currentChild = currentNode->firstChild();
+            KisNodeSP transformChild = 0;
+            while (currentChild && !transformChild) {
+                if (currentChild->inherits("KisTransformMask")) {
+                    transformChild = currentChild;
+                    break;
+                }
+                currentChild = currentChild->nextSibling();
+            }
+            if (!transformChild) {
+                kisCanvas->viewManager()->
+                    actionManager()->actionByName("add_new_transform_mask")
+                        ->trigger();
+            }
+            // Activate found node. TODO: Replace node manager function with DummieFacade
+            else {
+                kisCanvas->viewManager()->
+                    nodeManager()->slotNonUiActivatedNode(transformChild);
+            }
+        } else {
             kisCanvas->viewManager()->
                 showFloatingMessage(
                     i18nc("floating message in transformation tool",
