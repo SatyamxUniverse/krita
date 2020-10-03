@@ -46,6 +46,7 @@
 #include <KoViewConverter.h>
 #include <KoSelection.h>
 #include <KoCompositeOp.h>
+#include <KoProperties.h>
 
 #include <kis_global.h>
 #include <canvas/kis_canvas2.h>
@@ -780,26 +781,20 @@ void KisToolTransform::startStroke(ToolTransformArgs::TransformMode mode, bool f
                           "Layer type cannot use the transform tool"),
                     koIcon("object-locked"), 4000, KisFloatingMessage::High);
         }
-        // If attempting to transform Clone Layer, find or add transform mask
+
+        // If attempting to transform Clone Layer, find or create nested transform mask
         else if (currentNode->inherits("KisCloneLayer")) {
-            KisNodeSP currentChild = currentNode->firstChild();
-            KisNodeSP transformChild = 0;
-            while (currentChild && !transformChild) {
-                if (currentChild->inherits("KisTransformMask")) {
-                    transformChild = currentChild;
-                    break;
-                }
-                currentChild = currentChild->nextSibling();
-            }
-            if (!transformChild) {
+            KoProperties properties;
+            properties.setProperty("visible", true);
+            QList<KisNodeSP> transform_masks = currentNode->childNodes(QStringList("KisTransformMask"), properties);
+            if (transform_masks.isEmpty()) {
                 kisCanvas->viewManager()->
                     actionManager()->actionByName("add_new_transform_mask")
                         ->trigger();
             }
-            // Activate found node. TODO: Replace node manager function with DummieFacade
             else {
                 kisCanvas->viewManager()->
-                    nodeManager()->slotNonUiActivatedNode(transformChild);
+                    nodeManager()->slotUiActivatedNode(transform_masks.first());
             }
         } else {
             kisCanvas->viewManager()->
