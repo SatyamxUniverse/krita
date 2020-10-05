@@ -68,7 +68,6 @@
 #include <kis_selection_manager.h>
 #include <krita_utils.h>
 #include <kis_resources_snapshot.h>
-#include <kis_action_manager.h>
 #include <kis_node_manager.h>
 
 #include <KoShapeTransformCommand.h>
@@ -789,8 +788,7 @@ void KisToolTransform::startStroke(ToolTransformArgs::TransformMode mode, bool f
             QList<KisNodeSP> transform_masks = currentNode->childNodes(QStringList("KisTransformMask"), properties);
             if (transform_masks.isEmpty()) {
                 kisCanvas->viewManager()->
-                    actionManager()->actionByName("add_new_transform_mask")
-                        ->trigger();
+                    nodeManager()->createNode("KisTransformMask");
             }
             else {
                 kisCanvas->viewManager()->
