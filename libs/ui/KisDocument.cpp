@@ -1455,7 +1455,7 @@ bool KisDocument::openUrl(const QUrl &_url, OpenFlags flags)
             switch (res) {
             case KisRecoverNamedAutosaveDialog::OpenAutosave :
                 original = file;
-                url.setPath(asf);
+                url = QUrl::fromLocalFile(asf);
                 autosaveOpened = true;
                 break;
             case KisRecoverNamedAutosaveDialog::OpenMainFile :
@@ -1626,11 +1626,7 @@ void KisDocument::autoSaveOnPause()
 
 QString KisDocument::toPath(const QUrl &url) const
 {
-#ifdef Q_OS_ANDROID
-    return (url.toLocalFile().isEmpty()) ? url.toString() : url.toLocalFile();
-#else
     return url.toLocalFile();
-#endif
 }
 
 // shared between openFile and koMainWindow's "create new empty document" code
