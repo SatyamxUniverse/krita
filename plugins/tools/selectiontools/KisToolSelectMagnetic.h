@@ -64,6 +64,7 @@ public Q_SLOTS:
     void slotSetSearchRadius(int);
     void slotSetAnchorGap(int);
     void slotCalculateEdge();
+    void slotSetAnchorZoomIndependent(bool);
 
 protected:
     using KisToolSelectBase::m_widgetHelper;
@@ -98,6 +99,7 @@ private:
     KConfigGroup m_configGroup;
     QVector<vQPointF> m_pointCollection;
     KisSignalCompressor m_mouseHoverCompressor;
+    int m_zoomIndependentAnchors;
 };
 
 class KisToolSelectMagneticFactory : public KisSelectionToolFactoryBase

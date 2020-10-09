@@ -1,4 +1,4 @@
-﻿/*
+/*
  *  Copyright (c) 2019 Kuntal Majumder <hellozee@disroot.org>
  *
  *  This program is free software; you can redistribute it and/or modify
@@ -55,13 +55,19 @@
 
 #define FEEDBACK_LINE_WIDTH 2
 
-KisToolSelectMagnetic::KisToolSelectMagnetic(KoCanvasBase *canvas)
-    : KisToolSelect(canvas,
-                    KisCursor::load("tool_magnetic_selection_cursor.png", 5, 5),
-                    i18n("Magnetic Selection")),
-    m_continuedMode(false), m_complete(false), m_selected(false), m_finished(false),
-    m_worker(image()->projection()), m_threshold(70), m_searchRadius(30), m_anchorGap(30),
-    m_filterRadius(3.0), m_mouseHoverCompressor(100, KisSignalCompressor::FIRST_ACTIVE)
+KisToolSelectMagnetic::KisToolSelectMagnetic(KoCanvasBase* canvas)
+    : KisToolSelect(canvas, KisCursor::load("tool_magnetic_selection_cursor.png", 5, 5), i18n("Magnetic Selection"))
+    , m_continuedMode(false)
+    , m_complete(false)
+    , m_selected(false)
+    , m_finished(false)
+    , m_worker(image()->projection())
+    , m_threshold(70)
+    , m_searchRadius(30)
+    , m_anchorGap(30)
+    , m_filterRadius(3.0)
+    , m_mouseHoverCompressor(100, KisSignalCompressor::FIRST_ACTIVE)
+    , m_zoomIndependentAnchors()
 
 { }
 
@@ -437,7 +443,7 @@ void KisToolSelectMagnetic::updateSelectedAnchor()
 int KisToolSelectMagnetic::updateInitialAnchorBounds(QPoint pt)
 {
     qreal zoomLevel = canvas()->viewConverter()->zoom();
-    int sides       = (int) std::ceil(10.0 / zoomLevel);
+    int sides = m_zoomIndependentAnchors ? 4 : static_cast<int>(zoomLevel * 4);
     m_snapBound = QRectF(QPoint(0, 0), QSize(sides, sides));
     m_snapBound.moveCenter(pt);
     return sides;
@@ -570,7 +576,7 @@ void KisToolSelectMagnetic::drawAnchors(QPainter &gc)
         } else {
             helper.setHandleStyle(KisHandleStyle::primarySelection());
         }
-        helper.drawHandleRect(pixelToView(pt), 4, QPoint(0, 0));
+        helper.drawHandleRect(pixelToView(pt), sides, QPoint(0, 0));
     }
 }
 
@@ -723,18 +729,27 @@ QWidget * KisToolSelectMagnetic::createOptionWidget()
     connect(discardSelection, SIGNAL(clicked()), this, SLOT(requestStrokeCancellation()));
     connect(this, SIGNAL(setButtonsEnabled(bool)), discardSelection, SLOT(setEnabled(bool)));
 
-    QVBoxLayout *l = dynamic_cast<QVBoxLayout *>(selectionWidget->layout());
+    QHBoxLayout* f6 = new QHBoxLayout();
+    QLabel* zoomIndependentLabel = new QLabel(i18n("Zoom Independent Anchors:"), selectionWidget);
+    QCheckBox* zoomIndependentCB = new QCheckBox(selectionWidget);
+    f6->addWidget(zoomIndependentLabel);
+    f6->addWidget(zoomIndependentCB);
+    connect(zoomIndependentCB, SIGNAL(toggled(bool)), this, SLOT(slotSetAnchorZoomIndependent(bool)));
+
+    QVBoxLayout* l = dynamic_cast<QVBoxLayout*>(selectionWidget->layout());
 
     l->insertLayout(1, f1);
     l->insertLayout(2, f2);
     l->insertLayout(3, f3);
     l->insertLayout(4, f4);
-    l->insertLayout(5, f5);
+    l->insertLayout(6, f5);
+    l->insertLayout(5, f6);
 
     filterRadiusInput->setValue(m_configGroup.readEntry("filterradius", 3.0));
     thresholdInput->setValue(m_configGroup.readEntry("threshold", 100));
     searchRadiusInput->setValue(m_configGroup.readEntry("searchradius", 30));
     anchorGapInput->setValue(m_configGroup.readEntry("anchorgap", 20));
+    zoomIndependentCB->setChecked(m_configGroup.readEntry("zoomindependentanchors", m_zoomIndependentAnchors));
 
     return selectionWidget;
 
@@ -762,6 +777,13 @@ void KisToolSelectMagnetic::slotSetAnchorGap(int g)
 {
     m_anchorGap = g;
     m_configGroup.writeEntry("anchorgap", g);
+}
+
+void KisToolSelectMagnetic::slotSetAnchorZoomIndependent(bool checked)
+{
+    m_zoomIndependentAnchors = checked;
+    m_configGroup.writeEntry("zoomindependentanchors", checked);
+    updateCanvasPixelRect(image()->bounds());
 }
 
 void KisToolSelectMagnetic::resetCursorStyle()
