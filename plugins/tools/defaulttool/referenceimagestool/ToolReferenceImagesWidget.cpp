@@ -65,6 +65,8 @@ ToolReferenceImagesWidget::ToolReferenceImagesWidget(ToolReferenceImages *tool, 
     d->ui->bnAddReferenceImage->setIcon(KisIconUtils::loadIcon("list-add"));
     d->ui->bnAddReferenceImage->setIconSize(QSize(16, 16));
 
+    d->ui->bnAddReferenceImageFromLayer->setToolTip(i18n("Add Reference Image From Selected Layer"));
+    d->ui->bnAddReferenceImageFromLayer->setIcon(KisIconUtils::loadIcon("duplicatelayer"));
 
     d->ui->bnDelete->setToolTip(i18n("Delete all Reference Images"));
     d->ui->bnDelete->setIcon(KisIconUtils::loadIcon("edit-delete"));
@@ -85,6 +87,7 @@ ToolReferenceImagesWidget::ToolReferenceImagesWidget(ToolReferenceImages *tool, 
 
     connect(d->ui->bnAddReferenceImage, SIGNAL(clicked()), tool, SLOT(addReferenceImage()));
     connect(d->ui->bnPasteReferenceImage, SIGNAL(clicked()), tool, SLOT(pasteReferenceImage()));
+    connect(d->ui->bnAddReferenceImageFromLayer, SIGNAL(clicked()), tool, SLOT(addReferenceImageFromLayer()));
 
     connect(KisClipboard::instance(), &KisClipboard::clipChanged, this, [&]() {
         d->ui->bnPasteReferenceImage->setEnabled(KisClipboard::instance()->hasClip() || KisClipboard::instance()->hasUrls());
