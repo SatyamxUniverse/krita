@@ -65,7 +65,7 @@ ToolReferenceImagesWidget::ToolReferenceImagesWidget(ToolReferenceImages *tool, 
     d->ui->bnAddReferenceImage->setIcon(KisIconUtils::loadIcon("list-add"));
     d->ui->bnAddReferenceImage->setIconSize(QSize(16, 16));
 
-    d->ui->bnAddReferenceImageFromLayer->setToolTip(i18n("Add Reference Image From Selected Layer"));
+    d->ui->bnAddReferenceImageFromLayer->setToolTip(i18n("Create Reference Image from Active Layer"));
     d->ui->bnAddReferenceImageFromLayer->setIcon(KisIconUtils::loadIcon("duplicatelayer"));
 
     d->ui->bnDelete->setToolTip(i18n("Delete all Reference Images"));

@@ -221,7 +221,7 @@ KisReferenceImage *KisReferenceImage::fromQImage(const KisCoordinatesConverter &
         reference->setSize(size);
     } else {
         delete reference;
-        reference = nullptr;
+        reference = 0;
     }
 
     return reference;

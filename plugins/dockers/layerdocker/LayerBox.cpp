@@ -1215,6 +1215,9 @@ void LayerBox::updateLayerOpMenu(const QModelIndex &index, QMenu &menu) {
             addActionToMenu(&menu, "flatten_image");
             addActionToMenu(&menu, "flatten_layer");
         }
+        
+        
+        addActionToMenu(&menu, "create_reference_image_from_active_layer");
 
         menu.addSeparator();
         QMenu *selectMenu = menu.addMenu(i18n("&Select"));
@@ -1264,6 +1267,7 @@ void LayerBox::updateLayerOpMenu(const QModelIndex &index, QMenu &menu) {
         menu.addSeparator();
 
         addActionToMenu(&menu, "pin_to_timeline");
+
 
         if (singleNode) {
             KisNodeSP node = m_filteringModel->nodeFromIndex(index);

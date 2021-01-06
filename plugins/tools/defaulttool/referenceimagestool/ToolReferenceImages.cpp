@@ -25,6 +25,7 @@
 #include <kis_action_registry.h>
 #include <kis_canvas2.h>
 #include <kis_canvas_resource_provider.h>
+#include <kis_node_manager.h>
 #include <KisViewManager.h>
 #include <KisDocument.h>
 #include <KisReferenceImagesLayer.h>
@@ -119,21 +120,7 @@ void ToolReferenceImages::addReferenceImageFromLayer()
 {
     KisCanvas2* kisCanvas = dynamic_cast<KisCanvas2*>(canvas());
     KIS_ASSERT_RECOVER_RETURN(kisCanvas);
-    //const KisPaintDevice* paintDevice = kisCanvas->currentImage().constData()->projection().constData();
-    const KisPaintDevice* paintDevice = kisCanvas->viewManager()->activeLayer().constData()->projection().constData();
-    const QImage image = paintDevice->convertToQImage(0, KoColorConversionTransformation::IntentPerceptual, KoColorConversionTransformation::NoOptimization);
-    KisReferenceImage* reference = KisReferenceImage::fromQImage(*kisCanvas->coordinatesConverter(), image);
-    if (reference) {
-        if (document()->referenceImagesLayer()) {
-            reference->setZIndex(document()->referenceImagesLayer()->shapes().size());
-        }
-        KisDocument *doc = document();
-        doc->addCommand(KisReferenceImagesLayer::addReferenceImages(doc, {reference}));
-    } else {
-        if (canvas()->canvasWidget()) {
-            QMessageBox::critical(canvas()->canvasWidget(), i18nc("@title:window", "Krita"), i18n("Could not load reference image from the selected layer."));
-        }
-    }
+    kisCanvas->viewManager()->nodeManager()->createReferenceImageFromLayer();
 }
 
 void ToolReferenceImages::pasteReferenceImage()

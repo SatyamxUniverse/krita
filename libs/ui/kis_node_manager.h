@@ -186,6 +186,7 @@ public Q_SLOTS:
     void moveNodeAt(KisNodeSP node, KisNodeSP parent, int index);
     KisNodeSP createNode(const QString& nodeType, bool quiet = false, KisPaintDeviceSP copyFrom = 0);
     void convertNode(const QString &nodeType);
+    void createReferenceImageFromLayer();
     void nodesUpdated();
     void nodeProperties(KisNodeSP node);
     /// pop up a window for changing the source of the selected Clone Layers

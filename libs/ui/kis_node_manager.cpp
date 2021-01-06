@@ -324,6 +324,9 @@ void KisNodeManager::setup(KisKActionCollection * actionCollection, KisActionMan
 
     action = actionManager->createAction("new_from_visible");
     connect(action, SIGNAL(triggered()), this, SLOT(createFromVisible()));
+    
+    action = actionManager->createAction("create_reference_image_from_active_layer");
+    connect(action, SIGNAL(triggered()), this, SLOT(createReferenceImageFromLayer()));
 
     action = actionManager->createAction("pin_to_timeline");
     action->setCheckable(true);
@@ -713,6 +716,29 @@ void KisNodeManager::convertNode(const QString &nodeType)
         m_d->layerManager.convertLayerToFileLayer(activeNode);
     } else {
         warnKrita << "Unsupported node conversion type:" << nodeType;
+    }
+}
+
+void KisNodeManager::createReferenceImageFromLayer() {
+    KisViewManager* m_view = m_d->view;
+    KisDocument *document = m_view->document();
+    KisCanvas2 *canvas = m_view->canvasBase();
+    
+    const KisPaintDeviceSP paintDevice = m_view->activeLayer()->projection();
+    const QImage image = paintDevice->convertToQImage(0,
+            KoColorConversionTransformation::IntentPerceptual,
+            KoColorConversionTransformation::NoOptimization);
+    KisReferenceImage* reference = KisReferenceImage::fromQImage(*canvas->coordinatesConverter(), image);
+    KIS_SAFE_ASSERT_RECOVER_RETURN(canvas);
+    if (reference) {
+        if (document->referenceImagesLayer()) {
+            reference->setZIndex(document->referenceImagesLayer()->shapes().size());
+        }
+        canvas->addCommand(KisReferenceImagesLayer::addReferenceImages(document, {reference}));
+    } else {
+        if (canvas->canvasWidget()) {
+            QMessageBox::critical(canvas->canvasWidget(), i18nc("@title:window", "Krita"), i18n("Could not create reference image from active layer."));
+        }
     }
 }
 
