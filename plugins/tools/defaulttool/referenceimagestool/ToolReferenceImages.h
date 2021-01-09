@@ -60,6 +60,7 @@ public Q_SLOTS:
     void addReferenceImage();
     void pasteReferenceImage();
     void addReferenceImageFromLayer();
+    void addReferenceImageFromVisible();
     void removeAllReferenceImages();
     void saveReferenceImages();
     void loadReferenceImages();

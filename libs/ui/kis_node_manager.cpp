@@ -327,6 +327,9 @@ void KisNodeManager::setup(KisKActionCollection * actionCollection, KisActionMan
     
     action = actionManager->createAction("create_reference_image_from_active_layer");
     connect(action, SIGNAL(triggered()), this, SLOT(createReferenceImageFromLayer()));
+    
+    action = actionManager->createAction("create_reference_image_from_visible_canvas");
+    connect(action, SIGNAL(triggered()), this, SLOT(createReferenceImageFromVisible()));
 
     action = actionManager->createAction("pin_to_timeline");
     action->setCheckable(true);
@@ -719,12 +722,13 @@ void KisNodeManager::convertNode(const QString &nodeType)
     }
 }
 
-void KisNodeManager::createReferenceImageFromLayer() {
+void KisNodeManager::createReferenceImage(bool fromLayer) {
     KisViewManager* m_view = m_d->view;
     KisDocument *document = m_view->document();
     KisCanvas2 *canvas = m_view->canvasBase();
     
-    const KisPaintDeviceSP paintDevice = m_view->activeLayer()->projection();
+    const KisPaintDeviceSP paintDevice = fromLayer ? m_view->activeLayer()->projection()
+                                                  : canvas->currentImage()->projection();
     const QImage image = paintDevice->convertToQImage(0,
             KoColorConversionTransformation::IntentPerceptual,
             KoColorConversionTransformation::NoOptimization);
@@ -737,9 +741,19 @@ void KisNodeManager::createReferenceImageFromLayer() {
         canvas->addCommand(KisReferenceImagesLayer::addReferenceImages(document, {reference}));
     } else {
         if (canvas->canvasWidget()) {
-            QMessageBox::critical(canvas->canvasWidget(), i18nc("@title:window", "Krita"), i18n("Could not create reference image from active layer."));
+            QString strType = fromLayer ? "active layer" : "visible canvas";
+            QString strMessage = "Could not create reference image from " + strType + ".";
+            QMessageBox::critical(canvas->canvasWidget(), i18nc("@title:window", "Krita"), i18n(strMessage.toStdString().c_str()));
         }
     }
+}
+
+void KisNodeManager::createReferenceImageFromLayer() {
+    createReferenceImage(true);
+}
+
+void KisNodeManager::createReferenceImageFromVisible() {
+    createReferenceImage(false);
 }
 
 void KisNodeManager::slotSomethingActivatedNodeImpl(KisNodeSP node)

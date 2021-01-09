@@ -123,6 +123,13 @@ void ToolReferenceImages::addReferenceImageFromLayer()
     kisCanvas->viewManager()->nodeManager()->createReferenceImageFromLayer();
 }
 
+void ToolReferenceImages::addReferenceImageFromVisible()
+{
+    KisCanvas2* kisCanvas = dynamic_cast<KisCanvas2*>(canvas());
+    KIS_ASSERT_RECOVER_RETURN(kisCanvas);
+    kisCanvas->viewManager()->nodeManager()->createReferenceImageFromVisible();
+}
+
 void ToolReferenceImages::pasteReferenceImage()
 {
     KisCanvas2* kisCanvas = dynamic_cast<KisCanvas2*>(canvas());
