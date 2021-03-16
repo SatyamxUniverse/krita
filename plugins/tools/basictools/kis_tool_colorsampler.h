@@ -56,11 +56,6 @@ private:
 };
 
 
-
-
-
-
-
 class ColorSamplerOptionsWidget : public QWidget, public Ui::ColorSamplerOptionsWidget
 {
     Q_OBJECT
@@ -107,9 +102,13 @@ public Q_SLOTS:
     void slotChangeBlend(int);
     void slotSetColorSource(int value);
 
+    void slotSampledColorReady(KoColor color, bool success);
+
+
 private:
     void displaySampledColor();
     bool sampleColor(const QPointF& pos);
+
     void updateOptionWidget();
 
     // Configuration

@@ -146,60 +146,26 @@ bool KisToolColorSampler::sampleColor(const QPointF &pos)
         m_colorSamplerDelayTimer.start(100);
     }
 
-    QScopedPointer<boost::lock_guard<KisImage>> imageLocker;
-
     m_sampledColor.setOpacity(0.0);
 
-    // Sample from reference images.
-    if (m_optionsWidget->cmbSources->currentIndex() == SAMPLE_MERGED) {
-        auto *kisCanvas = dynamic_cast<KisCanvas2 *>(canvas());
-        KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(kisCanvas, false);
-        KisSharedPtr<KisReferenceImagesLayer> referenceImageLayer =
-            kisCanvas->imageView()->document()->referenceImagesLayer();
+    auto *kisCanvas = dynamic_cast<KisCanvas2 *>(canvas());
+    KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(kisCanvas, false);
+    KisSharedPtr<KisReferenceImagesLayer> referenceImageLayer =
+    kisCanvas->imageView()->document()->referenceImagesLayer();
 
-        if (referenceImageLayer && kisCanvas->referenceImagesDecoration()->visible()) {
-            QColor color = referenceImageLayer->getPixel(pos);
-            if (color.isValid()) {
-                m_sampledColor.fromQColor(color);
-            }
-        }
+    KisWeakSharedPtr<KisReferenceImagesLayer> refImagesLayerWeak;
+    if (referenceImageLayer && kisCanvas->referenceImagesDecoration()->visible()) {
+        refImagesLayerWeak = referenceImageLayer;
     }
 
-    if (m_sampledColor.opacityU8() == OPACITY_TRANSPARENT_U8) {
-        if (!currentImage()->bounds().contains(pos.toPoint()) &&
-            !currentImage()->wrapAroundModePermitted()) {
-            return false;
-        }
+    KisPaintDeviceSP currentPD = currentNode() ? currentNode()->colorSampleSourceDevice() : 0;
+    ColorSamplerStrokeStrategy* stroke = new ColorSamplerStrokeStrategy(currentImage(), currentPD, pos, canvas()->resourceManager()->foregroundColor(),
+                                                                        refImagesLayerWeak, QSharedPointer<KisToolUtils::ColorSamplerConfig>(new KisToolUtils::ColorSamplerConfig(*m_config)));
 
-        KisPaintDeviceSP dev;
+    connect(stroke, SIGNAL(sampledColorReady(KoColor, bool)), this, SLOT(slotSampledColorReady(KoColor, bool)));
 
-        if (m_optionsWidget->cmbSources->currentIndex() != SAMPLE_MERGED &&
-            currentNode() && currentNode()->colorSampleSourceDevice()) {
-            dev = currentNode()->colorSampleSourceDevice();
-        }
-        else {
-            imageLocker.reset(new boost::lock_guard<KisImage>(*currentImage()));
-            dev = currentImage()->projection();
-        }
-
-        KoColor previousColor = canvas()->resourceManager()->foregroundColor();
-
-        KisToolUtils::sampleColor(m_sampledColor, dev, pos.toPoint(), &previousColor, m_config->radius, m_config->blend);
-    }
-
-    if (m_config->updateColor &&
-        m_sampledColor.opacityU8() != OPACITY_TRANSPARENT_U8) {
-
-        KoColor publicColor = m_sampledColor;
-        publicColor.setOpacity(OPACITY_OPAQUE_U8); // Alpha is unwanted for FG and BG colors.
-
-        if (m_config->toForegroundColor) {
-            canvas()->resourceManager()->setResource(KoCanvasResource::ForegroundColor, publicColor);
-        }
-        else {
-            canvas()->resourceManager()->setResource(KoCanvasResource::BackgroundColor, publicColor);
-        }
-    }
+    KisStrokeId strokeId = currentImage()->startStroke(stroke);
+    currentImage()->endStroke(strokeId);
 
     return true;
 }
@@ -230,8 +196,6 @@ void KisToolColorSampler::beginPrimaryAction(KoPointerEvent *event)
         event->ignore();
         return;
     }
-
-    displaySampledColor();
 }
 
 void KisToolColorSampler::continuePrimaryAction(KoPointerEvent *event)
@@ -240,7 +204,6 @@ void KisToolColorSampler::continuePrimaryAction(KoPointerEvent *event)
 
     QPoint pos = convertToImagePixelCoordFloored(event);
     sampleColor(pos);
-    displaySampledColor();
 }
 
 #include "kis_display_color_converter.h"
@@ -414,4 +377,27 @@ void KisToolColorSampler::slotChangeBlend(int value)
 void KisToolColorSampler::slotSetColorSource(int value)
 {
     m_config->sampleMerged = value == SAMPLE_MERGED;
+}
+
+void KisToolColorSampler::slotSampledColorReady(KoColor color, bool success)
+{
+    if (!success) return;
+
+    m_sampledColor = color;
+    if (m_config->updateColor &&
+        m_sampledColor.opacityU8() != OPACITY_TRANSPARENT_U8) {
+
+        KoColor publicColor = m_sampledColor;
+        publicColor.setOpacity(OPACITY_OPAQUE_U8); // Alpha is unwanted for FG and BG colors.
+
+        if (m_config->toForegroundColor) {
+            canvas()->resourceManager()->setResource(KoCanvasResource::ForegroundColor, publicColor);
+        }
+        else {
+            canvas()->resourceManager()->setResource(KoCanvasResource::BackgroundColor, publicColor);
+        }
+    }
+
+
+    displaySampledColor();
 }
