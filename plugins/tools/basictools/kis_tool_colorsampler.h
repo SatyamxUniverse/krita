@@ -17,11 +17,49 @@
 #include <kis_icon.h>
 #include <KoColorSet.h>
 
+#include <kis_simple_stroke_strategy.h>
+#include <QObject>
+
 class KisResourceModel;
+class KisReferenceImagesLayer;
 
 namespace KisToolUtils {
 struct ColorSamplerConfig;
 }
+
+
+
+class ColorSamplerStrokeStrategy : public QObject, public KisSimpleStrokeStrategy
+{
+    Q_OBJECT
+public:
+    ColorSamplerStrokeStrategy(KisImageWSP image, KisPaintDeviceWSP currentNode, QPointF point,
+                               KoColor previous, KisWeakSharedPtr<KisReferenceImagesLayer> referenceImagesLayer,
+                               QSharedPointer<KisToolUtils::ColorSamplerConfig> config);
+    ~ColorSamplerStrokeStrategy() override;
+
+
+private:
+    void initStrokeCallback() override;
+
+Q_SIGNALS:
+    void sampledColorReady(KoColor color, bool success);
+
+
+private:
+    KisImageSP m_image;
+    KisPaintDeviceWSP m_currentNode;
+    QPointF m_pos;
+    KoColor m_previous;
+    KisWeakSharedPtr<KisReferenceImagesLayer> m_referenceImagesLayer;
+    QSharedPointer<KisToolUtils::ColorSamplerConfig> m_config;
+};
+
+
+
+
+
+
 
 class ColorSamplerOptionsWidget : public QWidget, public Ui::ColorSamplerOptionsWidget
 {

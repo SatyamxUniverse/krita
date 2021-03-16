@@ -24,12 +24,80 @@
 
 #include "kis_tool_utils.h"
 
-
 namespace
 {
 // GUI ComboBox index constants
 const int SAMPLE_MERGED = 0;
 }
+
+
+ColorSamplerStrokeStrategy::ColorSamplerStrokeStrategy(KisImageWSP image, KisPaintDeviceWSP currentNode, QPointF point,
+                                                       KoColor previous, KisWeakSharedPtr<KisReferenceImagesLayer> referenceImagesLayer,
+                                                       QSharedPointer<KisToolUtils::ColorSamplerConfig> config)
+    : KisSimpleStrokeStrategy(QLatin1String("SampleColor"))
+    , m_image(image)
+    , m_currentNode(currentNode)
+    , m_pos(point)
+    , m_previous(previous)
+    , m_config(config)
+    , m_referenceImagesLayer(referenceImagesLayer)
+{
+    enableJob(KisSimpleStrokeStrategy::JOB_INIT, true, KisStrokeJobData::BARRIER, KisStrokeJobData::EXCLUSIVE);
+
+    setRequestsOtherStrokesToEnd(false); // it doesn't matter, since it's BARRIER-EXCLUSIVE, right?
+    setClearsRedoOnStart(false);
+    setCanForgetAboutMe(false);
+}
+
+ColorSamplerStrokeStrategy::~ColorSamplerStrokeStrategy()
+{
+
+}
+
+
+void ColorSamplerStrokeStrategy::initStrokeCallback()
+{
+    if (m_image) {
+        KoColor sampledColor;
+        sampledColor.setOpacity(0.0);
+
+        // Sample from reference images.
+        if (m_config->sampleMerged == true) {
+            if (m_referenceImagesLayer) {
+                QColor color = m_referenceImagesLayer->getPixel(m_pos);
+                if (color.isValid()) {
+                    sampledColor.fromQColor(color);
+                }
+            }
+        }
+
+        if (sampledColor.opacityU8() == OPACITY_TRANSPARENT_U8) {
+            if (!m_image->bounds().contains(m_pos.toPoint()) &&
+                !m_image->wrapAroundModePermitted()) {
+                emit sampledColorReady(KoColor(), false);
+                return;
+            }
+
+            KisPaintDeviceSP dev;
+
+            if (!m_config->sampleMerged && m_currentNode) {
+                dev = m_currentNode;
+            }
+            else {
+                dev = m_image->projection();
+            }
+
+            KoColor previousColor = m_previous;
+
+            KisToolUtils::sampleColor(sampledColor, dev, m_pos.toPoint(), &previousColor, m_config->radius, m_config->blend);
+        }
+
+        emit sampledColorReady(sampledColor, true);
+
+    }
+}
+
+
 
 KisToolColorSampler::KisToolColorSampler(KoCanvasBase *canvas)
     : KisTool(canvas, KisCursor::samplerCursor()),
