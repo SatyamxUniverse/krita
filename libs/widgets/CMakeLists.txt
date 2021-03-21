@@ -107,7 +107,7 @@ target_link_libraries(kritawidgets
     KF5::Completion
 )
 
-if(X11_FOUND)
+if(Qt5_X11Extras_FOUND)
     target_link_libraries(kritawidgets Qt5::X11Extras ${X11_LIBRARIES})
 endif()
 
