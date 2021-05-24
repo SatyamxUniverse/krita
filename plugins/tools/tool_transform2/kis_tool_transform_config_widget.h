@@ -45,7 +45,7 @@ public Q_SLOTS:
     void slotFilterChanged(const KoID &filter);
     void slotWarpTypeChanged(int index);
     void slotRotationCenterChanged(int index);
-    void slotTransformAroundRotationCenter(bool value);
+    void slotInvertTransformBehavior(bool value);
 
     void slotSetScaleX(int value);
     void slotSetScaleY(int value);
