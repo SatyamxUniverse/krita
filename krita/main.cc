@@ -492,8 +492,7 @@ extern "C" MAIN_EXPORT int MAIN_FN(int argc, char **argv)
     installTranslators(app);
 
     if (app.platformName() == "wayland") {
-        QMessageBox::critical(0, i18nc("@title:window", "Fatal Error"), i18n("Krita does not support the Wayland platform. Use XWayland to run Krita on Wayland. Krita will close now."));
-        return -1;
+        QMessageBox::warning(0, i18nc("@title:window", "Krita: Warning"), i18n("Krita does not fully support the Wayland platform. Use XWayland to run Krita with full support for tablets and color profiles. Krita will not work as it should."));
     }
 
     KisUsageLogger::writeHeader();
