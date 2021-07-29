@@ -70,7 +70,7 @@ int KisAllTagsModel::rowCount(const QModelIndex &/*parent*/) const
         }
         q.first();
 
-        const_cast<KisAllTagsModel*>(this)->d->cachedRowCount = q.value(0).toInt() + s_fakeRowsCount;
+        d->cachedRowCount = q.value(0).toInt() + s_fakeRowsCount;
     }
 
     return d->cachedRowCount;
@@ -147,7 +147,7 @@ QVariant KisAllTagsModel::data(const QModelIndex &index, int role) const
         }
     }
     else {
-        bool pos = const_cast<KisAllTagsModel*>(this)->d->query.seek(index.row() - s_fakeRowsCount);
+        bool pos = d->query.seek(index.row() - s_fakeRowsCount);
         if (pos) {
             switch(role) {
             case Qt::DisplayRole:
@@ -279,7 +279,7 @@ KisTagSP KisAllTagsModel::tagForIndex(QModelIndex index) const
         }
     }
     else {
-        bool pos = const_cast<KisAllTagsModel*>(this)->d->query.seek(index.row() - s_fakeRowsCount);
+        bool pos = d->query.seek(index.row() - s_fakeRowsCount);
         if (pos) {
             tag.reset(new KisTag());
             tag->setUrl(d->query.value("url").toString());
@@ -452,8 +452,7 @@ KisTagSP KisAllTagsModel::tagForUrl(const QString& tagUrl) const
     }
 
     query.bindValue(":resource_type", d->resourceType);
-    QString tagUrlForSql = tagUrl;
-    query.bindValue(":tag_url", tagUrlForSql);
+    query.bindValue(":tag_url", tagUrl);
 
     r = query.exec();
     if (!r) {

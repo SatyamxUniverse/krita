@@ -52,7 +52,7 @@ int KisAllTagResourceModel::rowCount(const QModelIndex &/*parent*/) const
 
         q.first();
 
-        const_cast<KisAllTagResourceModel*>(this)->d->cachedRowCount = q.value(0).toInt();
+        d->cachedRowCount = q.value(0).toInt();
     }
     return d->cachedRowCount;
 }
@@ -70,7 +70,7 @@ QVariant KisAllTagResourceModel::data(const QModelIndex &index, int role) const
     if (index.row() > rowCount()) { return v; }
     if (index.column() > d->columnCount) { return v;}
 
-    bool pos = const_cast<KisAllTagResourceModel*>(this)->d->query.seek(index.row());
+    bool pos = d->query.seek(index.row());
     if (!pos) {return v;}
 
 

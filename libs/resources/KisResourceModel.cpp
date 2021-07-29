@@ -24,10 +24,10 @@
 #include "KisResourceQueryMapper.h"
 
 struct KisAllResourcesModel::Private {
-    QSqlQuery resourcesQuery;
+    mutable QSqlQuery resourcesQuery;
     QString resourceType;
     int columnCount {StorageActive};
-    int cachedRowCount {-1};
+    mutable int cachedRowCount {-1};
 };
 
 KisAllResourcesModel::KisAllResourcesModel(const QString &resourceType, QObject *parent)
@@ -88,7 +88,7 @@ QVariant KisAllResourcesModel::data(const QModelIndex &index, int role) const
     if (index.row() > rowCount()) return v;
     if (index.column() > d->columnCount) return v;
     
-    bool pos = const_cast<KisAllResourcesModel*>(this)->d->resourcesQuery.seek(index.row());
+    bool pos = d->resourcesQuery.seek(index.row());
     
     if (pos) {
         v = KisResourceQueryMapper::variantFromResourceQuery(d->resourcesQuery, index.column(), role);
@@ -166,7 +166,7 @@ KoResourceSP KisAllResourcesModel::resourceForIndex(QModelIndex index) const
     if (index.row() > rowCount()) return resource;
     if (index.column() > d->columnCount) return resource;
 
-    bool pos = const_cast<KisAllResourcesModel*>(this)->d->resourcesQuery.seek(index.row());
+    bool pos = d->resourcesQuery.seek(index.row());
     if (pos) {
         int id = d->resourcesQuery.value("id").toInt();
         resource = resourceForId(id);
@@ -463,7 +463,7 @@ int KisAllResourcesModel::rowCount(const QModelIndex &) const
         q.exec();
         q.first();
         
-        const_cast<KisAllResourcesModel*>(this)->d->cachedRowCount = q.value(0).toInt();
+        d->cachedRowCount = q.value(0).toInt();
     }
     
     return d->cachedRowCount;

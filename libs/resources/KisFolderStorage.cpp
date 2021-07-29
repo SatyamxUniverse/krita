@@ -39,7 +39,7 @@ public:
     void next() override
     {
         m_dirIterator->next();
-        const_cast<FolderTagIterator*>(this)->m_tag.reset(new KisTag);
+        m_tag.reset(new KisTag);
         load(m_tag);
     }
 

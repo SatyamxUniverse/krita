@@ -10,8 +10,8 @@
 #include "KisResourceLoaderRegistry.h"
 
 struct KisResourceTypeModel::Private {
-    int cachedRowCount {-1};
-    QSqlQuery query;
+    mutable int cachedRowCount {-1};
+    mutable QSqlQuery query;
 };
 
 
@@ -36,7 +36,7 @@ int KisResourceTypeModel::rowCount(const QModelIndex &/*parent*/) const
         q.exec();
         q.first();
 
-        const_cast<KisResourceTypeModel*>(this)->d->cachedRowCount = q.value(0).toInt();
+        d->cachedRowCount = q.value(0).toInt();
     }
     return d->cachedRowCount;
 }

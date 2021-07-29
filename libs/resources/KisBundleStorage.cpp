@@ -65,7 +65,7 @@ public:
 
     void next() override
     {
-        const_cast<BundleTagIterator*>(this)->m_tag = m_tagIterator->next();
+        m_tag = m_tagIterator->next();
     }
 
     QString url() const override { return m_tag ? m_tag->url() : QString(); }
