@@ -56,7 +56,6 @@ private Q_SLOTS:
     void slotSetMirrorVertically(bool mirror);
     void slotSetMirrorHorizontally(bool mirror);
     void slotSetTranslateRadius(int radius);
-    void slotSetTileSize(int tileSize);
     void slotAddSubbrushesMode(bool checked);
     void slotRemoveAllSubbrushes();
 
@@ -66,7 +65,7 @@ private:
     enum enumTransforModes : int { SYMMETRY = 0, MIRROR, TRANSLATE, SNOWFLAKE, COPYTRANSLATE, HONEYCOMB };
     enumTransforModes m_transformMode;
     QPointF m_axesPoint;
-    int m_imageWidth=-1, m_imageHeight=-1;
+    int m_imageWidth = -1, m_imageHeight = -1;
     qreal m_angle;
     int m_handsCount;
     bool m_mirrorVertically;

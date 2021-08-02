@@ -8,15 +8,15 @@
 
 #include <QTransform>
 
-#include <QPushButton>
-#include <QComboBox>
-#include <QFormLayout>
-#include <QStackedWidget>
-#include <kis_slider_spin_box.h>
-#include <QLabel>
+#include "KisViewManager.h"
 #include "kis_canvas2.h"
 #include "kis_cursor.h"
-#include "KisViewManager.h"
+#include <QComboBox>
+#include <QFormLayout>
+#include <QLabel>
+#include <QPushButton>
+#include <QStackedWidget>
+#include <kis_slider_spin_box.h>
 #include <stdio.h>
 
 #include "kis_tool_multihand_helper.h"
@@ -56,7 +56,7 @@ KisToolMultihand::KisToolMultihand(KoCanvasBase *canvas)
         m_axesPoint = QPointF(0.5 * image()->width(), 0.5 * image()->height());
         m_imageWidth = image()->width();
         m_imageHeight = image()->height();
-        m_tileSize = qRound(m_imageWidth / sqrt(3)/2);
+        m_tileSize = qRound(m_imageWidth / sqrt(3) / 2);
     }
 
 }
@@ -192,8 +192,8 @@ void KisToolMultihand::paint(QPainter& gc, const KoViewConverter &converter)
         } else if (m_transformMode == HONEYCOMB) {
             QVector<QPointF> squiggly;
             double hexagon_angle = 30.0 / 180 * M_PI;
-            int nx = 2; 
-            int ny = 2; 
+            int nx = 2;
+            int ny = 2;
             QPointF pos(-nx * m_tileSize * cos(hexagon_angle), 0);
             QVector<QTransform> trans_odd_even = {QTransform().rotateRadians(-hexagon_angle), QTransform().rotateRadians(hexagon_angle)};
 
@@ -206,13 +206,10 @@ void KisToolMultihand::paint(QPainter& gc, const KoViewConverter &converter)
             for (int i = 0; i < ny; i++) {
                 QVector<QPointF> anchors, anchorsUp;
                 for (int j = 0; j < (int)squiggly.size(); j++) {
-                    QPointF p = (QTransform()
-                                 .translate(0,
-                                            m_tileSize * i * 2)
-                                 * QTransform().scale(1, i % 2 == 0 ? 1 : -1)
-                                 * QTransform().translate(0,m_tileSize)
-                                 ).map(squiggly[j]);
-                    p = QTransform().rotateRadians(m_angle).map(p);
+                    QPointF p =
+                        (QTransform().translate(0, m_tileSize * i * 2) * QTransform().scale(1, i % 2 == 0 ? 1 : -1) * QTransform().translate(0, m_tileSize))
+                            .map(squiggly[j]);
+                    p = QTransform().map(p);
 
                     // Anchor downwards for all rows
                     if ((j + i) % 2 == 0)
@@ -227,8 +224,7 @@ void KisToolMultihand::paint(QPainter& gc, const KoViewConverter &converter)
                 }
                 // Draw connecting lines between the squiggly lines.
                 for (QPointF &p : anchors) {
-                    QPointF q = p + QPointF(-m_tileSize * sin(m_angle),
-                                            m_tileSize * cos(m_angle));
+                    QPointF q = p + QPointF(0, m_tileSize);
                     path.moveTo(m_axesPoint.x() + p.x(), m_axesPoint.y() + p.y());
 
                     QPointF dest_xy = m_axesPoint + q;
@@ -238,17 +234,16 @@ void KisToolMultihand::paint(QPainter& gc, const KoViewConverter &converter)
                     path.lineTo(dest_xy.x(), dest_xy.y());
                 }
                 // The topmost row
-                if (i==ny-1)
-                  for (QPointF &p : anchorsUp) {
-                      QPointF q = p + QPointF(m_tileSize * sin(m_angle),
-                                              -m_tileSize * cos(m_angle));
-                      // crop in y
-                      QPointF dest_xy = m_axesPoint + q;
-                      if (dest_xy.y() < 0)
-                          dest_xy = QPointF(dest_xy.x(), 0);
-                      path.moveTo(m_axesPoint.x() + p.x(), m_axesPoint.y() + p.y());
-                      path.lineTo(dest_xy.x(), dest_xy.y());
-                  }
+                if (i == ny - 1)
+                    for (QPointF &p : anchorsUp) {
+                        QPointF q = p + QPointF(0, -m_tileSize);
+                        // crop in y
+                        QPointF dest_xy = m_axesPoint + q;
+                        if (dest_xy.y() < 0)
+                            dest_xy = QPointF(dest_xy.x(), 0);
+                        path.moveTo(m_axesPoint.x() + p.x(), m_axesPoint.y() + p.y());
+                        path.lineTo(dest_xy.x(), dest_xy.y());
+                    }
             }
 
         } else if (m_transformMode == MIRROR) {
@@ -419,8 +414,8 @@ void KisToolMultihand::initTransformations()
             }
         }
     } else if (m_transformMode == HONEYCOMB) {
-        int nx = 3; 
-        int ny = 3; 
+        int nx = 3;
+        int ny = 3;
         double hexagon_angle = 30.0 / 180 * M_PI;
 
         double dx = cos(hexagon_angle) * m_tileSize * 2;
@@ -429,15 +424,13 @@ void KisToolMultihand::initTransformations()
             for (int i = 0; i < nx; i++) { // x loop
                 for (int k = 0; k < 3; k++) { // symmetry loop
                     double angle = 4 * hexagon_angle * k;
-                    double xc = (i - (nx-1) / 2 + 0.5 * (1-(j % 2))) * dx;
+                    double xc = (i - (nx - 1) / 2 + 0.5 * (1 - (j % 2))) * dx;
                     double yc = dy * (j - ny / 2);
                     for (auto scale : {1, -1}) { // mirror loop
                         m.translate(m_axesPoint.x(), m_axesPoint.y());
-                        m.rotateRadians(m_angle);
                         m.translate(xc, yc);
                         m.rotateRadians(angle);
                         m.scale(scale, 1);
-                        m.rotateRadians(-m_angle);
                         m.translate(-m_axesPoint.x(), -m_axesPoint.y());
                         transformations << m;
                         m.reset();
@@ -539,13 +532,6 @@ QWidget* KisToolMultihand::createOptionWidget()
 
     connect(customUI->translationRadiusSpinbox,SIGNAL(valueChanged(int)),this,SLOT(slotSetTranslateRadius(int)));
 
-    // tile size mode options
-    customUI->tileSizeSpinbox->setRange(100, 5000);
-    customUI->tileSizeSpinbox->setSuffix(i18n(" px"));
-    customUI->tileSizeSpinbox->setValue(m_configGroup.readEntry("translateRadius", 0));
-
-    connect(customUI->tileSizeSpinbox, SIGNAL(valueChanged(int)), this, SLOT(slotSetTileSize(int)));
-
     // Copy translate mode options and actions
     connect(customUI->addSubbrushButton, &QPushButton::clicked, this, &KisToolMultihand::slotAddSubbrushesMode);
     connect(customUI->removeSubbrushButton, &QPushButton::clicked, this, &KisToolMultihand::slotRemoveAllSubbrushes);
@@ -620,14 +606,14 @@ void KisToolMultihand::slotSetTransformMode(int index)
     customUI->horizontalCheckbox->setVisible(false);
     customUI->verticalCheckbox->setVisible(false);
     customUI->translationRadiusSpinbox->setVisible(false);
-    customUI->tileSizeSpinbox->setVisible(false);
     customUI->radiusLabel->setVisible(false);
-    customUI->tileSizeLabel->setVisible(false);
     customUI->brushCountSpinBox->setVisible(false);
     customUI->brushesLabel->setVisible(false);
     customUI->subbrushLabel->setVisible(false);
     customUI->addSubbrushButton->setVisible(false);
     customUI->removeSubbrushButton->setVisible(false);
+    customUI->axisRotationAngleSelector->setVisible(true);
+    customUI->axisRotationLabel->setVisible(true);
     m_addSubbrushesMode = 0;
 
     // turn on what we need
@@ -644,8 +630,8 @@ void KisToolMultihand::slotSetTransformMode(int index)
     }
 
     else if (index == HONEYCOMB) {
-        customUI->tileSizeSpinbox->setVisible(true);
-        customUI->tileSizeLabel->setVisible(true);
+        customUI->axisRotationAngleSelector->setVisible(false);
+        customUI->axisRotationLabel->setVisible(false);
     }
 
     else if (index == SYMMETRY || index == SNOWFLAKE || index == TRANSLATE) {
@@ -687,14 +673,6 @@ void KisToolMultihand::slotSetTranslateRadius(int radius)
 {
     m_translateRadius = radius;
     m_configGroup.writeEntry("translateRadius", radius);
-}
-
-void KisToolMultihand::slotSetTileSize(int tileSize)
-{
-#if 0 
-    m_tileSize = tileSize;
-    m_configGroup.writeEntry("tileSize", tileSize);
-#endif
 }
 
 void KisToolMultihand::slotAddSubbrushesMode(bool checked)

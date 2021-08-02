@@ -68,9 +68,6 @@
      <item row="7" column="1">
       <widget class="KisSliderSpinBox" name="translationRadiusSpinbox" native="true"/>
      </item>
-     <item row="9" column="1">
-      <widget class="KisSliderSpinBox" name="tileSizeSpinbox" native="true"/>
-     </item>
      <item row="8" column="0">
       <widget class="QLabel" name="subbrushLabel">
        <property name="text">
@@ -88,22 +85,6 @@
        </property>
        <property name="text">
         <string comment="Label of Radius in Multibrush tool options">Radius:</string>
-       </property>
-       <property name="alignment">
-        <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
-       </property>
-      </widget>
-     </item>
-     <item row="9" column="0">
-      <widget class="QLabel" name="tileSizeLabel">
-       <property name="sizePolicy">
-        <sizepolicy hsizetype="Minimum" vsizetype="Preferred">
-         <horstretch>0</horstretch>
-         <verstretch>0</verstretch>
-        </sizepolicy>
-       </property>
-       <property name="text">
-        <string comment="The tile size in the Multibrush tool options">TileSize:</string>
        </property>
        <property name="alignment">
         <set>Qt::AlignRight|Qt::AlignTrailing|Qt::AlignVCenter</set>
