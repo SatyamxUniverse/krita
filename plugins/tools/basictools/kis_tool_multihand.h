@@ -66,6 +66,7 @@ private:
     enum enumTransforModes : int { SYMMETRY = 0, MIRROR, TRANSLATE, SNOWFLAKE, COPYTRANSLATE, HONEYCOMB };
     enumTransforModes m_transformMode;
     QPointF m_axesPoint;
+    int m_imageWidth=-1, m_imageHeight=-1;
     qreal m_angle;
     int m_handsCount;
     bool m_mirrorVertically;

@@ -17,6 +17,7 @@
 #include "kis_canvas2.h"
 #include "kis_cursor.h"
 #include "KisViewManager.h"
+#include <stdio.h>
 
 #include "kis_tool_multihand_helper.h"
 
@@ -53,6 +54,9 @@ KisToolMultihand::KisToolMultihand(KoCanvasBase *canvas)
     resetHelper(m_helper);
     if (image()) {
         m_axesPoint = QPointF(0.5 * image()->width(), 0.5 * image()->height());
+        m_imageWidth = image()->width();
+        m_imageHeight = image()->height();
+        m_tileSize = qRound(m_imageWidth / sqrt(3)/2);
     }
 
 }
@@ -188,26 +192,34 @@ void KisToolMultihand::paint(QPainter& gc, const KoViewConverter &converter)
         } else if (m_transformMode == HONEYCOMB) {
             QVector<QPointF> squiggly;
             double hexagon_angle = 30.0 / 180 * M_PI;
-            int n = 9; // TBDov: Calculate from size of canvas / tile size
-            QPointF pos(-(n - 1) * m_tileSize * cos(hexagon_angle), 0);
-            QVector<QTransform> trans_odd_even = {QTransform().rotateRadians(hexagon_angle), QTransform().rotateRadians(-hexagon_angle)};
+            int nx = 2; 
+            int ny = 2; 
+            QPointF pos(-nx * m_tileSize * cos(hexagon_angle), 0);
+            QVector<QTransform> trans_odd_even = {QTransform().rotateRadians(-hexagon_angle), QTransform().rotateRadians(hexagon_angle)};
 
             squiggly.push_back(pos);
-            for (int i = 0; i < 2 * n - 1; i++) {
+            for (int i = 0; i < 2 * nx; i++) {
                 pos = pos + trans_odd_even[i % 2].map(QPointF(m_tileSize, 0));
                 squiggly.push_back(pos);
             }
 
-            for (int i = 0; i < n; i++) {
-                QVector<QPointF> anchors;
-                anchors.clear();
+            for (int i = 0; i < ny; i++) {
+                QVector<QPointF> anchors, anchorsUp;
                 for (int j = 0; j < (int)squiggly.size(); j++) {
-                    QPointF p = (QTransform().translate(0, m_tileSize * 0.5 * (3 * (i - n / 2) + (i % 2)) + 1 * m_tileSize)
-                                 * QTransform().scale(1, i % 2 == 0 ? 1 : -1))
-                                    .map(squiggly[j]);
+                    QPointF p = (QTransform()
+                                 .translate(0,
+                                            m_tileSize * i * 2)
+                                 * QTransform().scale(1, i % 2 == 0 ? 1 : -1)
+                                 * QTransform().translate(0,m_tileSize)
+                                 ).map(squiggly[j]);
                     p = QTransform().rotateRadians(m_angle).map(p);
-                    if ((j + i) % 2 == 1 && i < n - 1)
+
+                    // Anchor downwards for all rows
+                    if ((j + i) % 2 == 0)
                         anchors << p;
+                    else
+                        anchorsUp << p;
+
                     if (j == 0)
                         path.moveTo(m_axesPoint.x() + p.x(), m_axesPoint.y() + p.y());
                     else
@@ -215,10 +227,28 @@ void KisToolMultihand::paint(QPainter& gc, const KoViewConverter &converter)
                 }
                 // Draw connecting lines between the squiggly lines.
                 for (QPointF &p : anchors) {
-                    QPointF q = p + QPointF(-m_tileSize * sin(m_angle), m_tileSize * cos(m_angle));
+                    QPointF q = p + QPointF(-m_tileSize * sin(m_angle),
+                                            m_tileSize * cos(m_angle));
                     path.moveTo(m_axesPoint.x() + p.x(), m_axesPoint.y() + p.y());
-                    path.lineTo(m_axesPoint.x() + q.x(), m_axesPoint.y() + q.y());
+
+                    QPointF dest_xy = m_axesPoint + q;
+                    // crop in y
+                    if (dest_xy.y() > m_imageHeight)
+                        dest_xy = QPointF(dest_xy.x(), m_imageHeight);
+                    path.lineTo(dest_xy.x(), dest_xy.y());
                 }
+                // The topmost row
+                if (i==ny-1)
+                  for (QPointF &p : anchorsUp) {
+                      QPointF q = p + QPointF(m_tileSize * sin(m_angle),
+                                              -m_tileSize * cos(m_angle));
+                      // crop in y
+                      QPointF dest_xy = m_axesPoint + q;
+                      if (dest_xy.y() < 0)
+                          dest_xy = QPointF(dest_xy.x(), 0);
+                      path.moveTo(m_axesPoint.x() + p.x(), m_axesPoint.y() + p.y());
+                      path.lineTo(dest_xy.x(), dest_xy.y());
+                  }
             }
 
         } else if (m_transformMode == MIRROR) {
@@ -389,17 +419,18 @@ void KisToolMultihand::initTransformations()
             }
         }
     } else if (m_transformMode == HONEYCOMB) {
-        int n = 9; // TBDov: Calculate from size of canvas / tile size
+        int nx = 3; 
+        int ny = 3; 
         double hexagon_angle = 30.0 / 180 * M_PI;
 
         double dx = cos(hexagon_angle) * m_tileSize * 2;
         double dy = m_tileSize * (sin(hexagon_angle) + 1.0);
-        for (int j = 0; j < n; j++) { // y loop
-            for (int i = 0; i < n; i++) { // x loop
+        for (int j = 0; j < ny; j++) { // y loop
+            for (int i = 0; i < nx; i++) { // x loop
                 for (int k = 0; k < 3; k++) { // symmetry loop
                     double angle = 4 * hexagon_angle * k;
-                    double xc = (i - n / 2 + 0.5 * (j % 2)) * dx;
-                    double yc = dy * (j - n / 2);
+                    double xc = (i - (nx-1) / 2 + 0.5 * (1-(j % 2))) * dx;
+                    double yc = dy * (j - ny / 2);
                     for (auto scale : {1, -1}) { // mirror loop
                         m.translate(m_axesPoint.x(), m_axesPoint.y());
                         m.rotateRadians(m_angle);
@@ -660,8 +691,10 @@ void KisToolMultihand::slotSetTranslateRadius(int radius)
 
 void KisToolMultihand::slotSetTileSize(int tileSize)
 {
+#if 0 
     m_tileSize = tileSize;
     m_configGroup.writeEntry("tileSize", tileSize);
+#endif
 }
 
 void KisToolMultihand::slotAddSubbrushesMode(bool checked)
