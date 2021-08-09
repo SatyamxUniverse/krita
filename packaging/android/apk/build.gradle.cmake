@@ -111,8 +111,8 @@ android {
 
     project.ext.constant = 5
 
-    def versionMajor    = 4
-    def versionMinor    = 3
+    def versionMajor    = @KRITA_STABLE_VERSION_MAJOR@
+    def versionMinor    = @KRITA_STABLE_VERSION_MINOR@
 
     /**
      * This version does **not** correspond to the patch version
@@ -120,13 +120,13 @@ android {
      * (including alpha and beta) release of versionMajor.versionMinor
      * branch
      */
-    def versionRelease  = 0
+    def versionRelease  = @KRITA_ANDROID_RELEASE_VERSION@
 
     defaultConfig {
         targetSdkVersion 30
         minSdkVersion 23
         versionCode project.ext.constant * 1000000 + versionMajor * 10000 + versionMinor * 100 + versionRelease
-        versionName "4.3.0-beta"
+        versionName "@KRITA_ANDROID_VERSION_STRING@"
         archivesBaseName = "krita-$abi-$versionName"
     }
 
