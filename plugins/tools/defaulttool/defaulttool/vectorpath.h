@@ -7,7 +7,8 @@
 #ifndef VECTORPATH_H
 #define VECTORPATH_H
 
-#include "painterpath.h"
+//#include "painterpath.h"
+#include <QPainterPath>
 
 QT_BEGIN_NAMESPACE
 
