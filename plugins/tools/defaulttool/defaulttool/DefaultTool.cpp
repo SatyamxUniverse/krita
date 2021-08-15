@@ -72,6 +72,8 @@
 
 #include <QVector2D>
 
+#include "kisbooleanoperations.h"
+
 #define HANDLE_DISTANCE 10
 #define HANDLE_DISTANCE_SQ (HANDLE_DISTANCE * HANDLE_DISTANCE)
 
@@ -1388,10 +1390,14 @@ void DefaultTool::selectionBooleanOp(int booleanOp)
     }
 
     if (booleanOp == BooleanUnion) {
+
         Q_FOREACH (const QPainterPath &path, srcOutlines) {
             dstOutline |= path;
         }
+
         actionName = kundo2_i18n("Unite Shapes");
+
+
     } else if (booleanOp == BooleanIntersection) {
         for (int i = 0; i < srcOutlines.size(); i++) {
             if (i == 0) {
@@ -1419,6 +1425,9 @@ void DefaultTool::selectionBooleanOp(int booleanOp)
     }
 
     dstOutline = booleanWorkaroundTransform.inverted().map(dstOutline);
+
+//    KisBooleanOperations booleanOpsHandler;               // To test the shapes in Krita canvas
+//    dstOutline = booleanOpsHandler.testAdd();
 
     KoShape *newShape = 0;
 

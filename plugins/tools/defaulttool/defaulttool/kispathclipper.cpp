@@ -1543,35 +1543,6 @@ static void add(QPainterPath &path, const KisWingedEdge &list, int edge, KisPath
     } while (status.edge != edge);
 }
 
-static int addCurve(QPainterPath &path, const KisWingedEdge &list, int edge)
-{
-    KisWingedEdge::TraversalStatus status;
-    status.edge = edge;
-//    status.traversal = traversal;
-    status.direction = KisPathEdge::Forward;
-
-    path.moveTo(*list.vertex(list.edge(edge)->first));
-
-    int numEdges = 0;
-
-    do {
-        const KisPathEdge *ep = list.edge(status.edge);
-
-        addLineTo(path, *list.vertex(ep->vertex(status.direction)));
-
-        if (ep->flag & 16) //status.traversal == QPathEdge::LeftTraversal
-            ep->flag &= ~16;
-        else
-            ep->flag &= ~32;
-
-        status = list.next(status);
-    } while (status.edge != edge);
-
-
-
-    return  numEdges;
-}
-
 void KisWingedEdge::simplify()
 {
     for (int i = 0; i < edgeCount(); ++i) {

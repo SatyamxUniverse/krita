@@ -55,11 +55,6 @@ bool fuzzyLesserThan(qreal a, qreal b) {
     return ( a < (b + 1e-6)) ? true : false;
 }
 
-// returns dot product of two point vectors
-static qreal dot(const QPointF &a, const QPointF &b)
-{
-    return a.x() * b.x() + a.y() * b.y();
-}
 
 long int factorial (int num)
     {

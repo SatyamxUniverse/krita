@@ -507,4 +507,4 @@ private:
     
 };
 
-#endif NUMERICALENGINE_H
+#endif
