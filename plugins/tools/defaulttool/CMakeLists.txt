@@ -2,6 +2,12 @@ project( defaulttools )
 
 set ( defaulttools_SRCS
     Plugin.cpp
+
+    defaulttool/kispathclipper.cpp
+    defaulttool/kisnumericalengine.cpp
+    defaulttool/kisintersectionfinder.cpp
+    defaulttool/kisbooleanoperations.cpp
+
     defaulttool/DefaultTool.cpp
     defaulttool/DefaultToolFactory.cpp
     defaulttool/DefaultToolTabbedWidget.cpp
