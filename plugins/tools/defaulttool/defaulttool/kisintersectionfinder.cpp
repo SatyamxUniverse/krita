@@ -7,8 +7,6 @@
 #include "kisintersectionfinder.h"
 #include "bezier.h"
 #include "databuffer.h"
-//#include "painterpath.h"
-//#include "painterpath_p.h"
 #include "kisnumericalengine.h"
 #include "kispathclipper.h"
 #include "vectorpath.h"
@@ -32,9 +30,6 @@ static inline bool fuzzyIsNull(qreal d)
 static inline bool comparePoints(const QPointF &a, const QPointF &b)
 {
     // the epsilon in fuzzyIsNull is far too small for our use
-
-//    return fuzzyIsNull(a.x() - b.x())
-//           && fuzzyIsNull(a.y() - b.y());
 
     return qAbs(a.x() - b.x()) < 1e-6 && qAbs(a.y() - b.y()) < 1e-6;
 }
@@ -332,7 +327,7 @@ bool KisIntersectionFinder::linesIntersect(const QLineF &a, const QLineF &b) con
 QVector<KisClippingVertex> KisIntersectionFinder::intersectionPoint(CubicBezier c1, CubicBezier c2){
 
     QVector<KisClippingVertex> res;
-    auto t0 = high_resolution_clock::now ();
+//    auto t0 = high_resolution_clock::now ();
     QVector<QPointF> result;
 
     if (!c1.boundingBox().intersects(c2.boundingBox())) {
@@ -342,16 +337,16 @@ QVector<KisClippingVertex> KisIntersectionFinder::intersectionPoint(CubicBezier 
 
         }
     }
-    auto t2 = high_resolution_clock::now();
+//    auto t2 = high_resolution_clock::now();
 
-    auto duration = duration_cast<microseconds>( t2 - t0 );
+//    auto duration = duration_cast<microseconds>( t2 - t0 );
 //    std::cout << "box check prelim: " << duration.count() << " microsecs" << std::endl;
 
     QVector<qreal> roots = c1.findRoots(c2);
 
-    auto t3 = high_resolution_clock::now();
+//    auto t3 = high_resolution_clock::now();
 
-    duration = duration_cast<microseconds>( t3 - t2 );
+//    duration = duration_cast<microseconds>( t3 - t2 );
 //    std::cout << "find roots: " << duration.count() << " microsecs" << std::endl;
 
     QPointF ptOfIntersection;
@@ -374,12 +369,12 @@ QVector<KisClippingVertex> KisIntersectionFinder::intersectionPoint(CubicBezier 
         }
     }
 
-    auto t4 = high_resolution_clock::now ();
+//    auto t4 = high_resolution_clock::now ();
 
-    duration = duration_cast<microseconds>( t4 - t3 );
+//    duration = duration_cast<microseconds>( t4 - t3 );
 //    std::cout << "point validity: " << duration.count() << " microsecs" << std::endl;
 
-    return res; //ult;
+    return res;
 
 }
 
@@ -387,8 +382,6 @@ QVector<KisClippingVertex> KisIntersectionFinder::intersectionPoint(CubicBezier 
 QVector<KisClippingVertex> KisIntersectionFinder::intersectionPoint(Line l1, CubicBezier c2) {
     QVector<QPointF> result;
     QVector<KisClippingVertex> res;
-
-    auto t0 = high_resolution_clock::now();
 
     QRectF curveBoundingBox = c2.boundingBox();
     QLineF qLine = l1.getQLine();
@@ -409,33 +402,24 @@ QVector<KisClippingVertex> KisIntersectionFinder::intersectionPoint(Line l1, Cub
         QLineF leftEdge{curveBoundingBox.bottomLeft(), curveBoundingBox.topLeft()};
 
             if (linesIntersect(qLine,topEdge) || linesIntersect(qLine,rightEdge) || linesIntersect(qLine,bottomEdge) || linesIntersect(qLine,leftEdge)) {
+
             // line intersects at least one side of the curve, proceed to calculate intersection
             roots = l1.findRoots(c2);
         }
         else {
             // line does not intersect bounding box nor lies within it, so it surely doesn't intersect the curve
-//                std::cout << "line does not intersect bounding box nor lies within it, so it surely doesn't intersect the curve" << std::endl;
-            return res; //ult;
+            return res;
         }
     }
 
-//    auto t1 = high_resolution_clock::now ();
-//    auto duration = duration_cast<microseconds>( t1 - t0 );
-//    std::cout << "find roots: " << duration.count() << " microsecs" << std::endl;
-
-
     if(roots.isEmpty()) {
-        // line does not intersect the curve
-//        std::cout << "roots is empty" << std::endl;
-        return res; //ult;
+        return res;
     }
 
     Q_FOREACH (qreal root, roots) {
-//        std::cout << "                                          root: " << root <<std::endl;
         QPointF currIntersectionPoint{c2.getParametricX().evaluate(root) ,  c2.getParametricY().evaluate(root)};
-//        std::cout << "point checking  " << ++numzzzz2 <<std::endl;
+
         if (l1.checkIntersection(currIntersectionPoint)) {
-//            std::cout << "point appended! " << ++numzzzz <<std::endl;
 
             if (!comparePoints(currIntersectionPoint, c2.cp0) && !comparePoints(currIntersectionPoint, c2.cp3)
                 && !comparePoints(currIntersectionPoint, qLine.p1()) && !comparePoints(currIntersectionPoint, qLine.p2())) {
@@ -449,10 +433,7 @@ QVector<KisClippingVertex> KisIntersectionFinder::intersectionPoint(Line l1, Cub
 
     }
 
-//    auto t2 = high_resolution_clock::now ();
-//    duration = duration_cast<microseconds>( t2 - t1 );
-//    std::cout << "fin " << duration.count() << " microsecs" << std::endl;
-    return res;//ult;
+    return res;
 }
 
 struct QIntersection
@@ -709,18 +690,6 @@ QVector<KisClippingVertex> KisIntersectionFinder::findAllIntersections() {
         }
     }
 
-//    Q_FOREACH(QPointF pt, allIntersectionPoints) {
-//        std::cout << pt.x() << " " << pt.y() << std::endl;
-//    }
-
-
-
-//    for (int i = 0; i < allIntersectionVertices.size(); i++ ) {
-//        allIntersectionVertices[i].clear();
-//    }
-
-//    allIntersectionPoints.clear();
-
     return allIntersectionPoints;
 }
 
@@ -770,7 +739,6 @@ void KisIntersectionFinder::processShapes() {
 
 
                 QVector<CubicBezier> res{ b.getCurveTo() };
-//                qreal currParam;
                 KisIntersectionPoint currIntPoint;
 
 
@@ -856,10 +824,8 @@ void KisIntersectionFinder::processShapes() {
                 auto uq = std::unique(points.begin(), points.begin() + points.count());
                 points.resize(std::distance(points.begin(), uq));
 
-//                std::cout << "##########################" << parameters.size() <<" "<< parameters.at(0) << " " << std::endl;  // tanmay
-
                 QVector<CubicBezier> res{ b.getCurveTo() };
-                qreal currParam;
+
                 KisIntersectionPoint currPoint;
 
 
@@ -874,9 +840,6 @@ void KisIntersectionFinder::processShapes() {
                     res.append(tempRes);
                 }
 
-//                std::cout << "++++++++++++++++++++++++++" << res.size() <<" "<< " " << std::endl;  // tanmay
-
-//                int lmao = 0;
 
                 Q_FOREACH(CubicBezier cb, res) {
 
@@ -990,31 +953,7 @@ QPainterPath KisIntersectionFinder::subjectShapeToPath(){
         else {
 
             subjectPath.cubicTo(cbFirst.cp1, cbFirst.cp2, cbFirst.cp3);
-
-//            QPointF currentPoint, lastPoint;
-
-//            subjectPath.cubicTo(cbFirst.cp1, cbFirst.cp2, cbFirst.cp3);
-//            netRegularVertices << cbFirst.cp3;
-
-//            QRectF bounds = bezier.bounds();
-
-//            // threshold based on similar algorithm as in qtriangulatingstroker.cpp
-//            int threshold = qMin<float>(64, qMax(bounds.width(), bounds.height()) * (2 * qreal(3.14) / 6));
-
-//            if (threshold < 3) threshold = 3;
-//            qreal one_over_threshold_minus_1 = qreal(1) / (threshold - 1);
-
-//            lastPoint = cbFirst.cp0;
-
-//            for (int t = 1; t < threshold - 1; ++t) {
-//                currentPoint = bezier.pointAt(t * one_over_threshold_minus_1);
-
-//                subjectPath.lineTo(currentPoint);
-//            }
-
-//            subjectPath.lineTo(cbFirst.cp3);
-
-        }
+    }
 
         netRegularVertices << cbFirst.cp3;
     }
@@ -1058,29 +997,6 @@ QPainterPath KisIntersectionFinder::subjectShapeToPath(){
                 subjectPath.cubicTo(cb.cp1, cb.cp2, cb.cp3);
                 netRegularVertices  << cb.cp3;
 
-
-//                QPointF currentPoint, lastPoint;
-
-//                subjectPath.cubicTo(cb.cp1, cb.cp2, cb.cp3);
-//                netRegularVertices << cb.cp3;
-
-//                QRectF bounds = bezier.bounds();
-
-//                // threshold based on similar algorithm as in qtriangulatingstroker.cpp
-//                int threshold = qMin<float>(64, qMax(bounds.width(), bounds.height()) * (2 * qreal(3.14) / 6));
-
-//                if (threshold < 3) threshold = 3;
-//                qreal one_over_threshold_minus_1 = qreal(1) / (threshold - 1);
-
-//                lastPoint = cb.cp0;
-
-//                for (int t = 1; t < threshold - 1; ++t) {
-//                    currentPoint = bezier.pointAt(t * one_over_threshold_minus_1);
-
-//                    subjectPath.lineTo(currentPoint);
-//                }
-
-//                subjectPath.lineTo(cb.cp3);
             }
         }
 
@@ -1136,28 +1052,6 @@ QPainterPath KisIntersectionFinder::clipShapeToPath(){
             clipPath.cubicTo(cbFirst.cp1, cbFirst.cp2, cbFirst.cp3);
             netRegularVertices << cbFirst.cp3;
 
-//            QPointF currentPoint, lastPoint;
-
-//            clipPath.cubicTo(cbFirst.cp1, cbFirst.cp2, cbFirst.cp3);
-//            netRegularVertices << cbFirst.cp3;
-
-//            QRectF bounds = bezier.bounds();
-
-//            // threshold based on similar algorithm as in qtriangulatingstroker.cpp
-//            int threshold = qMin<float>(64, qMax(bounds.width(), bounds.height()) * (2 * qreal(3.14) / 6));
-
-//            if (threshold < 3) threshold = 3;
-//            qreal one_over_threshold_minus_1 = qreal(1) / (threshold - 1);
-
-//            lastPoint = cbFirst.cp0;
-
-//            for (int t = 1; t < threshold - 1; ++t) {
-//                currentPoint = bezier.pointAt(t * one_over_threshold_minus_1);
-
-//                clipPath.lineTo(currentPoint);
-//            }
-
-//            clipPath.lineTo(cbFirst.cp3);
 
         }
     }
@@ -1199,28 +1093,7 @@ QPainterPath KisIntersectionFinder::clipShapeToPath(){
                 clipPath.cubicTo(cb.cp1, cb.cp2, cb.cp3);
                 netRegularVertices << cb.cp3;
 
-//                QRectF bounds = bezier.bounds();
-
-//                // threshold based on similar algorithm as in qtriangulatingstroker.cpp
-//                int threshold = qMin<float>(64, qMax(bounds.width(), bounds.height()) * (2 * qreal(3.14) / 6));
-
-//                if (threshold < 3) threshold = 3;
-//                qreal one_over_threshold_minus_1 = qreal(1) / (threshold - 1);
-
-//                lastPoint = cb.cp0;
-
-//                for (int t = 1; t < threshold - 1; ++t) {
-//                    currentPoint = bezier.pointAt(t * one_over_threshold_minus_1);
-
-//                    clipPath.lineTo(currentPoint);
-//                }
-
-//                clipPath.lineTo(cb.cp3);
-
             }
-
-
-
         }
     }
 
@@ -1264,7 +1137,17 @@ QVector<QPointF> KisIntersectionFinder::getAllCurveEndPoints() {
 }
 
 
-
+/*
+ * This is the final clipping function. The motivation is to parse the give
+ * QPainterPath and find all edges generated after flattening. If a match is
+ * found, it should be replaced by the respective curve. All of the curves are
+ * found in the initial processShapes() function, and are stored inside
+ * clippedCurvesData.
+ *
+ * However, the algorithm is still buggy. It fails mainly for the difference
+ * operation. I guess it is not able to process moveTo elements properly. Some
+ * Improvements in it or an altogether new function could solve the issue.
+ */
 QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path) {
 
     QPointF currPoint;
@@ -1387,13 +1270,13 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path) {
 
 
             Q_FOREACH( CubicBezierData cbd, allCurveData) {
-                bool comp1 = cbd.cp0 == endPts.at(0);
-//                std::cout << "curve" << cbd.cp0.x() << "," << cbd.cp0.y() << " & " << cbd.cp3.x() << "," << cbd.cp3.y() << std::endl;
-                bool comp2 = cbd.cp3 == endPts.at(1);
+//                bool comp1 = cbd.cp0 == endPts.at(0);
+////                std::cout << "curve" << cbd.cp0.x() << "," << cbd.cp0.y() << " & " << cbd.cp3.x() << "," << cbd.cp3.y() << std::endl;
+//                bool comp2 = cbd.cp3 == endPts.at(1);
 
-                bool comp3 = cbd.cp3 == endPts.at(0);
+//                bool comp3 = cbd.cp3 == endPts.at(0);
 
-                bool comp4 = cbd.cp0 == endPts.at(1);
+//                bool comp4 = cbd.cp0 == endPts.at(1);
 
 
 //                std::cout << comp1 << comp2 << comp3 << comp4 << std::endl;

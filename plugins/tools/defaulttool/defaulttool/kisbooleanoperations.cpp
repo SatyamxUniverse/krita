@@ -145,4 +145,18 @@ QPainterPath KisBooleanOperations::subtractAndAdd( QPainterPath &sub, QPainterPa
 }
 
 
+QPainterPath KisBooleanOperations::testAdd() {
+
+    QPainterPath ellipse;
+    QPainterPath roundedRect;
+
+    ellipse.addEllipse(QPointF(460, 80), 30, 120);
+    roundedRect.addRoundedRect(360, 50, 200, 100, 20, 20);
+
+    KisBooleanOperations booleanOpsHandler;
+
+    QPainterPath res = booleanOpsHandler.intersect(ellipse, roundedRect);
+
+    return res;
+}
 

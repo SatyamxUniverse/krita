@@ -45,8 +45,6 @@
 #pragma once
 #include <QPainterPath>
 
-//#include "painterpath.h"
-
 #include <stdio.h>
 #include "databuffer.h"
 #include "bezier.h"
@@ -228,11 +226,9 @@ private:
     QDataBuffer<QPointF> m_points;
     QDataBuffer<Segment> m_segments;
     QDataBuffer<Intersection> m_intersections;
-    int curveNumber;
-
-//    QVector<QBezier> curves;
 
     int m_pathId;
+    int curveNumber;
 };
 
 class Q_AUTOTEST_EXPORT KisWingedEdge
