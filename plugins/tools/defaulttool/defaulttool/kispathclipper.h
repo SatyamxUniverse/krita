@@ -45,7 +45,7 @@
 #pragma once
 #include <QPainterPath>
 
-#include "painterpath.h"
+//#include "painterpath.h"
 
 #include <stdio.h>
 #include "databuffer.h"
