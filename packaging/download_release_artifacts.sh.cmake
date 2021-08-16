@@ -6,7 +6,7 @@
 # exit when any command fails
 set -e
 
-KRITA_VERSION=5.0.0-prealpha
+KRITA_VERSION=@KRITA_VERSION_STRING@
 
 WIN64_ARTIFACTS_URL=https://binary-factory.kde.org/job/Krita_Release_Windows64_Build/lastSuccessfulBuild/artifact
 APPIMAGE_ARTIFACTS_URL=https://binary-factory.kde.org/job/Krita_Release_Appimage_Build/lastSuccessfulBuild/artifact

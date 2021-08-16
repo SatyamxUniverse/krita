@@ -101,6 +101,20 @@ set(KRITA_VERSION_RELEASE 0)
 # - Beta: Starts from 50, increment 1 per release
 # - Stable: Set to 100, bump to 101 if emergency update is needed
 set(KRITA_VERSION_REVISION 0)
+
+# version of the xmlgui file, update on every change of krita/krita5.xmlgui
+set(KRITA_XMLGUI_VERSION 500)
+
+# all Android packages mast have unique Major.Minor.Release triplet
+# even for Beta and RC packages. Therefore, we have a separate Release
+# version for Android. Please increment it on **any** public release,
+# whether it is a stable or beta/release-canditate release.
+set(KRITA_ANDROID_RELEASE_VERSION 0)
+
+# all Android Krita packages are declared as "beta" at the moment, 
+# so they have a separate string
+set(KRITA_ANDROID_VERSION_STRING "5.0.0-beta")
+
 # Uncomment the following if this is currently in the "stable" branch.
 # Do not uncomment for master branch.
 #set(KRITA_STABLE_BRANCH 1)
@@ -110,6 +124,11 @@ set(KRITA_ALPHA 1) # uncomment only for Alpha
 
 if(NOT DEFINED KRITA_ALPHA AND NOT DEFINED KRITA_BETA AND NOT DEFINED KRITA_RC)
     set(KRITA_STABLE 1) # do not edit
+endif()
+
+set(KRITA_DOWNLOAD_SECTION "unstable")
+if(KRITA_STABLE)
+    set(KRITA_DOWNLOAD_SECTION "stable")
 endif()
 
 message(STATUS "Krita version: ${KRITA_VERSION_STRING}")
@@ -126,6 +145,40 @@ else()
 endif()
 set(GENERIC_KRITA_LIB_VERSION "${GENERIC_KRITA_LIB_VERSION_MAJOR}.0.0")
 set(GENERIC_KRITA_LIB_SOVERSION "${GENERIC_KRITA_LIB_VERSION_MAJOR}")
+
+include(FeatureSummary)
+
+option(GENERATE_RELEASE_ARTIFACTS "Generate version-dependent artifacts and exit" OFF)
+add_feature_info("Generate release artifacts only" GENERATE_RELEASE_ARTIFACTS "Generate version-dependent artifacts and exit without further configuration of Krita build. Use it only when updating Krita version (-DGENERATE_RELEASE_ARTIFACTS=on)")
+
+if (GENERATE_RELEASE_ARTIFACTS)
+    message("Generating version-dependent release files...")
+    message("")
+    message("KRITA_STABLE_VERSION_MAJOR = " ${KRITA_STABLE_VERSION_MAJOR})
+    message("KRITA_STABLE_VERSION_MINOR = " ${KRITA_STABLE_VERSION_MINOR})
+    message("KRITA_VERSION_RELEASE = " ${KRITA_VERSION_RELEASE})
+    message("KRITA_VERSION_REVISION = " ${KRITA_VERSION_REVISION})
+    message("KRITA_XMLGUI_VERSION = " ${KRITA_XMLGUI_VERSION})
+    message("KRITA_ANDROID_RELEASE_VERSION = " ${KRITA_ANDROID_RELEASE_VERSION})
+    message("KRITA_ANDROID_VERSION_STRING = " ${KRITA_ANDROID_VERSION_STRING})
+    message("KRITA_ALPHA = " ${KRITA_ALPHA})
+    message("KRITA_BETA = " ${KRITA_BETA})
+    message("KRITA_RC = " ${KRITA_RC})
+    message("KRITA_STABLE = " ${KRITA_STABLE})
+    message("")
+
+    # generate release-related artifacts
+    configure_file(krita/krita5.xmlgui.cmake ${CMAKE_SOURCE_DIR}/krita/krita5.xmlgui @ONLY)
+    configure_file(packaging/config.ini.cmake ${CMAKE_SOURCE_DIR}/packaging/config.ini @ONLY)
+    configure_file(packaging/download_release_artifacts.sh.cmake ${CMAKE_SOURCE_DIR}/packaging/download_release_artifacts.sh @ONLY)
+    configure_file(packaging/linux/snap/snapcraft.yaml.cmake ${CMAKE_SOURCE_DIR}/packaging/linux/snap/snapcraft.yaml @ONLY)
+    configure_file(packaging/android/apk/build.gradle.cmake ${CMAKE_SOURCE_DIR}/packaging/android/apk/build.gradle @ONLY)
+    configure_file(packaging/windows/msix/manifest.xml.cmake ${CMAKE_SOURCE_DIR}/packaging/windows/msix/manifest.xml @ONLY)
+
+    set(GENERATE_RELEASE_ARTIFACTS off CACHE BOOL "" FORCE)
+
+    return()
+endif()
 
 LIST (APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/modules")
 LIST (APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake/kde_macro")
@@ -159,8 +212,6 @@ set(KRITA_BROKEN_TESTS "" CACHE INTERNAL "KRITA_BROKEN_TESTS")
 ## Options ##
 #############
 ############
-
-include(FeatureSummary)
 
 if (WIN32)
 option(USE_DRMINGW "Support the Dr. Mingw crash handler (only on windows)" ON)

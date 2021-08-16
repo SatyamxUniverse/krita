@@ -1,10 +1,10 @@
 [krita]
 gitModule   = yes
-gitTag      = v5.0.0-prealpha
+gitTag      = v@KRITA_VERSION_STRING@
 category    = graphics
 mainmodule  = branches/stable
 l10nmodule  = krita
-version     = 5.0.0-prealpha
+version     = @KRITA_VERSION_STRING@
 translations= yes
 docs        = no
 kde_release = no
