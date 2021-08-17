@@ -122,27 +122,35 @@ QPainterPath KisBooleanOperations::uniteAndAdd(  QPainterPath &sub, const QPaint
     QPainterPath res = unite(sub, clip);
     sub = res;
 
-    return (sub);
+    return sub;
 
 }
 
 
 QPainterPath KisBooleanOperations::intersectAndAdd( QPainterPath &sub, QPainterPath &clip ) {
 
+    if (sub.isEmpty() || clip.isEmpty()) {
+        return QPainterPath();
+    }
+
     QPainterPath res = intersect(sub, clip);
     sub = res;
 
-    return (sub);
+    return sub;
 
 }
 
 
 QPainterPath KisBooleanOperations::subtractAndAdd( QPainterPath &sub, QPainterPath &clip ) {
 
+    if (clip.isEmpty()) {
+        return sub;
+    }
+
     QPainterPath res = subtract(sub, clip);
     sub = res;
 
-    return (sub);
+    return sub;
 
 }
 
