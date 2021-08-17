@@ -1156,6 +1156,10 @@ QVector<QPointF> KisIntersectionFinder::getAllCurveEndPoints() {
  */
 QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path) {
 
+    if (!path.elementCount()) {
+        return path;
+    }
+
     QPointF currPoint;
     QPointF lastPoint;
     QPainterPath bufferPath;
