@@ -329,6 +329,9 @@ public:
     QPainterPath resubstituteCurves(QPainterPath path);
 
 
+    QPainterPath resubstituteCurves2(QPainterPath path);
+
+
     /*
      *  The following functions are not directly used, however can be useful
      *  for Greiner-Hormann approach for clipping the shapes entirely.
