@@ -1138,6 +1138,12 @@ QVector<QPointF> KisIntersectionFinder::getAllCurveEndPoints() {
 
 
 /*
+ * WIP: now works for Krita's generated QPainterPaths. Still needs some
+ * improvements, especially for clipping shapes with consecutive lineTo and
+ * curveTo elements.
+ * Have kept most of the raw debugging messages for ease of understanding,
+ * I will remove them later.
+ *
  * This is the final clipping function. The motivation is to parse the give
  * QPainterPath and find all edges generated after flattening. If a match is
  * found, it should be replaced by the respective curve. All of the curves are
@@ -1169,53 +1175,19 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path) {
         QPainterPath::Element ele = path.elementAt(j);
         currPoint = ele;
 
-        // for curves and moveTos, we could add the buffer to the result path,
-        // and then clear buffer. As a curve cannot have neither a gap nor
-        // another curve in it, but we will be encountering currves, like when
-        // two shapes don't truly intersect and are trivially processed.
-
+        /*
+         * if a curve is present, the clipping has been trivially handled by
+         * Qt. This happens in the case where the two paths don't intersect.
+         * Thus, return the path as it is.
+         */
         if (ele.isCurveTo() || ele.type == QPainterPath::CurveToDataElement) {
 
             return path;
         }
 
-
-
-//        if (ele.isCurveTo()) {
-////            substitutedRes.lineTo(lastPoint);
-//            substitutedRes.cubicTo(currPoint, path.elementAt(j+1), path.elementAt(j+2));
-//        }
-
-//        if (ele.isMoveTo()) {
-//            substitutedRes.moveTo(currPoint);
-//        }
-
-//        if (ele.isCurveTo()) {
-
-//            if (endPts.size() == 1) {
-
-//                bufferPath.cubicTo(currPoint, path.elementAt(j+1), path.elementAt(j+2));
-//                substitutedRes.addPath(bufferPath);
-//                bufferPath.clear();
-//            }
-
-//            else { // endPts.size should be 0
-
-//                substitutedRes.cubicTo(currPoint, path.elementAt(j+1), path.elementAt(j+2));
-////                substitutedRes.addPath(bufferPath);
-////                bufferPath.clear();
-//            }
-
-//            endPts.clear();
-//            lastPoint = currPoint;
-//            continue;
-
-//        }
-
-
         if (ele.isMoveTo()) {
 
-            if (endPts.size() == 1) {
+            if (endPts.size() == 1) { //special case for the entry condition
 
                 bufferPath.moveTo(ele);
                 bufferPath.closeSubpath();
@@ -1240,9 +1212,6 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path) {
         }
 
 
-
-
-
         if (curveEndPts.contains(currPoint)) {
 
             endPts << currPoint;
@@ -1259,39 +1228,28 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path) {
 
                 endPts.replace(0, path.elementAt(0));
                 endPts.replace(1, currPoint);
-
 //                std::cout << "curve under focus: " << endPts.first().x() << " " << endPts.first().y()
 //                          << "  " << endPts.last().x() << " " << endPts.last().y() << std::endl;
-
                 firstFound = true;
-
-
             }
 
-
             Q_FOREACH( CubicBezierData cbd, allCurveData) {
-//                bool comp1 = cbd.cp0 == endPts.at(0);
+
 ////                std::cout << "curve" << cbd.cp0.x() << "," << cbd.cp0.y() << " & " << cbd.cp3.x() << "," << cbd.cp3.y() << std::endl;
-//                bool comp2 = cbd.cp3 == endPts.at(1);
+                bool curveForward = (cbd.cp0 == endPts.at(1)) && (cbd.cp3 == endPts.at(0));
+                bool curveBackward =  (cbd.cp3 == endPts.at(1)) && (cbd.cp0 == endPts.at(0));
 
-//                bool comp3 = cbd.cp3 == endPts.at(0);
+                if (curveForward||curveBackward) {
 
-//                bool comp4 = cbd.cp0 == endPts.at(1);
+                    if (curveBackward) {
+                        substitutedRes.moveTo(cbd.cp0);
+                        substitutedRes.cubicTo(cbd.cp1, cbd.cp2, cbd.cp3);
+                    }
+                    else {
+                        substitutedRes.moveTo(cbd.cp3);
+                        substitutedRes.cubicTo(cbd.cp2, cbd.cp1, cbd.cp0);
+                    }
 
-
-//                std::cout << comp1 << comp2 << comp3 << comp4 << std::endl;
-
-
-//                if ((cbd.cp0 == endPts.at(0) && cbd.cp3 == endPts.at(1)) ||
-//                        (cbd.cp3 == endPts.at(0) && cbd.cp0 == endPts.at(1)))
-                if ((comparePoints(cbd.cp0, endPts.at(0)) && comparePoints(cbd.cp3, endPts.at(1))) ||
-                                        (comparePoints(cbd.cp3, endPts.at(0)) && comparePoints(cbd.cp0, endPts.at(1))))
-                {
-
-//                    std::cout << "curve considered :) " << endPts.first().x() << " " << endPts.first().y()
-//                              << "  " << endPts.last().x() << " " << endPts.last().y() << std::endl;
-                    substitutedRes.lineTo(cbd.cp0);
-                    substitutedRes.cubicTo(cbd.cp1, cbd.cp2, cbd.cp3);
                     QPointF newPt = endPts.last();
                     endPts.clear();
                     endPts << newPt;
@@ -1304,7 +1262,7 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path) {
                 }
 
                 else {
-//                    std::cout << "these points was not a match :| " << endPts.at(0).x() << " " << endPts.at(0).y()
+//                    std::cout << "these points were not a match : " << endPts.at(0).x() << " " << endPts.at(0).y()
 //                              << "  " << endPts.at(1).x() << " " <<endPts.at(1).y() << " with:\n" << cbd.cp0.x() <<" " << cbd.cp0.y()
 //                              << ",  " << cbd.cp3.x() << " " << cbd.cp3.y() << std::endl;
                 }
@@ -1319,7 +1277,7 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path) {
                 bufferPath.clear();
                 lastPoint = currPoint;
 
-//                std::cout << "curve rejected :( " << endPts.first().x() << " " << endPts.first().y()
+//                std::cout << "curve rejected :" << endPts.first().x() << " " << endPts.first().y()
 //                          << "  " << endPts.last().x() << " " << endPts.last().y() << std::endl;
             }
         }
@@ -1330,36 +1288,34 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path) {
 
                 bufferPath.moveTo(currPoint);
                 lastPoint = currPoint;
-
                 continue;
             }
 
             bufferPath.lineTo(currPoint);
             lastPoint = currPoint;
-
         }
 
         else {
 
             if (ele.isMoveTo()) {
-
                 substitutedRes.moveTo(currPoint);
                 lastPoint = currPoint;
                 continue;
             }
-
             substitutedRes.lineTo(currPoint);
             lastPoint = currPoint;
         }
-
-
     }
+
+    /*
+     * The algorithm still has a bug, which inserts moveTo(0,0) randomly,
+     * generally between consecutive curveTo and lineTo elements. This routine
+     * removes them.
+     */
 
     QPainterPath processedRes;
 
-
     if (substitutedRes.elementAt(0).type == QPainterPath::MoveToElement && substitutedRes.elementAt(0) == QPointF(0,0)) {
-
         processedRes.moveTo(path.elementAt(0));
 
         for (int j = 1; j < substitutedRes.elementCount(); j++) {
@@ -1367,11 +1323,16 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path) {
             QPainterPath::Element ele = substitutedRes.elementAt(j);
 
             if (ele.isMoveTo()) {
+                if (ele == QPointF(0, 0)){
+                    continue; // hack alert!
+             }
                 processedRes.moveTo(ele);
             }
+
             else if (ele.isLineTo()) {
                 processedRes.lineTo(ele);
             }
+
             else if (ele.isCurveTo()) {
                 processedRes.cubicTo(ele, substitutedRes.elementAt(j+1), substitutedRes.elementAt(j+2));
                 j+=2;
@@ -1382,8 +1343,6 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path) {
     else {
         processedRes = substitutedRes;
     }
-
-
 
     return processedRes;
 }

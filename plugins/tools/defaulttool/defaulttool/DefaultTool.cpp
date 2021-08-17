@@ -1389,10 +1389,14 @@ void DefaultTool::selectionBooleanOp(int booleanOp)
                 shape->outline()));
     }
 
+    KisBooleanOperations booleanOpsHandler;
+
     if (booleanOp == BooleanUnion) {
 
         Q_FOREACH (const QPainterPath &path, srcOutlines) {
-            dstOutline |= path;
+//            dstOutline |= path;
+            booleanOpsHandler.uniteAndAdd(dstOutline, path);
+
         }
 
         actionName = kundo2_i18n("Unite Shapes");
@@ -1403,7 +1407,7 @@ void DefaultTool::selectionBooleanOp(int booleanOp)
             if (i == 0) {
                 dstOutline = srcOutlines[i];
             } else {
-                dstOutline &= srcOutlines[i];
+                booleanOpsHandler.intersectAndAdd(dstOutline, srcOutlines[i]);
             }
         }
 
@@ -1417,7 +1421,8 @@ void DefaultTool::selectionBooleanOp(int booleanOp)
         for (int i = 0; i < srcOutlines.size(); i++) {
             dstOutline = srcOutlines[referenceShapeIndex];
             if (i != referenceShapeIndex) {
-                dstOutline -= srcOutlines[i];
+                booleanOpsHandler.subtractAndAdd(dstOutline, srcOutlines[i]);
+                //dstOutline -= srcOutlines[i];
             }
         }
 
@@ -1425,9 +1430,6 @@ void DefaultTool::selectionBooleanOp(int booleanOp)
     }
 
     dstOutline = booleanWorkaroundTransform.inverted().map(dstOutline);
-
-//    KisBooleanOperations booleanOpsHandler;               // To test the shapes in Krita canvas
-//    dstOutline = booleanOpsHandler.testAdd();
 
     KoShape *newShape = 0;
 

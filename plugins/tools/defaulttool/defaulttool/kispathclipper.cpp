@@ -1445,6 +1445,8 @@ static void addLineTo(QPainterPath &path, const QPointF &point)
     path.lineTo(point);
 }
 
+// does all the other processing other than adding a line, needed for the
+// resubstitution algorithm
 static void addLineToProxy(QPainterPath &path, const QPointF &point)
 {
     const int elementCount = path.elementCount();
@@ -1565,18 +1567,12 @@ QPainterPath KisWingedEdge::toPath() const
     for (int i = 0; i < edgeCount(); ++i) {
         const KisPathEdge *ep = edge(i);
 
-//        if (ep->curveID != -1) {
-//            addCurve(path, *this, i);
-//        }
-
         if (ep->flag & 16) {
             add(path, *this, i, KisPathEdge::LeftTraversal);
-//            std::cout << "//////////// "<< i << "                          Left Traversal" << std::endl;
         }
 
         if (ep->flag & 32) {
             add(path, *this, i, KisPathEdge::RightTraversal);
-//            std::cout << "//////////// "<< i << "                          Right Traversal" << std::endl;
         }
 
     }

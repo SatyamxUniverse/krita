@@ -38,7 +38,7 @@ public:
     /*
      * returns the union of two QPainterPaths
      */
-    QPainterPath unite(QPainterPath &sub, QPainterPath &clip);
+    QPainterPath unite(const QPainterPath &sub, const QPainterPath &clip);
 
 
     /*
@@ -56,7 +56,7 @@ public:
     /*
      * Unites the second QPainterPath with the first, and returns it as well.
      */
-    QPainterPath uniteAndAdd(QPainterPath &sub, QPainterPath &clip);
+    QPainterPath uniteAndAdd( QPainterPath &sub, const QPainterPath &clip);
 
 
     /*
@@ -77,6 +77,18 @@ public:
      * test function to test various clipping operations.
      */
     QPainterPath testAdd();
+
+
+    /*
+     * Temp debugging function
+     */
+    void printElements(const QPainterPath &path);
+
+
+    /*
+     * Temp debugging function
+     */
+    QPainterPath partialQPainterPath(QPainterPath path);
 };
 
 #endif
