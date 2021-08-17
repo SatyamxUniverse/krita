@@ -1407,6 +1407,7 @@ void DefaultTool::selectionBooleanOp(int booleanOp)
             if (i == 0) {
                 dstOutline = srcOutlines[i];
             } else {
+//                dstOutline &= srcOutlines[i];
                 booleanOpsHandler.intersectAndAdd(dstOutline, srcOutlines[i]);
             }
         }
@@ -1422,7 +1423,7 @@ void DefaultTool::selectionBooleanOp(int booleanOp)
             dstOutline = srcOutlines[referenceShapeIndex];
             if (i != referenceShapeIndex) {
                 booleanOpsHandler.subtractAndAdd(dstOutline, srcOutlines[i]);
-                //dstOutline -= srcOutlines[i];
+//                dstOutline -= srcOutlines[i];
             }
         }
 

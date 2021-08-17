@@ -148,6 +148,10 @@ struct CubicBezierData{
     QPointF cp2;
     QPointF cp3;
 
+    CubicBezierData() {
+
+    }
+
     CubicBezierData(QPointF p1, QPointF p2, QPointF p3, QPointF p4) :
     cp0(p1),
     cp1(p2),
@@ -329,8 +333,6 @@ public:
     QPainterPath resubstituteCurves(QPainterPath path);
 
 
-    QPainterPath resubstituteCurves2(QPainterPath path);
-
 
     /*
      *  The following functions are not directly used, however can be useful
@@ -361,6 +363,10 @@ private:
      * between the subject shape to the clip shape.
      */
     QVector<QVector<KisClippingVertex>> clipToSubIntersectionVertices;
+
+    QVector<QVector<KisClippingVertex>> subToSubIntersectionVertices;
+
+    QVector<QVector<KisClippingVertex>> clipToClipIntersectionVertices;
 
 
     QVector<BuildingBlock> subjectShape;

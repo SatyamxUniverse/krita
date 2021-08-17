@@ -1243,14 +1243,14 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path) {
                 bool curveForward = (cbd.cp0 == endPts.at(1)) && (cbd.cp3 == endPts.at(0));
                 bool curveBackward =  (cbd.cp3 == endPts.at(1)) && (cbd.cp0 == endPts.at(0));
 
-                if (curveForward||curveBackward) {
+                if (curveForward || curveBackward) {
 
                     if (curveBackward) {
-                        substitutedRes.moveTo(cbd.cp0);
+//                        substitutedRes.moveTo(cbd.cp0);
                         substitutedRes.cubicTo(cbd.cp1, cbd.cp2, cbd.cp3);
                     }
                     else {
-                        substitutedRes.moveTo(cbd.cp3);
+//                        substitutedRes.moveTo(cbd.cp3);
                         substitutedRes.cubicTo(cbd.cp2, cbd.cp1, cbd.cp0);
                     }
 
@@ -1319,7 +1319,7 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path) {
 
     QPainterPath processedRes;
 
-    if (substitutedRes.elementAt(0).type == QPainterPath::MoveToElement && substitutedRes.elementAt(0) == QPointF(0,0)) {
+//    if (substitutedRes.elementAt(0).type == QPainterPath::MoveToElement && substitutedRes.elementAt(0) == QPointF(0,0)) {
         processedRes.moveTo(path.elementAt(0));
 
         for (int j = 1; j < substitutedRes.elementCount(); j++) {
@@ -1342,11 +1342,11 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path) {
                 j+=2;
             }
         }
-    }
+//    }
 
-    else {
-        processedRes = substitutedRes;
-    }
+//    else {
+//        processedRes = substitutedRes;
+//    }
 
     return processedRes;
 }
