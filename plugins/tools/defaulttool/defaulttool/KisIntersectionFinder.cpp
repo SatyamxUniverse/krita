@@ -4,11 +4,11 @@
  *  SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#include "kisintersectionfinder.h"
+#include "KisIntersectionFinder.h"
 #include "bezier.h"
 #include "databuffer.h"
-#include "kisnumericalengine.h"
-#include "kispathclipper.h"
+#include "KisNumericalEngine.h"
+#include "KisPathClipper.h"
 #include "vectorpath.h"
 
 #include <chrono>

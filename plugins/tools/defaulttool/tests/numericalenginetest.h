@@ -9,7 +9,7 @@
 
 #include <QObject>
 #include <QTest>
-#include "numericalengine.h"
+#include "KisNumericalEngine.h"
 
 class NumericalEngineTest : public QObject
 {
