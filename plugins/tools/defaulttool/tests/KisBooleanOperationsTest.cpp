@@ -4,7 +4,7 @@
  *  SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#include "kisbooleanoperationstest.h"
+#include "KisBooleanOperationsTest.h"
 #include "KisBooleanOperations.h"
 
 #include <QPainterPath>

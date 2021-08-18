@@ -4,248 +4,230 @@
  *  SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-
 #include "KisBooleanOperations.h"
 #include "KisIntersectionFinder.h"
 #include "KisPathClipper.h"
 #include <QPainterPath>
 
-KisBooleanOperations::KisBooleanOperations(){
+KisBooleanOperations::KisBooleanOperations() {}
+KisBooleanOperations::~KisBooleanOperations() {}
 
-}
-KisBooleanOperations::~KisBooleanOperations(){
+QPainterPath KisBooleanOperations::unite(const QPainterPath &sub,
+                                         const QPainterPath &clip) {
 
-}
+  if (sub.isEmpty()) {
+    return clip;
+  }
 
-
-QPainterPath KisBooleanOperations::unite(const QPainterPath &sub, const QPainterPath &clip) {
-
-    if (sub.isEmpty()) {
-        return clip;
-    }
-
-    if (clip.isEmpty()) {
-        return sub;
-    }
-
-    if (sub.isEmpty() && clip.isEmpty()) {
-        return QPainterPath();
-    }
-
-
-    KisIntersectionFinder KIF(sub, clip);
-    QVector<KisClippingVertex> intPoints = KIF.findAllIntersections();
-
-    KIF.processShapes();
-
-    QPainterPath splittedSub = KIF.subjectShapeToPath();
-    QPainterPath splittedClip = KIF.clipShapeToPath();
-
-    KisPathClipper clipper(splittedSub, splittedClip);
-
-    QPainterPath res = splittedSub | splittedClip;
-
-    QPainterPath processedRes = KIF.resubstituteCurves(res);
-
-    return processedRes;
-}
-
-
-QPainterPath KisBooleanOperations::intersect(QPainterPath &sub, QPainterPath &clip) {
-
-    if (sub.isEmpty()) {
-        return clip;
-    }
-
-    if (clip.isEmpty()) {
-        return sub;
-    }
-
-    if (sub.isEmpty() && clip.isEmpty()) {
-        return QPainterPath();
-    }
-
-
-    KisIntersectionFinder KIF(sub, clip);
-    QVector<KisClippingVertex> intPoints = KIF.findAllIntersections();
-    KIF.processShapes();
-
-    QPainterPath splittedSub = KIF.subjectShapeToPath();
-    QPainterPath splittedClip = KIF.clipShapeToPath();
-
-    QPainterPath res = splittedSub & splittedClip;
-
-    QPainterPath processedRes = KIF.resubstituteCurves(res);
-
-    return processedRes;
-}
-
-
-QPainterPath KisBooleanOperations::subtract(QPainterPath &sub, QPainterPath &clip) {
-
-    if (sub.isEmpty()) {
-        return clip;
-    }
-
-    if (clip.isEmpty()) {
-        return sub;
-    }
-
-    if (sub.isEmpty() && clip.isEmpty()) {
-        return QPainterPath();
-    }
-
-
-    KisIntersectionFinder KIF(sub, clip);
-    QVector<KisClippingVertex> intPoints = KIF.findAllIntersections();
-    KIF.processShapes();
-
-    QPainterPath splittedSub = KIF.subjectShapeToPath();
-    QPainterPath splittedClip = KIF.clipShapeToPath();
-
-    QPainterPath res = splittedSub - splittedClip;
-
-    QPainterPath processedRes = KIF.resubstituteCurves(res);
-
-    return processedRes;
-}
-
-
-QPainterPath KisBooleanOperations::uniteAndAdd(  QPainterPath &sub, const QPainterPath &clip ) {
-
-    if (sub.isEmpty()) {
-
-        sub = clip;
-        return sub;
-    }
-
-    QPainterPath res = unite(sub, clip);
-    sub = res;
-
+  if (clip.isEmpty()) {
     return sub;
+  }
 
+  if (sub.isEmpty() && clip.isEmpty()) {
+    return QPainterPath();
+  }
+
+  KisIntersectionFinder KIF(sub, clip);
+  QVector<KisClippingVertex> intPoints = KIF.findAllIntersections();
+
+  KIF.processShapes();
+
+  QPainterPath splittedSub = KIF.subjectShapeToPath();
+  QPainterPath splittedClip = KIF.clipShapeToPath();
+
+  KisPathClipper clipper(splittedSub, splittedClip);
+
+  QPainterPath res = splittedSub | splittedClip;
+
+  QPainterPath processedRes = KIF.resubstituteCurves(res);
+
+  return processedRes;
 }
 
+QPainterPath KisBooleanOperations::intersect(QPainterPath &sub,
+                                             QPainterPath &clip) {
 
-QPainterPath KisBooleanOperations::intersectAndAdd( QPainterPath &sub, QPainterPath &clip ) {
+  if (sub.isEmpty()) {
+    return clip;
+  }
 
-    if (sub.isEmpty() || clip.isEmpty()) {
-        return QPainterPath();
-    }
-
-    QPainterPath res = intersect(sub, clip);
-    sub = res;
-
+  if (clip.isEmpty()) {
     return sub;
+  }
 
+  if (sub.isEmpty() && clip.isEmpty()) {
+    return QPainterPath();
+  }
+
+  KisIntersectionFinder KIF(sub, clip);
+  QVector<KisClippingVertex> intPoints = KIF.findAllIntersections();
+  KIF.processShapes();
+
+  QPainterPath splittedSub = KIF.subjectShapeToPath();
+  QPainterPath splittedClip = KIF.clipShapeToPath();
+
+  QPainterPath res = splittedSub & splittedClip;
+
+  QPainterPath processedRes = KIF.resubstituteCurves(res);
+
+  return processedRes;
 }
 
+QPainterPath KisBooleanOperations::subtract(QPainterPath &sub,
+                                            QPainterPath &clip) {
 
-QPainterPath KisBooleanOperations::subtractAndAdd( QPainterPath &sub, QPainterPath &clip ) {
+  if (sub.isEmpty()) {
+    return clip;
+  }
 
-    if (clip.isEmpty()) {
-        return sub;
-    }
-
-    QPainterPath res = subtract(sub, clip);
-    sub = res;
-
+  if (clip.isEmpty()) {
     return sub;
+  }
 
+  if (sub.isEmpty() && clip.isEmpty()) {
+    return QPainterPath();
+  }
+
+  KisIntersectionFinder KIF(sub, clip);
+  QVector<KisClippingVertex> intPoints = KIF.findAllIntersections();
+  KIF.processShapes();
+
+  QPainterPath splittedSub = KIF.subjectShapeToPath();
+  QPainterPath splittedClip = KIF.clipShapeToPath();
+
+  QPainterPath res = splittedSub - splittedClip;
+
+  QPainterPath processedRes = KIF.resubstituteCurves(res);
+
+  return processedRes;
 }
 
+QPainterPath KisBooleanOperations::uniteAndAdd(QPainterPath &sub,
+                                               const QPainterPath &clip) {
+
+  if (sub.isEmpty()) {
+
+    sub = clip;
+    return sub;
+  }
+
+  QPainterPath res = unite(sub, clip);
+  sub = res;
+
+  return sub;
+}
+
+QPainterPath KisBooleanOperations::intersectAndAdd(QPainterPath &sub,
+                                                   QPainterPath &clip) {
+
+  if (sub.isEmpty() || clip.isEmpty()) {
+    return QPainterPath();
+  }
+
+  QPainterPath res = intersect(sub, clip);
+  sub = res;
+
+  return sub;
+}
+
+QPainterPath KisBooleanOperations::subtractAndAdd(QPainterPath &sub,
+                                                  QPainterPath &clip) {
+
+  if (clip.isEmpty()) {
+    return sub;
+  }
+
+  QPainterPath res = subtract(sub, clip);
+  sub = res;
+
+  return sub;
+}
 
 QPainterPath KisBooleanOperations::testAdd() {
 
+  //        QPainterPath sample1;
+  //        QPainterPath sample2;
+  //        QPainterPath sample3;
 
-    //        QPainterPath sample1;
-    //        QPainterPath sample2;
-    //        QPainterPath sample3;
+  //        sample1.addRoundedRect(-500,-500,2000,1000,100,100);
+  //        sample2.addEllipse(QPointF(1500, 1000), 500, 1200);
 
-    //        sample1.addRoundedRect(-500,-500,2000,1000,100,100);
-    //        sample2.addEllipse(QPointF(1500, 1000), 500, 1200);
+  //        std::cout << "\n\n-----" << std::endl;
 
-    //        std::cout << "\n\n-----" << std::endl;
+  //        for (int i = 0; i < sample1.elementCount(); i++) {
+  //            QPainterPath::Element ele = sample1.elementAt(i);
+  //            std::cout << ele.type << " " << ele.x << " " << ele.y <<
+  //            std::endl;
+  //        }
 
-    //        for (int i = 0; i < sample1.elementCount(); i++) {
-    //            QPainterPath::Element ele = sample1.elementAt(i);
-    //            std::cout << ele.type << " " << ele.x << " " << ele.y << std::endl;
-    //        }
+  //        std::cout << "-----" << std::endl;
+  //        for (int i = 0; i < sample2.elementCount(); i++) {
+  //            QPainterPath::Element ele = sample2.elementAt(i);
+  //            std::cout << ele.type << " " << ele.x << " " << ele.y <<
+  //            std::endl;
+  //        }
 
-    //        std::cout << "-----" << std::endl;
-    //        for (int i = 0; i < sample2.elementCount(); i++) {
-    //            QPainterPath::Element ele = sample2.elementAt(i);
-    //            std::cout << ele.type << " " << ele.x << " " << ele.y << std::endl;
-    //        }
+  //        dstOutline = booleanOpsHandler.unite(sample1, sample2);
+  //        sample3.addRoundedRect(980, 100, 300,100,20,20);
+  //        QVector<QPainterPath> testPaths{sample1, sample2, sample3}; //,
+  //        sample3
 
+  //        for (int i = 0; i < testPaths.size(); i++) {
 
+  //            booleanOpsHandler.uniteAndAdd(dstOutline, testPaths.at(i));
+  //        }
 
-    //        dstOutline = booleanOpsHandler.unite(sample1, sample2);
-    //        sample3.addRoundedRect(980, 100, 300,100,20,20);
-    //        QVector<QPainterPath> testPaths{sample1, sample2, sample3}; //, sample3
+  // return dstOutline;
 
-    //        for (int i = 0; i < testPaths.size(); i++) {
+  QPainterPath ellipse;
+  QPainterPath roundedRect;
 
-    //            booleanOpsHandler.uniteAndAdd(dstOutline, testPaths.at(i));
-    //        }
+  ellipse.addEllipse(QPointF(460, 80), 30, 120);
+  roundedRect.addRoundedRect(360, 50, 200, 100, 20, 20);
 
-    // return dstOutline;
+  KisBooleanOperations booleanOpsHandler;
 
-    QPainterPath ellipse;
-    QPainterPath roundedRect;
+  QPainterPath res = booleanOpsHandler.intersect(ellipse, roundedRect);
 
-    ellipse.addEllipse(QPointF(460, 80), 30, 120);
-    roundedRect.addRoundedRect(360, 50, 200, 100, 20, 20);
-
-    KisBooleanOperations booleanOpsHandler;
-
-    QPainterPath res = booleanOpsHandler.intersect(ellipse, roundedRect);
-
-    return res;
+  return res;
 }
-
 
 void KisBooleanOperations::printElements(const QPainterPath &path) {
 
-    std::cout << "Krita QPP elements:" << std::endl;
+  std::cout << "Krita QPP elements:" << std::endl;
 
-    for (int i =0; i < path.elementCount(); i++) {
+  for (int i = 0; i < path.elementCount(); i++) {
 
-        std::cout << path.elementAt(i).type << std::endl;
-    }
+    std::cout << path.elementAt(i).type << std::endl;
+  }
 }
-
-
 
 QPainterPath KisBooleanOperations::partialQPainterPath(QPainterPath path) {
 
-    QPainterPath result;
+  QPainterPath result;
 
-    for (int i = 0; i < path.elementCount(); i++) {
+  for (int i = 0; i < path.elementCount(); i++) {
 
-        QPainterPath::Element element = path.elementAt(i);
-        switch (element.type) {
-        case QPainterPath::MoveToElement:
-            result.moveTo(QPointF(element.x, element.y));
-            break;
+    QPainterPath::Element element = path.elementAt(i);
+    switch (element.type) {
+    case QPainterPath::MoveToElement:
+      result.moveTo(QPointF(element.x, element.y));
+      break;
 
-        case QPainterPath::LineToElement:
-            result.lineTo(QPointF(element.x, element.y));
-            break;
+    case QPainterPath::LineToElement:
+      result.lineTo(QPointF(element.x, element.y));
+      break;
 
-        case QPainterPath::CurveToElement:
-            result.cubicTo(QPointF(element.x, element.y),
-                           QPointF(path.elementAt(i + 1).x, path.elementAt(i + 1).y),
-                           QPointF(path.elementAt(i + 2).x, path.elementAt(i + 2).y));
-            break;
+    case QPainterPath::CurveToElement:
+      result.cubicTo(QPointF(element.x, element.y),
+                     QPointF(path.elementAt(i + 1).x, path.elementAt(i + 1).y),
+                     QPointF(path.elementAt(i + 2).x, path.elementAt(i + 2).y));
+      break;
 
-        default:
-            continue;
-        }
-
-
+    default:
+      continue;
     }
+  }
 
-    return result;
+  return result;
 }
-

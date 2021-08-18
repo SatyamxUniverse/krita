@@ -4,7 +4,7 @@
  *  SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#include "numericalenginetest.h"
+#include "KisNumericalEngineTest.h"
 #include <QTest>
 #include <iostream>
 

@@ -4,7 +4,7 @@
  *  SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#include "kisintersectionfindertest.h"
+#include "KisIntersectionFinderTest.h"
 #include "KisIntersectionFinder.h"
 #include "KisNumericalEngine.h"
 //#include "painterpath.h"
