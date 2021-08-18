@@ -1196,7 +1196,11 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path) {
                 bufferPath.moveTo(ele);
                 bufferPath.closeSubpath();
                 substitutedRes.addPath(bufferPath);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 13, 0)
                 bufferPath.clear();
+#else
+                bufferPath = QPainterPath();
+#endif
             }
 
             else { // endPts.size should be 0
@@ -1204,7 +1208,11 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path) {
                 substitutedRes.moveTo(ele);
                 substitutedRes.closeSubpath();
                 //substitutedRes.addPath(bufferPath);
+#if QT_VERSION >= QT_VERSION_CHECK(5, 13, 0)
                 bufferPath.clear();
+#else
+                bufferPath = QPainterPath();
+#endif
             }
             endPts.clear();
 
@@ -1257,7 +1265,11 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path) {
                     QPointF newPt = endPts.last();
                     endPts.clear();
                     endPts << newPt;
+#if QT_VERSION >= QT_VERSION_CHECK(5, 13, 0)
                     bufferPath.clear();
+#else
+                    bufferPath = QPainterPath();
+#endif
 
                     lastPoint = currPoint;
                     curveFound = true;
@@ -1278,7 +1290,11 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path) {
                 QPointF newPt = endPts.last();
                 endPts.clear();
                 endPts << newPt;
+#if QT_VERSION >= QT_VERSION_CHECK(5, 13, 0)
                 bufferPath.clear();
+#else
+                bufferPath = QPainterPath();
+#endif
                 lastPoint = currPoint;
 
 //                std::cout << "curve rejected :" << endPts.first().x() << " " << endPts.first().y()
