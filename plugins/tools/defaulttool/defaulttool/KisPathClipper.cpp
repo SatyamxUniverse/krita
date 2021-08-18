@@ -20,7 +20,7 @@
 #include <iostream>
 
 #include "databuffer.h"
-#include "kispathclipper.h"
+#include "KisPathClipper.h"
 #include "bezier.h"
 #include <QPainterPath>
 

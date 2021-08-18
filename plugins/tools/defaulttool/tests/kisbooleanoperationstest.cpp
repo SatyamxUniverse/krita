@@ -5,7 +5,7 @@
  */
 
 #include "kisbooleanoperationstest.h"
-#include "kisbooleanoperations.h"
+#include "KisBooleanOperations.h"
 
 #include <QPainterPath>
 #include <QTest>

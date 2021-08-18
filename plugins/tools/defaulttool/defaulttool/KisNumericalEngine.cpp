@@ -19,7 +19,7 @@
 #include <QPainterPath>
 
 //#include "KoRTree.h"
-#include "kisnumericalengine.h"
+#include "KisNumericalEngine.h"
 
 
 

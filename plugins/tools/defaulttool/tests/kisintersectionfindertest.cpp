@@ -5,10 +5,11 @@
  */
 
 #include "kisintersectionfindertest.h"
-#include "kisintersectionfinder.h"
-#include "kisnumericalengine.h"
-#include "painterpath.h"
-#include "painterpath_p.h"
+#include "KisIntersectionFinder.h"
+#include "KisNumericalEngine.h"
+//#include "painterpath.h"
+//#include "painterpath_p.h"
+#include <QPainterPath>
 #include <QTest>
 
 bool fuzzyIsNull(qreal d)

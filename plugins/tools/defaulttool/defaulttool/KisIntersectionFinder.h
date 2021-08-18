@@ -10,8 +10,8 @@
 #include <QPointF>
 #include "bezier.h"
 #include "databuffer.h"
-#include "kisnumericalengine.h"
-#include "kispathclipper.h"
+#include "KisNumericalEngine.h"
+#include "KisPathClipper.h"
 #include "vectorpath.h"
 
 

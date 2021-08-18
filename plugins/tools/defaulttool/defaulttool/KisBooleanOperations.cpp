@@ -5,9 +5,9 @@
  */
 
 
-#include "kisbooleanoperations.h"
-#include "kisintersectionfinder.h"
-#include "kispathclipper.h"
+#include "KisBooleanOperations.h"
+#include "KisIntersectionFinder.h"
+#include "KisPathClipper.h"
 #include <QPainterPath>
 
 KisBooleanOperations::KisBooleanOperations(){

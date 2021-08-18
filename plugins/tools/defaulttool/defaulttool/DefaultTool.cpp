@@ -72,7 +72,7 @@
 
 #include <QVector2D>
 
-#include "kisbooleanoperations.h"
+#include "KisBooleanOperations.h"
 
 #define HANDLE_DISTANCE 10
 #define HANDLE_DISTANCE_SQ (HANDLE_DISTANCE * HANDLE_DISTANCE)

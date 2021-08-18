@@ -7,8 +7,8 @@
 #ifndef KISBOOLEANOPERATIONS_H
 #define KISBOOLEANOPERATIONS_H
 
-#include "kisintersectionfinder.h"
-#include "kispathclipper.h"
+#include "KisIntersectionFinder.h"
+#include "KisPathClipper.h"
 #include <QPainterPath>
 
 /*
