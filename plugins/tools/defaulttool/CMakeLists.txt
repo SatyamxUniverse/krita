@@ -4,12 +4,7 @@ project( defaulttools )
 
 set ( defaulttools_SRCS
     Plugin.cpp
-    
-#    defaulttool/3rparty/bezier.h
-#    defaulttool/3rparty/databuffer.h
-#    defaulttool/3rparty/vectorpath.h
-#    defaulttool/3rdparty/	
-    
+
     defaulttool/KisPathClipper.cpp
     defaulttool/KisNumericalEngine.cpp
     defaulttool/KisIntersectionFinder.cpp

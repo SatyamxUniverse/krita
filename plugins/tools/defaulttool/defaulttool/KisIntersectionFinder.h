@@ -108,9 +108,16 @@ public:
         ex
     };
 
+<<<<<<< HEAD
     KisClippingVertex(QPointF pt, VertexType type, int idFirst= -1, int idSecond = -1, qreal para1 = -1, qreal para2 = -1);
 
     public:
+=======
+    KisClippingVertex() = default;
+    KisClippingVertex(QPointF pt, VertexType type, int idFirst= -1, int idSecond = -1, qreal para1 = -1, qreal para2 = -1);
+
+public:
+>>>>>>> 974a07c7c1142b5af8c7c718bb0533b26c0637f5
 
     QPointF point;
     VertexType type;
