@@ -8,6 +8,7 @@
 #include "KisIntersectionFinder.h"
 #include "KisPathClipper.h"
 #include <QPainterPath>
+#include <iostream>
 
 KisBooleanOperations::KisBooleanOperations()
 {
@@ -31,7 +32,7 @@ QPainterPath KisBooleanOperations::unite(const QPainterPath &sub, const QPainter
     }
 
     KisIntersectionFinder KIF(sub, clip);
-    QVector<KisClippingVertex> intPoints = KIF.findAllIntersections();
+    KIF.findAllIntersections();
 
     KIF.processShapes();
 
@@ -56,7 +57,7 @@ QPainterPath KisBooleanOperations::intersect(QPainterPath &sub, QPainterPath &cl
     }
 
     KisIntersectionFinder KIF(sub, clip);
-    QVector<KisClippingVertex> intPoints = KIF.findAllIntersections();
+    KIF.findAllIntersections();
     KIF.processShapes();
 
     QPainterPath splittedSub = KIF.subjectShapeToPath();
@@ -82,7 +83,7 @@ QPainterPath KisBooleanOperations::subtract(QPainterPath &sub, QPainterPath &cli
 
 
     KisIntersectionFinder KIF(sub, clip);
-    QVector<KisClippingVertex> intPoints = KIF.findAllIntersections();
+    KIF.findAllIntersections();
     KIF.processShapes();
 
     QPainterPath splittedSub = KIF.subjectShapeToPath();

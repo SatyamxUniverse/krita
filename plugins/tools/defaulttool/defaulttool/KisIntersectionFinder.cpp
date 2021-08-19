@@ -15,28 +15,27 @@
 
 // helper functions
 
-static inline bool fuzzyIsNull(qreal d)
+static inline bool fuzzyIsNull(double d)
 {
-    if (sizeof(qreal) == sizeof(double)) {
-        return qAbs(d) <= 1e-12;
-    }
-
-    else {
-        return qAbs(d) <= 1e-5f;
-    }
+    return qAbs(d) <= 1e-12;
 }
 
-static inline bool comparePoints(const QPointF &a, const QPointF &b)
+static inline bool fuzzyIsNull(float d)
 {
-    // the epsilon in fuzzyIsNull is far too small for our use
-
-    return qAbs(a.x() - b.x()) < 1e-6 && qAbs(a.y() - b.y()) < 1e-6;
+    return qAbs(d) <= 1e-5f;
 }
 
-// returns dot product of two point vectors
-static qreal dot(const QPointF &a, const QPointF &b)
-{
-    return a.x() * b.x() + a.y() * b.y();
+// tolerance for comparisons of doubles
+qreal epsilon = 1e-6;
+
+
+bool KisIntersectionPoint::operator<(const KisIntersectionPoint& p2) {
+
+    return this->parameter < p2.parameter - epsilon;
+}
+
+bool KisIntersectionPoint::operator==(const KisIntersectionPoint& p2){
+    return qAbs(parameter - p2.parameter) < epsilon && KisAlgebra2D::fuzzyPointCompare(point, p2.point, epsilon);
 }
 
 BuildingBlock::BuildingBlock()
@@ -277,17 +276,17 @@ bool KisIntersectionFinder::linesIntersect(const QLineF &a, const QLineF &b) con
     const QPointF q1 = b.p1();
     const QPointF q2 = b.p2();
 
-    if (comparePoints(p1, p2) || comparePoints(q1, q2))
+    if (KisAlgebra2D::fuzzyPointCompare(p1, p2) || KisAlgebra2D::fuzzyPointCompare(q1, q2))
         return false;
 
-    const bool p1_equals_q1 = comparePoints(p1, q1);
-    const bool p2_equals_q2 = comparePoints(p2, q2);
+    const bool p1_equals_q1 = KisAlgebra2D::fuzzyPointCompare(p1, q1);
+    const bool p2_equals_q2 = KisAlgebra2D::fuzzyPointCompare(p2, q2);
 
     if (p1_equals_q1 && p2_equals_q2)
         return true;
 
-    const bool p1_equals_q2 = comparePoints(p1, q2);
-    const bool p2_equals_q1 = comparePoints(p2, q1);
+    const bool p1_equals_q2 = KisAlgebra2D::fuzzyPointCompare(p1, q2);
+    const bool p2_equals_q1 = KisAlgebra2D::fuzzyPointCompare(p2, q1);
 
     if (p1_equals_q2 && p2_equals_q1)
         return true;
@@ -301,19 +300,19 @@ bool KisIntersectionFinder::linesIntersect(const QLineF &a, const QLineF &b) con
         const QPointF normal(-pDelta.y(), pDelta.x());
 
         // coinciding?
-        if (qFuzzyIsNull(dot(normal, q1 - p1))) {
-            const qreal dp = dot(pDelta, pDelta);
+        if (qFuzzyIsNull(KisAlgebra2D::dotProduct(normal, q1 - p1))) {
+            const qreal dp = KisAlgebra2D::dotProduct(pDelta, pDelta);
 
-            const qreal tq1 = dot(pDelta, q1 - p1);
-            const qreal tq2 = dot(pDelta, q2 - p1);
+            const qreal tq1 = KisAlgebra2D::dotProduct(pDelta, q1 - p1);
+            const qreal tq2 = KisAlgebra2D::dotProduct(pDelta, q2 - p1);
 
             if ((tq1 > 0 && tq1 < dp) || (tq2 > 0 && tq2 < dp))
                 return true;
 
-            const qreal dq = dot(qDelta, qDelta);
+            const qreal dq = KisAlgebra2D::dotProduct(qDelta, qDelta);
 
-            const qreal tp1 = dot(qDelta, p1 - q1);
-            const qreal tp2 = dot(qDelta, p2 - q1);
+            const qreal tp1 = KisAlgebra2D::dotProduct(qDelta, p1 - q1);
+            const qreal tp2 = KisAlgebra2D::dotProduct(qDelta, p2 - q1);
 
             if ((tp1 > 0 && tp1 < dq) || (tp2 > 0 && tp2 < dq))
                 return true;
@@ -362,8 +361,10 @@ QVector<KisClippingVertex> KisIntersectionFinder::intersectionPoint(CubicBezier 
             // the parameter lies within the range, hence it lies on the curve bounded
             // by the first and fourth end points
 
-            if (!comparePoints(c1.cp0, ptOfIntersection) && !comparePoints(c1.cp3, ptOfIntersection) && !comparePoints(ptOfIntersection, c2.cp0)
-                && !comparePoints(ptOfIntersection, c2.cp3)) {
+            if (!KisAlgebra2D::fuzzyPointCompare(c1.cp0, ptOfIntersection, epsilon)
+                    && !KisAlgebra2D::fuzzyPointCompare(c1.cp3, ptOfIntersection, epsilon)
+                    && !KisAlgebra2D::fuzzyPointCompare(ptOfIntersection, c2.cp0, epsilon)
+                    && !KisAlgebra2D::fuzzyPointCompare(ptOfIntersection, c2.cp3, epsilon)) {
                 // if the intersection point lies too close to the end points of both
                 // curves, reject it
                 result.push_back(ptOfIntersection);
@@ -372,12 +373,6 @@ QVector<KisClippingVertex> KisIntersectionFinder::intersectionPoint(CubicBezier 
             }
         }
     }
-
-    //    auto t4 = high_resolution_clock::now ();
-
-    //    duration = duration_cast<microseconds>( t4 - t3 );
-    //    std::cout << "point validity: " << duration.count() << " microsecs" <<
-    //    std::endl;
 
     return res;
 }
@@ -423,8 +418,10 @@ QVector<KisClippingVertex> KisIntersectionFinder::intersectionPoint(Line l1, Cub
         QPointF currIntersectionPoint{c2.getParametricX().evaluate(root), c2.getParametricY().evaluate(root)};
 
         if (l1.checkIntersection(currIntersectionPoint)) {
-            if (!comparePoints(currIntersectionPoint, c2.cp0) && !comparePoints(currIntersectionPoint, c2.cp3)
-                && !comparePoints(currIntersectionPoint, qLine.p1()) && !comparePoints(currIntersectionPoint, qLine.p2())) {
+            if (!KisAlgebra2D::fuzzyPointCompare(currIntersectionPoint, c2.cp0, epsilon)
+                    && !KisAlgebra2D::fuzzyPointCompare(currIntersectionPoint, c2.cp3, epsilon)
+                    && !KisAlgebra2D::fuzzyPointCompare(currIntersectionPoint, qLine.p1(), epsilon)
+                    && !KisAlgebra2D::fuzzyPointCompare(currIntersectionPoint, qLine.p2(), epsilon)) {
                 // if the intersection point lies too close to the end points of both
                 // curves, reject it
                 result.push_back(currIntersectionPoint);
@@ -457,17 +454,17 @@ QVector<QPointF> KisIntersectionFinder::intersectionPoint(Line l1, Line l2)
     const QPointF q1 = b.p1();
     const QPointF q2 = b.p2();
 
-    if (comparePoints(p1, p2) || comparePoints(q1, q2))
+    if (KisAlgebra2D::fuzzyPointCompare(p1, p2) || KisAlgebra2D::fuzzyPointCompare(q1, q2))
         return intersections;
 
-    const bool p1_equals_q1 = comparePoints(p1, q1);
-    const bool p2_equals_q2 = comparePoints(p2, q2);
+    const bool p1_equals_q1 = KisAlgebra2D::fuzzyPointCompare(p1, q1);
+    const bool p2_equals_q2 = KisAlgebra2D::fuzzyPointCompare(p2, q2);
 
     if (p1_equals_q1 && p2_equals_q2)
         return intersections;
 
-    const bool p1_equals_q2 = comparePoints(p1, q2);
-    const bool p2_equals_q1 = comparePoints(p2, q1);
+    const bool p1_equals_q2 = KisAlgebra2D::fuzzyPointCompare(p1, q2);
+    const bool p2_equals_q1 = KisAlgebra2D::fuzzyPointCompare(p2, q1);
 
     if (p1_equals_q2 && p2_equals_q1)
         return intersections;
@@ -481,11 +478,11 @@ QVector<QPointF> KisIntersectionFinder::intersectionPoint(Line l1, Line l2)
         const QPointF normal(-pDelta.y(), pDelta.x());
 
         // coinciding?
-        if (qFuzzyIsNull(dot(normal, q1 - p1))) {
-            const qreal invDp = 1 / dot(pDelta, pDelta);
+        if (qFuzzyIsNull(KisAlgebra2D::dotProduct(normal, q1 - p1))) {
+            const qreal invDp = 1 / KisAlgebra2D::dotProduct(pDelta, pDelta);
 
-            const qreal tq1 = dot(pDelta, q1 - p1) * invDp;
-            const qreal tq2 = dot(pDelta, q2 - p1) * invDp;
+            const qreal tq1 = KisAlgebra2D::dotProduct(pDelta, q1 - p1) * invDp;
+            const qreal tq2 = KisAlgebra2D::dotProduct(pDelta, q2 - p1) * invDp;
 
             if (tq1 > 0 && tq1 < 1) {
                 QIntersection intersection;
@@ -505,10 +502,10 @@ QVector<QPointF> KisIntersectionFinder::intersectionPoint(Line l1, Line l2)
                 intersections.push_back(q2);
             }
 
-            const qreal invDq = 1 / dot(qDelta, qDelta);
+            const qreal invDq = 1 / KisAlgebra2D::dotProduct(qDelta, qDelta);
 
-            const qreal tp1 = dot(qDelta, p1 - q1) * invDq;
-            const qreal tp2 = dot(qDelta, p2 - q1) * invDq;
+            const qreal tp1 = KisAlgebra2D::dotProduct(qDelta, p1 - q1) * invDq;
+            const qreal tp2 = KisAlgebra2D::dotProduct(qDelta, p2 - q1) * invDq;
 
             if (tp1 > 0 && tp1 < 1) {
                 QIntersection intersection;
@@ -632,8 +629,8 @@ QVector<KisClippingVertex> KisIntersectionFinder::findAllIntersections()
                 continue;
             }
             QVector<KisClippingVertex> rnd = findIntersectionPoints(b1, b2);
-            subToSubIntersectionVertices[b1.ID].append(rnd); // b1.ID
-            subToSubIntersectionVertices[b2.ID].append(rnd); // b2.ID
+            subToSubIntersectionVertices[b1.ID].append(rnd);
+            subToSubIntersectionVertices[b2.ID].append(rnd);
             allIntersectionPoints.append(rnd);
         }
 
@@ -699,7 +696,6 @@ void KisIntersectionFinder::processShapes()
         }
 
         else if (b.isCurveTo()) {
-            //                subjectVerticesWithIntersections << b.getCurveTo().cp0;
 
             QVector<KisIntersectionPoint> points;
 
@@ -834,15 +830,15 @@ void KisIntersectionFinder::processShapes()
 
 static bool isLine(const QBezier &bezier)
 {
-    const bool equal_1_2 = comparePoints(bezier.pt1(), bezier.pt2());
-    const bool equal_2_3 = comparePoints(bezier.pt2(), bezier.pt3());
-    const bool equal_3_4 = comparePoints(bezier.pt3(), bezier.pt4());
+    const bool equal_1_2 = KisAlgebra2D::fuzzyPointCompare(bezier.pt1(), bezier.pt2());
+    const bool equal_2_3 = KisAlgebra2D::fuzzyPointCompare(bezier.pt2(), bezier.pt3());
+    const bool equal_3_4 = KisAlgebra2D::fuzzyPointCompare(bezier.pt3(), bezier.pt4());
 
     // point?
     if (equal_1_2 && equal_2_3 && equal_3_4)
         return true;
 
-    if (comparePoints(bezier.pt1(), bezier.pt4()))
+    if (KisAlgebra2D::fuzzyPointCompare(bezier.pt1(), bezier.pt4()))
         return equal_1_2 || equal_3_4;
 
     return (equal_1_2 && equal_3_4) || (equal_1_2 && equal_2_3) || (equal_2_3 && equal_3_4);
@@ -955,6 +951,10 @@ QPainterPath KisIntersectionFinder::subjectShapeToPath()
         }
     }
 
+    /*
+     * TODO: check if the provided path is closed. each subpath must be
+     * checked, and not the entire path.
+     */
     subjectPath.closeSubpath();
     return subjectPath;
 }
@@ -1170,8 +1170,11 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path)
                 ////                std::cout << "curve" << cbd.cp0.x() << "," <<
                 /// cbd.cp0.y() << " & " << cbd.cp3.x() << "," << cbd.cp3.y() <<
                 /// std::endl;
-                bool curveForward = comparePoints(cbd.cp0 , endPts.at(1)) && comparePoints(cbd.cp3 , endPts.at(0));
-                bool curveBackward = comparePoints(cbd.cp3, endPts.at(1)) && comparePoints(cbd.cp0 , endPts.at(0));
+                bool curveForward = KisAlgebra2D::fuzzyPointCompare(cbd.cp0 , endPts.at(1), epsilon) //check if epsilon has effect on clipping
+                        && KisAlgebra2D::fuzzyPointCompare(cbd.cp3 , endPts.at(0), epsilon);
+
+                bool curveBackward = KisAlgebra2D::fuzzyPointCompare(cbd.cp3, endPts.at(1), epsilon)
+                        && KisAlgebra2D::fuzzyPointCompare(cbd.cp0 , endPts.at(0), epsilon);
 
 //                bool curveForward = (cbd.cp0 == endPts.at(1)) && (cbd.cp3 == endPts.at(0));
 //                bool curveBackward = (cbd.cp3 == endPts.at(1)) && (cbd.cp0 == endPts.at(0));

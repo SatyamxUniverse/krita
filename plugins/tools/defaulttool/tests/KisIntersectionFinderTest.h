@@ -15,7 +15,7 @@ class KisIntersectionFinderTest : public QObject
 public:
     explicit KisIntersectionFinderTest(QObject *parent = nullptr);
 
-private slots:
+private Q_SLOTS:
 
     void lineLineIntersectionTest();
     void lineCurveIntersectionTest();
@@ -25,9 +25,6 @@ private slots:
     void QPainterPathCompatibilityTest();
 
     void allIntersectionPointsTest();
-
-
-signals:
 
 };
 

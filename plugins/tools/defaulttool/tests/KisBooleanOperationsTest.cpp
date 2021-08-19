@@ -5,7 +5,7 @@
  */
 
 #include "KisBooleanOperationsTest.h"
-#include "KisBooleanOperations.h"
+#include "defaulttool/KisBooleanOperations.h"
 
 #include <QPainterPath>
 #include <QTest>
@@ -148,5 +148,4 @@ void KisBooleanOperationsTest::booleanDifferenceTest2() {
     QCOMPARE(res.elementCount(), 15);
 }
 
-QTEST_APPLESS_MAIN(KisBooleanOperationsTest);
-#include "kisbooleanoperationstest.moc"
+SIMPLE_TEST_MAIN(KisBooleanOperationsTest, defaulttool)

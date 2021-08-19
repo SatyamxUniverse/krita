@@ -197,6 +197,31 @@ public:
 
     KisPathSegments(int reserve);
 
+    /*
+     * These functions carry out the flattening required by Qt to clip the
+     * shapes. Here, we mark the flattened segments with the curve numbers.
+     * This way, after deciding which edges are to be added, and when we add
+     * the edges, we can substitute these edges with the curves they are meant
+     * to represent. As we mark every single edge, there should be no loss of
+     * accuracy. The only possible issue could arise if the flattened edges
+     * do intersect, and the curves do not. However, this problem would not be
+     * a regression as the default Qt algorithm behaved similarly, and it can
+     * be avoided by flattening the curves to a higher extent. (It can also be
+     * detected by using Qt's intersection-finding routine, and checking if it
+     * finds a point other than the vertices.)
+     *
+     * We provide an out parameter, the QVector curves, so that we can
+     * store the curves in the order in which they were flattened. This is
+     * needed as the function which converts the clipping structure
+     * (KisWingedEdge) lies outside this class. We can substitute the curves
+     * exactly as they were while flattening them.
+     *
+     * This approach is implemented, but isn't currently used. There is a bug
+     * which makes it choose the wrong edges or lead to missing edges. However,
+     * solving this bug will lead to a much more reliable clipping and a much
+     * quicker solution.
+     */
+
     void setPath(const QPainterPath &path);
     void setPath(const QPainterPath &path, QVector<QBezier> &curves);
 

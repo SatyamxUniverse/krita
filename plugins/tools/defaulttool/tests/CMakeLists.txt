@@ -11,19 +11,19 @@ macro_add_unittest_definitions()
 set(KisBooleanOperationsTestSrc KisBooleanOperationsTest.cpp )
 ecm_add_tests(${KisBooleanOperationsTestSrc}
 NAME_PREFIX "plugins-tools-defaulttool-"
-LINK_LIBRARIES Qt5::Test)
+LINK_LIBRARIES defaulttool Qt5::Test)
 
 ########### next target ###############
 
 set(KisIntersectionFinderTestSrc KisIntersectionFinderTest.cpp )
 ecm_add_tests(${KisIntersectionFinderTestSrc}
 NAME_PREFIX "plugins-tools-defaulttool-"
-LINK_LIBRARIES Qt5::Test)
+LINK_LIBRARIES defaulttool Qt5::Test)
 
 ########### next target ###############
 
 set(KisNumericalEngineTestSrc KisNumericalEngineTest.cpp )
 ecm_add_tests(${KisNumericalEngineTestSrc}
 NAME_PREFIX "plugins-tools-defaulttool-"
-LINK_LIBRARIES Qt5::Test)
+LINK_LIBRARIES defaulttool Qt5::Test)
 

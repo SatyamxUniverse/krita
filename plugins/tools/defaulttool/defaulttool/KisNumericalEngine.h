@@ -10,18 +10,9 @@
 #include <QCoreApplication>
 #include <QtMath>
 #include <QVector>
-#include <QList>
 #include <QPointF>
 #include <QPainterPath>
 
-#include <iostream>
-#include <limits>
-#include <chrono>
-
-#include <gsl/gsl_math.h>
-#include <gsl/gsl_poly.h>
-
-//#include "KoRTree.h"
 
 
 constexpr double lowestDouble = std::numeric_limits<double>::min();

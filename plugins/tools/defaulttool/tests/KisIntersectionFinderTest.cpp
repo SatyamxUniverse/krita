@@ -5,8 +5,8 @@
  */
 
 #include "KisIntersectionFinderTest.h"
-#include "KisIntersectionFinder.h"
-#include "KisNumericalEngine.h"
+#include "defaulttool/KisIntersectionFinder.h"
+#include "defaulttool/KisNumericalEngine.h"
 //#include "painterpath.h"
 //#include "painterpath_p.h"
 #include <QPainterPath>
@@ -158,6 +158,5 @@ void KisIntersectionFinderTest::allIntersectionPointsTest() {
     QVERIFY(isEqual);
 }
 
-QTEST_APPLESS_MAIN(KisIntersectionFinderTest);
-#include "kisintersectionfindertest.moc"
+SIMPLE_TEST_MAIN(KisIntersectionFinderTest, defaulttool)
 

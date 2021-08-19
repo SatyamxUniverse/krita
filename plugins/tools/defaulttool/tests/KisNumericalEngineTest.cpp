@@ -181,5 +181,4 @@ void NumericalEngineTest::gslRootFindingTest() {
     QVERIFY(isEqual);
 }
 
-//QTEST_MAIN(NumericalEngineTest);
-#include "numericalenginetest.moc"
+SIMPLE_TEST_MAIN(KisIntersectionFinderTest, defaulttool)

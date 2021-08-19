@@ -7,9 +7,10 @@
 #ifndef KISBOOLEANOPERATIONS_H
 #define KISBOOLEANOPERATIONS_H
 
-#include "KisIntersectionFinder.h"
-#include "KisPathClipper.h"
+//#include "KisIntersectionFinder.h"
+//#include "KisPathClipper.h"
 #include <QPainterPath>
+
 
 /*
  * This class contains the functions needed for boolean operations on vector

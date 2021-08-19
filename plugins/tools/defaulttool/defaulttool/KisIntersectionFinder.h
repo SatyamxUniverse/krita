@@ -9,7 +9,7 @@
 
 #include <QPointF>
 #include "KisNumericalEngine.h"
-#include "KisPathClipper.h"
+//#include "KisPathClipper.h"
 
 
 /*
@@ -30,13 +30,9 @@ struct KisIntersectionPoint {
     qreal parameter;
     QPointF point;
 
-    bool operator<(const KisIntersectionPoint& p2){
-        return parameter < p2.parameter;
-    }
+    bool operator<(const KisIntersectionPoint& p2);
 
-    bool operator==(const KisIntersectionPoint& p2){
-        return parameter == p2.parameter && point == p2.point;
-    }
+    bool operator==(const KisIntersectionPoint& p2);
 };
 
 /*
@@ -94,6 +90,8 @@ class KisClippingVertex {
 
 public:
 
+    // This enum is useful for the Greiner-Hormann approach. Is (currently)
+    // obsolete as Qt's clipping approach is used.
     enum VertexType{
         regularVertex,
         regularIntersection,
@@ -363,8 +361,18 @@ private:
      */
     QVector<QVector<KisClippingVertex>> clipToSubIntersectionVertices;
 
+
+    /*
+     * subToSubIntersectionVertices contains all the self-intersection points
+     * between of the subject shape.
+     */
     QVector<QVector<KisClippingVertex>> subToSubIntersectionVertices;
 
+
+    /*
+     * clipToClipIntersectionVertices contains all the self-intersection points
+     * between of the clip shape.
+     */
     QVector<QVector<KisClippingVertex>> clipToClipIntersectionVertices;
 
 

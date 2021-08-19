@@ -9,7 +9,7 @@
 
 #include <QObject>
 #include <QTest>
-#include "KisNumericalEngine.h"
+//#include "defaulttool/KisNumericalEngine.h"
 
 class NumericalEngineTest : public QObject
 {
@@ -17,7 +17,7 @@ class NumericalEngineTest : public QObject
 public:
     explicit NumericalEngineTest(QObject *parent = nullptr);
 
-private slots:
+private Q_SLOTS:
     
     void leadingCoefficientTest();
     void expressionEvaluateTest();
@@ -26,10 +26,6 @@ private slots:
 
     void gslRootFindingTest();
 
-
-
-    
-signals:
 
 };
 

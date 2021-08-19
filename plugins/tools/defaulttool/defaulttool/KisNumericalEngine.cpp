@@ -18,7 +18,6 @@
 #include <QVector>
 #include <QtMath>
 
-//#include "KoRTree.h"
 #include "KisNumericalEngine.h"
 
 using namespace std::chrono;

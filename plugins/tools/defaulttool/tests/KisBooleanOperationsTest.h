@@ -8,6 +8,7 @@
 #define KISBOOLEANOPERATIONSTEST_H
 
 #include <QObject>
+#include <QtTest/QtTest>
 
 class KisBooleanOperationsTest : public QObject
 {
@@ -15,7 +16,7 @@ class KisBooleanOperationsTest : public QObject
 public:
     explicit KisBooleanOperationsTest(QObject *parent = nullptr);
 
-private slots:
+private Q_SLOTS:
 
     void curveCurveClippingTest();
     void lineCurveClippingTest();
@@ -27,11 +28,6 @@ private slots:
     void booleanDifferenceTest();
 
     void booleanDifferenceTest2();
-
-
-
-
-signals:
 
 };
 
