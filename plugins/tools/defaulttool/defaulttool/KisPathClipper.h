@@ -46,14 +46,13 @@
 #include <QPainterPath>
 
 #include <stdio.h>
-#include "databuffer.h"
-#include "bezier.h"
+#include "3rdparty/databuffer.h"
 
 
 
 QT_BEGIN_NAMESPACE
 
-
+class QBezier;
 class KisWingedEdge;
 
 class KisPathClipper

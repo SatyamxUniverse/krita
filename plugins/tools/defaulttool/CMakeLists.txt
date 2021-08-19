@@ -1,7 +1,5 @@
 project( defaulttools )
 
-#add_subdirectory( defaulttool/3rdparty )
-
 set ( defaulttools_SRCS
     Plugin.cpp
 

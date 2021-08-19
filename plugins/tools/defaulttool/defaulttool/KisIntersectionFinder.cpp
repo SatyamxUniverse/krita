@@ -7,9 +7,7 @@
 #include "KisIntersectionFinder.h"
 #include "KisNumericalEngine.h"
 #include "KisPathClipper.h"
-#include "bezier.h"
-#include "databuffer.h"
-#include "vectorpath.h"
+#include "3rdparty/bezier.h"
 
 #include "kis_algebra_2d.h"
 

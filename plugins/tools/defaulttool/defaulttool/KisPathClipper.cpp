@@ -19,9 +19,8 @@
 #include <algorithm>
 #include <iostream>
 
-#include "databuffer.h"
 #include "KisPathClipper.h"
-#include "bezier.h"
+#include "3rdparty/bezier.h"
 #include <QPainterPath>
 
 Q_DECL_CONSTEXPR Q_DECL_CONST_FUNCTION static inline double qt_inf() noexcept

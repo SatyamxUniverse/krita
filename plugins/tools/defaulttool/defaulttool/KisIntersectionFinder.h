@@ -8,11 +8,8 @@
 #define KISINTERSECTIONFINDER_H
 
 #include <QPointF>
-#include "bezier.h"
-#include "databuffer.h"
 #include "KisNumericalEngine.h"
 #include "KisPathClipper.h"
-#include "vectorpath.h"
 
 
 /*
