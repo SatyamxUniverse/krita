@@ -1172,8 +1172,11 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path)
                 ////                std::cout << "curve" << cbd.cp0.x() << "," <<
                 /// cbd.cp0.y() << " & " << cbd.cp3.x() << "," << cbd.cp3.y() <<
                 /// std::endl;
-                bool curveForward = (cbd.cp0 == endPts.at(1)) && (cbd.cp3 == endPts.at(0));
-                bool curveBackward = (cbd.cp3 == endPts.at(1)) && (cbd.cp0 == endPts.at(0));
+                bool curveForward = comparePoints(cbd.cp0 , endPts.at(1)) && comparePoints(cbd.cp3 , endPts.at(0));
+                bool curveBackward = comparePoints(cbd.cp3, endPts.at(1)) && comparePoints(cbd.cp0 , endPts.at(0));
+
+//                bool curveForward = (cbd.cp0 == endPts.at(1)) && (cbd.cp3 == endPts.at(0));
+//                bool curveBackward = (cbd.cp3 == endPts.at(1)) && (cbd.cp0 == endPts.at(0));
 
                 if (curveForward || curveBackward) {
                     if (curveBackward) {
