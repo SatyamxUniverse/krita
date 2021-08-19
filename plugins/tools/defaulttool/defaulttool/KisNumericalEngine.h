@@ -309,6 +309,8 @@ class CubicBezier
         QRectF boundingBox();
 
 
+        void computeExactBoundingBox();
+
         /*
          * Substitutes the parametric equations of the second curve in the
          * implicit equation of the first curve, and then uses GSL to find

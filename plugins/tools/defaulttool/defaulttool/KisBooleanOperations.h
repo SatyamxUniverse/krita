@@ -56,22 +56,28 @@ public:
     /*
      * Unites the second QPainterPath with the first, and returns it as well.
      */
-    QPainterPath uniteAndAdd( QPainterPath &sub, const QPainterPath &clip);
+    QPainterPath uniteAndAdd(QPainterPath &sub, const QPainterPath &clip);
 
 
     /*
      * Intersects the second QPainterPath with the first, and returns it as
      * well.
      */
-    QPainterPath intersectAndAdd( QPainterPath &sub, QPainterPath &clip );
+    QPainterPath intersectAndAdd(QPainterPath &sub, QPainterPath &clip);
 
 
     /*
      * Subtracts the second QPainterPath from the first, and then returns it
      * as well.
      */
-    QPainterPath subtractAndAdd( QPainterPath &sub, QPainterPath &clip );
+    QPainterPath subtractAndAdd(QPainterPath &sub, QPainterPath &clip);
 
+
+    QPainterPath uniteAndAddByProxy(QPainterPath &dstOutline, QVector<QPainterPath> srcOutlines);
+
+    QPainterPath intersectAndAddByProxy(QPainterPath &dstOutline, QVector<QPainterPath> srcOutlines);
+
+    QPainterPath subtractAndAddByProxy(QPainterPath &dstOutline, QVector<QPainterPath> srcOutlines);
 
     /*
      * test function to test various clipping operations.
