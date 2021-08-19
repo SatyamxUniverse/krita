@@ -132,7 +132,7 @@ KisIntersectionFinder::KisIntersectionFinder(QPainterPath subject, QPainterPath 
     // The first element should be moveTo. If not, the shape will start from
     // the origin (0,0)
     if (!subject.elementAt(0).isMoveTo()) {
-        subjectVertices << KisClippingVertex(QPointF(0, 0), KisClippingVertex::VertexType::regularVertex);
+        subjectVertices << KisClippingVertex(QPointF(), KisClippingVertex::VertexType::regularVertex);
     }
 
     for (int i = 0; i < subject.elementCount(); i++) {
@@ -191,12 +191,12 @@ KisIntersectionFinder::KisIntersectionFinder(QPainterPath subject, QPainterPath 
     subjectVertices << KisClippingVertex(subjectVertices.first().point, KisClippingVertex::VertexType::regularVertex);
 
     // reset counter variables and repeat procedure for clip shape
-    lastPoint = QPointF(0, 0);
-    currPoint = QPointF(0, 0);
+    lastPoint = QPointF();
+    currPoint = QPointF();
     segId = 0;
 
     if (!clip.elementAt(0).isMoveTo()) {
-        clipVertices << KisClippingVertex(QPointF(0, 0), KisClippingVertex::VertexType::regularVertex);
+        clipVertices << KisClippingVertex(QPointF(), KisClippingVertex::VertexType::regularVertex);
     }
 
     for (int i = 0; i < clip.elementCount(); i++) {
@@ -1268,7 +1268,7 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path)
         QPainterPath::Element ele = substitutedRes.elementAt(j);
 
         if (ele.isMoveTo()) {
-            if (ele == QPointF(0, 0)) {
+            if (ele == QPointF()) {
                 continue; // hack alert!
             }
             processedRes.moveTo(ele);

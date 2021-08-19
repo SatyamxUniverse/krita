@@ -59,7 +59,7 @@ ShapeResizeStrategy::ShapeResizeStrategy(KoToolBase *tool, KoSelection *selectio
         case KoFlake::BottomRightHandle:
             m_start = shape->absolutePosition(KoFlake::BottomRight);
             m_top = false; m_bottom = true; m_left = false; m_right = true;
-            m_globalStillPoint = QPointF(0, 0);
+            m_globalStillPoint = QPointF();
             break;
         case KoFlake::BottomMiddleHandle:
             m_start = 0.5 * (shape->absolutePosition(KoFlake::BottomRight) + shape->absolutePosition(KoFlake::BottomLeft));

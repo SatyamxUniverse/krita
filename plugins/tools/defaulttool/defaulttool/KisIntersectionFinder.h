@@ -177,20 +177,21 @@ class MoveData;
  * and clipShape for the first shape elements and second shape elements
  * respectively.
  *
- * Then, it proceeds to pairwise check intersections for every element in
- * both paths (including self-intersections of a shape), giving us a complexity
- *  of O(n^2) where n is the total number of elements. The intersection ponits
- *  are then recorded (TODO: record them in a vector wrapped inside another class which also contains references to the elements involved
- *  as well as the parameters for both the elements.)
+ * Then, it proceeds to pairwise check intersections for every element in both
+ * paths (including self-intersections of a shape), giving us a complexity of
+ * O(n^2) where n is the total number of elements. The intersection ponits are
+ * then recorded (TODO: record them in a vector wrapped inside another class
+ * which also contains references to the elements involved as well as the
+ * parameters for both the elements.)
  *
  */
 class KisIntersectionFinder {
 
 public:
 
-    KisIntersectionFinder(){};
+    KisIntersectionFinder() = default;
     KisIntersectionFinder(QPainterPath subject, QPainterPath clip);
-    ~KisIntersectionFinder(){};
+    ~KisIntersectionFinder() = default;
 
 
     friend class CubicBezier;
