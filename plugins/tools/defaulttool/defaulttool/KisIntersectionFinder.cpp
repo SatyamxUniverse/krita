@@ -31,11 +31,11 @@ qreal epsilon = 1e-6;
 
 bool KisIntersectionPoint::operator<(const KisIntersectionPoint& p2) {
 
-    return this->parameter < p2.parameter - epsilon;
+    return this->parameter < p2.parameter - epsilon; // 1e-6 or 1e-12
 }
 
 bool KisIntersectionPoint::operator==(const KisIntersectionPoint& p2){
-    return qAbs(parameter - p2.parameter) < epsilon && KisAlgebra2D::fuzzyPointCompare(point, p2.point, epsilon);
+    return qAbs(parameter - p2.parameter) < epsilon && KisAlgebra2D::fuzzyPointCompare(point, p2.point, epsilon); // 1e-6 or 1e-12
 }
 
 BuildingBlock::BuildingBlock()
@@ -1170,24 +1170,28 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path)
                 ////                std::cout << "curve" << cbd.cp0.x() << "," <<
                 /// cbd.cp0.y() << " & " << cbd.cp3.x() << "," << cbd.cp3.y() <<
                 /// std::endl;
-                bool curveForward = KisAlgebra2D::fuzzyPointCompare(cbd.cp0 , endPts.at(1), epsilon) //check if epsilon has effect on clipping
-                        && KisAlgebra2D::fuzzyPointCompare(cbd.cp3 , endPts.at(0), epsilon);
 
                 bool curveBackward = KisAlgebra2D::fuzzyPointCompare(cbd.cp3, endPts.at(1), epsilon)
                         && KisAlgebra2D::fuzzyPointCompare(cbd.cp0 , endPts.at(0), epsilon);
+
+                bool curveForward = KisAlgebra2D::fuzzyPointCompare(cbd.cp0 , endPts.at(1), epsilon) //check if epsilon has effect on clipping
+                        && KisAlgebra2D::fuzzyPointCompare(cbd.cp3 , endPts.at(0), epsilon);
 
 //                bool curveForward = (cbd.cp0 == endPts.at(1)) && (cbd.cp3 == endPts.at(0));
 //                bool curveBackward = (cbd.cp3 == endPts.at(1)) && (cbd.cp0 == endPts.at(0));
 
                 if (curveForward || curveBackward) {
                     if (curveBackward) {
-                        //                        substitutedRes.moveTo(cbd.cp0);
-
-                        substitutedRes.cubicTo(cbd.cp1, cbd.cp2, cbd.cp3);
+//                        if (substitutedRes.elementAt(substitutedRes.elementCount() - 1) != endPts.at(0)) {
+//                            substitutedRes.moveTo(endPts.at(0));
+//                        }
+                        //adding moveTo corrects subtraction, but wrecks multi-shape union
+                        substitutedRes.cubicTo(cbd.cp1, cbd.cp2, endPts.at(1));
                     } else {
-                        //                        substitutedRes.moveTo(cbd.cp3);
-
-                        substitutedRes.cubicTo(cbd.cp2, cbd.cp1, cbd.cp0);
+//                        if (substitutedRes.elementAt(substitutedRes.elementCount() - 1) != endPts.at(0)) {
+//                            substitutedRes.moveTo(endPts.at(0));
+//                        }
+                        substitutedRes.cubicTo(cbd.cp2, cbd.cp1, endPts.at(1));
                     }
 
                     QPointF newPt = endPts.last();

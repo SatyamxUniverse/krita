@@ -8,7 +8,10 @@
 #include "KisIntersectionFinder.h"
 #include "KisPathClipper.h"
 #include <QPainterPath>
+
+#include "kis_algebra_2d.h"
 #include <iostream>
+#include <iomanip>
 
 KisBooleanOperations::KisBooleanOperations()
 {
@@ -39,14 +42,24 @@ QPainterPath KisBooleanOperations::unite(const QPainterPath &sub, const QPainter
     QPainterPath splittedSub = KIF.subjectShapeToPath();
     QPainterPath splittedClip = KIF.clipShapeToPath();
 
-    KisPathClipper clipper(splittedSub, splittedClip);
-
     QPainterPath res = splittedSub | splittedClip;
-//    res.addPath(splittedClip);
+    QPainterPath res1 = splittedClip | splittedSub;
 
     QPainterPath processedRes = KIF.resubstituteCurves(res);
+    QPainterPath processedRes1 = KIF.resubstituteCurves(res1);
 
-    return processedRes;
+//    printElements(processedRes);
+//    std::cout << "---------------------------------------\n";
+//    printElements(processedRes1);
+//    std::cout << "---------------------------------------\n";
+
+    for (int i = 0; i < processedRes.elementCount(); i++) {
+
+    }
+
+    QPainterPath trueRes = (processedRes.elementCount() < processedRes1.elementCount()) ? processedRes : processedRes1;
+
+    return trueRes;
 }
 
 QPainterPath KisBooleanOperations::intersect(QPainterPath &sub, QPainterPath &clip)
@@ -62,6 +75,11 @@ QPainterPath KisBooleanOperations::intersect(QPainterPath &sub, QPainterPath &cl
 
     QPainterPath splittedSub = KIF.subjectShapeToPath();
     QPainterPath splittedClip = KIF.clipShapeToPath();
+
+    std::cout << "---------------------------------------\nintersection:\nsplittedSub\n";
+    printElements(splittedSub);
+    std::cout << "\nsplittedClip\n";
+    printElements(splittedClip);
 
     QPainterPath res = splittedSub & splittedClip;
 //    res.addPath(splittedClip);
@@ -88,6 +106,11 @@ QPainterPath KisBooleanOperations::subtract(QPainterPath &sub, QPainterPath &cli
 
     QPainterPath splittedSub = KIF.subjectShapeToPath();
     QPainterPath splittedClip = KIF.clipShapeToPath();
+
+    std::cout << "---------------------------------------\ndifference:\nsplittedSub\n";
+    printElements(splittedSub);
+    std::cout << "\nsplittedClip\n";
+    printElements(splittedClip);
 
     QPainterPath res = splittedSub - splittedClip;
 //    res.addPath(splittedClip);
@@ -184,8 +207,14 @@ void KisBooleanOperations::printElements(const QPainterPath &path)
 {
     std::cout << "Krita QPP elements:" << std::endl;
 
+
     for (int i = 0; i < path.elementCount(); i++) {
-        std::cout << path.elementAt(i).type << std::endl;
+        QPainterPath::Element element = path.elementAt(i);
+        if (element.type == 3) {
+            continue;
+        }
+
+        std::cout << element.type << " " << element.x << " " << element.y << std::endl;
     }
 }
 

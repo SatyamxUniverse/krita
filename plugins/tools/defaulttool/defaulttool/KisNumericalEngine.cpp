@@ -415,14 +415,16 @@ QVector<CubicBezier> CubicBezier::splitCurve(qreal parameter, QPointF splittingP
 {
     QVector<CubicBezier> result;
 
-    QPointF cp0naught = (cp1 - cp0) * parameter + cp0;
-    QPointF cp1naught = (cp2 - cp1) * parameter + cp1;
-    QPointF cp2naught = (cp3 - cp2) * parameter + cp2;
+    qreal adjustedParameter = inversionEquationEvaluated(splittingPoint);
 
-    QPointF cp0naughtnaught = (cp1naught - cp0naught) * parameter + cp0naught;
-    QPointF cp1naughtnaught = (cp2naught - cp1naught) * parameter + cp1naught;
+    QPointF cp0naught = (cp1 - cp0) * adjustedParameter + cp0;
+    QPointF cp1naught = (cp2 - cp1) * adjustedParameter + cp1;
+    QPointF cp2naught = (cp3 - cp2) * adjustedParameter + cp2;
 
-    QPointF pointAtT(parametric_x.evaluate(parameter), parametric_y.evaluate(parameter));
+    QPointF cp0naughtnaught = (cp1naught - cp0naught) * adjustedParameter + cp0naught;
+    QPointF cp1naughtnaught = (cp2naught - cp1naught) * adjustedParameter + cp1naught;
+
+    QPointF pointAtT(parametric_x.evaluate(adjustedParameter), parametric_y.evaluate(adjustedParameter));
 
     CubicBezier left(cp0, cp0naught, cp0naughtnaught, splittingPoint);
     CubicBezier right(splittingPoint, cp1naughtnaught, cp2naught, cp3);
@@ -847,6 +849,8 @@ QVector<Line> Line::splitLine(QVector<QPointF> points)
     }
 
     std::sort(params.begin(), params.end());
+    auto uq = std::unique(params.begin(), params.begin() + params.count());
+    points.resize(std::distance(params.begin(), uq));
 
     for (int i = 0; i < params.size() - 1; i++) {
         res.push_back(Line(qtLine.pointAt(params.at(i)), qtLine.pointAt(params.at(i + 1))));
