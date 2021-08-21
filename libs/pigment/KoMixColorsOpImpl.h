@@ -63,6 +63,42 @@ public:
         mixColorsImpl(PointerToArray(colors, _CSTrait::pixelSize), NoWeightsSurrogate(nColors), nColors, dst);
     }
 
+    void mixTwoColorArrays(const quint8* colorsA, const quint8* colorsB, quint32 nColors, qreal weight, quint8* dst) const override {
+        const quint8* pixelA = colorsA;
+        const quint8* pixelB = colorsB;
+        weight = qBound(0.0, weight, 1.0);
+        qint16 weights[2];
+        weights[1] = qRound(weight * 255.0);
+        weights[0] = 255 - weights[1];
+        const quint8* colors[2];
+        for (quint32 i = 0; i < nColors; i++) {
+            colors[0] = pixelA;
+            colors[1] = pixelB;
+            mixColorsImpl(ArrayOfPointers(colors), WeightsWrapper(weights, 255), 2, dst);
+
+            pixelA += _CSTrait::pixelSize;
+            pixelB += _CSTrait::pixelSize;
+            dst += _CSTrait::pixelSize;
+        }
+    }
+
+    void mixArrayWithColor(const quint8* colorArray, const quint8* color, quint32 nColors, qreal weight, quint8* dst) const override {
+        const quint8* pixelA = colorArray;
+        weight = qBound(0.0, weight, 1.0);
+        const quint8* colors[2];
+        colors[1] = color;
+        qint16 weights[2];
+        weights[1] = qRound(weight * 255.0);
+        weights[0] = 255 - weights[1];
+        for (quint32 i = 0; i < nColors; i++) {
+            colors[0] = pixelA;
+            mixColorsImpl(ArrayOfPointers(colors), WeightsWrapper(weights, 255), 2, dst);
+
+            pixelA += _CSTrait::pixelSize;
+            dst += _CSTrait::pixelSize;
+        }
+    }
+
 private:
     struct ArrayOfPointers {
         ArrayOfPointers(const quint8 * const* colors)

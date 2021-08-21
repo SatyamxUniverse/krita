@@ -41,6 +41,7 @@ KisSmudgeOptionWidget::KisSmudgeOptionWidget()
     mCbSmudgeMode->addItem("dulling-placeholder" , KisSmudgeOption::DULLING_MODE);
 
     mChkSmearAlpha = new QCheckBox();
+    mChkUseNewEngine = new QCheckBox();
     
     // the text for the second item is initialized here
     updateBrushPierced(false);
@@ -48,6 +49,8 @@ KisSmudgeOptionWidget::KisSmudgeOptionWidget()
     QFormLayout *formLayout = new QFormLayout();
     formLayout->addRow(i18n("Smudge mode:"), mCbSmudgeMode);
     formLayout->addRow(i18n("Smear alpha:"), mChkSmearAlpha);
+    formLayout->addRow(i18n("Use new smudge algorithm:"), mChkUseNewEngine);
+    formLayout->addRow(new QLabel(i18n("(required for Color Image, Lightness Map, and Gradient Map brushes)")));
 
     QVBoxLayout* v = new QVBoxLayout();
     v->setMargin(0);
@@ -61,6 +64,7 @@ KisSmudgeOptionWidget::KisSmudgeOptionWidget()
 
     connect(mCbSmudgeMode, SIGNAL(currentIndexChanged(int)), this, SLOT(slotCurrentIndexChanged(int)));
     connect(mChkSmearAlpha, SIGNAL(toggled(bool)), SLOT(slotSmearAlphaChanged(bool)));
+    connect(mChkUseNewEngine, SIGNAL(toggled(bool)), SLOT(slotUseNewEngineChanged(bool)));
 }
 
 void KisSmudgeOptionWidget::slotCurrentIndexChanged(int index)
@@ -75,6 +79,12 @@ void KisSmudgeOptionWidget::slotSmearAlphaChanged(bool value)
     emitSettingChanged();
 }
 
+void KisSmudgeOptionWidget::slotUseNewEngineChanged(bool value)
+{
+    static_cast<KisSmudgeOption*>(curveOption())->setUseNewEngine(value);
+    emitSettingChanged();
+}
+
 void KisSmudgeOptionWidget::readOptionSetting(const KisPropertiesConfigurationSP setting)
 {
     KisCurveOptionWidget::readOptionSetting(setting);
@@ -84,6 +94,9 @@ void KisSmudgeOptionWidget::readOptionSetting(const KisPropertiesConfigurationSP
 
     const bool smearAlpha = static_cast<KisSmudgeOption*>(curveOption())->getSmearAlpha();
     mChkSmearAlpha->setChecked(smearAlpha);
+
+    const bool useNewEngine = static_cast<KisSmudgeOption*>(curveOption())->getUseNewEngine();
+    mChkUseNewEngine->setChecked(useNewEngine);
 }
 
 void KisSmudgeOptionWidget::updateBrushPierced(bool pierced)
@@ -98,4 +111,12 @@ void KisSmudgeOptionWidget::updateBrushPierced(bool pierced)
 
     mCbSmudgeMode->setItemText(1, dullingText);
     mCbSmudgeMode->setToolTip(toolTip);
+}
+
+void KisSmudgeOptionWidget::setUseNewEngineCheckboxEnabled(bool enabled) {
+    mChkUseNewEngine->setEnabled(enabled);
+}
+
+void KisSmudgeOptionWidget::setUseNewEngine(bool useNew) {
+    mChkUseNewEngine->setChecked(useNew);
 }

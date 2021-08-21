@@ -38,6 +38,13 @@ private Q_SLOTS:
     void testStampTip();
 
     void testColorsmudgeDefaultTip();
+    void testColorsmudgeDefaultTipNew();
+    void testColorsmudgeDefaultTipAlphaOff();
+    void testColorsmudgeDefaultTipAlphaOffNew();
+    void testColorsmudgeDefaultTipSmearing();
+    void testColorsmudgeDefaultTipSmearingNew();
+    void testColorsmudgeDefaultTipSmearingAlphaOff();
+    void testColorsmudgeDefaultTipSmearingAlphaOffNew();
 };
 
 #endif // FREEHANDSTROKEBENCHMARK_H
