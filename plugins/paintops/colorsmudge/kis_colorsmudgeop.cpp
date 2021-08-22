@@ -264,7 +264,13 @@ KisSpacingInformation KisColorSmudgeOp::paintAt(const KisPaintInformation& info)
     QPoint canvasLocalSamplePoint = (srcDabRect.topLeft() + hotSpot).toPoint();
 
     if (!useDullingMode) {
+        activeWrapper.readRect(m_dstDabRect);
         activeWrapper.readRect(srcDabRect);
+
+        m_smudgePainter->setOpacity(255);
+        m_smudgePainter->bitBlt(QPoint(), activeWrapper.preciseDevice(), m_dstDabRect);
+
+        m_smudgePainter->setOpacity(qRound(m_smudgeRateOption.getRate() * 255.0));
         m_smudgePainter->bitBlt(QPoint(), activeWrapper.preciseDevice(), srcDabRect);
     } else {
         if (m_smudgeRadiusOption.isChecked()) {
@@ -291,7 +297,7 @@ KisSpacingInformation KisColorSmudgeOp::paintAt(const KisPaintInformation& info)
         // this will apply the opacity (selected by the user) to copyPainter
         // (but fit the rate inbetween the range 0.0 to (1.0-SmudgeRate))
         qreal maxColorRate = qMax<qreal>(1.0 - m_smudgeRateOption.getRate(), 0.2);
-        m_colorRateOption.apply(*m_colorRatePainter, info, 0.0, maxColorRate, fpOpacity);
+        m_colorRateOption.apply(*m_colorRatePainter, info, 0.0, maxColorRate, 1.0);
 
         // paint a rectangle with the current color (foreground color)
         // or a gradient color (if enabled)
@@ -347,7 +353,8 @@ KisSpacingInformation KisColorSmudgeOp::paintAt(const KisPaintInformation& info)
     }
 
     // set opacity calculated by the rate option
-    m_smudgeRateOption.apply(*m_finalPainter, info, 0.0, 1.0, fpOpacity);
+    //m_smudgeRateOption.apply(*m_finalPainter, info, 0.0, 1.0, fpOpacity);
+    m_finalPainter->setOpacity(qRound(fpOpacity * 255));
 
     // then blit the temporary painting device on the canvas at the current brush position
     // the alpha mask (maskDab) will be used here to only blit the pixels that are in the area (shape) of the brush
