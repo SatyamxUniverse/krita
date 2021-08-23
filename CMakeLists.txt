@@ -727,12 +727,12 @@ if(KSeExpr_FOUND)
     list (APPEND ANDROID_EXTRA_LIBS ${KSeExpr_LIBRARY} ${KSeExprUI_LIBRARY})
 endif()
 
-find_package(ZLIB)
+find_package(ZLIB REQUIRED)
 set_package_properties(ZLIB PROPERTIES
     DESCRIPTION "Compression library"
     URL "https://www.zlib.net/"
-    TYPE OPTIONAL
-    PURPOSE "Optionally used by the G'Mic and the PSD plugins")
+    TYPE REQUIRED
+    PURPOSE "Required by Krita's PNG and PSD support")
 macro_bool_to_01(ZLIB_FOUND HAVE_ZLIB)
 
 find_package(OpenEXR 3.0 CONFIG QUIET)
@@ -763,6 +763,8 @@ set_package_properties(TIFF PROPERTIES
     URL "http://www.libtiff.org"
     TYPE OPTIONAL
     PURPOSE "Required by the Krita TIFF filter")
+include(CheckLibTIFFPSDSupport)
+configure_file(config-tiff.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config-tiff.h)
 if (TIFF_FOUND)
     list (APPEND ANDROID_EXTRA_LIBS ${TIFF_LIBRARY})
 endif()
