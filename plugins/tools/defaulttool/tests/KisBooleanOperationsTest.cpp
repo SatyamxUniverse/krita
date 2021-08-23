@@ -27,6 +27,13 @@ void KisBooleanOperationsTest::curveCurveClippingTest() {
   QPainterPath res = booleanOpsHandler.unite(ellipse1, ellipse2);
 
   QCOMPARE(res.elementCount(), 31);
+
+  QVector<int> elementTypes{0, 2, 3, 3, 2, 3, 3, 2, 3, 3, 2, 3, 3, 2, 3, 3, 2, 3, 3, 2, 3, 3, 2, 3, 3, 2, 3, 3, 2, 3, 3};
+
+  for (int i = 0; i < res.elementCount(); i++) {
+
+      Q_ASSERT(res.elementAt(i).type == elementTypes.at(i));
+  }
 }
 
 
@@ -40,9 +47,16 @@ void KisBooleanOperationsTest::lineCurveClippingTest() {
 
   KisBooleanOperations booleanOpsHandler;
 
-  QPainterPath res = booleanOpsHandler.uniteAndAdd(ellipse, roundedRect);
+  QPainterPath res = booleanOpsHandler.intersectAndAdd(ellipse, roundedRect);
 
-  QCOMPARE(res.elementCount(), 31);
+  QCOMPARE(res.elementCount(), 15);
+
+  QVector<int> elementTypes{0, 2, 3, 3, 1, 2, 3, 3, 2, 3, 3, 1, 2, 3, 3};
+
+  for (int i = 0; i < res.elementCount(); i++) {
+
+      Q_ASSERT(res.elementAt(i).type == elementTypes.at(i));
+  }
 }
 
 
@@ -59,6 +73,13 @@ void KisBooleanOperationsTest::lineLineClippingTest() {
   QPainterPath res = booleanOpsHandler.intersect(rect1, rect2);
 
   QCOMPARE(res.elementCount(), 5);
+
+  QVector<int> elementTypes{0, 1, 1, 1, 1};
+
+  for (int i = 0; i < res.elementCount(); i++) {
+
+      Q_ASSERT(res.elementAt(i).type == elementTypes.at(i));
+  }
 }
 
 
@@ -75,6 +96,13 @@ void KisBooleanOperationsTest::seperatePathsTest() {
   QPainterPath res = booleanOpsHandler.unite(ellipse1, ellipse2);
 
   QCOMPARE(res.elementCount(), 26);
+
+  QVector<int> elementTypes{0, 2, 3, 3, 2, 3, 3, 2, 3, 3, 2, 3, 3, 0, 2, 3, 3, 2, 3, 3, 2, 3, 3, 2, 3, 3};
+
+  for (int i = 0; i < res.elementCount(); i++) {
+
+      Q_ASSERT(res.elementAt(i).type == elementTypes.at(i));
+  }
 }
 
 
@@ -92,6 +120,13 @@ void KisBooleanOperationsTest::booleanUnionTest() {
   QPainterPath res = booleanOpsHandler.uniteAndAdd(ellipse, roundedRect);
 
   QCOMPARE(res.elementCount(), 31);
+
+  QVector<int> elementTypes{0, 2, 3, 3, 1, 2, 3, 3, 2, 3, 3, 1, 2, 3, 3, 1, 2, 3, 3, 1, 2, 3, 3, 2, 3, 3, 1, 2, 3, 3, 1};
+
+  for (int i = 0; i < res.elementCount(); i++) {
+
+      Q_ASSERT(res.elementAt(i).type == elementTypes.at(i));
+  }
 }
 
 
@@ -100,18 +135,24 @@ void KisBooleanOperationsTest::booleanIntersectionTest() {
   QPainterPath rect1;
   QPainterPath rect2;
 
-  rect1.addRect(50, 50, 200, 100);
-  rect2.addRect(50, 60, 100, 200);
+  rect1.addRoundedRect(50, 50, 200, 100,20,20);
+  rect2.addRoundedRect(50, 60, 100, 200,20,20);
 
   KisBooleanOperations booleanOpsHandler;
 
-  QPainterPath res = booleanOpsHandler.intersect(rect1, rect2);
+  QPainterPath res = booleanOpsHandler.intersect(rect2, rect1);
 
-  QCOMPARE(res.elementCount(), 5);
+  QVector<int> elementTypes{0, 2, 3, 3, 1, 2, 3, 3, 1, 1, 2, 3, 3, 1};
+
+  QCOMPARE(res.elementCount(), 14);
+
+  for (int i = 0; i < res.elementCount(); i++) {
+
+      Q_ASSERT(res.elementAt(i).type == elementTypes.at(i));
+  }
 }
 
 
-// this passes
 void KisBooleanOperationsTest::booleanDifferenceTest() {
 
   QPainterPath rect1;
@@ -123,11 +164,16 @@ void KisBooleanOperationsTest::booleanDifferenceTest() {
   KisBooleanOperations booleanOpsHandler;
   QPainterPath res = booleanOpsHandler.subtract(rect1, rect2);
 
+  QVector<int> elementTypes{0, 1, 1, 1, 1, 1, 1};
+
   QCOMPARE(res.elementCount(), 7);
+
+  for (int i = 0; i < res.elementCount(); i++) {
+
+      Q_ASSERT(res.elementAt(i).type == elementTypes.at(i));
+  }
 }
 
-
-// this fails
 void KisBooleanOperationsTest::booleanDifferenceTest2() {
 
     QPainterPath ellipse;
@@ -140,12 +186,18 @@ void KisBooleanOperationsTest::booleanDifferenceTest2() {
 
     QPainterPath res = booleanOpsHandler.subtract(ellipse, roundedRect);
 
+    QVector<int> elementTypes{0, 2, 3, 3, 2, 3, 3, 1, 2, 3, 3, 2, 3, 3, 1};
+    QCOMPARE(res.elementCount(), 14);
+
+    for (int i = 0; i < res.elementCount(); i++) {
+
+        Q_ASSERT(res.elementAt(i).type == elementTypes.at(i));
+    }
+
     /*
-     * the value is currently 16. It should be 15, as there is one extraneous
-     * lineTo element joining the two disjoint QPainterPaths after
-     * subtraction.
+     * the last curve is wrongly placed.
      */
-    QCOMPARE(res.elementCount(), 15);
+    QCOMPARE(res.elementCount(), 16);
 }
 
 SIMPLE_TEST_MAIN(KisBooleanOperationsTest, defaulttool)

@@ -327,7 +327,7 @@ public:
      * might produce slightly wrong results during the subtraction/difference
      * operation.
      */
-    QPainterPath resubstituteCurves(QPainterPath path);
+    QPainterPath resubstituteCurves(QPainterPath path, bool differenceOp = false);
 
 
 
@@ -407,6 +407,68 @@ private:
 
 //    KoRTree<CubicBezier> tree;
 
+};
+
+
+class GreinerClippingVertex{
+public:
+
+
+
+
+
+    enum ElementType {
+        MoveToElement,
+        LineToElement,
+        CurveToElement,
+        CurveToDataElement
+    };
+
+    enum VertexType {
+        RegularVertex,
+        RegularIntersection,
+        DegenrateIntersection
+    };
+
+    enum Flag{
+        en,
+        ex,
+        null
+    };
+
+    QPointF point;
+    ElementType elementType;
+    VertexType vertexType;
+    Flag flag;
+    int referenceIndex;
+    GreinerClippingVertex* reference;
+
+
+    GreinerClippingVertex(QPainterPath::Element element, VertexType type = RegularVertex, Flag flag = null, int referenceIdx = -1);
+
+private:
+
+
+};
+
+class GreinerHormannClipping {
+public:
+
+    QPainterPath subjectPath;
+    QPainterPath clipPath;
+    QVector<GreinerClippingVertex> subjectList;
+    QVector<GreinerClippingVertex> clipList;
+    QVector<KisClippingVertex> intersections;
+
+    GreinerHormannClipping(QPainterPath sub, QPainterPath clip, QVector<KisClippingVertex> intersectionPoints);
+
+    void generateSubjectList(QPainterPath subject, QVector<KisClippingVertex> intersectionPoints);
+    void generateClipList(QPainterPath clip, QVector<KisClippingVertex> intersectionPoints);
+
+    void linkIntersectionPoints(QVector<KisClippingVertex> intersectionPoints);
+    void markIntersectionPoints(QPainterPath subPath, QPainterPath clipPath);
+
+    QPainterPath unite();
 };
 
 

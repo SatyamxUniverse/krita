@@ -48,18 +48,25 @@ QPainterPath KisBooleanOperations::unite(const QPainterPath &sub, const QPainter
     QPainterPath processedRes = KIF.resubstituteCurves(res);
     QPainterPath processedRes1 = KIF.resubstituteCurves(res1);
 
-//    printElements(processedRes);
-//    std::cout << "---------------------------------------\n";
-//    printElements(processedRes1);
-//    std::cout << "---------------------------------------\n";
+    QPainterPath::Element ele;
 
+//  the incorrect path has some un-substituted elements
     for (int i = 0; i < processedRes.elementCount(); i++) {
 
+        ele = processedRes.elementAt(i);
+
+        if (!splittedSub.contains(ele) && !splittedClip.contains(ele)) {
+
+            return processedRes1;
+        }
     }
 
-    QPainterPath trueRes = (processedRes.elementCount() < processedRes1.elementCount()) ? processedRes : processedRes1;
+//    QPainterPath trueRes = (processedRes.elementCount() < processedRes1.elementCount()) ? processedRes : processedRes1;
 
-    return trueRes;
+//    GreinerHormannClipping gcv(splittedSub, splittedClip, intPoints);
+//    return gcv.unite();
+
+    return processedRes;
 }
 
 QPainterPath KisBooleanOperations::intersect(QPainterPath &sub, QPainterPath &clip)
@@ -76,15 +83,26 @@ QPainterPath KisBooleanOperations::intersect(QPainterPath &sub, QPainterPath &cl
     QPainterPath splittedSub = KIF.subjectShapeToPath();
     QPainterPath splittedClip = KIF.clipShapeToPath();
 
-    std::cout << "---------------------------------------\nintersection:\nsplittedSub\n";
-    printElements(splittedSub);
-    std::cout << "\nsplittedClip\n";
-    printElements(splittedClip);
-
     QPainterPath res = splittedSub & splittedClip;
-//    res.addPath(splittedClip);
+    QPainterPath res1 = splittedClip & splittedSub;
 
     QPainterPath processedRes = KIF.resubstituteCurves(res);
+    QPainterPath processedRes1 = KIF.resubstituteCurves(res1);
+
+    QPainterPath::Element ele;
+
+//  the incorrect path has some un-substituted elements
+    for (int i = 0; i < processedRes.elementCount(); i++) {
+
+        ele = processedRes.elementAt(i);
+
+        if (!splittedSub.contains(ele) && !splittedClip.contains(ele)) {
+
+            return processedRes1;
+        }
+    }
+
+//    QPainterPath trueRes = (processedRes.elementCount() < processedRes1.elementCount()) ? processedRes : processedRes1;
 
     return processedRes;
 }
@@ -107,15 +125,11 @@ QPainterPath KisBooleanOperations::subtract(QPainterPath &sub, QPainterPath &cli
     QPainterPath splittedSub = KIF.subjectShapeToPath();
     QPainterPath splittedClip = KIF.clipShapeToPath();
 
-    std::cout << "---------------------------------------\ndifference:\nsplittedSub\n";
-    printElements(splittedSub);
-    std::cout << "\nsplittedClip\n";
-    printElements(splittedClip);
-
     QPainterPath res = splittedSub - splittedClip;
-//    res.addPath(splittedClip);
 
-    QPainterPath processedRes = KIF.resubstituteCurves(res);
+    bool subtractionOp = true;
+
+    QPainterPath processedRes = KIF.resubstituteCurves(res, subtractionOp);
 
     return processedRes;
 }
@@ -198,8 +212,17 @@ QPainterPath KisBooleanOperations::testAdd()
 
     KisBooleanOperations booleanOpsHandler;
 
-    QPainterPath res = booleanOpsHandler.intersect(ellipse, roundedRect);
+    QPainterPath res = booleanOpsHandler.subtract(ellipse, roundedRect);
 
+
+    std::cout << res.elementCount() << std::endl;
+    std::cout << "[";
+    for (int i = 0; i < res.elementCount(); i++) {
+        QPainterPath::Element e = res.elementAt(i);
+        std::cout << e.type << ", ";
+    }
+
+    std::cout << " ]";
     return res;
 }
 

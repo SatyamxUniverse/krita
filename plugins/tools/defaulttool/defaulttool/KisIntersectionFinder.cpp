@@ -12,6 +12,7 @@
 #include "kis_algebra_2d.h"
 
 #include <chrono>
+#include <iostream>
 
 // helper functions
 
@@ -1080,7 +1081,7 @@ QVector<QPointF> KisIntersectionFinder::getAllCurveEndPoints()
  * operation. I guess it is not able to process moveTo elements properly. Some
  * Improvements in it or an altogether new function could solve the issue.
  */
-QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path)
+QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path, bool differenceOp)
 {
     if (!path.elementCount()) {
         return path;
@@ -1147,29 +1148,18 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path)
 
         if (curveEndPts.contains(currPoint)) {
             endPts << currPoint;
-            //            std::cout << "currPoint inside curveEndPts: " <<
-            //            currPoint.x() << " " << currPoint.y() << std::endl;
         }
 
         if (endPts.size() == 2) {
             bool curveFound = false;
-            //            std::cout << "second point done: " << currPoint.x() << " "
-            //            << currPoint.y() << std::endl;
 
             if (!firstFound) {
                 endPts.replace(0, path.elementAt(0));
                 endPts.replace(1, currPoint);
-                //                std::cout << "curve under focus: " <<
-                //                endPts.first().x() << " " << endPts.first().y()
-                //                          << "  " << endPts.last().x() << " " <<
-                //                          endPts.last().y() << std::endl;
                 firstFound = true;
             }
 
             Q_FOREACH (CubicBezierData cbd, allCurveData) {
-                ////                std::cout << "curve" << cbd.cp0.x() << "," <<
-                /// cbd.cp0.y() << " & " << cbd.cp3.x() << "," << cbd.cp3.y() <<
-                /// std::endl;
 
                 bool curveBackward = KisAlgebra2D::fuzzyPointCompare(cbd.cp3, endPts.at(1), epsilon)
                         && KisAlgebra2D::fuzzyPointCompare(cbd.cp0 , endPts.at(0), epsilon);
@@ -1177,20 +1167,16 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path)
                 bool curveForward = KisAlgebra2D::fuzzyPointCompare(cbd.cp0 , endPts.at(1), epsilon) //check if epsilon has effect on clipping
                         && KisAlgebra2D::fuzzyPointCompare(cbd.cp3 , endPts.at(0), epsilon);
 
-//                bool curveForward = (cbd.cp0 == endPts.at(1)) && (cbd.cp3 == endPts.at(0));
-//                bool curveBackward = (cbd.cp3 == endPts.at(1)) && (cbd.cp0 == endPts.at(0));
 
                 if (curveForward || curveBackward) {
-                    if (curveBackward) {
-//                        if (substitutedRes.elementAt(substitutedRes.elementCount() - 1) != endPts.at(0)) {
-//                            substitutedRes.moveTo(endPts.at(0));
-//                        }
-                        //adding moveTo corrects subtraction, but wrecks multi-shape union
+                    if (differenceOp) {
+                        substitutedRes.moveTo(endPts.at(0));
+                    }
+
+                    if (curveBackward) {                            
                         substitutedRes.cubicTo(cbd.cp1, cbd.cp2, endPts.at(1));
-                    } else {
-//                        if (substitutedRes.elementAt(substitutedRes.elementCount() - 1) != endPts.at(0)) {
-//                            substitutedRes.moveTo(endPts.at(0));
-//                        }
+                    }
+                    else {
                         substitutedRes.cubicTo(cbd.cp2, cbd.cp1, endPts.at(1));
                     }
 
@@ -1293,3 +1279,315 @@ QPainterPath KisIntersectionFinder::resubstituteCurves(QPainterPath path)
 
     return processedRes;
 }
+
+GreinerClippingVertex::GreinerClippingVertex(QPainterPath::Element element, VertexType vertex, Flag flag, int referenceIdx)
+    : point(element)
+    , vertexType(vertex)
+    , flag(flag)
+    , referenceIndex(referenceIdx)
+    , reference(nullptr)
+{
+    switch (element.type) {
+
+    case(QPainterPath::MoveToElement):
+        elementType = MoveToElement;
+        break;
+
+    case(QPainterPath::LineToElement):
+        elementType = LineToElement;
+        break;
+
+    case(QPainterPath::CurveToElement):
+        elementType = CurveToElement;
+        break;
+
+    case(QPainterPath::CurveToDataElement):
+        elementType = CurveToDataElement;
+        break;
+
+    default:
+        break;
+    }
+}
+
+
+GreinerHormannClipping::GreinerHormannClipping(QPainterPath sub, QPainterPath clip, QVector<KisClippingVertex> intersectionPoints)
+    : subjectPath(sub)
+    , clipPath(clip)
+    , intersections(intersectionPoints)
+{
+    generateSubjectList(subjectPath, intersections);
+    generateClipList(clipPath, intersections);
+    linkIntersectionPoints(intersections);
+    markIntersectionPoints(subjectPath, clipPath);
+}
+
+void GreinerHormannClipping::generateSubjectList(QPainterPath subject, QVector<KisClippingVertex> intersectionPoints) {
+
+    for (int elementIdx = 0; elementIdx < subject.elementCount(); elementIdx++) {
+        QPainterPath::Element ele = subject.elementAt(elementIdx);
+        GreinerClippingVertex currVertex(ele);
+        QPointF point = ele;
+        currVertex.vertexType = GreinerClippingVertex::RegularVertex;
+
+        for (int i = 0; i < intersectionPoints.size(); i++) {
+
+            if (KisAlgebra2D::fuzzyPointCompare(point, intersectionPoints.at(i).point, epsilon)) {
+                currVertex.vertexType = GreinerClippingVertex::RegularIntersection;
+                break;
+            }
+        }
+
+        subjectList << currVertex;
+    }
+
+}
+
+void GreinerHormannClipping::generateClipList(QPainterPath clip, QVector<KisClippingVertex> intersectionPoints) {
+
+    for (int elementIdx = 0; elementIdx < clip.elementCount(); elementIdx++) {
+        QPainterPath::Element ele = clip.elementAt(elementIdx);
+        GreinerClippingVertex currVertex(ele);
+        QPointF point = ele;
+        currVertex.vertexType = GreinerClippingVertex::RegularVertex;
+
+        for (int i = 0; i < intersectionPoints.size(); i++) {
+
+            if (KisAlgebra2D::fuzzyPointCompare(point, intersectionPoints.at(i).point, epsilon)) {
+                currVertex.vertexType = GreinerClippingVertex::RegularIntersection;
+                break;
+            }
+        }
+
+        clipList << currVertex;
+    }
+}
+
+void GreinerHormannClipping::linkIntersectionPoints(QVector<KisClippingVertex> intersectionPoints) {
+
+    for (int i = 0; i < intersectionPoints.size(); i++) {
+
+        int subIntersectionIndex = -1;   // check if proper indices are added properly
+        int clipIntersectionIndex = -1;
+
+        QPointF intersectionPt = intersectionPoints.at(i).point;
+        for (int j = 0; j < subjectList.size(); j++) {
+
+            QPointF point = subjectList.at(j).point;
+            if (KisAlgebra2D::fuzzyPointCompare(point, intersectionPt, epsilon)) {
+                subIntersectionIndex = j;
+                break;
+            }
+        }
+
+        for (int j = 0; j < clipList.size(); j++) {
+
+            QPointF point = clipList.at(j).point;
+            if (KisAlgebra2D::fuzzyPointCompare(point, intersectionPt, epsilon)) {
+                clipIntersectionIndex = j;
+                break;
+            }
+        }
+
+        subjectList[subIntersectionIndex].referenceIndex = clipIntersectionIndex;
+        subjectList[subIntersectionIndex].reference = &clipList[clipIntersectionIndex];
+
+        clipList[clipIntersectionIndex].referenceIndex = subIntersectionIndex;
+        clipList[clipIntersectionIndex].reference = &subjectList[subIntersectionIndex];
+    }
+}
+
+void GreinerHormannClipping::markIntersectionPoints(QPainterPath subPath, QPainterPath clipPath) {
+
+    bool isInside = clipPath.contains(subjectList.first().point);
+
+    for (int i = 0; i < subjectList.size(); i++) {
+
+        if (subjectList[i].vertexType == GreinerClippingVertex::RegularIntersection) {
+            subjectList[i].flag = (isInside ? GreinerClippingVertex::ex : GreinerClippingVertex::en);
+            isInside = !isInside;
+        }
+    }
+
+    isInside = subPath.contains(clipList.first().point);
+
+    for (int i = 0; i < clipList.size(); i++) {
+
+        if (clipList[i].vertexType == GreinerClippingVertex::RegularIntersection) {
+            clipList[i].flag = (isInside ? GreinerClippingVertex::ex : GreinerClippingVertex::en);
+            isInside = !isInside;
+        }
+    }
+}
+
+QPainterPath addToPathForward(QVector<GreinerClippingVertex> vertexList ) {
+
+    QPainterPath path;
+
+    for (int i = 0; i < vertexList.size(); i++) {
+
+        GreinerClippingVertex vertex = vertexList.at(i);
+
+        switch (vertex.elementType) {
+
+        case GreinerClippingVertex::MoveToElement :
+            path.moveTo(vertex.point);
+            break;
+        case GreinerClippingVertex::LineToElement :
+            path.lineTo(vertex.point);
+            break;
+        case GreinerClippingVertex::CurveToElement :
+            path.cubicTo(vertex.point, vertexList.at(i + 1).point, vertexList.at(i + 2).point);
+            i += 2;
+            break;
+        case GreinerClippingVertex::CurveToDataElement :
+            path.moveTo(vertex.point);
+            break;
+        }
+    }
+
+    return path;
+}
+
+QPainterPath addToPathBackward(QVector<GreinerClippingVertex> vertexList ) {
+
+    QPainterPath path;
+
+    for (int i = 1; i < vertexList.size(); i++) {
+
+        GreinerClippingVertex previousVertex = vertexList.at(i - 1);
+        GreinerClippingVertex vertex = vertexList.at(i);
+
+        switch (previousVertex.elementType) {
+
+        case GreinerClippingVertex::MoveToElement :
+            path.moveTo(vertex.point);
+            break;
+        case GreinerClippingVertex::LineToElement :
+            path.lineTo(vertex.point);
+            break;
+        case GreinerClippingVertex::CurveToDataElement :
+            path.cubicTo(vertex.point, vertexList.at(i + 1).point, vertexList.at(i + 2).point);
+            i += 2;
+            break;
+        case GreinerClippingVertex::CurveToElement :
+//            path.moveTo(vertex.point);
+            break;
+        }
+    }
+
+    return path;
+}
+
+QPainterPath GreinerHormannClipping::unite() {
+
+    QPainterPath unitedPath;
+
+    GreinerClippingVertex currVertex = subjectList.at(0);
+    int currIndex = -1;
+    int displacement = 0;
+    bool parsingClipPath = 0; // 0 for subject, 1 for clip
+
+    for (int i = 0; i < subjectList.size(); i++) {
+
+        if (subjectList[i].vertexType == GreinerClippingVertex::RegularIntersection) {
+
+            currVertex = subjectList[i];
+            currIndex = i;
+            displacement = subjectList[i].flag == GreinerClippingVertex::en ? -1 : 1;
+        }
+    }
+
+    if (currIndex == -1) {
+        // paths don't intersect
+    }
+
+
+
+    QVector<GreinerClippingVertex> currList = subjectList;
+    QVector<GreinerClippingVertex> bufferList ;
+    QPointF firstIntersectionPt = currVertex.point;
+
+    unitedPath.moveTo(firstIntersectionPt);
+
+    currVertex = subjectList[currIndex + displacement];
+
+    while (firstIntersectionPt != currVertex.point) {
+
+        if (displacement == 1) {
+
+            bufferList << currVertex;
+            currIndex = qAbs((currIndex + displacement) % (currList.size() - 1));
+            currVertex = currList[currIndex];
+
+            if (currVertex.vertexType == GreinerClippingVertex::RegularIntersection) {
+
+                parsingClipPath = !parsingClipPath;
+                currList = parsingClipPath ? subjectList : clipList;
+                currVertex = currList[currVertex.referenceIndex];
+                currIndex = currVertex.referenceIndex;
+                displacement = currVertex.flag == GreinerClippingVertex::en ? -1 : 1;
+                unitedPath.addPath(addToPathForward(bufferList));
+                bufferList.clear();
+
+                // while traversing in reverse, we need an extra element.
+                if (displacement == -1) {
+
+                    bufferList << currVertex;
+                    currVertex = subjectList[currIndex];
+                }
+            }
+        }
+
+        else if (displacement == -1) {
+            bufferList << currVertex;
+            currIndex = qAbs((currIndex + displacement) % (currList.size() - 1));
+            currVertex = currList[currIndex];
+
+            if (currVertex.vertexType == GreinerClippingVertex::RegularIntersection) {
+
+                parsingClipPath = !parsingClipPath;
+                currList = parsingClipPath ? subjectList : clipList;
+                currVertex = currList[currVertex.referenceIndex];
+                currIndex = currVertex.referenceIndex;
+                displacement = currVertex.flag == GreinerClippingVertex::en ? -1 : 1;
+//                unitedPath.addPath(addToPathBackward(bufferList));
+                bufferList.clear();
+
+                // while traversing in reverse, we need an extra element.
+                if (displacement == -1) {
+
+                    bufferList << currVertex;
+                    currIndex = qAbs((currIndex + displacement) % (currList.size() - 1));
+                    currVertex = currList[currIndex];
+                }
+            }
+        }
+    }
+
+    return unitedPath;
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
