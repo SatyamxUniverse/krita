@@ -441,9 +441,10 @@ public:
     VertexType vertexType;
     Flag flag;
     int referenceIndex;
-    GreinerClippingVertex* reference;
+    GreinerClippingVertex* reference = 0;
 
 
+    GreinerClippingVertex() = default;
     GreinerClippingVertex(QPainterPath::Element element, VertexType type = RegularVertex, Flag flag = null, int referenceIdx = -1);
 
 private:
