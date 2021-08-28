@@ -1480,7 +1480,7 @@ QPainterPath addToPathBackward(QVector<GreinerClippingVertex> vertexList ) {
 }
 
 QPainterPath GreinerHormannClipping::unite() {
-
+/*
     QPainterPath unitedPath;
 
     GreinerClippingVertex currVertex = subjectList.at(0);
@@ -1510,14 +1510,14 @@ QPainterPath GreinerHormannClipping::unite() {
 
     unitedPath.moveTo(firstIntersectionPt);
 
-    currVertex = subjectList[currIndex + displacement];
+    currVertex = subjectList[qAbs((currIndex + displacement) % (currList.size()))];
 
     while (firstIntersectionPt != currVertex.point) {
 
         if (displacement == 1) {
 
             bufferList << currVertex;
-            currIndex = qAbs((currIndex + displacement) % (currList.size() - 1));
+            currIndex = qAbs((currIndex + displacement) % (currList.size()));
             currVertex = currList[currIndex];
 
             if (currVertex.vertexType == GreinerClippingVertex::RegularIntersection) {
@@ -1541,7 +1541,7 @@ QPainterPath GreinerHormannClipping::unite() {
 
         else if (displacement == -1) {
             bufferList << currVertex;
-            currIndex = qAbs((currIndex + displacement) % (currList.size() - 1));
+            currIndex = qAbs((currIndex + displacement) % (currList.size()));
             currVertex = currList[currIndex];
 
             if (currVertex.vertexType == GreinerClippingVertex::RegularIntersection) {
@@ -1558,7 +1558,7 @@ QPainterPath GreinerHormannClipping::unite() {
                 if (displacement == -1) {
 
                     bufferList << currVertex;
-                    currIndex = qAbs((currIndex + displacement) % (currList.size() - 1));
+                    currIndex = qAbs((currIndex + displacement) % (currList.size()));
                     currVertex = currList[currIndex];
                 }
             }
@@ -1566,11 +1566,53 @@ QPainterPath GreinerHormannClipping::unite() {
     }
 
     return unitedPath;
+*/
+
+    QPainterPath retPath;
+
+    std::cout << "subject\n";
+    Q_FOREACH( GreinerClippingVertex ele, subjectList) {
+
+        std::cout << ele.point.x() << "pt: " << ele.point.y() << "  flag: " << ele.flag << "  type: " << ele.vertexType << std::endl;
+    }
+
+    std::cout << "\n\nclip\n";
+    Q_FOREACH( GreinerClippingVertex ele, clipList) {
+
+        std::cout << ele.point.x() << "pt: " << ele.point.y() << "  flag: " << ele.flag << "  type: " << ele.vertexType << std::endl;
+    }
+
+//    QPainterPath res;
+
+//    GreinerClippingVertex currVertex = subjectList.at(0);
+//    int currIndex = -1;
+//    int displacement = 0;
+//    bool parsingClipPath = 0; // 0 for subject, 1 for clip
+
+//    for (int i = 0; i < subjectList.size(); i++) {
+
+//        if (subjectList[i].vertexType == GreinerClippingVertex::RegularIntersection) {
+
+//            currVertex = subjectList[i];
+//            currIndex = i;
+//            displacement = subjectList[i].flag == GreinerClippingVertex::en ? -1 : 1;
+//        }
+//    }
+
+//    GreinerClippingVertex firstVertex = currVertex;
+
+
+//    return res;
+    return retPath;
 }
 
+QVector<GreinerClippingVertex> GreinerHormannClipping::getSubList() {
+    return clipList;
+}
 
-
-
+QVector<GreinerClippingVertex> GreinerHormannClipping::getClipList() {
+    return subjectList;
+}
 
 
 

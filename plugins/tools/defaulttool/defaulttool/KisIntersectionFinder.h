@@ -460,6 +460,9 @@ public:
     QVector<GreinerClippingVertex> clipList;
     QVector<KisClippingVertex> intersections;
 
+    QVector<GreinerClippingVertex> getSubList();
+    QVector<GreinerClippingVertex> getClipList();
+
     GreinerHormannClipping(QPainterPath sub, QPainterPath clip, QVector<KisClippingVertex> intersectionPoints);
 
     void generateSubjectList(QPainterPath subject, QVector<KisClippingVertex> intersectionPoints);

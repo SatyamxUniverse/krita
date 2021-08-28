@@ -35,7 +35,7 @@ QPainterPath KisBooleanOperations::unite(const QPainterPath &sub, const QPainter
     }
 
     KisIntersectionFinder KIF(sub, clip);
-    KIF.findAllIntersections();
+    QVector<KisClippingVertex> intPoints = KIF.findAllIntersections();
 
     KIF.processShapes();
 
@@ -51,6 +51,32 @@ QPainterPath KisBooleanOperations::unite(const QPainterPath &sub, const QPainter
     QPainterPath::Element ele;
 
 //  the incorrect path has some un-substituted elements
+
+    QPainterPath trueRes = (processedRes.elementCount() < processedRes1.elementCount()) ? processedRes : processedRes1;
+
+    GreinerHormannClipping gcv(splittedSub, splittedClip, intPoints);
+    trueRes = gcv.unite();
+
+    auto subjectList = gcv.getSubList();
+    auto clipList = gcv.getClipList();
+
+    Q_FOREACH(KisClippingVertex kcv, intPoints) {
+
+        std::cout << kcv.point.x() << " " << kcv.point.y() << std::endl;
+    }
+
+//    std::cout << "subject\n";
+//    Q_FOREACH( GreinerClippingVertex ele, subjectList) {
+
+//        std::cout << "pt: " << ele.point.x() << ", " << ele.point.y() << "  flag: " << ele.flag << "  type: " << ele.vertexType << std::endl;
+//    }
+
+//    std::cout << "\n\nclip\n";
+//    Q_FOREACH( GreinerClippingVertex ele, clipList) {
+
+//        std::cout << "pt: " << ele.point.x() << ", " << ele.point.y() << "  flag: " << ele.flag << "  type: " << ele.vertexType << std::endl;
+//    }
+
     for (int i = 0; i < processedRes.elementCount(); i++) {
 
         ele = processedRes.elementAt(i);
@@ -61,10 +87,6 @@ QPainterPath KisBooleanOperations::unite(const QPainterPath &sub, const QPainter
         }
     }
 
-//    QPainterPath trueRes = (processedRes.elementCount() < processedRes1.elementCount()) ? processedRes : processedRes1;
-
-//    GreinerHormannClipping gcv(splittedSub, splittedClip, intPoints);
-//    return gcv.unite();
 
     return processedRes;
 }
@@ -77,7 +99,7 @@ QPainterPath KisBooleanOperations::intersect(QPainterPath &sub, QPainterPath &cl
     }
 
     KisIntersectionFinder KIF(sub, clip);
-    KIF.findAllIntersections();
+    QVector<KisClippingVertex> intPoints = KIF.findAllIntersections();
     KIF.processShapes();
 
     QPainterPath splittedSub = KIF.subjectShapeToPath();
@@ -104,7 +126,9 @@ QPainterPath KisBooleanOperations::intersect(QPainterPath &sub, QPainterPath &cl
 
 //    QPainterPath trueRes = (processedRes.elementCount() < processedRes1.elementCount()) ? processedRes : processedRes1;
 
-    return processedRes;
+    GreinerHormannClipping ghc(splittedSub, splittedClip, intPoints);
+
+    return ghc.unite();
 }
 
 QPainterPath KisBooleanOperations::subtract(QPainterPath &sub, QPainterPath &clip)
