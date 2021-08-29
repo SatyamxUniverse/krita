@@ -1480,7 +1480,7 @@ QPainterPath addToPathBackward(QVector<GreinerClippingVertex> vertexList ) {
 }
 
 QPainterPath GreinerHormannClipping::unite() {
-/*
+
     QPainterPath unitedPath;
 
     GreinerClippingVertex currVertex = subjectList.at(0);
@@ -1495,6 +1495,7 @@ QPainterPath GreinerHormannClipping::unite() {
             currVertex = subjectList[i];
             currIndex = i;
             displacement = subjectList[i].flag == GreinerClippingVertex::en ? -1 : 1;
+            break;
         }
     }
 
@@ -1503,84 +1504,22 @@ QPainterPath GreinerHormannClipping::unite() {
     }
 
 
-
-    QVector<GreinerClippingVertex> currList = subjectList;
-    QVector<GreinerClippingVertex> bufferList ;
-    QPointF firstIntersectionPt = currVertex.point;
-
-    unitedPath.moveTo(firstIntersectionPt);
-
-    currVertex = subjectList[qAbs((currIndex + displacement) % (currList.size()))];
-
-    while (firstIntersectionPt != currVertex.point) {
-
-        if (displacement == 1) {
-
-            bufferList << currVertex;
-            currIndex = qAbs((currIndex + displacement) % (currList.size()));
-            currVertex = currList[currIndex];
-
-            if (currVertex.vertexType == GreinerClippingVertex::RegularIntersection) {
-
-                parsingClipPath = !parsingClipPath;
-                currList = parsingClipPath ? subjectList : clipList;
-                currVertex = currList[currVertex.referenceIndex];
-                currIndex = currVertex.referenceIndex;
-                displacement = currVertex.flag == GreinerClippingVertex::en ? -1 : 1;
-                unitedPath.addPath(addToPathForward(bufferList));
-                bufferList.clear();
-
-                // while traversing in reverse, we need an extra element.
-                if (displacement == -1) {
-
-                    bufferList << currVertex;
-                    currVertex = subjectList[currIndex];
-                }
-            }
-        }
-
-        else if (displacement == -1) {
-            bufferList << currVertex;
-            currIndex = qAbs((currIndex + displacement) % (currList.size()));
-            currVertex = currList[currIndex];
-
-            if (currVertex.vertexType == GreinerClippingVertex::RegularIntersection) {
-
-                parsingClipPath = !parsingClipPath;
-                currList = parsingClipPath ? subjectList : clipList;
-                currVertex = currList[currVertex.referenceIndex];
-                currIndex = currVertex.referenceIndex;
-                displacement = currVertex.flag == GreinerClippingVertex::en ? -1 : 1;
-//                unitedPath.addPath(addToPathBackward(bufferList));
-                bufferList.clear();
-
-                // while traversing in reverse, we need an extra element.
-                if (displacement == -1) {
-
-                    bufferList << currVertex;
-                    currIndex = qAbs((currIndex + displacement) % (currList.size()));
-                    currVertex = currList[currIndex];
-                }
-            }
-        }
-    }
-
-    return unitedPath;
-*/
-
-    QPainterPath retPath;
+//    QPainterPath retPath;
 
     std::cout << "subject\n";
+    int i = 0;
     Q_FOREACH( GreinerClippingVertex ele, subjectList) {
 
-        std::cout << ele.point.x() << "pt: " << ele.point.y() << "  flag: " << ele.flag << "  type: " << ele.vertexType << std::endl;
+        std::cout << i++ << " pt: " << ele.point.x() << " " << ele.point.y() << "  flag: " << ele.flag << "  type: " << ele.vertexType
+                  << " ref:" << ele.referenceIndex << std::endl;
     }
 
     std::cout << "\n\nclip\n";
+    i = 0;
     Q_FOREACH( GreinerClippingVertex ele, clipList) {
 
-        std::cout << ele.point.x() << "pt: " << ele.point.y() << "  flag: " << ele.flag << "  type: " << ele.vertexType << std::endl;
-    }
+        std::cout << i++ << " pt: " << ele.point.x() << " " << ele.point.y() << "  flag: " << ele.flag << "  type: " << ele.vertexType
+                  << " ref:" << ele.referenceIndex << std::endl;    }
 
 //    QPainterPath res;
 
@@ -1603,7 +1542,81 @@ QPainterPath GreinerHormannClipping::unite() {
 
 
 //    return res;
-    return retPath;
+//    return retPath;
+
+
+    QVector<GreinerClippingVertex> currList = subjectList;
+    QVector<GreinerClippingVertex> bufferList ;
+    QPointF firstIntersectionPt = currVertex.point;
+
+    unitedPath.moveTo(firstIntersectionPt);
+
+    currVertex = subjectList[qAbs((currIndex + displacement) % (currList.size()))];
+
+    while (firstIntersectionPt != currVertex.point) {
+
+        std::cout << "!+! " << currVertex.point.x() << " " << currVertex.point.y() << std::endl;
+
+        if (displacement == 1) {
+
+            bufferList << currVertex;
+
+            currIndex = qAbs((currIndex + displacement) % (currList.size()));
+            currVertex = currList[currIndex];
+
+            if (currVertex.vertexType == GreinerClippingVertex::RegularIntersection) {
+
+                parsingClipPath = !parsingClipPath;
+                currList = parsingClipPath ? subjectList : clipList;
+                displacement = currVertex.flag == GreinerClippingVertex::en ? -1 : 1;
+
+                currIndex = currVertex.referenceIndex;
+                currVertex = currList[currIndex];
+
+                unitedPath.addPath(addToPathForward(bufferList));
+                bufferList.clear();
+
+                // while traversing in reverse, we need an extra element.
+//                if (displacement == -1) {
+
+//                    bufferList << currVertex;
+//                    currVertex = currList[currIndex];
+//                }
+            }
+        }
+
+        else {
+            bufferList << currVertex;
+            currIndex = qAbs((currIndex + displacement) % (currList.size()));
+            currVertex = currList[currIndex];
+
+            if (currVertex.vertexType == GreinerClippingVertex::RegularIntersection) {
+
+                displacement = currVertex.flag == GreinerClippingVertex::en ? -1 : 1;
+
+                parsingClipPath = !parsingClipPath;
+                currList = parsingClipPath ? subjectList : clipList;
+
+                currIndex = currVertex.referenceIndex;
+                currVertex = currList[currIndex];
+//                unitedPath.addPath(addToPathBackward(bufferList));
+                bufferList.clear();
+
+                // while traversing in reverse, we need an extra element.
+//                if (displacement == -1) {
+
+//                    bufferList << currVertex;
+//                    currIndex = qAbs((currIndex + displacement) % (currList.size()));
+//                    currVertex = currList[currIndex];
+//                }
+            }
+        }
+    }
+
+    return unitedPath;
+
+
+
 }
 
 QVector<GreinerClippingVertex> GreinerHormannClipping::getSubList() {
