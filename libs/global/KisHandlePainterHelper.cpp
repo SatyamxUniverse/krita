@@ -84,11 +84,9 @@ void KisHandlePainterHelper::drawHandleRect(const QPointF &center, qreal radius,
     const QPen originalPen = m_painter->pen();
 
     // temporarily set the pen width to 2 to avoid pixel shifting dropping pixels the border
-    QPen *tempPen = new QPen(m_painter->pen());
-    tempPen->setWidth(4);
-    const QPen customPen = *tempPen;
+    QPen customPen = m_painter->pen();
+    customPen.setWidth(4);
     m_painter->setPen(customPen);
-
 
     Q_FOREACH (KisHandleStyle::IterationStyle it, m_handleStyle.handleIterations) {
         PenBrushSaver saver(it.isValid ? m_painter : 0, it.stylePair, PenBrushSaver::allow_noop);

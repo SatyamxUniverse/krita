@@ -1,0 +1,6 @@
+Checks: '-*,bugprone-*,clang-*,cppcoreguidelines-*,performance-*,portability-*,-cppcoreguidelines-avoid-magic-numbers,-cppcoreguidelines-pro-bounds-pointer-arithmetic,-modernize-loop-convert,-modernize-use-auto,-modernize-use-nullptr,-modernize-use-trailing-return-type,-cppcoreguidelines-pro-type-static-cast-downcast,-cppcoreguidelines-pro-bounds-array-to-pointer-decay,-cppcoreguidelines-avoid-non-const-global-variables'
+CheckOptions:
+      - key:             cppcoreguidelines-owning-memory.LegacyResourceConsumers
+        value:           '::free;::realloc;::freopen;::fclose;::toQShared;::QSharedPointer::QSharedPointer;::QSharedPointer::reset;::QScopedPointer::QScopedPointer;::QScopedPointer::reset'
+      - key:             performance-unnecessary-value-param.AllowedTypes
+        value:           '.+SP;QWeakPointer;QSharedPointer'

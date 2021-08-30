@@ -45,7 +45,7 @@ public:
 
     void next() override
     {
-        const_cast<MemoryTagIterator*>(this)->m_currentPosition += 1;
+        m_currentPosition += 1;
     }
 
     QString url() const override { return tag() ? tag()->url() : QString(); }

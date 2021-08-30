@@ -7,9 +7,6 @@ set -e
 update-alternatives --install /usr/bin/clang-format clang-format /usr/bin/clang-format-11 30
 update-alternatives --set clang-format /usr/bin/clang-format-11
 
-# download .clang-format into current directory
-wget -c --output-document=.clang-format https://invent.kde.org/frameworks/extra-cmake-modules/raw/master/kde-modules/clang-format.cmake
-
 # format source code inline
 git clang-format-11 $(git merge-base origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME $CI_COMMIT_SHA)
 

@@ -309,7 +309,7 @@ KoResourceSP KisResourceLocator::importResourceFromFile(const QString &resourceT
 
     const QString md5 = resource->md5Sum();
 
-    const KoResourceSP existingResource = storage->resource(resourceType + "/" + resource->filename());
+    KoResourceSP existingResource = storage->resource(resourceType + "/" + resource->filename());
 
     if (existingResource) {
         if (existingResource->md5Sum() == md5) {
