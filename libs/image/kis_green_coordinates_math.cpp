@@ -79,7 +79,7 @@ Private::precalculateOneEdge(const QPointF &pt,
      * differently so we must flip the sign of the \psi
      * variable. Don't ask me why... (DK)
      */
-    static const qreal magicMultiplier = -1.0;
+    static constexpr qreal magicMultiplier = -1.0;
 
     *edge_psi = -magicMultiplier * norm(a) / (4 * M_PI) *
         ((4 * S - pow2(R) / Q) * A10 + R / (2 * Q) * L10 + L1 - 2);

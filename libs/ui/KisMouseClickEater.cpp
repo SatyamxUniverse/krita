@@ -33,9 +33,9 @@ void KisMouseClickEater::reset()
 bool KisMouseClickEater::eventFilter(QObject *watched, QEvent *event)
 {
 #ifdef Q_OS_WIN
-    const int tabletMouseEventsFlowDelay = 500;
+    constexpr int tabletMouseEventsFlowDelay = 500;
 #else
-    const int tabletMouseEventsFlowDelay = 256;
+    constexpr int tabletMouseEventsFlowDelay = 256;
 #endif
 
     if (event->type() == QEvent::TabletMove) {

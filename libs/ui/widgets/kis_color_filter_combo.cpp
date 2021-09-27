@@ -301,7 +301,7 @@ void KisColorFilterCombo::paintColorPie(QStylePainter &painter, const QPalette& 
     KisNodeViewColorScheme scm;
     const QPen oldPen = painter.pen();
     const QBrush oldBrush = painter.brush();
-    const int border = 0;
+    constexpr int border = 0;
     QColor shadowColor = palette.shadow().color();
     shadowColor.setAlpha(64);
 
@@ -323,8 +323,8 @@ void KisColorFilterCombo::paintColorPie(QStylePainter &painter, const QPalette& 
             painter.setBrush(QBrush(shadowColor));
             painter.setRenderHint(QPainter::Antialiasing);
             painter.drawEllipse(rect);
-            const int step = 16 * 360 / 4;
-            const int checkerSteps = 4;
+            constexpr int step = 16 * 360 / 4;
+            constexpr int checkerSteps = 4;
 
             for (int i = 0; i < checkerSteps; i++) {
                 QBrush checkerBrush = QBrush((i % 2) ? grey : white);

@@ -44,16 +44,13 @@ public:
     void convertChannelToVisualRepresentation(const quint8 *src, quint8 *dst, quint32 nPixels, const QBitArray selectedChannels) const override;
 
 private:
-
-    static const quint32 CHANNEL_L = 0;
-    static const quint32 CHANNEL_A = 1;
-    static const quint32 CHANNEL_B = 2;
-    static const quint32 CHANNEL_ALPHA = 3;
-    static const quint32 MAX_CHANNEL_L = 0xff00;
-    static const quint32 MAX_CHANNEL_AB = 0xffff;
-    static const quint32 CHANNEL_AB_ZERO_OFFSET = 0x8000;
-
-
+    static constexpr quint32 CHANNEL_L = 0;
+    static constexpr quint32 CHANNEL_A = 1;
+    static constexpr quint32 CHANNEL_B = 2;
+    static constexpr quint32 CHANNEL_ALPHA = 3;
+    static constexpr quint32 MAX_CHANNEL_L = 0xff00;
+    static constexpr quint32 MAX_CHANNEL_AB = 0xffff;
+    static constexpr quint32 CHANNEL_AB_ZERO_OFFSET = 0x8000;
 };
 
 class KoLabColorSpaceFactory : public KoSimpleColorSpaceFactory

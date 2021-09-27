@@ -57,7 +57,7 @@ QRect KisEqualizerButton::Private::boundingRect() const
 
 QRect KisEqualizerButton::Private::fillingRect() const
 {
-    const int offset = 3;
+    constexpr int offset = 3;
     QRect filling = boundingRect().adjusted(offset + 1, offset + 1,
                                             -offset, -offset);
 

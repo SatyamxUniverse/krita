@@ -626,7 +626,7 @@ void KisPerspectiveTransformStrategy::Private::recalculateTransformations()
     paintingOffset = transaction.originalTopLeft();
 
     // check whether image is too big to be displayed or not
-    const qreal maxScale = 20.0;
+    constexpr qreal maxScale = 20.0;
 
     imageTooBig = false;
 

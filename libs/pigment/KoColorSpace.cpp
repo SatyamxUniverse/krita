@@ -199,7 +199,7 @@ QPolygonF KoColorSpace::estimatedTRCXYY() const
 
         d->colorants.resize(3*colorChannelCount());
 
-        const int segments = 10;
+        constexpr int segments = 10;
         for (quint32 i=0; i<colorChannelCount(); i++) {
             qreal colorantY=1.0;
             if (colorModelId().id()!="CMYKA") {

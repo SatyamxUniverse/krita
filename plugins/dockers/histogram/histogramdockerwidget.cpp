@@ -227,7 +227,7 @@ void HistogramDockerWidget::paintEvent(QPaintEvent *event)
         painter.fillRect(0, 0, this->width(), this->height(), this->palette().dark().color());
         painter.setPen(this->palette().light().color());
 
-        const int NGRID = 4;
+        constexpr int NGRID = 4;
         for (int i = 0; i <= NGRID; ++i) {
             painter.drawLine(this->width()*i / NGRID, 0., this->width()*i / NGRID, this->height());
             painter.drawLine(0., this->height()*i / NGRID, this->width(), this->height()*i / NGRID);

@@ -117,7 +117,7 @@ QRect KisErodeSelectionFilter::changeRect(const QRect& rect, KisDefaultBoundsBas
 {
     Q_UNUSED(defaultBounds);
 
-    const qint32 radius = 1;
+    constexpr qint32 radius = 1;
     return rect.adjusted(-radius, -radius, radius, radius);
 }
 
@@ -183,7 +183,7 @@ QRect KisDilateSelectionFilter::changeRect(const QRect& rect, KisDefaultBoundsBa
 {
     Q_UNUSED(defaultBounds);
 
-    const qint32 radius = 1;
+    constexpr qint32 radius = 1;
     return rect.adjusted(-radius, -radius, radius, radius);
 }
 
@@ -823,7 +823,7 @@ QRect KisSmoothSelectionFilter::changeRect(const QRect& rect, KisDefaultBoundsBa
 {
     Q_UNUSED(defaultBounds);
 
-    const qint32 radius = 1;
+    constexpr qint32 radius = 1;
     return rect.adjusted(-radius, -radius, radius, radius);
 }
 

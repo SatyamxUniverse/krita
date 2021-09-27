@@ -20,8 +20,7 @@
 
 #include "kis_tool_multihand_helper.h"
 
-
-static const int MAXIMUM_BRUSHES = 50;
+static constexpr int MAXIMUM_BRUSHES = 50;
 
 #include <QtGlobal>
 #ifdef Q_OS_WIN

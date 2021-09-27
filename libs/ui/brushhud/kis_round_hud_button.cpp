@@ -41,7 +41,7 @@ void KisRoundHudButton::setOnOffIcons(const QIcon &on, const QIcon &off)
 
 void KisRoundHudButton::paintEvent(QPaintEvent */*event*/)
 {
-    const int borderWidth = 3;
+    constexpr int borderWidth = 3;
     const QPointF center = QRectF(rect()).center();
     const qreal radius = 0.5 * (center.x() + center.y()) - borderWidth;
 
@@ -83,7 +83,7 @@ void KisRoundHudButton::paintEvent(QPaintEvent */*event*/)
 
 bool KisRoundHudButton::hitButton(const QPoint &pos) const
 {
-    const int borderWidth = 3;
+    constexpr int borderWidth = 3;
     const QPointF center = QRectF(rect()).center();
     const qreal radius = 0.5 * (center.x() + center.y()) - borderWidth;
 

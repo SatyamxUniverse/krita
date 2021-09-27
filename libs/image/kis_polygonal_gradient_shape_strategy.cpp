@@ -109,9 +109,8 @@ namespace Private {
                                qreal exponent, bool searchForMax,
                                qreal initialExtremumValue,
                                QPointF *result) {
-
-        const qreal minStepThreshold = 0.3;
-        const int numCandidatesThreshold = 4;
+        constexpr qreal minStepThreshold = 0.3;
+        constexpr int numCandidatesThreshold = 4;
 
         KIS_ASSERT_RECOVER(numSamples >= 4) {
             *result = centerFromPath(path);

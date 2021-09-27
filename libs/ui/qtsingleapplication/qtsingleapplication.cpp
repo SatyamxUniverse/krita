@@ -38,7 +38,7 @@
 #include <QSharedMemory>
 #include <QWidget>
 
-static const int instancesSize = 1024;
+static constexpr int instancesSize = 1024;
 
 static QString instancesLockFilename(const QString &appSessionId)
 {

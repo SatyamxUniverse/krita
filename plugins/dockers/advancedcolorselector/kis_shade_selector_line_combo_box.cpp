@@ -55,7 +55,7 @@ void KisShadeSelectorLineComboBox::showPopup()
     QComboBox::showPopup();
     m_popup->show();
 
-    const int widgetMargin = 20;
+    constexpr int widgetMargin = 20;
 #if (QT_VERSION >= QT_VERSION_CHECK(5, 10, 0))
     QRect geom = this->geometry();
     QPoint p(geom.width() / 2 + geom.left(), geom.height() / 2 + geom.top());

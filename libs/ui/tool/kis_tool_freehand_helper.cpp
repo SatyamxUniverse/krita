@@ -43,15 +43,15 @@
 // Factor by which to scale the airbrush timer's interval, relative to the actual airbrushing rate.
 // Setting this less than 1 makes the timer-generated pseudo-events happen faster than the desired
 // airbrush rate, which can improve responsiveness.
-const qreal AIRBRUSH_INTERVAL_FACTOR = 0.5;
+constexpr qreal AIRBRUSH_INTERVAL_FACTOR = 0.5;
 
 // The amount of time, in milliseconds, to allow between updates of the spacing information. Only
 // used when spacing updates between dabs are enabled.
-const qreal SPACING_UPDATE_INTERVAL = 50.0;
+constexpr qreal SPACING_UPDATE_INTERVAL = 50.0;
 
 // The amount of time, in milliseconds, to allow between updates of the timing information. Only
 // used when airbrushing.
-const qreal TIMING_UPDATE_INTERVAL = 50.0;
+constexpr qreal TIMING_UPDATE_INTERVAL = 50.0;
 
 struct KisToolFreehandHelper::Private
 {

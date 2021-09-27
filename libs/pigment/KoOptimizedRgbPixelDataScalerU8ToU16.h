@@ -27,20 +27,20 @@ class KoOptimizedRgbPixelDataScalerU8ToU16 : public KoOptimizedRgbPixelDataScale
         const int numColorChannels = 4 * numColumns;
 
 #if defined __AVX2__
-        const int channelsPerAvx2Block = 16;
-        const int channelsPerSse2Block = 8;
+        constexpr int channelsPerAvx2Block = 16;
+        constexpr int channelsPerSse2Block = 8;
         const int avx2Block = numColorChannels / channelsPerAvx2Block;
         const int rest = numColorChannels % channelsPerAvx2Block;
         const int sse2Block = rest / channelsPerSse2Block;
         const int scalarBlock = rest % channelsPerSse2Block;
 #elif defined __SSE4_1__
-        const int channelsPerSse2Block = 8;
-        const int avx2Block = 0;
+        constexpr int channelsPerSse2Block = 8;
+        constexpr int avx2Block = 0;
         const int sse2Block = numColorChannels / channelsPerSse2Block;
         const int scalarBlock = numColorChannels % channelsPerSse2Block;
 #else
-        const int avx2Block = 0;
-        const int sse2Block = 0;
+        constexpr int avx2Block = 0;
+        constexpr int sse2Block = 0;
         const int scalarBlock = numColorChannels;
 #endif
 
@@ -107,8 +107,8 @@ class KoOptimizedRgbPixelDataScalerU8ToU16 : public KoOptimizedRgbPixelDataScale
         const int numColorChannels = 4 * numColumns;
 
 #if defined __AVX2__
-        const int channelsPerAvx2Block = 32;
-        const int channelsPerSse2Block = 16;
+        constexpr int channelsPerAvx2Block = 32;
+        constexpr int channelsPerSse2Block = 16;
         const int avx2Block = numColorChannels / channelsPerAvx2Block;
         const int rest = numColorChannels % channelsPerAvx2Block;
         const int sse2Block = rest / channelsPerSse2Block;
@@ -118,15 +118,15 @@ class KoOptimizedRgbPixelDataScalerU8ToU16 : public KoOptimizedRgbPixelDataScale
         __m128i offset2 = _mm_set1_epi16(128);
 
 #elif defined __SSE2__
-        const int channelsPerSse2Block = 16;
-        const int avx2Block = 0;
+        constexpr int channelsPerSse2Block = 16;
+        constexpr int avx2Block = 0;
         const int sse2Block = numColorChannels / channelsPerSse2Block;
         const int scalarBlock = numColorChannels % channelsPerSse2Block;
 
         __m128i offset2 = _mm_set1_epi16(128);
 #else
-        const int avx2Block = 0;
-        const int sse2Block = 0;
+        constexpr int avx2Block = 0;
+        constexpr int sse2Block = 0;
         const int scalarBlock = numColorChannels;
 #endif
 

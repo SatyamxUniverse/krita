@@ -246,7 +246,7 @@ int InplaceTransformStrokeStrategy::calculatePreferredLevelOfDetail(const QRect 
     if (!lodPreferences.lodSupported() ||
         !(lodPreferences.lodPreferred() || m_d->forceLodMode)) return -1;
 
-    const int maxSize = 2000;
+    constexpr int maxSize = 2000;
     const int maxDimension = KisAlgebra2D::maxDimension(srcRect);
 
     const qreal zoom = qMax(1.0, qreal(maxDimension) / maxSize);

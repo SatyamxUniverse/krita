@@ -166,8 +166,8 @@ void KisUnsharpFilter::processLightnessOnly(KisPaintDeviceSP device,
     quint16 labColorSrc[4];
     quint16 labColorDst[4];
 
-    const int posL = 0;
-    const int posAplha = 3;
+    constexpr int posL = 0;
+    constexpr int posAplha = 3;
 
     const qreal factorInv = 1.0 / factor;
 

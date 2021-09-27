@@ -225,8 +225,8 @@ void TransformStrokeStrategy::doStrokeCallback(KisStrokeJobData *data)
                 KisImageConfig cfg(true);
                 KoColor pixel(cfg.selectionOverlayMaskColor(), previewDevice->colorSpace());
 
-                const qreal coeff = 1.0 / 255.0;
-                const qreal baseOpacity = 0.5;
+                constexpr qreal coeff = 1.0 / 255.0;
+                constexpr qreal baseOpacity = 0.5;
 
                 while (srcIt.nextPixel() && dstIt.nextPixel()) {
                     qreal gray = srcIt.rawDataConst()[0];

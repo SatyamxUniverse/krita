@@ -48,8 +48,8 @@ Q_SIGNALS:
     void settingsChanged() const;
 
 private:
-    static const int m_ACTION_TEXT_COLUMN = 0;
-    static const int m_ACTION_NAME_COLUMN = 1;
+    static constexpr int m_ACTION_TEXT_COLUMN = 0;
+    static constexpr int m_ACTION_NAME_COLUMN = 1;
 
     QString actionNameForIndex(int index) const;
     int indexFromActionName(QString actionName) const;

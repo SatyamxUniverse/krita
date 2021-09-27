@@ -24,7 +24,7 @@ Q_GLOBAL_STATIC(KisStrokeSpeedMonitor, s_instance)
 
 struct KisStrokeSpeedMonitor::Private
 {
-    static const int averageWindow = 10;
+    static constexpr int averageWindow = 10;
 
     Private()
         : avgCursorSpeed(averageWindow),

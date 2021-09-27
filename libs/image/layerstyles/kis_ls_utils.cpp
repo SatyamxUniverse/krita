@@ -230,7 +230,7 @@ namespace KisLsUtils
         }
     }
 
-    const int noiseNeedBorder = 8;
+    constexpr int noiseNeedBorder = 8;
 
     void applyNoise(KisPixelSelectionSP selection,
                     const QRect &applyRect,

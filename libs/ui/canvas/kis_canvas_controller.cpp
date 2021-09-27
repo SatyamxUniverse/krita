@@ -25,7 +25,7 @@
 #include "kis_signal_compressor_with_param.h"
 #include "kis_config_notifier.h"
 
-static const int gRulersUpdateDelay = 80 /* ms */;
+static constexpr int gRulersUpdateDelay = 80 /* ms */;
 
 struct KisCanvasController::Private {
     Private(KisCanvasController *qq)

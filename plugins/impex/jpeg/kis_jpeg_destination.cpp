@@ -14,8 +14,7 @@
 
 namespace
 {
-
-const qint64 OUTPUT_BUFFER_SIZE = 4096;
+constexpr qint64 OUTPUT_BUFFER_SIZE = 4096;
 
 struct KisJPEGDestinationManager : public jpeg_destination_mgr
 {

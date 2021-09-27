@@ -75,7 +75,7 @@ void KisAnimTimelineLayersHeader::paintSection(QPainter *painter, const QRect &a
 
     if (isLayerActive) {
         QColor lineColor = KisAnimTimelineColors::instance()->activeLayerBackground();
-        const int lineWidth = 2;
+        constexpr int lineWidth = 2;
 
         painter->setPen(QPen(lineColor, lineWidth));
         painter->setBrush(lineColor);
@@ -169,8 +169,8 @@ int KisAnimTimelineLayersHeader::Private::numIcons(int logicalIndex) const
 
 int KisAnimTimelineLayersHeader::Private::iconSectionWidth(int layerIndex) const
 {
-    const int iconSize = 16;
-    const int iconPadding = 2;
+    constexpr int iconSize = 16;
+    constexpr int iconPadding = 2;
     return (iconSize + iconPadding) * numIcons(layerIndex);
 }
 
@@ -184,7 +184,7 @@ QSize KisAnimTimelineLayersHeader::sectionSizeFromContents(int layerIndex) const
 {
     QSize baseSize = QHeaderView::sectionSizeFromContents(layerIndex);
     const int pinSpace = baseSize.height() - 4;
-    const int padding = 8;
+    constexpr int padding = 8;
 
     baseSize.setWidth(baseSize.width() + pinSpace
                       + m_d->iconSectionWidth(layerIndex) + padding);
@@ -202,8 +202,8 @@ QRect KisAnimTimelineLayersHeader::Private::propertyIconRect(int logicalIndex, i
 {
     QSize sectionSize(q->viewport()->width(), q->sectionSize(logicalIndex));
 
-    const int iconWidth = 16;
-    const int iconHeight = 16;
+    constexpr int iconWidth = 16;
+    constexpr int iconHeight = 16;
 
     const int y = (sectionSize.height() - iconHeight) / 2;
     const int x = sectionSize.width() -

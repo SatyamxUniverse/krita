@@ -15,9 +15,8 @@
 #include <KoColorSpaceRegistry.h>
 #include <KoUpdater.h>
 
-const qreal oversample = 2.;
-const int thumbnailTileDim = 128;
-
+constexpr qreal oversample = 2.;
+constexpr int thumbnailTileDim = 128;
 
 class OverviewThumbnailStrokeStrategy::ProcessData : public KisStrokeJobData
 {

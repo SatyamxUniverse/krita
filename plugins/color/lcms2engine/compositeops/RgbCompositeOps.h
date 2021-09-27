@@ -46,7 +46,7 @@
 #define NATIVE_OPACITY_OPAQUE KoColorSpaceMathsTraits<channels_type>::unitValue
 #define NATIVE_OPACITY_TRANSPARENT KoColorSpaceMathsTraits<channels_type>::zeroValue
 
-const qint32 MAX_CHANNEL_RGB = 3;
+constexpr qint32 MAX_CHANNEL_RGB = 3;
 
 #include "RgbCompositeOpIn.h"
 #include "RgbCompositeOpOut.h"

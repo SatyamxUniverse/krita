@@ -24,9 +24,9 @@
 #include <resources/KoAbstractGradient.h>
 #include <KisResourcesInterface.h>
 
-const int MAX_CHANNELS = 56;
+constexpr int MAX_CHANNELS = 56;
 
-const int MAX_PSD_SIZE = 30000;
+constexpr int MAX_PSD_SIZE = 30000;
 
 typedef qint32 Fixed; /* Represents a fixed point implied decimal */
 

@@ -467,7 +467,7 @@ void KisTransformUtils::setDefaultWarpPoints(int pointsPerLine,
                                              const TransformTransactionProperties *transaction,
                                              ToolTransformArgs *config)
 {
-    static const int DEFAULT_POINTS_PER_LINE = 3;
+    static constexpr int DEFAULT_POINTS_PER_LINE = 3;
 
     if (pointsPerLine < 0) {
         pointsPerLine = DEFAULT_POINTS_PER_LINE;

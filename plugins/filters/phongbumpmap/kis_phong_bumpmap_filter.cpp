@@ -78,11 +78,11 @@ void KisFilterPhongBumpmap::processImpl(KisPaintDeviceSP device,
     //======Preparation paraphlenalia=======
 
     //Hardcoded facts about Phong Bumpmap: it _will_ generate an RGBA16 bumpmap
-    const quint8    BYTE_DEPTH_OF_BUMPMAP    = 2;      // 16 bits per channel
-    const quint8    CHANNEL_COUNT_OF_BUMPMAP = 4;      // RGBA
+    constexpr quint8 BYTE_DEPTH_OF_BUMPMAP = 2;    // 16 bits per channel
+    constexpr quint8 CHANNEL_COUNT_OF_BUMPMAP = 4; // RGBA
     const quint32   pixelsOfInputArea        = abs(inputArea.width() * inputArea.height());
     const quint32   pixelsOfOutputArea       = abs(outputArea.width() * outputArea.height());
-    const quint8    pixelSize                = BYTE_DEPTH_OF_BUMPMAP * CHANNEL_COUNT_OF_BUMPMAP;
+    constexpr quint8 pixelSize = BYTE_DEPTH_OF_BUMPMAP * CHANNEL_COUNT_OF_BUMPMAP;
     const quint32   bytesToFillBumpmapArea   = pixelsOfOutputArea * pixelSize;
     QVector<quint8> bumpmap(bytesToFillBumpmapArea);
     quint8         *bumpmapDataPointer       = bumpmap.data();

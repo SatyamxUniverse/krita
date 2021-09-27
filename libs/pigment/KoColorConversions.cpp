@@ -647,7 +647,7 @@ void HCIToRGB(const qreal h, const qreal c, const qreal i, qreal *red, qreal *gr
     if(i<0.0){intensity = 0.0;} else{intensity = i;}
     if (h>1.0 || h<0.0){hue=fmod(h, 1.0);} else {hue=h;}
     if(c<0.0){chroma = 0.0;} else{chroma = c;}
-    const qreal onethird = 1.0/3.0;
+    constexpr qreal onethird = 1.0 / 3.0;
     qreal r=0.0;
     qreal g=0.0;
     qreal b=0.0;

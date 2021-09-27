@@ -50,7 +50,7 @@ void KisGridDecoration::drawDecoration(QPainter& gc, const QRectF& updateArea, c
     QTransform transform = converter->imageToWidgetTransform();
 
     const qreal scale = KoUnit::approxTransformScale(transform);
-    const int minWidgetSize = 3;
+    constexpr int minWidgetSize = 3;
     const int effectiveSize = qMin(m_d->config.spacing().x(), m_d->config.spacing().y());
 
     int scaleCoeff = 1;
@@ -186,7 +186,7 @@ void KisGridDecoration::drawDecoration(QPainter& gc, const QRectF& updateArea, c
             const qreal length2 = qTan(qDegreesToRadians(gridXAngle)) * horizontalDistance;
 
             // let's get x, y of the line that starts in the top right corder
-            const qreal yLower = 0.0;
+            constexpr qreal yLower = 0.0;
             const qreal yHigher = yLower - length2;
 
             const qreal yLeftFirst = qCeil(yHigher / correctedAngleSpacing) * correctedAngleSpacing;

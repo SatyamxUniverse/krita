@@ -94,8 +94,8 @@ public:
     /**
      * The background checkers texture.
      */
-    static const int BACKGROUND_TEXTURE_CHECK_SIZE = 32;
-    static const int BACKGROUND_TEXTURE_SIZE = BACKGROUND_TEXTURE_CHECK_SIZE * 2;
+    static constexpr int BACKGROUND_TEXTURE_CHECK_SIZE = 32;
+    static constexpr int BACKGROUND_TEXTURE_SIZE = BACKGROUND_TEXTURE_CHECK_SIZE * 2;
 
     /**
      * Generate a background texture from the given QImage. This is used for the checker

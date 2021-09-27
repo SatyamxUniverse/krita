@@ -131,15 +131,15 @@ struct AlphaDarkenCompositor128 {
     static ALWAYS_INLINE void compositeOnePixelScalar(const quint8 *s, quint8 *d, const quint8 *mask, float opacity, const ParamsWrapper &oparams)
     {
         using namespace Arithmetic;
-        const qint32 alpha_pos = 3;
+        constexpr qint32 alpha_pos = 3;
 
-        const channels_type *src = reinterpret_cast<const channels_type*>(s);
+        constexpr channels_type *src = reinterpret_cast<const channels_type *>(s);
         channels_type *dst = reinterpret_cast<channels_type*>(d);
 
         float dstAlphaNorm = dst[alpha_pos];
         PixelWrapper<channels_type, _impl>::normalizeAlpha(dstAlphaNorm);
 
-        const float uint8Rec1 = 1.0f / 255.0f;
+        constexpr float uint8Rec1 = 1.0f / 255.0f;
         float mskAlphaNorm = haveMask ? float(*mask) * uint8Rec1 * src[alpha_pos] : src[alpha_pos];
         PixelWrapper<channels_type, _impl>::normalizeAlpha(mskAlphaNorm);
 

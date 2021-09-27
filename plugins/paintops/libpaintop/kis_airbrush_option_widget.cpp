@@ -12,12 +12,12 @@
 
 #include "ui_wdgairbrush.h"
 
-const qreal MINIMUM_RATE = 1.0;
-const qreal MAXIMUM_RATE = 1000.0;
-const int RATE_NUM_DECIMALS = 2;
-const qreal RATE_EXPONENT_RATIO = 2.0;
-const qreal RATE_SINGLE_STEP = 1.0;
-const qreal DEFAULT_RATE = 20.0;
+constexpr qreal MINIMUM_RATE = 1.0;
+constexpr qreal MAXIMUM_RATE = 1000.0;
+constexpr int RATE_NUM_DECIMALS = 2;
+constexpr qreal RATE_EXPONENT_RATIO = 2.0;
+constexpr qreal RATE_SINGLE_STEP = 1.0;
+constexpr qreal DEFAULT_RATE = 20.0;
 
 class KisAirbrushWidget: public QWidget, public Ui::WdgAirbrush
 {

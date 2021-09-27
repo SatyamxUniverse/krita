@@ -63,7 +63,7 @@ KisSpacingInformation KisRoundMarkerOp::paintAt(const KisPaintInformation& info)
     // get the scaling factor calculated by the size option
     const qreal lodScale = KisLodTransform::lodToScale(painter()->device());
     const qreal scale = m_sizeOption.apply(info) * lodScale;
-    const qreal rotation = 0; // TODO
+    constexpr qreal rotation = 0; // TODO
 
     const qreal diameter = m_markerOption.diameter * scale;
     qreal radius = 0.5 * diameter;
@@ -156,7 +156,7 @@ KisSpacingInformation KisRoundMarkerOp::updateSpacingImpl(const KisPaintInformat
 KisSpacingInformation KisRoundMarkerOp::computeSpacing(const KisPaintInformation &info,
                                                        qreal diameter) const
 {
-    const qreal rotation = 0; // TODO
+    constexpr qreal rotation = 0;   // TODO
     const bool axesFlipped = false; // TODO
 
     qreal extraSpacingScale = 1.0;

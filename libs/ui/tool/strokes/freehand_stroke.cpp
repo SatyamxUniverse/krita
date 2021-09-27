@@ -303,7 +303,7 @@ void FreehandStrokeStrategy::issueSetDirtySignals()
             }
         }
 
-        const int maxPatchSizeForMaskingUpdates = 64;
+        constexpr int maxPatchSizeForMaskingUpdates = 64;
         const QRect totalRect =
             std::accumulate(dirtyRects.constBegin(), dirtyRects.constEnd(), QRect(), std::bit_or<QRect>());
 

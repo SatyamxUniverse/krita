@@ -16,9 +16,9 @@ struct KoGrayTraits : public KoColorSpaceTrait<_channels_type_, 2, 1> {
     
     typedef _channels_type_ channels_type;
     typedef KoColorSpaceTrait<_channels_type_, 2, 1> parent;
-    
-    static const qint32 gray_pos = 0;
-    
+
+    static constexpr qint32 gray_pos = 0;
+
     /**
      * An grayscale pixel
      */

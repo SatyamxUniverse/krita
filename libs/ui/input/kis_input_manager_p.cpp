@@ -217,8 +217,8 @@ KisInputManager::Private::Private(KisInputManager *qq)
         });
 }
 
-static const int InputWidgetsThreshold = 2000;
-static const int OtherWidgetsThreshold = 400;
+static constexpr int InputWidgetsThreshold = 2000;
+static constexpr int OtherWidgetsThreshold = 400;
 
 KisInputManager::Private::CanvasSwitcher::CanvasSwitcher(Private *_d, QObject *p)
     : QObject(p),

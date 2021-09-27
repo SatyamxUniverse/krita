@@ -432,7 +432,7 @@ void KisAnimTimelineFramesView::updateGeometries()
     QTableView::updateGeometries();
 
     const int availableHeight = m_d->horizontalRuler->height();
-    const int margin = 2;
+    constexpr int margin = 2;
     const int minimalSize = availableHeight - 2 * margin;
 
     resizeToMinimalSize(m_d->addLayersButton, minimalSize);

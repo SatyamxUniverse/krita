@@ -521,7 +521,7 @@ QImage deviceToQImage(KisPaintDeviceSP device,
 void KisPixelSelection::recalculateThumbnailImage(const QColor &maskColor)
 {
     QRect rc = selectedExactRect();
-    const int maxPreviewSize = 2000;
+    constexpr int maxPreviewSize = 2000;
 
     if (rc.isEmpty()) {
         m_d->thumbnailImageTransform = QTransform();

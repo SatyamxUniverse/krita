@@ -42,7 +42,7 @@
 #include <ksharedconfig.h>
 
 // ODF thumbnail extent
-static const int thumbnailExtent = 128;
+static constexpr int thumbnailExtent = 128;
 
 class KisTemplateCreateDiaPrivate {
 public:

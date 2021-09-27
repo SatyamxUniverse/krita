@@ -63,7 +63,7 @@ struct Q_DECL_HIDDEN KisSafeTransform::Private
         QPolygonF result;
 
         // calculate new (offset) horizon to avoid infinity
-        const qreal offsetLength = 10.0;
+        constexpr qreal offsetLength = 10.0;
         const QPointF horizonOffset = offsetLength * crossCoeff *
             KisAlgebra2D::rightUnitNormal(baseHorizon.p2() - baseHorizon.p1());
 

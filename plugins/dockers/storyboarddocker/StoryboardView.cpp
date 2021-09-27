@@ -349,7 +349,7 @@ QSize StoryboardView::sizeHint() const {
             const bool hasComments = m_storyboardModel->visibleCommentCount() > 0;
             const bool hasMoreThanOneComment = m_storyboardModel->visibleCommentCount() > 1;
             const float commentPadding = hasComments ? 1.0f + (0.1f * hasMoreThanOneComment) : 0.0f;
-            const int thumbnailWidth = 286;
+            constexpr int thumbnailWidth = 286;
             const int commentWidth = 200 * commentPadding;
             return QSize(thumbnailWidth + commentWidth, 128);
         }

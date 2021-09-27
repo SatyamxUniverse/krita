@@ -13,7 +13,7 @@
 
 #include <brushengine/kis_paint_information.h>
 
-static const int DEFAULT_LENGTH = 1000;
+static constexpr int DEFAULT_LENGTH = 1000;
 
 KisDynamicSensorFade::KisDynamicSensorFade()
     : KisDynamicSensor(FADE)

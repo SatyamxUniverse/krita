@@ -268,7 +268,7 @@ void DeclarativeDragArea::mouseMoveEvent(QMouseEvent *event)
                     }
                 }
                 if (icons.count()) {
-                    const int _w = 48;
+                    constexpr int _w = 48;
                     QPixmap pm(_w*icons.count(), _w);
                     pm.fill(Qt::transparent);
                     QPainter p(&pm);

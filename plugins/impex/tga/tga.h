@@ -22,7 +22,7 @@
 #include <QColor>
 
 // Header format of saved files.
-const uchar targaMagic[12] = { 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+constexpr uchar targaMagic[12] = {0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0};
 
 enum TGAType {
     TGA_TYPE_INDEXED        = 1,

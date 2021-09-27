@@ -244,10 +244,10 @@ KisImportExportErrorCode HeifImport::convert(KisDocument *document, QIODevice *i
 
         KisPaintLayerSP layer = new KisPaintLayer(image, image->nextLayerName(), OPACITY_OPAQUE_U8);
 
-        const double max16bit = 65535.0;
-        const double multiplier10bit = double(1.0 / 1023.0);
-        const double multiplier12bit = double(1.0 / 4095.0);
-        const double multiplier16bit = double(1.0 / max16bit);
+        constexpr double max16bit = 65535.0;
+        constexpr double multiplier10bit = double(1.0 / 1023.0);
+        constexpr double multiplier12bit = double(1.0 / 4095.0);
+        constexpr double multiplier16bit = double(1.0 / max16bit);
 
         if (luma != 8 && luma != 10 && luma != 12) {
             dbgFile << "unknown bitdepth" << luma;

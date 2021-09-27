@@ -165,7 +165,7 @@ KisAnimationPlayer::KisAnimationPlayer(KisCanvas2 *canvas)
     std::function<void (int)> callback(
         std::bind(&KisAnimationPlayer::slotSyncScrubbingAudio, this, _1));
 
-    const int defaultScrubbingUdpatesDelay = 40; /* 40 ms == 25 fps */
+    constexpr int defaultScrubbingUdpatesDelay = 40; /* 40 ms == 25 fps */
 
     m_d->audioSyncScrubbingCompressor.reset(
         new KisSignalCompressorWithParam<int>(defaultScrubbingUdpatesDelay, callback, KisSignalCompressor::FIRST_ACTIVE));

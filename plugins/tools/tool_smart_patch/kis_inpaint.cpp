@@ -40,9 +40,9 @@
 #include "KoColorSpaceRegistry.h"
 #include "KoColorSpaceTraits.h"
 
-const int MAX_DIST = 65535;
-const quint8 MASK_SET = 255;
-const quint8 MASK_CLEAR = 0;
+constexpr int MAX_DIST = 65535;
+constexpr quint8 MASK_SET = 255;
+constexpr quint8 MASK_CLEAR = 0;
 
 class MaskedImage; //forward decl for the forward decl below
 template <typename T> float distance_impl(const MaskedImage& my, int x, int y, const MaskedImage& other, int xo, int yo);
@@ -528,7 +528,7 @@ private:
 
                 //if the distance is "infinity", try to find a better link
                 int iter = 0;
-                const int maxretry = 20;
+                constexpr int maxretry = 20;
                 while (field[x][y].distance == MAX_DIST && iter < maxretry) {
                     field[x][y].x = randomInt(imSize.width() + 1);
                     field[x][y].y = randomInt(imSize.height() + 1);

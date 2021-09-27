@@ -219,7 +219,7 @@ void KisOpenGL::initialize()
 
         const qreal devicePixelRatio = QGuiApplication::primaryScreen()->devicePixelRatio();
         const QSize screenSize = QGuiApplication::primaryScreen()->size() * devicePixelRatio;
-        const int minCacheSize = 20 * 1024;
+        constexpr int minCacheSize = 20 * 1024;
 
         // reserve space for at least 4 textures
         const int cacheSize = 2048 + 5 * 4 * screenSize.width() * screenSize.height() / 1024; // KiB

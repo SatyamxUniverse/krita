@@ -406,9 +406,7 @@ public:
 
         if (this->opacityU8(src1) == OPACITY_TRANSPARENT_U8
                 || this->opacityU8(src2) == OPACITY_TRANSPARENT_U8) {
-
-
-            const qreal alphaScale = 100.0 / 255.0;
+            constexpr qreal alphaScale = 100.0 / 255.0;
             return qRound(alphaScale * qAbs(this->opacityU8(src1) - this->opacityU8(src2)));
         }
         Q_ASSERT(this->toLabA16Converter());
@@ -426,8 +424,8 @@ public:
         da = fabs((qreal)(labF1.a - labF2.a));
         db = fabs((qreal)(labF1.b - labF2.b));
 
-        static const int LabAAlphaPos = 3;
-        static const cmsFloat64Number alphaScale = 100.0 / KoColorSpaceMathsTraits<quint16>::max;
+        static constexpr int LabAAlphaPos = 3;
+        static constexpr cmsFloat64Number alphaScale = 100.0 / KoColorSpaceMathsTraits<quint16>::max;
         quint16 alpha1 = reinterpret_cast<quint16 *>(lab1)[LabAAlphaPos];
         quint16 alpha2 = reinterpret_cast<quint16 *>(lab2)[LabAAlphaPos];
         dAlpha = fabs((qreal)(alpha1 - alpha2)) * alphaScale;

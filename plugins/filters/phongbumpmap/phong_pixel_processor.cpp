@@ -116,7 +116,7 @@ QVector<quint16> PhongPixelProcessor::IlluminatePixel()
 {
     qreal temp;
     quint8 channel = 0;
-    const quint8 totalChannels = 3; // The 4th is alpha and we'll fill it with a nice 0xFFFF
+    constexpr quint8 totalChannels = 3; // The 4th is alpha and we'll fill it with a nice 0xFFFF
     qreal computation[] = {0, 0, 0};
     QVector<quint16> finalPixel(4, 0xFFFF);
 

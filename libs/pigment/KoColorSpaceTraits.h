@@ -14,9 +14,9 @@
 #include "DebugPigment.h"
 #include "kis_global.h"
 
-const int MAX_CHANNELS_TYPE_SIZE = sizeof(double);
-const int MAX_CHANNELS_NB = 5;
-const int MAX_PIXEL_SIZE = MAX_CHANNELS_NB * MAX_CHANNELS_TYPE_SIZE;
+constexpr int MAX_CHANNELS_TYPE_SIZE = sizeof(double);
+constexpr int MAX_CHANNELS_NB = 5;
+constexpr int MAX_PIXEL_SIZE = MAX_CHANNELS_NB * MAX_CHANNELS_TYPE_SIZE;
 
 /**
  * This class is the base class to define the main characteristics of a colorspace

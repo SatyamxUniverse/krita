@@ -27,7 +27,7 @@ double KisPressureRotationOption::apply(const KisPaintInformation & info) const
 
     // we should invert scaling part because it is expected
     // to rotate the brush counterclockwise
-    const qreal scalingPartCoeff = -1.0;
+    constexpr qreal scalingPartCoeff = -1.0;
 
     qreal value = computeRotationLikeValue(info, normalizedBaseAngle, absoluteAxesFlipped, scalingPartCoeff, info.isHoveringMode());
 

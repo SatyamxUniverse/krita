@@ -13,8 +13,8 @@
 class WrappedVLineIteratorStrategy
 {
 private:
-    static const int TOP_OFFSET = 0;
-    static const int BOTTOM_OFFSET = 2;
+    static constexpr int TOP_OFFSET = 0;
+    static constexpr int BOTTOM_OFFSET = 2;
 
 public:
     typedef KisVLineIteratorSP IteratorTypeSP;

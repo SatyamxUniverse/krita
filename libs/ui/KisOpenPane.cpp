@@ -186,7 +186,7 @@ void KisOpenPane::initTemplates(const QString& templatesResourcePath)
 {
     QTreeWidgetItem* selectItem = 0;
     QTreeWidgetItem* firstItem = 0;
-    const int templateOffset = 1000;
+    constexpr int templateOffset = 1000;
 
     if (!templatesResourcePath.isEmpty()) {
         KisTemplateTree templateTree(templatesResourcePath, true);

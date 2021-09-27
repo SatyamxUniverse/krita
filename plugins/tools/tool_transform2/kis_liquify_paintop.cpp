@@ -195,7 +195,7 @@ KisTimingInformation KisLiquifyPaintop::updateTimingImpl(const KisPaintInformati
 
 qreal KisLiquifyPaintop::computeSize(const KisPaintInformation &pi) const
 {
-    static const qreal sizeToSigmaCoeff = 1.0 / 3.0;
+    static constexpr qreal sizeToSigmaCoeff = 1.0 / 3.0;
     return sizeToSigmaCoeff *
         (m_d->props.sizeHasPressure() ?
          pi.pressure() * m_d->props.size():

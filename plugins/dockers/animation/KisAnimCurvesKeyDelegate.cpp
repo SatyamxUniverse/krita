@@ -14,8 +14,8 @@
 #include "kis_scalar_keyframe_channel.h"
 #include "kis_keyframe.h"
 
-const int NODE_RENDER_RADIUS = 4;
-const int NODE_UI_RADIUS = 8;
+constexpr int NODE_RENDER_RADIUS = 4;
+constexpr int NODE_UI_RADIUS = 8;
 
 struct KisAnimCurvesKeyDelegate::Private
 {

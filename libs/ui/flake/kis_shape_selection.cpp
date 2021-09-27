@@ -227,8 +227,8 @@ void KisShapeSelection::renderSelection(KisPaintDeviceSP projection, const QRect
     KIS_SAFE_ASSERT_RECOVER_RETURN(projection);
     KIS_SAFE_ASSERT_RECOVER_RETURN(m_image);
 
-    const qint32 MASK_IMAGE_WIDTH = 256;
-    const qint32 MASK_IMAGE_HEIGHT = 256;
+    constexpr qint32 MASK_IMAGE_WIDTH = 256;
+    constexpr qint32 MASK_IMAGE_HEIGHT = 256;
 
     QPainterPath selectionOutline = outlineCache();
 

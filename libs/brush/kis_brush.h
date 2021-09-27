@@ -41,8 +41,8 @@ enum enumBrushApplication {
     GRADIENTMAP
 };
 
-static const qreal DEFAULT_SOFTNESS_FACTOR = 1.0;
-static const qreal DEFAULT_LIGHTNESS_STRENGTH = 1.0;
+static constexpr qreal DEFAULT_SOFTNESS_FACTOR = 1.0;
+static constexpr qreal DEFAULT_LIGHTNESS_STRENGTH = 1.0;
 
 class KisBrush;
 typedef QSharedPointer<KisBrush> KisBrushSP;

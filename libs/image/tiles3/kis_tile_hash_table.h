@@ -105,7 +105,7 @@ private:
 private:
     template<class U, class LockerType> friend class KisTileHashTableIteratorTraits;
 
-    static const qint32 TABLE_SIZE = 1024;
+    static constexpr qint32 TABLE_SIZE = 1024;
     TileTypeSP *m_hashTable;
     qint32 m_numTiles;
 

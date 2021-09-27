@@ -184,7 +184,7 @@ void KisColorizeMask::initializeCompositeOp()
     KisImageSP image = parentLayer->image();
     if (!image) return;
 
-    const qreal samplePortion = 0.1;
+    constexpr qreal samplePortion = 0.1;
     const qreal alphaPortion =
         KritaUtils::estimatePortionOfTransparentPixels(parentLayer->original(),
                                                        image->bounds(),

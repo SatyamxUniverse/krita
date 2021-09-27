@@ -101,7 +101,7 @@ public:
             // TODO: precalculate!
             const int k  = 2 * (map.m_mainRect.width() + map.m_mainRect.height());
 
-            static const int unitValue = 256;
+            static constexpr int unitValue = 256;
 
             qreal value = 0.0;
 

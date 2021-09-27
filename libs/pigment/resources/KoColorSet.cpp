@@ -93,7 +93,7 @@ const QString KoColorSet::KPL_SWATCH_TAG = "ColorSetEntry";
 const QString KoColorSet::KPL_GROUP_TAG = "Group";
 const QString KoColorSet::KPL_PALETTE_TAG = "ColorSet";
 
-const int MAXIMUM_ALLOWED_COLUMNS = 4096;
+constexpr int MAXIMUM_ALLOWED_COLUMNS = 4096;
 
 KoColorSet::KoColorSet(const QString& filename)
     : KoResource(filename)
@@ -955,7 +955,7 @@ bool KoColorSet::Private::loadAco()
         numColors = readShort(&buf);
     }
 
-    const quint16 quint16_MAX = 65535;
+    constexpr quint16 quint16_MAX = 65535;
 
     for (int i = 0; i < numColors && !buf.atEnd(); ++i) {
 

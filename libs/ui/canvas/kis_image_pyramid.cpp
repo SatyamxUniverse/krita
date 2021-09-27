@@ -378,7 +378,7 @@ void  KisImagePyramid::downsamplePixels(const quint8 *srcRow0,
     qint16 r = 0;
     qint16 a = 0;
 
-    static const qint32 pixelSize = 4; // This is preview argb8 mode
+    static constexpr qint32 pixelSize = 4; // This is preview argb8 mode
 
     for (qint32 i = 0; i < numSrcPixels / 2; i++) {
         b = srcRow0[0] + srcRow1[0] + srcRow0[4] + srcRow1[4];

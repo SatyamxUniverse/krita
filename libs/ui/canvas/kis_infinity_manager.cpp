@@ -58,7 +58,7 @@ void KisInfinityManager::imagePositionChanged()
     int xThreshold = imageRect.width() - 0.4 * xReserve;
     int yThreshold = imageRect.height() - 0.4 * yReserve;
 
-    const int stripeWidth = 48;
+    constexpr int stripeWidth = 48;
 
     int xCut = widgetRect.width() - stripeWidth;
     int yCut = widgetRect.height() - stripeWidth;

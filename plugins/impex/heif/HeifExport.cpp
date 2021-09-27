@@ -224,9 +224,9 @@ KisImportExportErrorCode HeifExport::convert(KisDocument *document, QIODevice *i
 
         heif::Image img;
 
-        const int max12bit = 4095;
-        const int max16bit = 65535;
-        const double multiplier16bit = (1.0/double(max16bit));
+        constexpr int max12bit = 4095;
+        constexpr int max16bit = 65535;
+        constexpr double multiplier16bit = (1.0 / double(max16bit));
 
         if (cs->colorModelId() == RGBAColorModelID) {
             if (cs->colorDepthId() == Integer8BitsColorDepthID) {

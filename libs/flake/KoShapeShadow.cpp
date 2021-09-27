@@ -91,7 +91,7 @@ void KoShapeShadow::Private::paintShadow(KoShape *shape, QPainter &painter)
  */
 void KoShapeShadow::Private::blurShadow(QImage &image, int radius, const QColor& shadowColor)
 {
-    static const int BlurSumShift = 15;
+    static constexpr int BlurSumShift = 15;
 
     // Check http://www.w3.org/TR/SVG/filters.html#
     // As noted in the SVG filter specification, ru

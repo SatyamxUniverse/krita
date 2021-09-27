@@ -23,10 +23,9 @@
 
 #include "kritaui_export.h"
 
-const int minPoolChunk = 32; // 8 MiB (default, with tilesize 256)
-const int maxPoolChunk = 128; // 32 MiB (default, with tilesize 256)
-const int freeThreshold = 64; // 16 MiB (default, with tilesize 256)
-
+constexpr int minPoolChunk = 32;  // 8 MiB (default, with tilesize 256)
+constexpr int maxPoolChunk = 128; // 32 MiB (default, with tilesize 256)
+constexpr int freeThreshold = 64; // 16 MiB (default, with tilesize 256)
 
 /**
  * A pool for keeping the chunks of data of constant size. We have one

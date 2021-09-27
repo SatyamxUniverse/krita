@@ -129,9 +129,9 @@ struct OverCompositor128 {
     static ALWAYS_INLINE void compositeOnePixelScalar(const quint8 *src, quint8 *dst, const quint8 *mask, float opacity, const ParamsWrapper &oparams)
     {
         using namespace Arithmetic;
-        const qint32 alpha_pos = 3;
+        constexpr qint32 alpha_pos = 3;
 
-        const channels_type *s = reinterpret_cast<const channels_type*>(src);
+        constexpr channels_type *s = reinterpret_cast<const channels_type *>(src);
         channels_type *d = reinterpret_cast<channels_type*>(dst);
 
         float srcAlpha = s[alpha_pos];

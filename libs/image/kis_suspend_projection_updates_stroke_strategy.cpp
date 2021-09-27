@@ -137,7 +137,7 @@ struct KisSuspendProjectionUpdatesStrokeStrategy::Private
         }
 
         void notifyUpdates(KisImageSP image) {
-            const int step = 64;
+            constexpr int step = 64;
 
             {
                 RefreshesHash::const_iterator it = m_refreshesHash.constBegin();

@@ -219,8 +219,8 @@ void KisShapeLayerCanvas::slotStartAsyncRepaint()
     QRect repaintRect;
     QRect uncroppedRepaintRect;
     bool forceUpdateHiddenAreasOnly = false;
-    const qint32 MASK_IMAGE_WIDTH = 256;
-    const qint32 MASK_IMAGE_HEIGHT = 256;
+    constexpr qint32 MASK_IMAGE_WIDTH = 256;
+    constexpr qint32 MASK_IMAGE_HEIGHT = 256;
     {
         QMutexLocker locker(&m_dirtyRegionMutex);
 
@@ -342,8 +342,8 @@ void KisShapeLayerCanvas::repaint()
      */
     if (paintJobsOrder.isEmpty()) return;
 
-    const qint32 MASK_IMAGE_WIDTH = 256;
-    const qint32 MASK_IMAGE_HEIGHT = 256;
+    constexpr qint32 MASK_IMAGE_WIDTH = 256;
+    constexpr qint32 MASK_IMAGE_HEIGHT = 256;
 
     QImage image(MASK_IMAGE_WIDTH, MASK_IMAGE_HEIGHT, QImage::Format_ARGB32);
     QPainter tempPainter(&image);

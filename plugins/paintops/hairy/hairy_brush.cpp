@@ -401,8 +401,8 @@ inline void HairyBrush::darkenPixel(int wx, int wy, const KoColor &color)
 
 double HairyBrush::computeMousePressure(double distance)
 {
-    static const double scale = 20.0;
-    static const double minPressure = 0.02;
+    static constexpr double scale = 20.0;
+    static constexpr double minPressure = 0.02;
 
     double oldPressure = m_oldPressure;
 

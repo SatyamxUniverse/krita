@@ -150,7 +150,7 @@ public:
     bool checkColorVariance(quint8 c[4][4])
     {
         const KoColorSpace* cs = KoColorSpaceRegistry::instance()->rgb8();
-        const quint8 tolerance = 0;
+        constexpr quint8 tolerance = 0;
 
         for (int i = 0; i < 3; ++i) {
             if (cs->difference(c[i], c[i + 1]) > tolerance) {

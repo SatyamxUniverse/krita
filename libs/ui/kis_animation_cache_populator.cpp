@@ -44,9 +44,9 @@ struct KisAnimationCachePopulator::Private
      */
     int idleCounter;
     QStack<QPair<KisImageSP, int>> priorityFrames;
-    static const int IDLE_COUNT_THRESHOLD = 4;
-    static const int IDLE_CHECK_INTERVAL = 500;
-    static const int BETWEEN_FRAMES_INTERVAL = 10;
+    static constexpr int IDLE_COUNT_THRESHOLD = 4;
+    static constexpr int IDLE_CHECK_INTERVAL = 500;
+    static constexpr int BETWEEN_FRAMES_INTERVAL = 10;
 
     int requestedFrame;
     KisAnimationFrameCacheSP requestCache;

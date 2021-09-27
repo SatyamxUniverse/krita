@@ -262,7 +262,7 @@ void KisAnimCurvesView::paintGrid(QPainter &painter)
     const qreal stepAmount = m_d->verticalHeader->step();
     for (int step = 0; step <= visibleSteps; step++) {
         const qreal value = m_d->verticalHeader->firstVisibleStep() + stepAmount * step;
-        const int CORRECTION = -1;
+        constexpr int CORRECTION = -1;
         int yPosition = m_d->verticalHeader->valueToWidget(value);
 
         QRect frameRect = QRect(-10, yPosition + CORRECTION, 9999, 1);
@@ -330,7 +330,7 @@ void KisAnimCurvesView::paintCurve(int channel, int firstFrame, int lastFrame, Q
 }
 
 void KisAnimCurvesView::paintCurveSegment(QPainter &painter, QPointF pos1, QPointF rightTangent, QPointF leftTangent, QPointF pos2, QVariant limitData) {
-    const int steps = 32;
+    constexpr int steps = 32;
     QPointF previousPos;
 
     for (int step = 0; step <= steps; step++) {
@@ -435,7 +435,7 @@ void KisAnimCurvesView::findExtremes(qreal *minimum, qreal *maximum)
             if (value < min) min = value;
             if (value > max) max = value;
 
-            const int MAX_NUM_TANGENTS = 2;
+            constexpr int MAX_NUM_TANGENTS = 2;
             for (int i = 0; i < MAX_NUM_TANGENTS; i++)  {
                 QVariant tangent = index.data(KisAnimCurvesModel::LeftTangentRole + i);
                 if (!tangent.isValid())
@@ -536,7 +536,7 @@ void KisAnimCurvesView::mousePressEvent(QMouseEvent *e)
     } else if (e->button() == Qt::LeftButton) { // SELECT
         m_d->dragStart = e->pos();
 
-        const int handleClickRadius = 16;
+        constexpr int handleClickRadius = 16;
 
         Q_FOREACH(QModelIndex index, selectedIndexes()) {
 

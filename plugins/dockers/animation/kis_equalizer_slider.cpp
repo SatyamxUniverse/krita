@@ -66,7 +66,7 @@ QRect KisEqualizerSlider::Private::boundingRect() const
 
 QRect KisEqualizerSlider::Private::sliderRect() const
 {
-    const int offset = 3;
+    constexpr int offset = 3;
     QRect filling = boundingRect().adjusted(offset + 1, offset + 1,
                                             -offset, -offset);
 
