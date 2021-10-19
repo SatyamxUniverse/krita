@@ -290,7 +290,7 @@ bool KisResourceCacheDb::initialize(const QString &location)
     return s_valid;
 }
 
-int KisResourceCacheDb::resourceIdForResource(const QString &/*resourceName*/, const QString &resourceFileName, const QString &resourceType, const QString &storageLocation)
+int KisResourceCacheDb::resourceIdForResource(const QString &resourceFileName, const QString &resourceType, const QString &storageLocation)
 {
     //qDebug() << "resourceIdForResource" << resourceName << resourceFileName << resourceType << storageLocation;
 
@@ -766,7 +766,7 @@ bool KisResourceCacheDb::addResource(KisResourceStorageSP storage, QDateTime tim
     bool temporary = (storage->type() == KisResourceStorage::StorageType::Memory);
 
     // Check whether it already exists
-    int resourceId = resourceIdForResource(resource->name(), resource->filename(), resourceType, KisResourceLocator::instance()->makeStorageLocationRelative(storage->location()));
+    int resourceId = resourceIdForResource(resource->filename(), resourceType, KisResourceLocator::instance()->makeStorageLocationRelative(storage->location()));
     if (resourceId > -1) {
         return true;
     }
@@ -869,7 +869,7 @@ bool KisResourceCacheDb::addResource(KisResourceStorageSP storage, QDateTime tim
         qWarning() << "Could not execute addResource statement" << q.lastError() << q.boundValues();
         return r;
     }
-    resourceId = resourceIdForResource(resource->name(), resource->filename(), resourceType, KisResourceLocator::instance()->makeStorageLocationRelative(storage->location()));
+    resourceId = resourceIdForResource(resource->filename(), resourceType, KisResourceLocator::instance()->makeStorageLocationRelative(storage->location()));
 
     if (resourceId < 0) {
 
@@ -958,13 +958,13 @@ bool KisResourceCacheDb::setResourceActive(int resourceId, bool active)
     return true;
 }
 
-bool KisResourceCacheDb::tagResource(KisResourceStorageSP storage, const QString &resourceName, const QString &resourceFileName, KisTagSP tag, const QString &resourceType)
+bool KisResourceCacheDb::tagResource(KisResourceStorageSP storage, const QString &resourceFileName, KisTagSP tag, const QString &resourceType)
 {
     // Get resource id
-    int resourceId = resourceIdForResource(resourceName, resourceFileName, resourceType, KisResourceLocator::instance()->makeStorageLocationRelative(storage->location()));
+    int resourceId = resourceIdForResource(resourceFileName, resourceType, KisResourceLocator::instance()->makeStorageLocationRelative(storage->location()));
 
     if (resourceId < 0) {
-        qWarning() << "Could not find resource to tag" << KisResourceLocator::instance()->makeStorageLocationRelative(storage->location())  << resourceName << resourceFileName << resourceType;
+        qWarning() << "Could not find resource to tag" << KisResourceLocator::instance()->makeStorageLocationRelative(storage->location()) << resourceFileName << resourceType;
         return false;
     }
 
@@ -1151,16 +1151,8 @@ bool KisResourceCacheDb::addTags(KisResourceStorageSP storage, QString resourceT
         }
         if (!iter->tag()->defaultResources().isEmpty()) {
             Q_FOREACH(const QString &resourceFileName, iter->tag()->defaultResources()) {
-                QString resourceName = resourceFileName;
-
-                if (resourceName.contains("_default")) {
-                    resourceName = resourceName.remove("_default");
-                }
-
-                //qDebug() << "Tagging" << storage << QFileInfo(resourceName).baseName() << resourceFileName <<  resourceType << "with tag" << iter->url();
-
-                if (!tagResource(storage, QFileInfo(resourceName).baseName(), resourceFileName, iter->tag(), resourceType)) {
-                    qWarning() << "Could not tag resource" << QFileInfo(resourceName).baseName() << "from" << storage->name() << "filename" << resourceName << "with tag" << iter->url();
+                if (!tagResource(storage, resourceFileName, iter->tag(), resourceType)) {
+                    qWarning() << "Could not tag resource" << QFileInfo(resourceFileName).baseName() << "from" << storage->name() << "filename" << resourceFileName << "with tag" << iter->url();
                 }
             }
         }
@@ -1263,6 +1255,18 @@ bool KisResourceCacheDb::addStorage(KisResourceStorageSP storage, bool preinstal
         }
     }
 
+    return r;
+}
+
+bool KisResourceCacheDb::addStorageTags(KisResourceStorageSP storage)
+{
+    bool r = true;
+    Q_FOREACH(const QString &resourceType, KisResourceLoaderRegistry::instance()->resourceTypes()) {
+        if (!KisResourceCacheDb::addTags(storage, resourceType)) {
+            qWarning() << "Failed to add all tags for storage" << storage;
+            r = false;
+        }
+    }
     return r;
 }
 
@@ -1436,7 +1440,7 @@ bool KisResourceCacheDb::synchronizeStorage(KisResourceStorageSP storage)
                 QString path = QDir::fromNativeSeparators(verIt->url()); // make sure it uses Unix separators
                 int folderEndIdx = path.indexOf("/");
                 QString properFilenameWithSubfolders = path.right(path.length() - folderEndIdx - 1);
-                int id = resourceIdForResource("", properFilenameWithSubfolders,
+                int id = resourceIdForResource(properFilenameWithSubfolders,
                                                verIt->type(),
                                                KisResourceLocator::instance()->makeStorageLocationRelative(storage->location()));
 
