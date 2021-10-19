@@ -105,7 +105,7 @@ private:
     /// Make this resource active or inactive; this does not remove the resource from disk or from the database
     static bool setResourceActive(int resourceId, bool active = false);
 
-    static bool tagResource(KisResourceStorageSP storage, const QString &resourceFileName, KisTagSP tag, const QString &resourceType);
+    static bool tagResource(const QString &resourceFileName, KisTagSP tag, const QString &resourceType);
     static bool hasTag(const QString &url, const QString &resourceType);
     static bool linkTagToStorage(const QString &url, const QString &resourceType, const QString &storageLocation);
     static bool addTag(const QString &resourceType, const QString storageLocation, const QString url, const QString name, const QString comment, const QString &filename);
