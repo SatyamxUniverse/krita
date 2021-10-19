@@ -958,16 +958,8 @@ bool KisResourceCacheDb::setResourceActive(int resourceId, bool active)
     return true;
 }
 
-bool KisResourceCacheDb::tagResource(KisResourceStorageSP storage, const QString &resourceFileName, KisTagSP tag, const QString &resourceType)
+bool KisResourceCacheDb::tagResource(const QString &resourceFileName, KisTagSP tag, const QString &resourceType)
 {
-    // Get resource id
-    int resourceId = resourceIdForResource(resourceFileName, resourceType, KisResourceLocator::instance()->makeStorageLocationRelative(storage->location()));
-
-    if (resourceId < 0) {
-        qWarning() << "Could not find resource to tag" << KisResourceLocator::instance()->makeStorageLocationRelative(storage->location()) << resourceFileName << resourceType;
-        return false;
-    }
-
     // Get tag id
     int tagId {-1};
     {
@@ -995,19 +987,79 @@ bool KisResourceCacheDb::tagResource(KisResourceStorageSP storage, const QString
         }
     }
 
+
+    // Get resource id
     QSqlQuery q;
-    if (!q.prepare("INSERT INTO resource_tags\n"
-                   "(resource_id, tag_id)\n"
-                   "VALUES\n"
-                   "(:resource_id, :tag_id);")) {
-        qWarning() << "Could not prepare tagResource statement" << q.lastError();
+    bool r = q.prepare("SELECT resources.id\n"
+                       "FROM   resources\n"
+                       ",      resource_types\n"
+                       "WHERE  resources.resource_type_id = resource_types.id\n"
+                       "AND    resource_types.name = :resource_type\n"
+                       "AND    resources.filename = :resource_filename\n");
+    if (!r) {
+        qWarning() << "Could not prepare tagResource query" << q.lastError();
         return false;
     }
-    q.bindValue(":resource_id", resourceId);
-    q.bindValue(":tag_id", tagId);
+
+    q.bindValue(":resource_type", resourceType);
+    q.bindValue(":resource_filename", resourceFileName);
+
     if (!q.exec()) {
-        qWarning() << "Could not execute tagResource stagement" << q.boundValues() << q.lastError();
-        return false;
+        qWarning() << "Could not execute tagResource query" << q.lastError() << q.boundValues();
+    }
+
+
+    while (q.next()) {
+
+        int resourceId = q.value(0).toInt();
+
+        if (resourceId < 0) {
+            qWarning() << "Could not find resource to tag" << resourceFileName << resourceType;
+            continue;
+        }
+
+        {
+            QSqlQuery q;
+            if (!q.prepare("SELECT COUNT(*)\n"
+                           "FROM   resource_tags\n"
+                           "WHERE  resource_id = :resource_id\n"
+                           "AND    tag_id = :tag_id")) {
+                qWarning() << "Could not prepare tagResource query 2" << q.lastError();
+                continue;
+            }
+            q.bindValue(":resource_id", resourceId);
+            q.bindValue(":tag_id", tagId);
+
+            if (!q.exec()) {
+                qWarning() << "Could not execute tagResource query 2" << q.lastError() << q.boundValues();
+                continue;
+            }
+
+            q.first();
+            int count = q.value(0).toInt();
+            if (count > 0) {
+                continue;
+            }
+        }
+
+        {
+            QSqlQuery q;
+            if (!q.prepare("INSERT INTO resource_tags\n"
+                           "(resource_id, tag_id)\n"
+                           "VALUES\n"
+                           "(:resource_id, :tag_id);")) {
+                qWarning() << "Could not prepare tagResource insert statement" << q.lastError();
+                continue;
+            }
+
+            q.bindValue(":resource_id", resourceId);
+            q.bindValue(":tag_id", tagId);
+
+            if (!q.exec()) {
+                qWarning() << "Could not execute tagResource stagement" << q.boundValues() << q.lastError();
+                continue;
+            }
+        }
     }
     return true;
 }
@@ -1146,12 +1198,14 @@ bool KisResourceCacheDb::addTags(KisResourceStorageSP storage, QString resourceT
     QSharedPointer<KisResourceStorage::TagIterator> iter = storage->tags(resourceType);
     while(iter->hasNext()) {
         iter->next();
+
         if (!addTag(resourceType, storage->location(), iter->url(), iter->name(), iter->comment(), iter->filename())) {
             qWarning() << "Could not add tag" << iter->url() << "to the database";
+            continue;
         }
         if (!iter->tag()->defaultResources().isEmpty()) {
             Q_FOREACH(const QString &resourceFileName, iter->tag()->defaultResources()) {
-                if (!tagResource(storage, resourceFileName, iter->tag(), resourceType)) {
+                if (!tagResource(resourceFileName, iter->tag(), resourceType)) {
                     qWarning() << "Could not tag resource" << QFileInfo(resourceFileName).baseName() << "from" << storage->name() << "filename" << resourceFileName << "with tag" << iter->url();
                 }
             }
