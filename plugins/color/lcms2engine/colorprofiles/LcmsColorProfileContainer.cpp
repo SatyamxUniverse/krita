@@ -475,8 +475,8 @@ void LcmsColorProfileContainer::DelinearizeFloatValue(QVector <double> & Value) 
 
 void LcmsColorProfileContainer::LinearizeFloatValueFast(QVector <double> & Value) const
 {
-    const qreal scale = 65535.0;
-    const qreal invScale = 1.0 / scale;
+    constexpr qreal scale = 65535.0;
+    constexpr qreal invScale = 1.0 / scale;
 
     if (d->hasColorants) {
         //we can only reliably delinearise in the 0-1.0 range, outside of that leave the value alone.
@@ -502,8 +502,8 @@ void LcmsColorProfileContainer::LinearizeFloatValueFast(QVector <double> & Value
 }
 void LcmsColorProfileContainer::DelinearizeFloatValueFast(QVector <double> & Value) const
 {
-    const qreal scale = 65535.0;
-    const qreal invScale = 1.0 / scale;
+    constexpr qreal scale = 65535.0;
+    constexpr qreal invScale = 1.0 / scale;
 
     if (d->hasColorants) {
         //we can only reliably delinearise in the 0-1.0 range, outside of that leave the value alone.

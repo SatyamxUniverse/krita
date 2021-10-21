@@ -10,7 +10,7 @@
 #include <KisViewManager.h>
 #include <KoProgressUpdater.h>
 
-static const int UPDATE_PROGRESS_TIMEOUT = 500;
+static constexpr int UPDATE_PROGRESS_TIMEOUT = 500;
 
 KisQmicProgressManager::KisQmicProgressManager(KisViewManager* viewManager)
     : m_progressPulseRequest(0)

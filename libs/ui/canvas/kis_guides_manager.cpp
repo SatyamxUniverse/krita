@@ -398,7 +398,7 @@ void KisGuidesManager::setView(QPointer<KisView> view)
 KisGuidesManager::Private::GuideHandle
 KisGuidesManager::Private::findGuide(const QPointF &docPos)
 {
-    const int snapRadius = 16;
+    constexpr int snapRadius = 16;
     const KoViewConverter *converter = view->canvasBase()->viewConverter();
     const QPointF docPosView = converter->documentToView(docPos);
 

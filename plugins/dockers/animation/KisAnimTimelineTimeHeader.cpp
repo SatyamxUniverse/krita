@@ -32,7 +32,7 @@ struct KisAnimTimelineTimeHeader::Private
         , lastPressSectionIndex(-1)
     {
         // Compressed configuration writing..
-        const int compressorDelayMS = 100;
+        constexpr int compressorDelayMS = 100;
         zoomSaveCompressor.reset(
                     new KisSignalCompressorWithParam<qreal>(compressorDelayMS,
                                                             [](qreal zoomValue){
@@ -278,7 +278,7 @@ void KisAnimTimelineTimeHeader::slotSaveThrottle(qreal value)
 }
 
 int KisAnimTimelineTimeHeader::Private::calcSpanWidth(const int sectionWidth) {
-    const int minWidth = 36;
+    constexpr int minWidth = 36;
 
     int spanWidth = this->fps;
 

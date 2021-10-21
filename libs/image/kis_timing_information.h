@@ -12,7 +12,7 @@
  * will ever last. This is used instead of infinity to avoid potential errors. The value is
  * approximately ten years.
  */
-const qreal LONG_TIME = 320000000000.0;
+constexpr qreal LONG_TIME = 320000000000.0;
 
 /**
  * Contains information about timing settings in a stroke (mainly for airbrushing effects). The

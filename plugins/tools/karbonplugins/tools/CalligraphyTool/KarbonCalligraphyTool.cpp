@@ -264,7 +264,7 @@ qreal KarbonCalligraphyTool::calculateWidth(qreal pressure)
 
     qreal strokeWidth = m_strokeWidth * pressure * (1 - thinning);
 
-    const qreal MINIMUM_STROKE_WIDTH = 1.0;
+    constexpr qreal MINIMUM_STROKE_WIDTH = 1.0;
     if (strokeWidth < MINIMUM_STROKE_WIDTH) {
         strokeWidth = MINIMUM_STROKE_WIDTH;
     }

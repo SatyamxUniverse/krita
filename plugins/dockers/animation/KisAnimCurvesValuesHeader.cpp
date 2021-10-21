@@ -126,7 +126,7 @@ void KisAnimCurvesValuesHeader::paintEvent(QPaintEvent */*e*/)
     const int visibleSteps = visibleValueDifference() / valueStep;
     const int minorNotches = pixelsPerStep(valueStep) >= (UNIT_SIZE_PIXELS * 2) ? 9 : 3;
     const int majorNotchLength = rect().width();
-    const int minorNotchLength = 12;
+    constexpr int minorNotchLength = 12;
 
     // Draw notch at each major step.
     //const qreal upperValueThreshold = firstVisibleValue + (visibleSteps + 2) * valueStep;
@@ -150,7 +150,7 @@ void KisAnimCurvesValuesHeader::paintEvent(QPaintEvent */*e*/)
         }
 
         {   // Draw label.
-            const int padding = 4;
+            constexpr int padding = 4;
 
             const QString label = QString::number(value, 'f', valueStep < 1 ? 2 : 0);
             const QRect textRect = QRect(0, majorLeft.y(), rect().width() - minorNotchLength - padding, 32);

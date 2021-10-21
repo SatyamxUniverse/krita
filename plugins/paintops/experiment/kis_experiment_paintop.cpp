@@ -103,7 +103,7 @@ void KisExperimentPaintOp::paintRegion(const KisRegion &changedRegion)
 QPointF KisExperimentPaintOp::speedCorrectedPosition(const KisPaintInformation& pi1,
         const KisPaintInformation& pi2)
 {
-    const qreal fadeFactor = 0.6;
+    constexpr qreal fadeFactor = 0.6;
 
     QPointF diff = pi2.pos() - pi1.pos();
     qreal realLength = sqrt(diff.x() * diff.x() + diff.y() * diff.y());
@@ -194,7 +194,7 @@ void KisExperimentPaintOp::paintLine(const KisPaintInformation &pi1, const KisPa
         /**
          * Refresh rate at least 25fps
          */
-        const int timeThreshold = 40;
+        constexpr int timeThreshold = 40;
         const int elapsedTime = pi2.currentTime() - m_lastPaintTime;
 
         QRect pathBounds = m_path.boundingRect().toRect();
@@ -213,7 +213,7 @@ void KisExperimentPaintOp::paintLine(const KisPaintInformation &pi1, const KisPa
                  * choose the method on the base of the size of the
                  * shape.
                  */
-                const int pathSizeThreshold = 128;
+                constexpr int pathSizeThreshold = 128;
 
                 KisRegion changedRegion;
                 if (distanceMetric < pathSizeThreshold) {

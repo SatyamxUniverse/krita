@@ -13,8 +13,8 @@
 
 extern int _GifError;
 
-static const int InterlacedOffset[] = { 0, 4, 2, 1 };	/* The way Interlaced image should */
-static const int InterlacedJumps[] = { 8, 8, 4, 2 };	/* be read - offsets and jumps... */
+static constexpr int InterlacedOffset[] = {0, 4, 2, 1}; /* The way Interlaced image should */
+static constexpr int InterlacedJumps[] = {8, 8, 4, 2};  /* be read - offsets and jumps... */
 
 int doOutput(GifFileType* gif, const GifByteType * data, int i)
 {

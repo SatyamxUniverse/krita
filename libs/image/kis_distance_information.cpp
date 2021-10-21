@@ -18,10 +18,10 @@
 
 #include "kis_lod_transform.h"
 
-const qreal MIN_DISTANCE_SPACING = 0.5;
+constexpr qreal MIN_DISTANCE_SPACING = 0.5;
 
 // Smallest allowed interval when timed spacing is enabled, in milliseconds.
-const qreal MIN_TIMED_INTERVAL = 0.5;
+constexpr qreal MIN_TIMED_INTERVAL = 0.5;
 
 // Largest allowed interval when timed spacing is enabled, in milliseconds.
 const qreal MAX_TIMED_INTERVAL = LONG_TIME;
@@ -609,7 +609,7 @@ void KisDistanceInformation::lockCurrentDrawingAngle(const KisPaintInformation &
     qreal newAngle = angle;
 
     if (m_d->lockedDrawingAngleOptional) {
-        const qreal stabilizingCoeff = 20.0;
+        constexpr qreal stabilizingCoeff = 20.0;
         const qreal dist = stabilizingCoeff * m_d->spacing.scalarApprox();
         const qreal alpha = qMax(0.0, dist - scalarDistanceApprox()) / dist;
 

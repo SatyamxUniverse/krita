@@ -63,7 +63,7 @@ QTextDocument *NodeToolTip::createDocument(const QModelIndex &index)
 
     doc->setHtml(html);
 
-    const int margin = 16;
+    constexpr int margin = 16;
     doc->setTextWidth(qMin(doc->size().width() + 2 * margin, qreal(600.0)));
 
     doc->setDocumentMargin(margin);

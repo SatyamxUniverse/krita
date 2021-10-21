@@ -67,7 +67,7 @@ void KoHatchBackground::paint(QPainter &painter, KoShapePaintingContext &context
     // angel offset as basically it just means we paint the lines also at a different angle.
     // This are the angle offsets we need to apply to the different lines of a style.
     // -90 is for single, 0 for the 2nd line in double and -45 for the 3th line in triple.
-    const int angleOffset[] = {-90, 0, -45 };
+    constexpr int angleOffset[] = {-90, 0, -45};
     // The number of loops is defined by the style.
     int loops = (d->style == Single) ? 1 : (d->style == Double) ? 2 : 3;
 

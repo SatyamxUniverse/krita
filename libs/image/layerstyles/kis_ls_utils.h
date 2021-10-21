@@ -37,7 +37,7 @@ namespace KisLsUtils
                                       const QRect &applyRect,
                                       qreal radius);
 
-    static const int FULL_PERCENT_RANGE = 100;
+    static constexpr int FULL_PERCENT_RANGE = 100;
     void adjustRange(KisPixelSelectionSP selection, const QRect &applyRect, const int range);
 
     void applyContourCorrection(KisPixelSelectionSP selection,

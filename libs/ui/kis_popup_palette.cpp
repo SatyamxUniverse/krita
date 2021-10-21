@@ -32,8 +32,8 @@
 #include <kis_paintop_preset.h>
 #include "KisMouseClickEater.h"
 
-static const int WIDGET_MARGIN = 16;
-static const qreal BORDER_WIDTH = 3.0;
+static constexpr int WIDGET_MARGIN = 16;
+static constexpr qreal BORDER_WIDTH = 3.0;
 
 class PopupColorTriangle : public KoTriangleColorSelector
 {
@@ -307,8 +307,7 @@ void KisPopupPalette::reconfigure()
                 m_colorSelector, SLOT(configurationChanged()));
     }
 
-
-    const int auxButtonSize = 35;
+    constexpr int auxButtonSize = 35;
     m_colorSelector->move(m_popupPaletteSize/2 - selectorRadius, m_popupPaletteSize/2 - selectorRadius);
     m_colorSelector->resize(m_popupPaletteSize - 2*m_colorSelector->x(), m_popupPaletteSize - 2*m_colorSelector->y());
 
@@ -989,7 +988,7 @@ bool KisPopupPalette::onScreen()
 
 void KisPopupPalette::ensureWithinParent(const QPoint& position, bool useUpperLeft) {
     if (isVisible() && parentWidget())  {
-        const qreal widgetMargin = -20.0;
+        constexpr qreal widgetMargin = -20.0;
         const QRect fitRect = kisGrowRect(parentWidget()->rect(), widgetMargin);
         const QPoint paletteCenterOffset(sizeHint().width() / 2, sizeHint().height() / 2);
 

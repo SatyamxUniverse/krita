@@ -503,7 +503,7 @@ void writeChannelDataRLEImpl(QIODevice &io,
         // write zero's for the channel lengths block
         for (int i = 0; i < rc.height(); ++i) {
             // XXX: choose size for PSB!
-            const quint16 fakeRLEBLockSize = 0;
+            constexpr quint16 fakeRLEBLockSize = 0;
             SAFE_WRITE_EX(byteOrder, io, fakeRLEBLockSize);
         }
     }

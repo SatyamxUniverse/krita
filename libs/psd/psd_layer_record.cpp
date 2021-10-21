@@ -482,17 +482,17 @@ void PSDLayerRecord::writeImpl(QIODevice &io,
             channel->channelInfoPosition = static_cast<int>(io.pos());
 
             // to be filled in when we know how big channel block is
-            const quint32 fakeChannelSize = 0;
+            constexpr quint32 fakeChannelSize = 0;
             SAFE_WRITE_EX(byteOrder, io, fakeChannelSize);
         }
 
         if (m_onlyTransparencyMask) {
-            const quint16 userSuppliedMaskChannelId = -2;
+            constexpr quint16 userSuppliedMaskChannelId = -2;
             SAFE_WRITE_EX(byteOrder, io, userSuppliedMaskChannelId);
 
             m_transparencyMaskSizeOffset = io.pos();
 
-            const quint32 fakeTransparencyMaskSize = 0;
+            constexpr quint32 fakeTransparencyMaskSize = 0;
             SAFE_WRITE_EX(byteOrder, io, fakeTransparencyMaskSize);
         }
 
@@ -529,7 +529,7 @@ void PSDLayerRecord::writeImpl(QIODevice &io,
 
             if (m_onlyTransparencyMask) {
                 {
-                    const quint32 layerMaskDataSize = 20; // support simple case only
+                    constexpr quint32 layerMaskDataSize = 20; // support simple case only
                     SAFE_WRITE_EX(byteOrder, io, layerMaskDataSize);
                 }
 
@@ -545,20 +545,20 @@ void PSDLayerRecord::writeImpl(QIODevice &io,
                 }
 
                 {
-                    const quint8 maskFlags = 0; // nothing serious
+                    constexpr quint8 maskFlags = 0; // nothing serious
                     SAFE_WRITE_EX(byteOrder, io, maskFlags);
 
-                    const quint16 padding = 0; // 2-byte padding
+                    constexpr quint16 padding = 0; // 2-byte padding
                     SAFE_WRITE_EX(byteOrder, io, padding);
                 }
             } else {
-                const quint32 nullLayerMaskDataSize = 0;
+                constexpr quint32 nullLayerMaskDataSize = 0;
                 SAFE_WRITE_EX(byteOrder, io, nullLayerMaskDataSize);
             }
 
             {
                 // blending ranges are not implemented yet
-                const quint32 nullBlendingRangesSize = 0;
+                constexpr quint32 nullBlendingRangesSize = 0;
                 SAFE_WRITE_EX(byteOrder, io, nullBlendingRangesSize);
             }
 

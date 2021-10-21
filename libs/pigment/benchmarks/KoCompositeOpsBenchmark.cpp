@@ -15,17 +15,16 @@
 
 #include <simpletest.h>
 
-const int TILE_WIDTH = 64;
-const int TILE_HEIGHT = 64;
+constexpr int TILE_WIDTH = 64;
+constexpr int TILE_HEIGHT = 64;
 
-const int IMG_WIDTH = 2048;
-const int IMG_HEIGHT = 2048;
+constexpr int IMG_WIDTH = 2048;
+constexpr int IMG_HEIGHT = 2048;
 
-const quint8 OPACITY_HALF = 128;
+constexpr quint8 OPACITY_HALF = 128;
 
-const int TILES_IN_WIDTH = IMG_WIDTH / TILE_WIDTH;
-const int TILES_IN_HEIGHT = IMG_HEIGHT / TILE_HEIGHT;
-
+constexpr int TILES_IN_WIDTH = IMG_WIDTH / TILE_WIDTH;
+constexpr int TILES_IN_HEIGHT = IMG_HEIGHT / TILE_HEIGHT;
 
 #define COMPOSITE_BENCHMARK \
         for (int y = 0; y < TILES_IN_HEIGHT; y++){                                              \

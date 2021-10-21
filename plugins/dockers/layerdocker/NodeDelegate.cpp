@@ -1194,7 +1194,7 @@ void NodeDelegate::drawProgressBar(QPainter *p, const QStyleOptionViewItem &opti
 
         const QRect thumbnailRect = thumbnailClickRect(option, index);
         const QRect iconsRectR    = iconsRect(option, index);
-        const int height = 5;
+        constexpr int height = 5;
         const QRect rc = QRect(
             ((option.direction == Qt::RightToLeft) ?
               iconsRectR.bottomRight() :

@@ -24,7 +24,7 @@ const KoID DefaultId("default", ki18n("Default")); ///< generate Krita default m
 const KoID SoftId("soft", ki18n("Soft")); ///< generate brush mask from former softbrush paintop, where softness is based on curve
 const KoID GaussId("gauss", ki18n("Gaussian")); ///< generate brush mask with a Gaussian-blurred edge
 
-static const int OVERSAMPLING = 4;
+static constexpr int OVERSAMPLING = 4;
 
 /**
  * This is the base class for mask shapes

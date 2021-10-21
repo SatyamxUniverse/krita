@@ -466,7 +466,7 @@ void KisQmicSimpleConvertor::convertToGmicImageFast(KisPaintDeviceSP dev, gmic_i
     width  = width < 0  ? 0 : width;
     height = height < 0 ? 0 : height;
 
-    const qint32 numChannels = 4;
+    constexpr qint32 numChannels = 4;
 
     int greenOffset = gmicImage->_width * gmicImage->_height;
     int blueOffset = greenOffset * 2;

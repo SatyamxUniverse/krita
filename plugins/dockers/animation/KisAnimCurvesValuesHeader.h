@@ -11,7 +11,7 @@
 #include "kis_debug.h"
 #include <QtMath>
 
-const int UNIT_SIZE_PIXELS = 32;
+constexpr int UNIT_SIZE_PIXELS = 32;
 
 class KisAnimCurvesValuesHeader : public QHeaderView
 {

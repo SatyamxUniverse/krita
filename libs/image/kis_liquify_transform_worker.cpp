@@ -190,7 +190,7 @@ void KisLiquifyTransformWorker::undoPoints(const QPointF &base,
                                            qreal amount,
                                            qreal sigma)
 {
-    const qreal maxDistCoeff = 3.0;
+    constexpr qreal maxDistCoeff = 3.0;
     const qreal maxDist = maxDistCoeff * sigma;
     QRectF clipRect(base.x() - maxDist, base.y() - maxDist,
                     2 * maxDist, 2 * maxDist);
@@ -413,8 +413,8 @@ QRect KisLiquifyTransformWorker::approxChangeRect(const QRect &rc)
      * Here we just return the full area occupied by the transformed grid.
      * We sample grid points for not doing too much work.
      */
-    const int maxSamplePoints = 200;
-    const int minStep = 3;
+    constexpr int maxSamplePoints = 200;
+    constexpr int minStep = 3;
     const int step = qMax(minStep, m_d->transformedPoints.size() / maxSamplePoints);
     Q_UNUSED(step);
 

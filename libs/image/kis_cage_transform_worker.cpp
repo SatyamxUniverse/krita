@@ -275,8 +275,8 @@ QRect KisCageTransformWorker::approxChangeRect(const QRect &rc)
 
     QVector<QPointF> cageSamplePoints;
 
-    const int minStep = 3;
-    const int maxSamples = 200;
+    constexpr int minStep = 3;
+    constexpr int maxSamples = 200;
 
     const int totalPixels = rc.width() * rc.height();
     const int realStep = qMax(minStep, totalPixels / maxSamples);

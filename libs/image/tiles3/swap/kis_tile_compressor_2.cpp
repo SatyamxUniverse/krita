@@ -170,9 +170,9 @@ qint32 KisTileCompressor2::tileDataBufferSize(KisTileData *tileData)
 
 inline qint32 KisTileCompressor2::maxHeaderLength()
 {
-    static const qint32 QINT32_LENGTH = 11;
-    static const qint32 COMPRESSION_NAME_LENGTH = 5;
-    static const qint32 SEPARATORS_LENGTH = 4;
+    static constexpr qint32 QINT32_LENGTH = 11;
+    static constexpr qint32 COMPRESSION_NAME_LENGTH = 5;
+    static constexpr qint32 SEPARATORS_LENGTH = 4;
 
     return 3 * QINT32_LENGTH + COMPRESSION_NAME_LENGTH + SEPARATORS_LENGTH;
 }

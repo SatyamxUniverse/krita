@@ -28,7 +28,7 @@
 class KisFavoriteResourceManager::ColorDataList
 {
 public:
-    static const int MAX_RECENT_COLOR = 12;
+    static constexpr int MAX_RECENT_COLOR = 12;
 
     ColorDataList() {
         m_key = 0;

@@ -163,7 +163,7 @@ void KisGammaExposureAction::cursorMovedAbsolute(const QPointF &startPos, const 
 {
     QPointF diff = -(pos - startPos);
 
-    const int step = 200;
+    constexpr int step = 200;
 
     KisExposureGammaCorrectionInterface *interface =
         inputManager()->canvas()->exposureGammaCorrectionInterface();

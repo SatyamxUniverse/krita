@@ -549,7 +549,7 @@ void PSDLayerMaskSection::writePsdImpl(QIODevice &io, KisNodeSP rootLayer, psd_c
                 const bool nodeVisible = node->visible();
                 const KoColorSpace *colorSpace = node->colorSpace();
                 const quint8 nodeOpacity = node->opacity();
-                const quint8 nodeClipping = 0;
+                constexpr quint8 nodeClipping = 0;
                 const KisPaintLayer *paintLayer = qobject_cast<KisPaintLayer *>(node.data());
                 const bool alphaLocked = (paintLayer && paintLayer->alphaLocked());
                 const QString nodeCompositeOp = node->compositeOpId();
@@ -645,7 +645,7 @@ void PSDLayerMaskSection::writePsdImpl(QIODevice &io, KisNodeSP rootLayer, psd_c
 
         {
             // write the global layer mask info -- which is empty
-            const quint32 globalMaskSize = 0;
+            constexpr quint32 globalMaskSize = 0;
             SAFE_WRITE_EX(psd_byte_order::psdBigEndian, io, globalMaskSize);
         }
 
@@ -693,7 +693,7 @@ void PSDLayerMaskSection::writeTiffImpl(QIODevice &io, KisNodeSP rootLayer, psd_
                 const bool nodeVisible = node->visible();
                 const KoColorSpace *colorSpace = node->colorSpace();
                 const quint8 nodeOpacity = node->opacity();
-                const quint8 nodeClipping = 0;
+                constexpr quint8 nodeClipping = 0;
                 const KisPaintLayer *paintLayer = qobject_cast<KisPaintLayer *>(node.data());
                 const bool alphaLocked = (paintLayer && paintLayer->alphaLocked());
                 const QString nodeCompositeOp = node->compositeOpId();

@@ -1372,7 +1372,7 @@ void DefaultTool::selectionBooleanOp(int booleanOp)
     KUndo2MagicString actionName = kundo2_noi18n("BUG: boolean action name");
 
     // TODO: implement a reference shape selection dialog!
-    const int referenceShapeIndex = 0;
+    constexpr int referenceShapeIndex = 0;
     KoShape *referenceShape = editableShapes[referenceShapeIndex];
 
     KisCanvas2 *kisCanvas = static_cast<KisCanvas2 *>(canvas());

@@ -16,17 +16,17 @@
 #include <QPoint>
 #include <QPointF>
 
-const quint8 quint8_MAX = std::numeric_limits<quint8>::max();
-const quint16 quint16_MAX = std::numeric_limits<quint16>::max();
+constexpr quint8 quint8_MAX = std::numeric_limits<quint8>::max();
+constexpr quint16 quint16_MAX = std::numeric_limits<quint16>::max();
 
-const qint16 qint16_MIN = std::numeric_limits<qint16>::min();
-const qint16 qint16_MAX = std::numeric_limits<qint16>::max();
-const qint32 qint32_MAX = std::numeric_limits<qint32>::max();
-const qint32 qint32_MIN = std::numeric_limits<qint32>::min();
+constexpr qint16 qint16_MIN = std::numeric_limits<qint16>::min();
+constexpr qint16 qint16_MAX = std::numeric_limits<qint16>::max();
+constexpr qint32 qint32_MAX = std::numeric_limits<qint32>::max();
+constexpr qint32 qint32_MIN = std::numeric_limits<qint32>::min();
 
-const quint8 MAX_SELECTED = std::numeric_limits<quint8>::max();
-const quint8 MIN_SELECTED = std::numeric_limits<quint8>::min();
-const quint8 SELECTION_THRESHOLD = 1;
+constexpr quint8 MAX_SELECTED = std::numeric_limits<quint8>::max();
+constexpr quint8 MIN_SELECTED = std::numeric_limits<quint8>::min();
+constexpr quint8 SELECTION_THRESHOLD = 1;
 
 enum OutlineStyle {
     OUTLINE_NONE = 0,
@@ -71,10 +71,10 @@ enum OldCursorStyle {
     OLD_CURSOR_STYLE_OUTLINE_TRIANGLE_LEFTHANDED = 11
 };
 
-const double PRESSURE_MIN = 0.0;
-const double PRESSURE_MAX = 1.0;
-const double PRESSURE_DEFAULT = PRESSURE_MAX;
-const double PRESSURE_THRESHOLD = 5.0 / 255.0;
+constexpr double PRESSURE_MIN = 0.0;
+constexpr double PRESSURE_MAX = 1.0;
+constexpr double PRESSURE_DEFAULT = PRESSURE_MAX;
+constexpr double PRESSURE_THRESHOLD = 5.0 / 255.0;
 
 // copy of lcms.h
 #define INTENT_PERCEPTUAL                 0

@@ -184,7 +184,7 @@ void sampleColor(const QRect &srcRect,
         mixer->computeMixedColor(resultColor->data());
         lastPickedColor = *resultColor;
 
-        const int batchSize = 16;
+        constexpr int batchSize = 16;
         int numSamplesLeft = numPixels - minSamples;
 
         while (numSamplesLeft > 0) {

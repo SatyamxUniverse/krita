@@ -415,7 +415,7 @@ public:
     }
 
 private:
-    static const qint32 WEAK_REF = 2;
+    static constexpr qint32 WEAK_REF = 2;
     static inline bool isOdd(const qint32 &x) {
         return x & 0x01;
     }

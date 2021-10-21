@@ -121,8 +121,7 @@ namespace KritaUtils
             triangles << triangle;
         }
 
-
-        const int step = 64;
+        constexpr int step = 64;
         const int right = totalRect.x() + totalRect.width();
         const int bottom = totalRect.y() + totalRect.height();
 
@@ -158,7 +157,7 @@ namespace KritaUtils
         // adjust the rect for antialiasing to work
         totalRect = totalRect.adjusted(-1,-1,1,1);
 
-        const int step = 64;
+        constexpr int step = 64;
         const int right = totalRect.x() + totalRect.width();
         const int bottom = totalRect.y() + totalRect.height();
 

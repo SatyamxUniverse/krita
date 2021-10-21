@@ -16,11 +16,11 @@ struct KoYCbCrTraits : public KoColorSpaceTrait<_channels_type_, 4, 3> {
     
     typedef _channels_type_ channels_type;
     typedef KoColorSpaceTrait<_channels_type_, 4, 3> parent;
-    
-    static const qint32 Y_pos = 0;
-    static const qint32 Cb_pos = 1;
-    static const qint32 Cr_pos = 2;
-    
+
+    static constexpr qint32 Y_pos = 0;
+    static constexpr qint32 Cb_pos = 1;
+    static constexpr qint32 Cr_pos = 2;
+
     /**
      * An YCbCr pixel
      */

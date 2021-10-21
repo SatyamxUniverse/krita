@@ -824,7 +824,7 @@ int KisViewManager::viewCount() const
 
 bool KisViewManager::KisViewManagerPrivate::blockUntilOperationsFinishedImpl(KisImageSP image, bool force)
 {
-    const int busyWaitDelay = 1000;
+    constexpr int busyWaitDelay = 1000;
     KisDelayedSaveDialog dialog(image, !force ? KisDelayedSaveDialog::GeneralDialog : KisDelayedSaveDialog::ForcedDialog, busyWaitDelay, mainWindow);
     dialog.blockIfImageIsBusy();
 
@@ -1099,7 +1099,7 @@ void KisViewManager::slotSaveIncrementalBackup()
     }
     else { // if NOT working on a backup...
         // Navigate directory searching for latest backup version, ignore letters
-        const quint8 HARDCODED_DIGIT_COUNT = 3;
+        constexpr quint8 HARDCODED_DIGIT_COUNT = 3;
         QString baseNewVersion = "000";
         QString backupFileName = QFileInfo(document()->localFilePath()).fileName();
         QRegExp regex2("[.][a-z]{2,4}$");  //  Heuristic to find file extension

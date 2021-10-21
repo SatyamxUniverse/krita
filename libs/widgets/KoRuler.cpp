@@ -28,13 +28,12 @@
 #include <KoViewConverter.h>
 
 // the distance in pixels of a mouse position considered outside the rule
-static const int OutsideRulerThreshold = 20;
+static constexpr int OutsideRulerThreshold = 20;
 //
-static const int fullStepMarkerLength = 6;
-static const int halfStepMarkerLength = 6;
-static const int quarterStepMarkerLength = 3;
-static const int measurementTextAboveBelowMargin = 1;
-
+static constexpr int fullStepMarkerLength = 6;
+static constexpr int halfStepMarkerLength = 6;
+static constexpr int quarterStepMarkerLength = 3;
+static constexpr int measurementTextAboveBelowMargin = 1;
 
 void RulerTabChooser::mousePressEvent(QMouseEvent *)
 {

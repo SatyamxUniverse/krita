@@ -413,7 +413,7 @@ QVariant KisAnimTimelineFramesModel::data(const QModelIndex &index, int role) co
         if (!dummy) {
             return  QVariant();
         }
-        const int maxSize = 200;
+        constexpr int maxSize = 200;
 
         QImage image(dummy->node()->createThumbnailForFrame(maxSize, maxSize, index.column(), Qt::KeepAspectRatio));
         return image;
@@ -470,7 +470,7 @@ QVariant KisAnimTimelineFramesModel::headerData(int section, Qt::Orientation ori
             if (!value.isValid()) return value;
 
             QString name = value.toString();
-            const int maxNameSize = 13;
+            constexpr int maxNameSize = 13;
 
             if (name.size() > maxNameSize) {
                 name = QString("%1...").arg(name.left(maxNameSize));

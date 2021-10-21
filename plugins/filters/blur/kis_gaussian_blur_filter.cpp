@@ -114,7 +114,7 @@ bool KisGaussianBlurFilter::configurationAllowedForMask(KisFilterConfigurationSP
 {
     //ENTER_FUNCTION() << config->getFloat("horizRadius", 5.0) << config->getFloat("vertRadius", 5.0);
 
-    const float maxRadiusForMask = 100.0;
+    constexpr float maxRadiusForMask = 100.0;
 
     return config->getFloat("horizRadius", 5.0) <= maxRadiusForMask &&
             config->getFloat("vertRadius", 5.0) <= maxRadiusForMask;
@@ -124,7 +124,7 @@ void KisGaussianBlurFilter::fixLoadedFilterConfigurationForMasks(KisFilterConfig
 {
     ENTER_FUNCTION();
 
-    const float maxRadiusForMask = 100.0;
+    constexpr float maxRadiusForMask = 100.0;
 
     if (config->getFloat("horizRadius", 5.0) > maxRadiusForMask) {
         config->setProperty("horizRadius", maxRadiusForMask);

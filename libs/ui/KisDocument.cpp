@@ -1475,7 +1475,7 @@ void KisDocument::setNormalAutoSaveInterval()
 
 void KisDocument::setEmergencyAutoSaveInterval()
 {
-    const int emergencyAutoSaveInterval = 10; /* sec */
+    constexpr int emergencyAutoSaveInterval = 10; /* sec */
     setAutoSaveDelay(emergencyAutoSaveInterval);
     d->autoSaveFailureCount++;
 }

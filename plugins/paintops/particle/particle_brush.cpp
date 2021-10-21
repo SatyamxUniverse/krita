@@ -134,8 +134,8 @@ void ParticleBrush::draw(KisPaintDeviceSP dab, const KoColor& color, const QPoin
             // Hence better to catch infinity here and just not paint anything.
             QPointF pointF = m_particlePos[j];
 
-            const qint32 max = 2147483600;
-            const qint32 min = -max;
+            constexpr qint32 max = 2147483600;
+            constexpr qint32 min = -max;
             bool nearInfinity = pointF.x() < min || pointF.x () > max || pointF.y() < min || pointF.y() > max;
             bool inside = boundingRect.contains(m_particlePos[j].toPoint());
 

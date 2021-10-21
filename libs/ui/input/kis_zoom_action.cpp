@@ -289,8 +289,8 @@ void KisZoomAction::cursorMovedAbsolute(const QPointF &startPos, const QPointF &
 {
     QPointF diff = -(pos - startPos);
 
-    const int stepCont = 100;
-    const int stepDisc = 50;
+    constexpr int stepCont = 100;
+    constexpr int stepDisc = 50;
 
     if (d->mode == ZoomModeShortcut ||
         d->mode == RelativeZoomModeShortcut) {

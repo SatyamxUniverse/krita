@@ -49,8 +49,8 @@ void sliceQImage(const QImage &image, QVector<QVector<QByteArray>> *dstPlanes, b
 
     for (int i = 0; i < 3; i++) {
         const int srcRowOffset = 2 - i;
-        const int srcStep = 4;
-        const int dstStep = 1;
+        constexpr int srcStep = 4;
+        constexpr int dstStep = 1;
 
         for (int row = 0; row < image.height(); row++) {
             uncompressedRows[i].append(QByteArray(image.width(), '\0'));
@@ -108,12 +108,12 @@ void KisAslPatternsWriter::addPatternImpl(const KoPatternSP pattern)
         KisAslWriterUtils::OffsetStreamPusher<quint32, byteOrder> patternSizeField(m_device);
 
         {
-            const quint32 patternVersion = 1;
+            constexpr quint32 patternVersion = 1;
             SAFE_WRITE_EX(byteOrder, m_device, patternVersion);
         }
 
         {
-            const quint32 patternImageMode = 3;
+            constexpr quint32 patternImageMode = 3;
             SAFE_WRITE_EX(byteOrder, m_device, patternImageMode);
         }
 
@@ -136,7 +136,7 @@ void KisAslPatternsWriter::addPatternImpl(const KoPatternSP pattern)
 
         {
             {
-                const quint32 arrayVersion = 3;
+                constexpr quint32 arrayVersion = 3;
                 SAFE_WRITE_EX(byteOrder, m_device, arrayVersion);
             }
 
@@ -146,7 +146,7 @@ void KisAslPatternsWriter::addPatternImpl(const KoPatternSP pattern)
 
             {
                 // don't ask me why it is called this way...
-                const quint32 numberOfChannels = 24;
+                constexpr quint32 numberOfChannels = 24;
                 SAFE_WRITE_EX(byteOrder, m_device, numberOfChannels);
             }
 
@@ -158,14 +158,14 @@ void KisAslPatternsWriter::addPatternImpl(const KoPatternSP pattern)
 
             for (int i = 0; i < 3; i++) {
                 {
-                    const quint32 planeIsWritten = 1;
+                    constexpr quint32 planeIsWritten = 1;
                     SAFE_WRITE_EX(byteOrder, m_device, planeIsWritten);
                 }
 
                 KisAslWriterUtils::OffsetStreamPusher<quint32, byteOrder> planeSizeField(m_device);
 
                 {
-                    const quint32 pixelDepth1 = 8;
+                    constexpr quint32 pixelDepth1 = 8;
                     SAFE_WRITE_EX(byteOrder, m_device, pixelDepth1);
                 }
 
@@ -173,7 +173,7 @@ void KisAslPatternsWriter::addPatternImpl(const KoPatternSP pattern)
 
                 {
                     // why twice? who knows...
-                    const quint16 pixelDepth2 = 8;
+                    constexpr quint16 pixelDepth2 = 8;
                     SAFE_WRITE_EX(byteOrder, m_device, pixelDepth2);
                 }
 

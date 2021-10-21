@@ -153,7 +153,7 @@ bool tryPasteShapes(bool pasteAtCursorPosition, KisViewManager *view)
 
                             QRectF br2 = intersectedShape->boundingRect();
 
-                            const qreal tolerance = 2.0; /* pt */
+                            constexpr qreal tolerance = 2.0; /* pt */
                             if (KisAlgebra2D::fuzzyCompareRects(br1, br2, tolerance)) {
                                 br1.translate(offsetStep.x(), offsetStep.y());
                                 offset += offsetStep;

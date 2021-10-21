@@ -344,7 +344,7 @@ QMenu *KToolBar::Private::contextMenu(const QPoint &globalPos)
             }
         } else {
             // Scalable icons.
-            const int progression[] = { 16, 22, 32, 48, 64, 96, 128, 192, 256 };
+            constexpr int progression[] = {16, 22, 32, 48, 64, 96, 128, 192, 256};
 
             for (uint i = 0; i < 9; i++) {
                 Q_FOREACH (int it, avSizes) {

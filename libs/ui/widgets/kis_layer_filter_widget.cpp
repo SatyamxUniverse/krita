@@ -167,7 +167,7 @@ void KisLayerFilterWidget::showEvent(QShowEvent *show)
 
     if (parentMenu) {
         const int widthBefore = parentMenu->width();
-        const int rightEdgeThreshold = 5;
+        constexpr int rightEdgeThreshold = 5;
 
         //Fake resize event needs to be made to register change in widget menu size.
         //Not doing this will cause QMenu to not resize properly!

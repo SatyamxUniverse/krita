@@ -19,8 +19,7 @@ class KRITAIMAGE_EXPORT KisMarkerPainter
 {
 public:
     /// Any number bigger than this or lower than -this is considered invalid
-    static const qint32 ValidNumberRangeValue = 2140000000; // bit less than max value of int
-
+    static constexpr qint32 ValidNumberRangeValue = 2140000000; // bit less than max value of int
 
     KisMarkerPainter(KisPaintDeviceSP device, const KoColor &color);
     ~KisMarkerPainter();

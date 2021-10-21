@@ -17,7 +17,7 @@
 
 class KRITAIMAGE_EXPORT KisTiledExtentManager
 {
-    static const qint32 InitialBufferSize = 256;
+    static constexpr qint32 InitialBufferSize = 256;
 
     class KRITAIMAGE_EXPORT Data
     {

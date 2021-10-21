@@ -62,7 +62,7 @@ void KisGLImageF16::clearPixels()
 
 void KisGLImageF16::resize(const QSize &size, bool clearPixels)
 {
-    const int pixelSize = 2 * 4;
+    constexpr int pixelSize = 2 * 4;
 
     m_d->size = size;
     m_d->data.resize(size.width() * size.height() * pixelSize);

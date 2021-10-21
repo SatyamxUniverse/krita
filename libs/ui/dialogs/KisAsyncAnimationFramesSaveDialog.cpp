@@ -91,7 +91,7 @@ KisAsyncAnimationRenderDialogBase::Result KisAsyncAnimationFramesSaveDialog::reg
         }
 
         QStringList filesWithinRange;
-        const int numberOfDigits = 4;
+        constexpr int numberOfDigits = 4;
         Q_FOREACH(const QString &filename, filesList) {
             // Counting based on suffix, since prefix may include the path while filename doesn't
             int digitsPosition = filename.length() - m_d->filenameSuffix.length() - numberOfDigits;

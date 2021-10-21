@@ -28,9 +28,9 @@ struct KoLabTraits : public KoColorSpaceTrait<_channels_type_, 4, 3> {
     typedef _channels_type_ channels_type;
     typedef KoColorSpaceTrait<_channels_type_, 4, 3> parent;
     typedef KoLabColorSpaceMathsTraits<channels_type> math_trait;
-    static const qint32 L_pos = 0;
-    static const qint32 a_pos = 1;
-    static const qint32 b_pos = 2;
+    static constexpr qint32 L_pos = 0;
+    static constexpr qint32 a_pos = 1;
+    static constexpr qint32 b_pos = 2;
 
     /**
      * An Lab pixel

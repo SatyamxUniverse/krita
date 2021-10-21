@@ -14,8 +14,8 @@
 #include <QPainter>
 #include <QFontMetrics>
 
-const int CHANNEL_LEGEND_RADIUS = 6;
-const int CHANNEL_ICON_SIZE = 16;
+constexpr int CHANNEL_LEGEND_RADIUS = 6;
+constexpr int CHANNEL_ICON_SIZE = 16;
 
 KisAnimCurvesChannelDelegate::KisAnimCurvesChannelDelegate(QObject *parent)
     : QStyledItemDelegate(parent)

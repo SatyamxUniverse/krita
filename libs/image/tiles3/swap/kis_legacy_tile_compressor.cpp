@@ -97,7 +97,7 @@ qint32 KisLegacyTileCompressor::tileDataBufferSize(KisTileData *tileData)
 
 inline qint32 KisLegacyTileCompressor::maxHeaderLength()
 {
-    static const qint32 LEGACY_MAGIC_NUMBER = 79;
+    static constexpr qint32 LEGACY_MAGIC_NUMBER = 79;
     return LEGACY_MAGIC_NUMBER;
 }
 

@@ -150,10 +150,10 @@ struct OverCompositor32 {
     static ALWAYS_INLINE void compositeOnePixelScalar(const channels_type *src, channels_type *dst, const quint8 *mask, float opacity, const ParamsWrapper &oparams)
     {
         using namespace Arithmetic;
-        const qint32 alpha_pos = 3;
+        constexpr qint32 alpha_pos = 3;
 
-        const float uint8Rec1 = 1.0f / 255.0f;
-        const float uint8Max = 255.0f;
+        constexpr float uint8Rec1 = 1.0f / 255.0f;
+        constexpr float uint8Max = 255.0f;
 
         float srcAlpha = src[alpha_pos];
         srcAlpha *= opacity;

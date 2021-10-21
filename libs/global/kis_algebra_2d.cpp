@@ -998,7 +998,7 @@ QVector<QPointF> findTrianglePoint(const QPointF &p1, const QPointF &p2, qreal a
     if (p.isNull()) return result;
 
     if (qAbs(p.x()) > qAbs(p.y())) {
-        const qreal A = 1.0;
+        constexpr qreal A = 1.0;
         const qreal B2 = -T * p.y() / pSq;
         const qreal C = pow2(T) / pSq - pow2(a * p.x()) / pSq;
 
@@ -1020,7 +1020,7 @@ QVector<QPointF> findTrianglePoint(const QPointF &p1, const QPointF &p2, qreal a
             }
         }
     } else {
-        const qreal A = 1.0;
+        constexpr qreal A = 1.0;
         const qreal B2 = -T * p.x() / pSq;
         const qreal C = pow2(T) / pSq - pow2(a * p.y()) / pSq;
 

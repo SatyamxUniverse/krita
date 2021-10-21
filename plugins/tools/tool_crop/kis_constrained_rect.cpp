@@ -298,8 +298,8 @@ void KisConstrainedRect::setOffset(const QPoint &offset)
 void KisConstrainedRect::setRatio(qreal value) {
     KIS_ASSERT_RECOVER_RETURN(value >= 0);
 
-    const qreal eps = 1e-7;
-    const qreal invEps = 1.0 / eps;
+    constexpr qreal eps = 1e-7;
+    constexpr qreal invEps = 1.0 / eps;
 
     if (value < eps || value > invEps) {
         emit sigValuesChanged();

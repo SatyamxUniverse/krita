@@ -14,8 +14,7 @@
 
 namespace
 {
-
-const qint64 INPUT_BUFFER_SIZE = 4096;
+constexpr qint64 INPUT_BUFFER_SIZE = 4096;
 
 struct KisJPEGSourceManager : public jpeg_source_mgr
 {

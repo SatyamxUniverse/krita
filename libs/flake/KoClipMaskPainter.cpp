@@ -85,8 +85,7 @@ void KoClipMaskPainter::renderOnGlobalPainter()
         QRgb *maskData = reinterpret_cast<QRgb*>(m_d->maskImage.scanLine(y));
 
         for (int x = 0; x < m_d->maskImage.width(); x++) {
-
-            const qreal normCoeff = 1.0 / 255.0 * 255.0;
+            constexpr qreal normCoeff = 1.0 / 255.0 * 255.0;
 
             qreal maskValue = qreal(qAlpha(*maskData)) *
                 (0.2125 * qRed(*maskData) +

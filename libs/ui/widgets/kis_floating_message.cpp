@@ -150,7 +150,7 @@ void KisFloatingMessage::setIcon(const QIcon& icon)
     m_icon = icon.pixmap(256, 256).toImage();
 }
 
-const int MARGIN = 20;
+constexpr int MARGIN = 20;
 
 QRect KisFloatingMessage::determineMetrics( const int M )
 {

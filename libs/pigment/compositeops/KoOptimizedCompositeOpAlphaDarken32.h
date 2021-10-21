@@ -162,11 +162,11 @@ struct AlphaDarkenCompositor32 {
     static ALWAYS_INLINE void compositeOnePixelScalar(const channels_type *src, channels_type *dst, const quint8 *mask, float opacity, const ParamsWrapper &oparams)
     {
         using namespace Arithmetic;
-        const qint32 alpha_pos = 3;
+        constexpr qint32 alpha_pos = 3;
 
-        const float uint8Rec1 = 1.0f / 255.0f;
-        const float uint8Rec2 = 1.0f / (255.0f * 255.0f);
-        const float uint8Max = 255.0;
+        constexpr float uint8Rec1 = 1.0f / 255.0f;
+        constexpr float uint8Rec2 = 1.0f / (255.0f * 255.0f);
+        constexpr float uint8Max = 255.0;
 
         quint8 dstAlphaInt = dst[alpha_pos];
         float dstAlphaNorm = dstAlphaInt ? dstAlphaInt * uint8Rec1 : 0.0;

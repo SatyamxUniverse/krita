@@ -18,11 +18,11 @@ struct KoXyzTraits : public KoColorSpaceTrait<_channels_type_, 4, 3> {
     
     typedef _channels_type_ channels_type;
     typedef KoColorSpaceTrait<_channels_type_, 4, 3> parent;
-    
-    static const qint32 x_pos = 0;
-    static const qint32 y_pos = 1;
-    static const qint32 z_pos = 2;
-    
+
+    static constexpr qint32 x_pos = 0;
+    static constexpr qint32 y_pos = 1;
+    static constexpr qint32 z_pos = 2;
+
     /**
      * An Xyz pixel
      */

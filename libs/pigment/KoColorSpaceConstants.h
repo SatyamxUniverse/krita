@@ -11,9 +11,9 @@
 #include <QtGlobal>
 
 // TODO: find a better place or way to define those stuff
-const quint8 OPACITY_TRANSPARENT_U8 = 0;
-const quint8 OPACITY_OPAQUE_U8 = UCHAR_MAX;
-const qreal OPACITY_TRANSPARENT_F = 0.0;
-const qreal OPACITY_OPAQUE_F = 1.0;
+constexpr quint8 OPACITY_TRANSPARENT_U8 = 0;
+constexpr quint8 OPACITY_OPAQUE_U8 = UCHAR_MAX;
+constexpr qreal OPACITY_TRANSPARENT_F = 0.0;
+constexpr qreal OPACITY_OPAQUE_F = 1.0;
 
 #endif

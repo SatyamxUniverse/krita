@@ -291,7 +291,7 @@ public:
                 for (quint32 k = 0; k < m_convolveChannelsNo; ++k) {
                     if (k == (quint32)m_alphaCachePos) continue;
 
-                    const qreal zeroValue = 0.0;
+                    constexpr qreal zeroValue = 0.0;
                     const quint32 channelPos = m_convChannelList[k]->pos();
                     m_fromDoubleFuncPtr[k](dstPtr, channelPos, zeroValue);
                 }

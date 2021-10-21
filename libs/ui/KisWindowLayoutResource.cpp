@@ -19,7 +19,7 @@
 #include <KisDocument.h>
 #include <kis_dom_utils.h>
 
-static const int WINDOW_LAYOUT_VERSION = 1;
+static constexpr int WINDOW_LAYOUT_VERSION = 1;
 
 struct KisWindowLayoutResource::Private
 {

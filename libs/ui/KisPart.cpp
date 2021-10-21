@@ -121,7 +121,7 @@ KisPart* KisPart::instance()
 namespace {
 void busyWaitWithFeedback(KisImageSP image)
 {
-    const int busyWaitDelay = 1000;
+    constexpr int busyWaitDelay = 1000;
     KisDelayedSaveDialog dialog(image, KisDelayedSaveDialog::ForcedDialog, busyWaitDelay, KisPart::instance()->currentMainwindow());
     dialog.blockIfImageIsBusy();
 }

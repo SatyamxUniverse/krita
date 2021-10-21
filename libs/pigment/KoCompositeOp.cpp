@@ -94,7 +94,7 @@ void KoCompositeOp::ParameterInfo::copy(const ParameterInfo &rhs)
 }
 
 void KoCompositeOp::ParameterInfo::updateOpacityAndAverage(float value) {
-    const float exponent = 0.1;
+    constexpr float exponent = 0.1;
 
     opacity = value;
 

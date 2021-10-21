@@ -38,8 +38,8 @@ private:
     void prepareStreamingBuffer(qint32 tileDataSize);
 
 private:
-    static const qint8 RAW_DATA_FLAG = 0;
-    static const qint8 COMPRESSED_DATA_FLAG = 1;
+    static constexpr qint8 RAW_DATA_FLAG = 0;
+    static constexpr qint8 COMPRESSED_DATA_FLAG = 1;
 
 private:
     QByteArray m_linearizationBuffer;

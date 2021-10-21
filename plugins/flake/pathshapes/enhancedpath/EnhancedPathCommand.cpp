@@ -13,7 +13,7 @@
 #include <QDebug>
 
 // radian to degree factor
-const qreal rad2deg = 180.0 / M_PI;
+constexpr qreal rad2deg = 180.0 / M_PI;
 
 EnhancedPathCommand::EnhancedPathCommand(const QChar &command, EnhancedPathShape *parent)
     : m_command(command)

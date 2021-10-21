@@ -21,14 +21,14 @@ struct DirectDataAccessPolicy {
 
 
     KisHLineConstIteratorSP createConstIterator(const QRect &rect) {
-        const int xOffset = 0;
-        const int yOffset = 0;
+        constexpr int xOffset = 0;
+        constexpr int yOffset = 0;
         return new KisHLineIterator2(m_dataManager, rect.x(), rect.y(), rect.width(), xOffset, yOffset, false, m_completionListener);
     }
 
     KisHLineIteratorSP createIterator(const QRect &rect) {
-        const int xOffset = 0;
-        const int yOffset = 0;
+        constexpr int xOffset = 0;
+        constexpr int yOffset = 0;
         return new KisHLineIterator2(m_dataManager, rect.x(), rect.y(), rect.width(), xOffset, yOffset, true, m_completionListener);
     }
 
