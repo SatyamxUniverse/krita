@@ -136,6 +136,7 @@ void KisKeyframeChannel::moveKeyframe(KisKeyframeChannel *sourceChannel, int sou
     }
 
     targetChannel->insertKeyframe(targetTime, targetKeyframe, parentUndoCmd);
+    emit sourceChannel->sigMovedKeyframe(sourceChannel, sourceTime, targetChannel, targetTime);
 }
 
 void KisKeyframeChannel::copyKeyframe(const KisKeyframeChannel *sourceChannel, int sourceTime, KisKeyframeChannel *targetChannel, int targetTime, KUndo2Command* parentUndoCmd)
@@ -163,6 +164,10 @@ void KisKeyframeChannel::swapKeyframes(KisKeyframeChannel *channelA, int timeA, 
         keyframeB = keyframeB->duplicate(channelA);
     }
     channelA->insertKeyframe(timeA, keyframeB, parentUndoCmd);
+
+    //Emit two movement signals -- one for each direction a movement was made.
+    emit channelA->sigMovedKeyframe(channelA, timeA, channelB, timeB);
+    emit channelB->sigMovedKeyframe(channelB, timeB, channelA, timeB);
 }
 
 KisKeyframeSP KisKeyframeChannel::keyframeAt(int time) const

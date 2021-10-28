@@ -190,6 +190,7 @@ Q_SIGNALS:
 
     void sigKeyframeAdded(const KisKeyframeChannel* channel, int time);
     void sigKeyframeRemoved(const KisKeyframeChannel* channel, int time);
+    void sigKeyframeMoved(const KisKeyframeChannel* srcChannel, int srcTime, const KisKeyframeChannel* dstChannel, int dstTime);
 
 private:
     // interface for:

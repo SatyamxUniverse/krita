@@ -624,6 +624,8 @@ void StoryboardModel::setImage(KisImageWSP image)
             this, SLOT(slotKeyframeAdded(const KisKeyframeChannel*,int)), Qt::UniqueConnection);
     connect(m_image->animationInterface(), SIGNAL(sigKeyframeRemoved(const KisKeyframeChannel*,int)),
             this, SLOT(slotKeyframeRemoved(const KisKeyframeChannel*,int)), Qt::UniqueConnection);
+    connect(m_image->animationInterface(), SIGNAL(sigKeyframeMoved(const KisKeyframeChannel*, int, const KisKeyframeChannel*, int)),
+            this, SLOT(slotKeyframeMoved(const KisKeyframeChannel*, int, const KisKeyframeChannel*, int)), Qt::UniqueConnection);
 
     connect(m_image->animationInterface(), SIGNAL(sigFramerateChanged()), this, SLOT(slotFramerateChanged()), Qt::UniqueConnection);
 
@@ -1052,6 +1054,10 @@ void StoryboardModel::slotKeyframeAdded(const KisKeyframeChannel* channel, int t
     if (m_reorderingKeyframes)
         return;
 
+    //Let's skip any chance of processing when there are no storyboard entries.
+    if (rowCount() == 0)
+        return;
+
     const QModelIndex lastScene = lastIndexBeforeFrame(time);
     const QModelIndex nextScene = index( lastScene.row() + 1, 0);
     const bool extendsLastScene = lastScene.isValid() && !nextScene.isValid();
@@ -1080,8 +1086,27 @@ void StoryboardModel::slotKeyframeRemoved(const KisKeyframeChannel *channel, int
     if (m_reorderingKeyframes)
         return;
 
+    //Let's skip any chance of processing when there are no storyboard entries.
+    if (rowCount() == 0)
+        return;
+
     QModelIndexList affected = affectedIndexes(KisTimeSpan::fromTimeToTime(channel->activeKeyframeTime(time), channel->nextKeyframeTime(time)));
     slotUpdateThumbnailsForItems(affected);
+}
+
+void StoryboardModel::slotKeyframeMoved(const KisKeyframeChannel *srcChannel, int srcTime, const KisKeyframeChannel *dstChannel, int dstTime)
+{
+    if (m_reorderingKeyframes)
+        return;
+
+    //Let's skip any chance of processing when there are no storyboard entries.
+    if (rowCount() == 0)
+        return;
+
+    QModelIndex scene = indexFromFrame(srcTime, true);
+    const bool sameSceneMovement = scene == indexFromFrame(dstTime, false);
+
+
 }
 
 void StoryboardModel::slotNodeRemoved(KisNodeSP node)

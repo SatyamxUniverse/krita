@@ -281,6 +281,7 @@ private Q_SLOTS:
     void slotCurrentFrameChanged(int frameId);
     void slotKeyframeAdded(const KisKeyframeChannel *channel, int time);
     void slotKeyframeRemoved(const KisKeyframeChannel *channel, int time);
+    void slotKeyframeMoved(const KisKeyframeChannel *srcChannel, int srcTime, const KisKeyframeChannel *dstChannel, int dstTime);
     void slotNodeRemoved(KisNodeSP node);
 
     void slotFramerateChanged();
