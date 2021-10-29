@@ -19,6 +19,7 @@
 
 #include "kis_post_execution_undo_adapter.h"
 #include "commands_new/kis_switch_current_time_command.h"
+#include "commands/kis_animation_interface_commands.h"
 #include "kis_layer_utils.h"
 
 
@@ -147,11 +148,16 @@ const KisTimeSpan& KisImageAnimationInterface::fullClipRange() const
     return m_d->fullClipRange;
 }
 
-void KisImageAnimationInterface::setFullClipRange(const KisTimeSpan range)
+void KisImageAnimationInterface::setFullClipRange(const KisTimeSpan range, KUndo2Command *undoParent)
 {
-    KIS_SAFE_ASSERT_RECOVER_RETURN(!range.isInfinite());
-    m_d->fullClipRange = range;
-    emit sigFullClipRangeChanged();
+    if (undoParent) {
+        KUndo2Command* undocmd = new KisFullPlaybackRangeSetCommand(this, range, undoParent);
+        undocmd->redo();
+    } else {
+        KIS_SAFE_ASSERT_RECOVER_RETURN(!range.isInfinite());
+        m_d->fullClipRange = range;
+        emit sigFullClipRangeChanged();
+    }
 }
 
 void KisImageAnimationInterface::setFullClipRangeStartTime(int column)

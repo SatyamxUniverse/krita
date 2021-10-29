@@ -99,7 +99,7 @@ public:
      * @return current time range
      */
     const KisTimeSpan& fullClipRange() const;
-    void setFullClipRange(const KisTimeSpan range);
+    void setFullClipRange(const KisTimeSpan range, KUndo2Command* undoParent = nullptr);
 
 
     const KisTimeSpan &playbackRange() const;
@@ -188,9 +188,9 @@ Q_SIGNALS:
      */
     void sigAudioVolumeChanged();
 
-    void sigAddedKeyframeTo(const KisKeyframeChannel* channel, int time);
-    void sigRemovingKeyframeFrom(const KisKeyframeChannel* channel, int time);
-    void sigMovedKeyframeBetween(const KisKeyframeChannel* srcChannel, int srcTime, const KisKeyframeChannel* dstChannel, int dstTime);
+    void sigAddedKeyframeTo(const KisKeyframeChannel* channel, int time, KUndo2Command* command = nullptr);
+    void sigRemovingKeyframeFrom(const KisKeyframeChannel* channel, int time, KUndo2Command* command = nullptr);
+    void sigMovedKeyframeBetween(const KisKeyframeChannel* srcChannel, int srcTime, const KisKeyframeChannel* dstChannel, int dstTime, KUndo2Command* command = nullptr);
 
 private:
     // interface for:
