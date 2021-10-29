@@ -620,11 +620,11 @@ void StoryboardModel::setImage(KisImageWSP image)
     connect(m_image, SIGNAL(sigRemoveNodeAsync(KisNodeSP)), this, SLOT(slotNodeRemoved(KisNodeSP)));
 
     //for add, remove and move
-    connect(m_image->animationInterface(), SIGNAL(sigKeyframeAdded(const KisKeyframeChannel*,int)),
+    connect(m_image->animationInterface(), SIGNAL(sigAddedKeyframeTo(const KisKeyframeChannel*,int)),
             this, SLOT(slotKeyframeAdded(const KisKeyframeChannel*,int)), Qt::UniqueConnection);
-    connect(m_image->animationInterface(), SIGNAL(sigKeyframeRemoved(const KisKeyframeChannel*,int)),
+    connect(m_image->animationInterface(), SIGNAL(sigRemovingKeyframeFrom(const KisKeyframeChannel*,int)),
             this, SLOT(slotKeyframeRemoved(const KisKeyframeChannel*,int)), Qt::UniqueConnection);
-    connect(m_image->animationInterface(), SIGNAL(sigKeyframeMoved(const KisKeyframeChannel*, int, const KisKeyframeChannel*, int)),
+    connect(m_image->animationInterface(), SIGNAL(sigMovedKeyframeBetween(const KisKeyframeChannel*, int, const KisKeyframeChannel*, int)),
             this, SLOT(slotKeyframeMoved(const KisKeyframeChannel*, int, const KisKeyframeChannel*, int)), Qt::UniqueConnection);
 
     connect(m_image->animationInterface(), SIGNAL(sigFramerateChanged()), this, SLOT(slotFramerateChanged()), Qt::UniqueConnection);
@@ -1115,7 +1115,7 @@ void StoryboardModel::slotNodeRemoved(KisNodeSP node)
         KisKeyframeChannel *channel = node->paintDevice()->keyframeChannel();
         int keyframeTime = channel->firstKeyframeTime();
         while (channel->keyframeAt(keyframeTime)) {
-            //sigKeyframeRemoved is not emitted when parent node is deleted so calling explicitly
+            //sigRemovingKeyframeFrom is not emitted when parent node is deleted so calling explicitly
             slotKeyframeRemoved(channel, keyframeTime);
             keyframeTime = channel->nextKeyframeTime(keyframeTime);
         }

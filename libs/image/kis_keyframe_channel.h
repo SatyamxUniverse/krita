@@ -144,13 +144,13 @@ Q_SIGNALS:
     void sigChannelUpdated(const KisTimeSpan &affectedTimeSpan, const QRect &affectedArea) const;
 
     /** @brief This signal is emitted just AFTER a keyframe was added to the channel. */
-    void sigAddedKeyframe(const KisKeyframeChannel *channel, int time);
+    void sigAddedKeyframe(const KisKeyframeChannel *channel, int time, KUndo2Command* undo = nullptr);
 
     /** @brief This signal is emitted just BEFORE a keyframe is removed from the channel. */
-    void sigRemovingKeyframe(const KisKeyframeChannel *channel, int time);
+    void sigRemovingKeyframe(const KisKeyframeChannel *channel, int time, KUndo2Command* undo = nullptr);
 
     /** @brief This signal is emitted just AFTER a keyframe is moved from one channel to another (or within the same channel.) */
-    void sigMovedKeyframe(const KisKeyframeChannel *srcChannel, int srcTime, const KisKeyframeChannel *dstChannel, int dstTime);
+    void sigMovedKeyframe(const KisKeyframeChannel *srcChannel, int srcTime, const KisKeyframeChannel *dstChannel, int dstTime, KUndo2Command* undo = nullptr);
 
 protected:
     typedef QMap<int, KisKeyframeSP> TimeKeyframeMap;

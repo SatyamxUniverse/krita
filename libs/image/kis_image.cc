@@ -2329,18 +2329,23 @@ KisNode *KisImage::graphOverlayNode() const
 void KisImage::keyframeChannelHasBeenAdded(KisNode *node, KisKeyframeChannel *channel)
 {
     Q_UNUSED(node);
-    channel->connect(channel, SIGNAL(sigAddedKeyframe(const KisKeyframeChannel*, int)), m_d->animationInterface, SIGNAL(sigKeyframeAdded(const KisKeyframeChannel*, int)), Qt::UniqueConnection);
-    channel->connect(channel, SIGNAL(sigRemovingKeyframe(const KisKeyframeChannel*,int)), m_d->animationInterface, SIGNAL(sigKeyframeRemoved(const KisKeyframeChannel*, int)), Qt::UniqueConnection);
+    channel->connect(channel, SIGNAL(sigAddedKeyframe(const KisKeyframeChannel*, int)),
+                     m_d->animationInterface, SIGNAL(sigAddedKeyframeTo(const KisKeyframeChannel*, int)), Qt::UniqueConnection);
+    channel->connect(channel, SIGNAL(sigRemovingKeyframe(const KisKeyframeChannel*,int)),
+                     m_d->animationInterface, SIGNAL(sigRemovingKeyframeFrom(const KisKeyframeChannel*, int)), Qt::UniqueConnection);
     channel->connect(channel, SIGNAL(sigMovedKeyframe(const KisKeyframeChannel*, int, const KisKeyframeChannel* , int)),
-                     m_d->animationInterface, SIGNAL(sigKeyframeMoved(const KisKeyframeChannel*, int, const KisKeyframeChannel*, int)));
+                     m_d->animationInterface, SIGNAL(sigMovedKeyframeBetween(const KisKeyframeChannel*, int, const KisKeyframeChannel*, int)), Qt::UniqueConnection);
 }
 
 void KisImage::keyframeChannelAboutToBeRemoved(KisNode *node, KisKeyframeChannel *channel)
 {
     Q_UNUSED(node);
-    channel->disconnect(channel, SIGNAL(sigAddedKeyframe(const KisKeyframeChannel*, int)), m_d->animationInterface, SIGNAL(sigKeyframeAdded(const KisKeyframeChannel*, int)));
-    channel->disconnect(channel, SIGNAL(sigRemovingKeyframe(const KisKeyframeChannel*, int)), m_d->animationInterface, SIGNAL(sigKeyframeRemoved(const KisKeyframeChannel*, int)));
-    channel->disconnect(channel, SIGNAL(sigMovedKeyframe(const KisKeyframeChannel*, int, const KisKeyframeChannel* , int)), m_d->animationInterface, SIGNAL(sigKeyframeMoved(const KisKeyframeChannel*, int, const KisKeyframeChannel*, int)));
+    channel->disconnect(channel, SIGNAL(sigAddedKeyframe(const KisKeyframeChannel*, int)),
+                        m_d->animationInterface, SIGNAL(sigAddedKeyframeTo(const KisKeyframeChannel*, int)));
+    channel->disconnect(channel, SIGNAL(sigRemovingKeyframe(const KisKeyframeChannel*, int)),
+                        m_d->animationInterface, SIGNAL(sigRemovingKeyframeFrom(const KisKeyframeChannel*, int)));
+    channel->disconnect(channel, SIGNAL(sigMovedKeyframe(const KisKeyframeChannel*, int, const KisKeyframeChannel* , int)),
+                        m_d->animationInterface, SIGNAL(sigMovedKeyframeBetween(const KisKeyframeChannel*, int, const KisKeyframeChannel*, int)));
 }
 
 QList<KisLayerCompositionSP> KisImage::compositions()
