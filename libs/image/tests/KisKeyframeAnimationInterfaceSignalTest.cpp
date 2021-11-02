@@ -58,7 +58,7 @@ void KisKeyframeAnimationInterfaceSignalTest::testSignalOnImageReset()
     m_layer->setImage(m_image2);
 
     //test the connections between m_channel and new image's animation interface
-    QVERIFY(!connect(m_channel, SIGNAL(sigAddedKeyframe(const KisKeyframeChannel*,int)), m_image2->animationInterface(), SIGNAL(sigAddedKeyframeTo(const KisKeyframeChannel*, int)), Qt::UniqueConnection));
+    QVERIFY(!connect(m_channel, SIGNAL(sigAddedKeyframe(const KisKeyframeChannel*,int,KUndo2Command*)), m_image2->animationInterface(), SIGNAL(sigAddedKeyframeTo(const KisKeyframeChannel*,int,KUndo2Command*)), Qt::UniqueConnection));
 
     //test signals from the old image on changing m_channel after image reset
     QSignalSpy spyFrameAdded(m_image1->animationInterface() , SIGNAL(sigAddedKeyframeTo(const KisKeyframeChannel*, int)));
