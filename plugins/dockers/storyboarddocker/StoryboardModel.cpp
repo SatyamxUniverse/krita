@@ -1,5 +1,6 @@
 /*
  *  SPDX-FileCopyrightText: 2020 Saurabh Kumar <saurabhk660@gmail.com>
+ *  SPDX-FileCopyrightText: 2021 Eoin O'Neill <eoinoneill1991@gmail.com>
  *
  *  SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -33,7 +34,7 @@ StoryboardModel::StoryboardModel(QObject *parent)
         : QAbstractItemModel(parent)
         , m_freezeKeyframePositions(false)
         , m_lockBoards(false)
-        , m_reorderingKeyframes(false)
+        , m_reorderKeyframesLocked(false)
         , m_imageIdleWatcher(10)
         , m_renderScheduler(new KisStoryboardThumbnailRenderScheduler(this))
         , m_renderSchedulingCompressor(1000,KisSignalCompressor::FIRST_ACTIVE)
@@ -620,12 +621,12 @@ void StoryboardModel::setImage(KisImageWSP image)
     connect(m_image, SIGNAL(sigRemoveNodeAsync(KisNodeSP)), this, SLOT(slotNodeRemoved(KisNodeSP)));
 
     //for add, remove and move
-    connect(m_image->animationInterface(), SIGNAL(sigAddingKeyframeTo(const KisKeyframeChannel*,int)),
+    connect(m_image->animationInterface(), SIGNAL(sigAddedKeyframeTo(const KisKeyframeChannel*,int)),
             this, SLOT(slotKeyframeAdded(const KisKeyframeChannel*,int)), Qt::UniqueConnection);
-    connect(m_image->animationInterface(), SIGNAL(sigRemovingKeyframeFrom(const KisKeyframeChannel*,int)),
-            this, SLOT(slotKeyframeRemoved(const KisKeyframeChannel*,int)), Qt::UniqueConnection);
-    connect(m_image->animationInterface(), SIGNAL(sigMovedKeyframeBetween(const KisKeyframeChannel*, int, const KisKeyframeChannel*, int)),
-            this, SLOT(slotKeyframeMoved(const KisKeyframeChannel*, int, const KisKeyframeChannel*, int)), Qt::UniqueConnection);
+    connect(m_image->animationInterface(), SIGNAL(sigRemovingKeyframeFrom(const KisKeyframeChannel*,int, KUndo2Command*)),
+            this, SLOT(slotKeyframeToBeRemoved(const KisKeyframeChannel*, int, KUndo2Command*)), Qt::UniqueConnection);
+    connect(m_image->animationInterface(), SIGNAL(sigMovingKeyframeBetween(const KisKeyframeChannel*, int, const KisKeyframeChannel*, int, KUndo2Command*)),
+            this, SLOT(slotKeyframeToBeMoved(const KisKeyframeChannel*, int, const KisKeyframeChannel*, int, KUndo2Command*)), Qt::UniqueConnection);
 
     connect(m_image->animationInterface(), SIGNAL(sigFramerateChanged()), this, SLOT(slotFramerateChanged()), Qt::UniqueConnection);
 
@@ -769,6 +770,35 @@ int StoryboardModel::lastKeyframeWithin(QModelIndex sceneIndex)
     return lastFrameOfScene;
 }
 
+int StoryboardModel::keyframeCountWithin(QModelIndex sceneIndex)
+{
+    KIS_ASSERT(sceneIndex.isValid());
+    const int sceneFrame = index(StoryboardItem::FrameNumber, 0, sceneIndex).data().toInt();
+    const int lastFrameOfScene = sceneFrame + data(sceneIndex, TotalSceneDurationInFrames).toInt() - 1;
+
+    if (!m_image)
+        return sceneFrame;
+
+    KisTimeSpan span = KisTimeSpan::fromTimeToTime(sceneFrame, lastFrameOfScene);
+    return keyframeCountWithin(span);
+}
+
+int StoryboardModel::keyframeCountWithin(KisTimeSpan span)
+{
+    int count = 0;
+
+    KisLayerUtils::recursiveApplyNodes(m_image->root(), [span, &count](KisNodeSP n){
+       if (n->supportsKeyframeChannel(KisKeyframeChannel::Raster.id())) {
+           KisKeyframeChannel* channel = n->getKeyframeChannel(KisKeyframeChannel::Raster.id(), false);
+           if (channel) {
+               count += span.filterSet(channel->allKeyframeTimes()).count();
+           }
+       }
+    });
+
+    return count;
+}
+
 void StoryboardModel::reorderKeyframes()
 {
     //Get the earliest frame number in the storyboard list
@@ -887,6 +917,11 @@ void StoryboardModel::shiftKeyframes(KisTimeSpan affected, int offset, KUndo2Com
     if (offset == 0)
         return;
 
+
+    // Reordering should only happen when we aren't locked out!
+    if (m_reorderKeyframesLocked)
+        return;
+
     //We want to temporarily lock respondance to keyframe removal / addition.
     //Will unlock when scope exits.
     QScopedPointer<KeyframeReorderLock> lock(new KeyframeReorderLock(this));
@@ -911,7 +946,6 @@ void StoryboardModel::shiftKeyframes(KisTimeSpan affected, int offset, KUndo2Com
                                 }
 
                             } else {
-                                ENTER_FUNCTION() << ppVar(startFrame);
                                 int timeIter = keyframeChannel->keyframeAt(startFrame) ? startFrame : keyframeChannel->nextKeyframeTime(startFrame);
 
                                 KisKeyframeSP iterEnd = affected.isInfinite() ?
@@ -1027,6 +1061,41 @@ bool StoryboardModel::removeItem(QModelIndex index, KUndo2Command *command)
     return true;
 }
 
+bool StoryboardModel::mergeItem(QModelIndex index, KUndo2Command* cmd)
+{
+    const int row = index.row();
+    if (row <= 0) {
+        return false;
+    }
+
+    KeyframeReorderLock lock(this);
+
+    QModelIndex lastIndex = this->index(row - 1, 0);
+
+    if (lastIndex.isValid()) {
+        const int durationDeletedScene = data(index, TotalSceneDurationInFrames).toInt();
+        QModelIndex durationFramesIndex = this->index(StoryboardItem::DurationFrame, 0, lastIndex);
+        QModelIndex durationSecondsIndex = this->index(StoryboardItem::DurationSecond, 0, lastIndex);
+        const int framesPerSecond = m_image->animationInterface()->framerate();
+        const int originalDuration = durationFramesIndex.data().toInt() + durationSecondsIndex.data().toInt() * framesPerSecond;
+        const int newDurationFrames = (originalDuration + durationDeletedScene) % framesPerSecond;
+        const int newDurationSeconds = (originalDuration + durationDeletedScene) / framesPerSecond;
+
+        if (cmd) {
+            new KisStoryboardChildEditCommand(durationFramesIndex.data(), QVariant::fromValue(newDurationFrames), durationFramesIndex.parent().row(), durationFramesIndex.row(), this, cmd);
+            new KisStoryboardChildEditCommand(durationSecondsIndex.data(), QVariant::fromValue(newDurationSeconds), durationSecondsIndex.parent().row(), durationSecondsIndex.row(), this, cmd);
+            new KisRemoveStoryboardCommand(row, getData().at(row), this, cmd);
+        }
+
+        removeRows(row, 1);
+        setData(durationSecondsIndex,  newDurationSeconds);
+        setData(durationFramesIndex, newDurationFrames);
+    }
+
+    dataChanged(this->index(row-1, 0), this->index(qMin(row, rowCount() - 1), 0));
+    return true;
+}
+
 void StoryboardModel::resetData(StoryboardItemList list)
 {
     beginResetModel();
@@ -1051,7 +1120,7 @@ void StoryboardModel::slotCurrentFrameChanged(int frameId)
 
 void StoryboardModel::slotKeyframeAdded(const KisKeyframeChannel* channel, int time)
 {
-    if (m_reorderingKeyframes)
+    if (m_reorderKeyframesLocked)
         return;
 
     //Let's skip any chance of processing when there are no storyboard entries.
@@ -1081,9 +1150,9 @@ void StoryboardModel::slotKeyframeAdded(const KisKeyframeChannel* channel, int t
     slotUpdateThumbnailsForItems(affected);
 }
 
-void StoryboardModel::slotKeyframeRemoved(const KisKeyframeChannel *channel, int time)
+void StoryboardModel::slotKeyframeToBeRemoved(const KisKeyframeChannel *channel, int time, KUndo2Command* command)
 {
-    if (m_reorderingKeyframes)
+    if (m_reorderKeyframesLocked)
         return;
 
     //Let's skip any chance of processing when there are no storyboard entries.
@@ -1092,11 +1161,26 @@ void StoryboardModel::slotKeyframeRemoved(const KisKeyframeChannel *channel, int
 
     QModelIndexList affected = affectedIndexes(KisTimeSpan::fromTimeToTime(channel->activeKeyframeTime(time), channel->nextKeyframeTime(time)));
     slotUpdateThumbnailsForItems(affected);
+
+    QModelIndex index = indexFromFrame(time);
+    if (index.isValid()) {
+        int numOfKeys = keyframeCountWithin(index);
+        ENTER_FUNCTION() << ppVar(numOfKeys);
+        if (numOfKeys == 1) {
+            if (m_timelineRemovalLocks.contains(index)) {
+                m_timelineRemovalLocks.removeAll(index);
+            } else {
+                mergeItem(index, command);
+            }
+        } else if (m_timelineRemovalLocks.contains(index)) {
+            m_timelineRemovalLocks.removeAll(index);
+        }
+    }
 }
 
-void StoryboardModel::slotKeyframeMoved(const KisKeyframeChannel *srcChannel, int srcTime, const KisKeyframeChannel *dstChannel, int dstTime)
+void StoryboardModel::slotKeyframeToBeMoved(const KisKeyframeChannel *srcChannel, int srcTime, const KisKeyframeChannel *dstChannel, int dstTime, KUndo2Command* command)
 {
-    if (m_reorderingKeyframes)
+    if (m_reorderKeyframesLocked)
         return;
 
     //Let's skip any chance of processing when there are no storyboard entries.
@@ -1104,9 +1188,52 @@ void StoryboardModel::slotKeyframeMoved(const KisKeyframeChannel *srcChannel, in
         return;
 
     QModelIndex scene = indexFromFrame(srcTime, true);
-    const bool sameSceneMovement = scene == indexFromFrame(dstTime, false);
+    const bool sameSceneMovement = scene.isValid() && (scene == indexFromFrame(dstTime, false));
+    const bool shouldMoveSceneStart = sameSceneMovement ? (keyframeCountWithin(KisTimeSpan::fromTimeToTime(srcTime, dstTime - 1)) == 1) : false;
+    const int fps = m_image->animationInterface()->framerate();
 
+    ENTER_FUNCTION() << ppVar(keyframeCountWithin(KisTimeSpan::fromTimeToTime(srcTime, dstTime - 1)));
 
+    if (shouldMoveSceneStart && scene.row() > 0) {
+        QModelIndex previousScene = index(scene.row() - 1, 0);
+        KIS_ASSERT(previousScene.isValid());
+
+        //In order to prevent erroneous removals of scenes that are to be relocated,
+        //we need to lock these indices to not auto-clean.
+        m_timelineRemovalLocks.append(scene);
+
+        const int change = dstTime - srcTime;
+        QModelIndex currSceneFrameNumberIndex = index(StoryboardItem::FrameNumber, 0, scene);
+        QModelIndex currSceneFrameDurationIndex = index(StoryboardItem::DurationFrame, 0, scene);
+        QModelIndex currSceneSecondDurationIndex = index(StoryboardItem::DurationSecond, 0, scene);
+        const int currSceneFrameDuration = scene.data(StoryboardModel::TotalSceneDurationInFrames).toInt();
+        const int currSceneNewFrameDuration = currSceneFrameDuration - change;
+
+        QModelIndex prevSceneFrameDurationIndex = index(StoryboardItem::DurationFrame, 0, previousScene);
+        QModelIndex prevSceneSecondDurationIndex = index(StoryboardItem::DurationSecond, 0, previousScene);
+        const int prevSceneFrameDuration = previousScene.data(StoryboardModel::TotalSceneDurationInFrames).toInt();
+        const int prevSceneNewFrameDuration = prevSceneFrameDuration + change;
+
+        if(command) {
+            new KisStoryboardChildEditCommand(prevSceneFrameDurationIndex.data(), QVariant::fromValue(prevSceneNewFrameDuration % fps), prevSceneFrameDurationIndex.parent().row(), prevSceneFrameDurationIndex.row(), this, command);
+            new KisStoryboardChildEditCommand(prevSceneSecondDurationIndex.data(), QVariant::fromValue(prevSceneNewFrameDuration / fps), prevSceneSecondDurationIndex.parent().row(), prevSceneSecondDurationIndex.row(), this, command);
+
+            new KisStoryboardChildEditCommand(currSceneFrameNumberIndex.data(), QVariant::fromValue(dstTime), currSceneFrameNumberIndex.parent().row(), currSceneFrameNumberIndex.row(), this, command);
+            new KisStoryboardChildEditCommand(currSceneFrameDurationIndex.data(), QVariant::fromValue(currSceneNewFrameDuration % fps), currSceneFrameDurationIndex.parent().row(), currSceneFrameDurationIndex.row(), this, command);
+            new KisStoryboardChildEditCommand(currSceneSecondDurationIndex.data(), QVariant::fromValue(currSceneNewFrameDuration / fps), currSceneSecondDurationIndex.parent().row(), currSceneSecondDurationIndex.row(), this, command);
+        }
+
+        {            
+            KeyframeReorderLock lock(this);
+
+            setData(currSceneFrameNumberIndex, dstTime);
+            setData(currSceneFrameDurationIndex, currSceneNewFrameDuration % fps);
+            setData(currSceneSecondDurationIndex, currSceneNewFrameDuration / fps);
+
+            setData(prevSceneFrameDurationIndex, prevSceneNewFrameDuration % fps);
+            setData(prevSceneSecondDurationIndex, prevSceneNewFrameDuration / fps);
+        }
+    }
 }
 
 void StoryboardModel::slotNodeRemoved(KisNodeSP node)
@@ -1116,7 +1243,7 @@ void StoryboardModel::slotNodeRemoved(KisNodeSP node)
         int keyframeTime = channel->firstKeyframeTime();
         while (channel->keyframeAt(keyframeTime)) {
             //sigRemovingKeyframeFrom is not emitted when parent node is deleted so calling explicitly
-            slotKeyframeRemoved(channel, keyframeTime);
+            slotKeyframeToBeRemoved(channel, keyframeTime);
             keyframeTime = channel->nextKeyframeTime(keyframeTime);
         }
     }

@@ -43,12 +43,12 @@ public:
     public:
         KeyframeReorderLock(StoryboardModel* model)
             : m_model(model)
-            , m_originalLock(!model->m_reorderingKeyframes) {
-            m_model->m_reorderingKeyframes = true;
+            , m_originalLock(!model->m_reorderKeyframesLocked) {
+            m_model->m_reorderKeyframesLocked = true;
         }
 
         ~KeyframeReorderLock() {
-            m_model->m_reorderingKeyframes = !m_originalLock;
+            m_model->m_reorderKeyframesLocked = !m_originalLock;
         }
 
     private:
@@ -99,7 +99,7 @@ public:
     
     //for removing and inserting rows
     bool insertRows(int position, int rows, const QModelIndex &index = QModelIndex()) override;
-    bool removeRows(int position, int rows, const QModelIndex &index = QModelIndex())override;
+    bool removeRows(int position, int rows, const QModelIndex &index = QModelIndex()) override;
     bool moveRows(const QModelIndex &sourceParent, int sourceRow, int count,
                   const QModelIndex &destinationParent, int destinationChild) override;
 
@@ -232,6 +232,13 @@ public:
      */
     bool removeItem(QModelIndex index, KUndo2Command *command = nullptr);
 
+    /**
+     * @brief removes item, extends the previous scene's length.
+     * @param index The index to merge..
+     * @return true if item was merged
+     */
+    bool mergeItem(QModelIndex index, KUndo2Command *command = nullptr);
+
 
     /**
      * @brief resets @c m_items to @c list
@@ -269,6 +276,14 @@ public:
     void createDuplicateKeyframes(const QModelIndex& index, KUndo2Command* cmd = nullptr);
     void createBlankKeyframes(const QModelIndex& index, KUndo2Command* cmd = nullptr);
 
+    /**
+     * @brief Counts the number of keyframes that exist within a given scene.
+     * @param sceneIndex
+     * @return
+     */
+    int keyframeCountWithin(QModelIndex sceneIndex);
+    int keyframeCountWithin(KisTimeSpan span);
+
 private:
     bool moveRowsImpl(const QModelIndex &sourceParent, int sourceRow, int count,
                     const QModelIndex &destinationParent, int destinationChild, KUndo2Command *parentCMD = nullptr);
@@ -280,8 +295,8 @@ private Q_SLOTS:
      */
     void slotCurrentFrameChanged(int frameId);
     void slotKeyframeAdded(const KisKeyframeChannel *channel, int time);
-    void slotKeyframeRemoved(const KisKeyframeChannel *channel, int time);
-    void slotKeyframeMoved(const KisKeyframeChannel *srcChannel, int srcTime, const KisKeyframeChannel *dstChannel, int dstTime);
+    void slotKeyframeToBeRemoved(const KisKeyframeChannel *channel, int time, KUndo2Command *command = nullptr);
+    void slotKeyframeToBeMoved(const KisKeyframeChannel *srcChannel, int srcTime, const KisKeyframeChannel *dstChannel, int dstTime, KUndo2Command* command = nullptr);
     void slotNodeRemoved(KisNodeSP node);
 
     void slotFramerateChanged();
@@ -336,7 +351,8 @@ private:
     StoryboardCommentModel *m_commentModel {0};
     bool m_freezeKeyframePositions {false};
     bool m_lockBoards {false};
-    bool m_reorderingKeyframes {false};
+    bool m_reorderKeyframesLocked {false};
+    QModelIndexList m_timelineRemovalLocks;
     int m_lastScene {0};
     KisIdleWatcher m_imageIdleWatcher;
     KisImageWSP m_image;

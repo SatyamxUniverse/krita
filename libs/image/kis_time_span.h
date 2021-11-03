@@ -60,6 +60,18 @@ public:
         return m_start <= time && time <= m_end;
     }
 
+    inline QSet<int> filterSet(QSet<int> input) const {
+        QSet<int> validKeys;
+
+        Q_FOREACH(const int& key, input) {
+            if (contains(key)) {
+                validKeys.insert(key);
+            }
+        }
+
+        return validKeys;
+    }
+
     inline void include(int time) {
         m_start = qMin(time, m_start);
         m_end = qMax(time, m_end);

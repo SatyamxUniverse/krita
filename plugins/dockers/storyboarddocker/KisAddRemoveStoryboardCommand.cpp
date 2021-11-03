@@ -163,11 +163,13 @@ KisStoryboardChildEditCommand::KisStoryboardChildEditCommand(QVariant oldValue,
 
 void KisStoryboardChildEditCommand::redo()
 {
+    StoryboardModel::KeyframeReorderLock lock(m_model);
     m_model->setData(m_model->index(m_childRow, 0, m_model->index(m_parentRow, 0)), m_newValue);
 }
 
 void KisStoryboardChildEditCommand::undo()
 {
+    StoryboardModel::KeyframeReorderLock lock(m_model);
     m_model->setData(m_model->index(m_childRow, 0, m_model->index(m_parentRow, 0)), m_oldValue);
 }
 

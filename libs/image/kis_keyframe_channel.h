@@ -149,8 +149,8 @@ Q_SIGNALS:
     /** @brief This signal is emitted just BEFORE a keyframe is removed from the channel. */
     void sigRemovingKeyframe(const KisKeyframeChannel *channel, int time, KUndo2Command* undo = nullptr);
 
-    /** @brief This signal is emitted just AFTER a keyframe is moved from one channel to another (or within the same channel.) */
-    void sigMovedKeyframe(const KisKeyframeChannel *srcChannel, int srcTime, const KisKeyframeChannel *dstChannel, int dstTime, KUndo2Command* undo = nullptr);
+    /** @brief This signal is emitted just BEFORE a keyframe is moved from one channel to another (or within the same channel.) */
+    void sigMovingKeyframe(const KisKeyframeChannel *srcChannel, int srcTime, const KisKeyframeChannel *dstChannel, int dstTime, KUndo2Command* undo = nullptr);
 
 protected:
     typedef QMap<int, KisKeyframeSP> TimeKeyframeMap;

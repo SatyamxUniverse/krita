@@ -190,7 +190,7 @@ Q_SIGNALS:
 
     void sigAddedKeyframeTo(const KisKeyframeChannel* channel, int time, KUndo2Command* command = nullptr);
     void sigRemovingKeyframeFrom(const KisKeyframeChannel* channel, int time, KUndo2Command* command = nullptr);
-    void sigMovedKeyframeBetween(const KisKeyframeChannel* srcChannel, int srcTime, const KisKeyframeChannel* dstChannel, int dstTime, KUndo2Command* command = nullptr);
+    void sigMovingKeyframeBetween(const KisKeyframeChannel* srcChannel, int srcTime, const KisKeyframeChannel* dstChannel, int dstTime, KUndo2Command* command = nullptr);
 
 private:
     // interface for:
