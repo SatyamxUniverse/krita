@@ -4,7 +4,7 @@ GDQuest Batch Exporter
 Batch export art assets from Krita using layer metadata.
 Updates and reads metadata in Krita's layer names, and uses it to smartly process and export layers.
 Export to the Blender Cut-Out Animation tools for modular 2d game animation.
-SPDX-License-Identifier: GPL-3.0-only
+Licensed under the GNU GPL v3.0 terms
 """
 
 from functools import partial
@@ -126,7 +126,8 @@ class GameArtTools(DockWidget):
         exportSelectedLayersButton = QPushButton("Selected Layers")
         renameLabel = QLabel("Update Name and Metadata")
         renameLineEdit = QLineEdit()
-        renameButton = QPushButton("Update")
+        renameButton = QPushButton()
+        renameButton.setIcon(KI.icon("view-refresh"))
         statusBar = QStatusBar()
 
         exportLabel.setToolTip("Export individual images")
@@ -150,15 +151,15 @@ class GameArtTools(DockWidget):
 
         vboxlayout = QVBoxLayout()
         vboxlayout.addWidget(exportLabel)
+
         vboxlayout.addWidget(exportAllLayersButton)
         vboxlayout.addWidget(exportSelectedLayersButton)
 
         vboxlayout.addWidget(coaToolsGroupBox)
         vboxlayout.addWidget(renameLabel)
-        vboxlayout.addWidget(renameLineEdit)
 
         hboxlayout = QHBoxLayout()
-        hboxlayout.addStretch()
+        hboxlayout.addWidget(renameLineEdit)
         hboxlayout.addWidget(renameButton)
 
         vboxlayout.addLayout(hboxlayout)
