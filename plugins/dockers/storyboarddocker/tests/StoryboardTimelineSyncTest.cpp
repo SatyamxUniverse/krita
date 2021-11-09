@@ -198,26 +198,28 @@ void StoryboardTimelineSyncTest::testStoryboardToTimelineSyncronization()
 
 void StoryboardTimelineSyncTest::testTimelineToStoryboardSyncronization()
 {
-    //             0  1  2  3  4  5  6  7  8  9  10
-    //  channel1  [|  .  |] [| .] [| .  .] .  .  .
-    //  channel2  [|  .  |] [| .] [| .  .] .  .  .
+    //             0  ... 29  30 ... 41 ... 59  60 ... 89
+    //  channel1  [|  ... |] [| ...  |  ... .] [| ... .] .  .  .
+    //  channel2  [|  ... |] [| ...  .  ... .] [| ... .] .  .  .
 
     { //SETUP
         m_storyboardModel->insertItem(m_storyboardModel->index(0,0), true);
         QCOMPARE(m_storyboardModel->rowCount(), 1);
-        m_channel1->addKeyframe(2);
-        m_channel2->addKeyframe(2);
+        m_channel1->addKeyframe(29);
+        m_channel2->addKeyframe(29);
 
         m_storyboardModel->insertItem(m_storyboardModel->index(0,0), true);
+        m_channel1->addKeyframe(41);
         QCOMPARE(m_storyboardModel->rowCount(), 2);
 
         {
             QModelIndex itemIndex = m_storyboardModel->index(1, 0);
             QModelIndex frameDurationIndex = m_storyboardModel->index(StoryboardItem::DurationFrame, 0, itemIndex);
             QModelIndex secondDurationIndex = m_storyboardModel->index(StoryboardItem::DurationSecond, 0, itemIndex);
-            m_storyboardModel->setData(frameDurationIndex, 2);
-            QCOMPARE(frameDurationIndex.data().toInt(), 2);
-            QCOMPARE(secondDurationIndex.data().toInt(), 0);
+            m_storyboardModel->setData(secondDurationIndex, 1);
+            m_storyboardModel->setData(frameDurationIndex, 6);
+            QCOMPARE(secondDurationIndex.data().toInt(), 1);
+            QCOMPARE(frameDurationIndex.data().toInt(), 6);
         }
 
         m_storyboardModel->insertItem(m_storyboardModel->index(1,0), true);
@@ -227,12 +229,13 @@ void StoryboardTimelineSyncTest::testTimelineToStoryboardSyncronization()
             QModelIndex itemIndex = m_storyboardModel->index(2, 0);
             QModelIndex frameDurationIndex = m_storyboardModel->index(StoryboardItem::DurationFrame, 0, itemIndex);
             QModelIndex secondDurationIndex = m_storyboardModel->index(StoryboardItem::DurationSecond, 0, itemIndex);
-            m_storyboardModel->setData(frameDurationIndex, 3);
-            QCOMPARE(frameDurationIndex.data().toInt(), 3);
-            QCOMPARE(secondDurationIndex.data().toInt(), 0);
+            m_storyboardModel->setData(secondDurationIndex, 1);
+            m_storyboardModel->setData(frameDurationIndex, 6);
+            QCOMPARE(secondDurationIndex.data().toInt(), 1);
+            QCOMPARE(frameDurationIndex.data().toInt(), 6);
         }
 
-        QCOMPARE(m_channel1->keyframeCount(), 4);
+        QCOMPARE(m_channel1->keyframeCount(), 5);
         QCOMPARE(m_channel2->keyframeCount(), 4);
 
 
@@ -250,18 +253,18 @@ void StoryboardTimelineSyncTest::testTimelineToStoryboardSyncronization()
         m_channel2->moveKeyframe(0, 1, &undo);
 
         QCOMPARE(m_storyboardModel->rowCount(), originalRowCount);
-        QCOMPARE(m_channel1->keyframeCount(), 5);
+        QCOMPARE(m_channel1->keyframeCount(), 6);
         QCOMPARE(m_channel2->keyframeCount(), 5);
 
-        undo.undo();
+        undo.undoMergedCommands();
 
         QCOMPARE(m_storyboardModel->rowCount(), originalRowCount);
-        QCOMPARE(m_channel1->keyframeCount(), 4);
+        QCOMPARE(m_channel1->keyframeCount(), 5);
         QCOMPARE(m_channel2->keyframeCount(), 4);
     }
 
 
-    {   // Move chan 1 frames 3 > 4,
+    {   // Move chan 1 frames 30 > 31,
         // Since only 1 layer is changed,
         // No time adjustment should be made to storyboard
 
@@ -281,49 +284,65 @@ void StoryboardTimelineSyncTest::testTimelineToStoryboardSyncronization()
         const int prevOriginalStartingFrame = m_storyboardModel->index(StoryboardItem::FrameNumber, 0, prevIndex).data().toInt();
 
         // Verify integrity..
-        QCOMPARE(subjectOriginalDurationInFrames, 2);
-        QCOMPARE(subjectOriginalStartingFrame, 3);
-        QCOMPARE(prevOriginalDurationInFrames, 3);
+        QCOMPARE(subjectOriginalDurationInFrames, 30);
+        QCOMPARE(subjectOriginalStartingFrame, 30);
+        QCOMPARE(prevOriginalDurationInFrames, 30);
         QCOMPARE(prevOriginalStartingFrame, 0);
 
         KUndo2Command undo;
-        m_channel1->moveKeyframe(3, 4, &undo);
-
-        const int subjectDurationInFrames = m_image->animationInterface()->framerate() *
-                m_storyboardModel->index(StoryboardItem::DurationSecond, 0, subjectIndex).data().toInt() +
-                m_storyboardModel->index(StoryboardItem::DurationFrame, 0, subjectIndex).data().toInt();
-
-        const int subjectStartingFrame = m_storyboardModel->index(StoryboardItem::FrameNumber, 0, subjectIndex).data().toInt();
-
-        const int prevDurationInFrames = m_image->animationInterface()->framerate() *
-                m_storyboardModel->index(StoryboardItem::DurationSecond, 0, prevIndex).data().toInt() +
-                m_storyboardModel->index(StoryboardItem::DurationFrame, 0, prevIndex).data().toInt();
-
-        const int prevStartingFrame = m_storyboardModel->index(StoryboardItem::FrameNumber, 0, prevIndex).data().toInt();
+        m_channel1->moveKeyframe(30, 31, &undo);
 
 
-        // No changes should be made before or after undo..
+        {
+            // No changes should be made before or after undo..
+            const int subjectDurationInFrames = m_image->animationInterface()->framerate() *
+                    m_storyboardModel->index(StoryboardItem::DurationSecond, 0, subjectIndex).data().toInt() +
+                    m_storyboardModel->index(StoryboardItem::DurationFrame, 0, subjectIndex).data().toInt();
 
-        QCOMPARE(subjectDurationInFrames, subjectOriginalDurationInFrames);
-        QCOMPARE(subjectStartingFrame, subjectOriginalStartingFrame);
+            const int subjectStartingFrame = m_storyboardModel->index(StoryboardItem::FrameNumber, 0, subjectIndex).data().toInt();
 
-        QCOMPARE(prevDurationInFrames, prevOriginalDurationInFrames);
-        QCOMPARE(prevStartingFrame, prevOriginalStartingFrame);
+            const int prevDurationInFrames = m_image->animationInterface()->framerate() *
+                    m_storyboardModel->index(StoryboardItem::DurationSecond, 0, prevIndex).data().toInt() +
+                    m_storyboardModel->index(StoryboardItem::DurationFrame, 0, prevIndex).data().toInt();
 
-        undo.undo();
+            const int prevStartingFrame = m_storyboardModel->index(StoryboardItem::FrameNumber, 0, prevIndex).data().toInt();
+
+            QCOMPARE(subjectDurationInFrames, subjectOriginalDurationInFrames);
+            QCOMPARE(subjectStartingFrame, subjectOriginalStartingFrame);
+
+            QCOMPARE(prevDurationInFrames, prevOriginalDurationInFrames);
+            QCOMPARE(prevStartingFrame, prevOriginalStartingFrame);
+        }
+
+        undo.undoMergedCommands();
 
 
-        QCOMPARE(subjectDurationInFrames, subjectOriginalDurationInFrames);
-        QCOMPARE(subjectStartingFrame, subjectOriginalStartingFrame);
+        {
+            // No changes should be made before or after undo..
+            const int subjectDurationInFrames = m_image->animationInterface()->framerate() *
+                    m_storyboardModel->index(StoryboardItem::DurationSecond, 0, subjectIndex).data().toInt() +
+                    m_storyboardModel->index(StoryboardItem::DurationFrame, 0, subjectIndex).data().toInt();
 
-        QCOMPARE(prevDurationInFrames, prevOriginalDurationInFrames);
-        QCOMPARE(prevStartingFrame, prevOriginalStartingFrame);
+            const int subjectStartingFrame = m_storyboardModel->index(StoryboardItem::FrameNumber, 0, subjectIndex).data().toInt();
 
-        QCOMPARE(m_channel1->keyframeCount(), 4);
-        QCOMPARE(m_channel2->keyframeCount(), 4);
+            const int prevDurationInFrames = m_image->animationInterface()->framerate() *
+                    m_storyboardModel->index(StoryboardItem::DurationSecond, 0, prevIndex).data().toInt() +
+                    m_storyboardModel->index(StoryboardItem::DurationFrame, 0, prevIndex).data().toInt();
+
+            const int prevStartingFrame = m_storyboardModel->index(StoryboardItem::FrameNumber, 0, prevIndex).data().toInt();
+
+            QCOMPARE(subjectDurationInFrames, subjectOriginalDurationInFrames);
+            QCOMPARE(subjectStartingFrame, subjectOriginalStartingFrame);
+
+            QCOMPARE(prevDurationInFrames, prevOriginalDurationInFrames);
+            QCOMPARE(prevStartingFrame, prevOriginalStartingFrame);
+
+            QCOMPARE(m_channel1->keyframeCount(), 5);
+            QCOMPARE(m_channel2->keyframeCount(), 4);
+        }
     }
 
-    {   // Move chan 1 frames 3 > 1
+    {   // Move chan 1 frames 30 > 28
         // This should also do effectively nothing
         // since there are still keys that exist in
         // scene #2..
@@ -347,45 +366,61 @@ void StoryboardTimelineSyncTest::testTimelineToStoryboardSyncronization()
 
         // Verify integrity..
         QCOMPARE(originalStoryboardCount, 3);
-        QCOMPARE(prevOriginalDurationInFrames, 3);
+        QCOMPARE(prevOriginalDurationInFrames, 30);
         QCOMPARE(prevOriginalStartingFrame, 0);
 
         KUndo2Command undo;
-        m_channel1->moveKeyframe(3, 1, &undo);
+        m_channel1->moveKeyframe(30, 28, &undo);
 
-        const int subjectDurationInFrames = m_image->animationInterface()->framerate() *
-                m_storyboardModel->index(StoryboardItem::DurationSecond, 0, subjectIndex).data().toInt() +
-                m_storyboardModel->index(StoryboardItem::DurationFrame, 0, subjectIndex).data().toInt();
+        {
+            const int subjectDurationInFrames = m_image->animationInterface()->framerate() *
+                    m_storyboardModel->index(StoryboardItem::DurationSecond, 0, subjectIndex).data().toInt() +
+                    m_storyboardModel->index(StoryboardItem::DurationFrame, 0, subjectIndex).data().toInt();
 
-        const int subjectStartingFrame = m_storyboardModel->index(StoryboardItem::FrameNumber, 0, subjectIndex).data().toInt();
+            const int subjectStartingFrame = m_storyboardModel->index(StoryboardItem::FrameNumber, 0, subjectIndex).data().toInt();
 
-        const int prevDurationInFrames = m_image->animationInterface()->framerate() *
-                m_storyboardModel->index(StoryboardItem::DurationSecond, 0, prevIndex).data().toInt() +
-                m_storyboardModel->index(StoryboardItem::DurationFrame, 0, prevIndex).data().toInt();
+            const int prevDurationInFrames = m_image->animationInterface()->framerate() *
+                    m_storyboardModel->index(StoryboardItem::DurationSecond, 0, prevIndex).data().toInt() +
+                    m_storyboardModel->index(StoryboardItem::DurationFrame, 0, prevIndex).data().toInt();
 
-        const int prevStartingFrame = m_storyboardModel->index(StoryboardItem::FrameNumber, 0, prevIndex).data().toInt();
+            const int prevStartingFrame = m_storyboardModel->index(StoryboardItem::FrameNumber, 0, prevIndex).data().toInt();
 
-        //Should be the same before and after undo..
+            //Should be the same before and after undo..
 
-        QCOMPARE(m_storyboardModel->rowCount(), originalStoryboardCount);
-        QCOMPARE(subjectDurationInFrames, subjectOriginalDurationInFrames);
-        QCOMPARE(subjectStartingFrame, subjectOriginalStartingFrame);
-        QCOMPARE(prevDurationInFrames, prevOriginalDurationInFrames);
-        QCOMPARE(prevStartingFrame, prevOriginalStartingFrame);
+            QCOMPARE(m_storyboardModel->rowCount(), originalStoryboardCount);
+            QCOMPARE(subjectDurationInFrames, subjectOriginalDurationInFrames);
+            QCOMPARE(subjectStartingFrame, subjectOriginalStartingFrame);
+            QCOMPARE(prevDurationInFrames, prevOriginalDurationInFrames);
+            QCOMPARE(prevStartingFrame, prevOriginalStartingFrame);
+        }
 
-        undo.undo();
+        undo.undoMergedCommands();
 
-        QCOMPARE(m_storyboardModel->rowCount(), originalStoryboardCount);
-        QCOMPARE(subjectDurationInFrames, subjectOriginalDurationInFrames);
-        QCOMPARE(subjectStartingFrame, subjectOriginalStartingFrame);
-        QCOMPARE(prevDurationInFrames, prevOriginalDurationInFrames);
-        QCOMPARE(prevStartingFrame, prevOriginalStartingFrame);
+        {
+            const int subjectDurationInFrames = m_image->animationInterface()->framerate() *
+                    m_storyboardModel->index(StoryboardItem::DurationSecond, 0, subjectIndex).data().toInt() +
+                    m_storyboardModel->index(StoryboardItem::DurationFrame, 0, subjectIndex).data().toInt();
 
-        QCOMPARE(m_channel1->keyframeCount(), 4);
+            const int subjectStartingFrame = m_storyboardModel->index(StoryboardItem::FrameNumber, 0, subjectIndex).data().toInt();
+
+            const int prevDurationInFrames = m_image->animationInterface()->framerate() *
+                    m_storyboardModel->index(StoryboardItem::DurationSecond, 0, prevIndex).data().toInt() +
+                    m_storyboardModel->index(StoryboardItem::DurationFrame, 0, prevIndex).data().toInt();
+
+            const int prevStartingFrame = m_storyboardModel->index(StoryboardItem::FrameNumber, 0, prevIndex).data().toInt();
+
+            QCOMPARE(m_storyboardModel->rowCount(), originalStoryboardCount);
+            QCOMPARE(subjectDurationInFrames, subjectOriginalDurationInFrames);
+            QCOMPARE(subjectStartingFrame, subjectOriginalStartingFrame);
+            QCOMPARE(prevDurationInFrames, prevOriginalDurationInFrames);
+            QCOMPARE(prevStartingFrame, prevOriginalStartingFrame);
+        }
+
+        QCOMPARE(m_channel1->keyframeCount(), 5);
         QCOMPARE(m_channel2->keyframeCount(), 4);
     }
 
-    {   // Move all frames 3 > 4,
+    {   // Move all frames 30 > 31,
         // Should move within scope of scene and
         // thus change the start frame and
         // and previous scene's duration.
@@ -406,14 +441,14 @@ void StoryboardTimelineSyncTest::testTimelineToStoryboardSyncronization()
         const int prevOriginalStartingFrame = m_storyboardModel->index(StoryboardItem::FrameNumber, 0, prevIndex).data().toInt();
 
         // Verify integrity..
-        QCOMPARE(subjectOriginalDurationInFrames, 2);
-        QCOMPARE(subjectOriginalStartingFrame, 3);
-        QCOMPARE(prevOriginalDurationInFrames, 3);
+        QCOMPARE(subjectOriginalDurationInFrames, 30);
+        QCOMPARE(subjectOriginalStartingFrame, 30);
+        QCOMPARE(prevOriginalDurationInFrames, 30);
         QCOMPARE(prevOriginalStartingFrame, 0);
 
         KUndo2Command undo;
-        m_channel1->moveKeyframe(3, 4, &undo);
-        m_channel2->moveKeyframe(3, 4, &undo);
+        m_channel1->moveKeyframe(30, 31, &undo);
+        m_channel2->moveKeyframe(30, 31, &undo);
 
         {
             const int subjectDurationInFrames = m_image->animationInterface()->framerate() *
@@ -438,7 +473,7 @@ void StoryboardTimelineSyncTest::testTimelineToStoryboardSyncronization()
         }
 
         // Undo should work and revert storyboard information to what it was before!
-        undo.undo();
+        undo.undoMergedCommands();
 
 
         {
@@ -462,36 +497,37 @@ void StoryboardTimelineSyncTest::testTimelineToStoryboardSyncronization()
         }
     }
 
-    {   // Move all 3 > 1
+    {   // Move all 30 > 28
         // This should merge scene 2 with scene 1
         // by extending scene length of 1 and removing
         // scene 2
 
         // Setup..
         QModelIndex prevIndex = m_storyboardModel->index(0, 0);
-        const int prevOriginalDurationInFrames = m_image->animationInterface()->framerate() *
+        const int prevSceneOriginalDurationInFrames = m_image->animationInterface()->framerate() *
                 m_storyboardModel->index(StoryboardItem::DurationSecond, 0, prevIndex).data().toInt() +
                 m_storyboardModel->index(StoryboardItem::DurationFrame, 0, prevIndex).data().toInt();
 
-        const int prevOriginalStartingFrame = m_storyboardModel->index(StoryboardItem::FrameNumber, 0, prevIndex).data().toInt();
+        const int prevSceneOriginalStartingFrame = m_storyboardModel->index(StoryboardItem::FrameNumber, 0, prevIndex).data().toInt();
 
         QModelIndex subjectIndex = m_storyboardModel->index(1, 0);
         const int subjectOriginalDurationInFrames = m_image->animationInterface()->framerate() *
                 m_storyboardModel->index(StoryboardItem::DurationSecond, 0, subjectIndex).data().toInt() +
                 m_storyboardModel->index(StoryboardItem::DurationFrame, 0, subjectIndex).data().toInt();
 
-        const int subjectOriginalStartingFrame = m_storyboardModel->index(StoryboardItem::FrameNumber, 0, subjectIndex).data().toInt();
+        const int currSceneOriginalStartingFrame = m_storyboardModel->index(StoryboardItem::FrameNumber, 0, subjectIndex).data().toInt();
 
         const int originalStoryboardCount = m_storyboardModel->rowCount();
 
         // Verify integrity..
         QCOMPARE(originalStoryboardCount, 3);
-        QCOMPARE(prevOriginalDurationInFrames, 3);
-        QCOMPARE(prevOriginalStartingFrame, 0);
+        QCOMPARE(prevSceneOriginalDurationInFrames, 30);
+        QCOMPARE(prevSceneOriginalStartingFrame, 0);
 
         KUndo2Command undo;
-        m_channel1->moveKeyframe(3, 1, &undo);
-        m_channel2->moveKeyframe(3, 1, &undo);
+        m_channel1->moveKeyframe(30, 28, &undo);
+        m_channel1->moveKeyframe(41, 26, &undo);
+        m_channel2->moveKeyframe(30, 28, &undo);
 
         {
             const int prevDurationInFrames = m_image->animationInterface()->framerate() *
@@ -504,12 +540,12 @@ void StoryboardTimelineSyncTest::testTimelineToStoryboardSyncronization()
             QCOMPARE(m_storyboardModel->rowCount(), originalStoryboardCount - 1);
 
             //Should be 2 frames longer.
-            QCOMPARE(prevDurationInFrames, prevOriginalDurationInFrames + 2);
-            QCOMPARE(prevStartingFrame, prevOriginalStartingFrame);
+            QCOMPARE(prevDurationInFrames, prevSceneOriginalDurationInFrames + subjectOriginalDurationInFrames);
+            QCOMPARE(prevStartingFrame, prevSceneOriginalStartingFrame);
         }
 
         // Must also be undone correctly..
-        undo.undo();
+        undo.undoMergedCommands();
 
         {
             const int subjectDurationInFrames = m_image->animationInterface()->framerate() *
@@ -524,16 +560,17 @@ void StoryboardTimelineSyncTest::testTimelineToStoryboardSyncronization()
 
             const int prevStartingFrame = m_storyboardModel->index(StoryboardItem::FrameNumber, 0, prevIndex).data().toInt();
 
-            //Should be the same..
+//            //Should be the same..
             QCOMPARE(m_storyboardModel->rowCount(), originalStoryboardCount);
             QCOMPARE(subjectDurationInFrames, subjectOriginalDurationInFrames);
-            QCOMPARE(subjectStartingFrame, subjectOriginalStartingFrame);
-            QCOMPARE(prevDurationInFrames, prevOriginalDurationInFrames);
-            QCOMPARE(prevStartingFrame, prevOriginalStartingFrame);
+            QCOMPARE(subjectStartingFrame, currSceneOriginalStartingFrame);
+            QCOMPARE(prevDurationInFrames, prevSceneOriginalDurationInFrames);
+            QCOMPARE(prevStartingFrame, prevSceneOriginalStartingFrame);
         }
     }
 
-    {   // Move all 3 > 6
+
+    {   // Move all 30 > 61 and 41 > 62
         // This should also merge scene 2 down to
         // scene 1.
 
@@ -556,12 +593,13 @@ void StoryboardTimelineSyncTest::testTimelineToStoryboardSyncronization()
 
         // Verify integrity..
         QCOMPARE(originalStoryboardCount, 3);
-        QCOMPARE(prevOriginalDurationInFrames, 3);
+        QCOMPARE(prevOriginalDurationInFrames, 30);
         QCOMPARE(prevOriginalStartingFrame, 0);
 
         KUndo2Command undo;
-        m_channel1->moveKeyframe(3, 6, &undo);
-        m_channel2->moveKeyframe(3, 6, &undo);
+        m_channel1->moveKeyframe(30, 61, &undo);
+        m_channel1->moveKeyframe(41, 62, &undo);
+        m_channel2->moveKeyframe(30, 61, &undo);
 
         {
             const int prevDurationInFrames = m_image->animationInterface()->framerate() *
@@ -574,12 +612,12 @@ void StoryboardTimelineSyncTest::testTimelineToStoryboardSyncronization()
             QCOMPARE(m_storyboardModel->rowCount(), originalStoryboardCount - 1);
 
             //Should be 2 frames longer.
-            QCOMPARE(prevDurationInFrames, prevOriginalDurationInFrames + 2);
+            QCOMPARE(prevDurationInFrames, prevOriginalDurationInFrames + subjectOriginalDurationInFrames);
             QCOMPARE(prevStartingFrame, prevOriginalStartingFrame);
         }
 
         // Must also be undone correctly..
-        undo.undo();
+        undo.undoMergedCommands();
 
         {
             const int subjectDurationInFrames = m_image->animationInterface()->framerate() *
@@ -603,9 +641,11 @@ void StoryboardTimelineSyncTest::testTimelineToStoryboardSyncronization()
         }
     }
 
-    {   // Delete all 3
+    {   // Delete all 30 and 41
         // This should also merge scene 2 into
         // scene 1.
+
+        ENTER_FUNCTION() << "DELETE BEGIN";
 
         // Setup..
         QModelIndex prevIndex = m_storyboardModel->index(0, 0);
@@ -626,12 +666,13 @@ void StoryboardTimelineSyncTest::testTimelineToStoryboardSyncronization()
 
         // Verify integrity..
         QCOMPARE(originalStoryboardCount, 3);
-        QCOMPARE(prevOriginalDurationInFrames, 3);
+        QCOMPARE(prevOriginalDurationInFrames, 30);
         QCOMPARE(prevOriginalStartingFrame, 0);
 
         KUndo2Command undo;
-        m_channel1->removeKeyframe(3, &undo);
-        m_channel2->removeKeyframe(3, &undo);
+        m_channel1->removeKeyframe(30, &undo);
+        m_channel1->removeKeyframe(41, &undo);
+        m_channel2->removeKeyframe(30, &undo);
 
         {
             const int prevDurationInFrames = m_image->animationInterface()->framerate() *
@@ -644,12 +685,12 @@ void StoryboardTimelineSyncTest::testTimelineToStoryboardSyncronization()
             QCOMPARE(m_storyboardModel->rowCount(), originalStoryboardCount - 1);
 
             //Should be 2 frames longer.
-            QCOMPARE(prevDurationInFrames, prevOriginalDurationInFrames + 2);
+            QCOMPARE(prevDurationInFrames, prevOriginalDurationInFrames + subjectOriginalDurationInFrames);
             QCOMPARE(prevStartingFrame, prevOriginalStartingFrame);
         }
 
         // Must also be undone correctly..
-        undo.undo();
+        undo.undoMergedCommands();
 
         {
             const int subjectDurationInFrames = m_image->animationInterface()->framerate() *
@@ -671,20 +712,23 @@ void StoryboardTimelineSyncTest::testTimelineToStoryboardSyncronization()
             QCOMPARE(prevDurationInFrames, prevOriginalDurationInFrames);
             QCOMPARE(prevStartingFrame, prevOriginalStartingFrame);
         }
+
+        ENTER_FUNCTION() << "DELETE END";
     }
 
 
     { // CLEANUP
+        ENTER_FUNCTION() << "CLEANUP BEGIN";
         m_storyboardModel->removeRows(0, m_storyboardModel->rowCount());
-        QCOMPARE(m_storyboardModel->rowCount(), 0);
 
-        m_channel2->removeKeyframe(5);
-        m_channel2->removeKeyframe(3);
-        m_channel2->removeKeyframe(2);
+        m_channel2->removeKeyframe(60);
+        m_channel2->removeKeyframe(30);
+        m_channel2->removeKeyframe(29);
 
-        m_channel1->removeKeyframe(5);
-        m_channel1->removeKeyframe(3);
-        m_channel1->removeKeyframe(2);
+        m_channel1->removeKeyframe(60);
+        m_channel1->removeKeyframe(30);
+        m_channel1->removeKeyframe(41);
+        m_channel1->removeKeyframe(29);
 
         QCOMPARE(m_channel1->keyframeCount(), 1);
         QCOMPARE(m_channel2->keyframeCount(), 1);
