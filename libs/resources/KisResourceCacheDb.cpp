@@ -1005,8 +1005,8 @@ bool KisResourceCacheDb::tagResource(const QString &resourceFileName, KisTagSP t
     q.bindValue(":resource_filename", resourceFileName);
 
     if (!q.exec()) {
-<<<<<<< HEAD
         qWarning() << "Could not execute tagResource query" << q.lastError() << q.boundValues();
+        return false;
     }
 
 
