@@ -154,6 +154,7 @@ void KisKeyframeChannel::swapKeyframes(KisKeyframeChannel *channelA, int timeA, 
     KIS_ASSERT(channelA && channelB);
 
     //Emit two movement signals -- one for each direction a movement was made.
+    ENTER_FUNCTION();
     emit channelA->sigMovingKeyframe(channelA, timeA, channelB, timeB, parentUndoCmd);
     emit channelB->sigMovingKeyframe(channelB, timeB, channelA, timeB, parentUndoCmd);
 

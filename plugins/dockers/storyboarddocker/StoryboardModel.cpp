@@ -770,7 +770,7 @@ int StoryboardModel::lastKeyframeWithin(QModelIndex sceneIndex)
     return lastFrameOfScene;
 }
 
-int StoryboardModel::keyframeCountWithin(QModelIndex sceneIndex)
+int StoryboardModel::keyframeCountWithin(QModelIndex sceneIndex, bool framePerfect)
 {
     KIS_ASSERT(sceneIndex.isValid());
     const int sceneFrame = index(StoryboardItem::FrameNumber, 0, sceneIndex).data().toInt();
@@ -779,8 +779,14 @@ int StoryboardModel::keyframeCountWithin(QModelIndex sceneIndex)
     if (!m_image)
         return sceneFrame;
 
-    KisTimeSpan span = KisTimeSpan::fromTimeToTime(sceneFrame, lastFrameOfScene);
-    return keyframeCountWithin(span);
+    if (framePerfect) {
+        ENTER_FUNCTION();
+        KisTimeSpan span = KisTimeSpan::fromTimeWithDuration(sceneFrame, 1);
+        return keyframeCountWithin(span);
+    } else {
+        KisTimeSpan span = KisTimeSpan::fromTimeToTime(sceneFrame, lastFrameOfScene);
+        return keyframeCountWithin(span);
+    }
 }
 
 int StoryboardModel::keyframeCountWithin(KisTimeSpan span)
@@ -1164,9 +1170,11 @@ void StoryboardModel::slotKeyframeToBeRemoved(const KisKeyframeChannel *channel,
 
     QModelIndex index = indexFromFrame(time);
     if (index.isValid()) {
-        int numOfKeys = keyframeCountWithin(index);
-        ENTER_FUNCTION() << ppVar(numOfKeys);
-        if (numOfKeys == 1) {
+        int numOfKeys = keyframeCountWithin(index, false);
+        //Check if we're on time or deferred. Seems to be different between unit tests and in-app,
+        //but can be acounted for.
+        const int framesExpected = channel->keyframeAt(time) ? 1 : 0;
+        if (numOfKeys == framesExpected) {
             if (m_timelineRemovalLocks.contains(index)) {
                 m_timelineRemovalLocks.removeAll(index);
             } else {
@@ -1180,19 +1188,27 @@ void StoryboardModel::slotKeyframeToBeRemoved(const KisKeyframeChannel *channel,
 
 void StoryboardModel::slotKeyframeToBeMoved(const KisKeyframeChannel *srcChannel, int srcTime, const KisKeyframeChannel *dstChannel, int dstTime, KUndo2Command* command)
 {
+    Q_UNUSED(srcChannel);
+    Q_UNUSED(dstChannel);
+
     if (m_reorderKeyframesLocked)
         return;
 
     //Let's skip any chance of processing when there are no storyboard entries.
-    if (rowCount() == 0)
+    if (rowCount() <= 1)
         return;
 
-    QModelIndex scene = indexFromFrame(srcTime, true);
-    const bool sameSceneMovement = scene.isValid() && (scene == indexFromFrame(dstTime, false));
-    const bool shouldMoveSceneStart = sameSceneMovement ? (keyframeCountWithin(KisTimeSpan::fromTimeToTime(srcTime, dstTime - 1)) == 1) : false;
-    const int fps = m_image->animationInterface()->framerate();
+    ENTER_FUNCTION() << ppVar(srcChannel) << ppVar(srcTime) << ppVar(dstTime);
 
-    ENTER_FUNCTION() << ppVar(keyframeCountWithin(KisTimeSpan::fromTimeToTime(srcTime, dstTime - 1)));
+    //Check if the keyframe is where it came from...
+    //If it is, we're being called before, otherwise, we've been deferred.
+    const int framesExpected = srcChannel->keyframeAt(srcTime) ? 1 : 0;
+
+    QModelIndex scene = indexFromFrame(srcTime, true);
+    const bool sameSceneMovement = scene.isValid() && (scene == indexFromFrame(dstTime, false) || (scene.row() == rowCount() - 1 && srcTime < dstTime));
+    const int keyframesWithinScene = keyframeCountWithin(scene, true);
+    const bool shouldMoveSceneStart = sameSceneMovement && keyframesWithinScene == framesExpected;
+    const int fps = m_image->animationInterface()->framerate();
 
     if (shouldMoveSceneStart && scene.row() > 0) {
         QModelIndex previousScene = index(scene.row() - 1, 0);
@@ -1215,23 +1231,24 @@ void StoryboardModel::slotKeyframeToBeMoved(const KisKeyframeChannel *srcChannel
         const int prevSceneNewFrameDuration = prevSceneFrameDuration + change;
 
         if(command) {
-            new KisStoryboardChildEditCommand(prevSceneFrameDurationIndex.data(), QVariant::fromValue(prevSceneNewFrameDuration % fps), prevSceneFrameDurationIndex.parent().row(), prevSceneFrameDurationIndex.row(), this, command);
             new KisStoryboardChildEditCommand(prevSceneSecondDurationIndex.data(), QVariant::fromValue(prevSceneNewFrameDuration / fps), prevSceneSecondDurationIndex.parent().row(), prevSceneSecondDurationIndex.row(), this, command);
+            new KisStoryboardChildEditCommand(prevSceneFrameDurationIndex.data(), QVariant::fromValue(prevSceneNewFrameDuration % fps), prevSceneFrameDurationIndex.parent().row(), prevSceneFrameDurationIndex.row(), this, command);
 
             new KisStoryboardChildEditCommand(currSceneFrameNumberIndex.data(), QVariant::fromValue(dstTime), currSceneFrameNumberIndex.parent().row(), currSceneFrameNumberIndex.row(), this, command);
-            new KisStoryboardChildEditCommand(currSceneFrameDurationIndex.data(), QVariant::fromValue(currSceneNewFrameDuration % fps), currSceneFrameDurationIndex.parent().row(), currSceneFrameDurationIndex.row(), this, command);
             new KisStoryboardChildEditCommand(currSceneSecondDurationIndex.data(), QVariant::fromValue(currSceneNewFrameDuration / fps), currSceneSecondDurationIndex.parent().row(), currSceneSecondDurationIndex.row(), this, command);
+            new KisStoryboardChildEditCommand(currSceneFrameDurationIndex.data(), QVariant::fromValue(currSceneNewFrameDuration % fps), currSceneFrameDurationIndex.parent().row(), currSceneFrameDurationIndex.row(), this, command);
         }
 
-        {            
+        {
             KeyframeReorderLock lock(this);
 
             setData(currSceneFrameNumberIndex, dstTime);
-            setData(currSceneFrameDurationIndex, currSceneNewFrameDuration % fps);
+            ENTER_FUNCTION() << ppVar(currSceneNewFrameDuration);
             setData(currSceneSecondDurationIndex, currSceneNewFrameDuration / fps);
+            setData(currSceneFrameDurationIndex, currSceneNewFrameDuration % fps);
 
-            setData(prevSceneFrameDurationIndex, prevSceneNewFrameDuration % fps);
             setData(prevSceneSecondDurationIndex, prevSceneNewFrameDuration / fps);
+            setData(prevSceneFrameDurationIndex, prevSceneNewFrameDuration % fps);
         }
     }
 }

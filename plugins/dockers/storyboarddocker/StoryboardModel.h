@@ -281,7 +281,7 @@ public:
      * @param sceneIndex
      * @return
      */
-    int keyframeCountWithin(QModelIndex sceneIndex);
+    int keyframeCountWithin(QModelIndex sceneIndex, bool framePerfect = false);
     int keyframeCountWithin(KisTimeSpan span);
 
 private:
