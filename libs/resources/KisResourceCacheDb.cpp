@@ -1199,7 +1199,6 @@ bool KisResourceCacheDb::addTags(KisResourceStorageSP storage, QString resourceT
     QSharedPointer<KisResourceStorage::TagIterator> iter = storage->tags(resourceType);
     while(iter->hasNext()) {
         iter->next();
-        qDebug() << "Tag" << iter->name() << iter->tag()->defaultResources();
 
         if (!addTag(resourceType, storage->location(), iter->url(), iter->name(), iter->comment(), iter->filename())) {
             qWarning() << "Could not add tag" << iter->url() << "to the database";
@@ -1313,7 +1312,6 @@ bool KisResourceCacheDb::addStorage(KisResourceStorageSP storage, bool preinstal
 
 bool KisResourceCacheDb::addStorageTags(KisResourceStorageSP storage)
 {
-    qDebug() << "addStorageTags" << storage;
 
     bool r = true;
     Q_FOREACH(const QString &resourceType, KisResourceLoaderRegistry::instance()->resourceTypes()) {

@@ -761,8 +761,6 @@ KisResourceLocator::LocatorError KisResourceLocator::firstTimeInstallation(Initi
 
 bool KisResourceLocator::initializeDb()
 {
-    qDebug() << ">>>>>>>>>>>>>> initializeDb()";
-
     emit progressMessage(i18n("Initializing the resources."));
     d->errorMessages.clear();
     findStorages();
