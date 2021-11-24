@@ -504,8 +504,13 @@ void KisPaletteEditor::saveNewPaletteVersion()
             isGlobal = storage->type() != KisResourceStorage::StorageType::Memory;
         }
     }
-    if (isGlobal) {
+    if (isGlobal && m_d->view) {
         KisResourceUserOperations::updateResourceWithUserInput(m_d->view->mainWindow(), m_d->model->colorSet());
+    } else if (m_d->model->colorSet()->version() >= 0) {
+        //if the version is -1, then the resource should not be updated, because it was never saved to begin with...
+        dbgResources << Q_FUNC_INFO << "-- Updating resource without user input: " << m_d->model->colorSet()->name();
+        m_d->rServer->resourceModel()->updateResource(m_d->model->colorSet());
+
     }
 
     m_d->isModified = false;
