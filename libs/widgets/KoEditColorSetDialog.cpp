@@ -156,7 +156,7 @@ void KoEditColorSetWidget::addColor()
     if (color.isValid()) {
         KoColorSetEntry newEntry(
                     KoColor(color, KoColorSpaceRegistry::instance()->rgb8()),
-                    QInputDialog::getText(this, i18n("Add Color To Palette"), i18n("Color name:")));
+                    QInputDialog::getText(this, i18nc("@title:window", "Add Color to Palette"), i18n("Color name:")));
         KoColorPatch *patch = new KoColorPatch(widget.patchesFrame);
         patch->setColor(newEntry.color());
         patch->setToolTip(newEntry.name());

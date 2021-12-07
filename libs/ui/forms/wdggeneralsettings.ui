@@ -98,7 +98,7 @@
          <item row="2" column="1">
           <widget class="QGroupBox" name="groupBox">
            <property name="title">
-            <string>While painting...</string>
+            <string>While painting…</string>
            </property>
            <layout class="QVBoxLayout" name="verticalLayout_2">
             <property name="spacing">

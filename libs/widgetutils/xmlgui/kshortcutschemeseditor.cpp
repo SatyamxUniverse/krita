@@ -95,7 +95,7 @@ KShortcutSchemesEditor::KShortcutSchemesEditor(KisShortcutsDialog *parent)
 void KShortcutSchemesEditor::newScheme()
 {
     bool ok;
-    const QString newName = QInputDialog::getText(m_dialog, i18n("Name for New Scheme"),
+    const QString newName = QInputDialog::getText(m_dialog, i18nc("@title:window", "Name for New Scheme"),
                             i18n("Name for new scheme:"), QLineEdit::Normal, i18n("New Scheme"), &ok);
     if (!ok) {
         return;

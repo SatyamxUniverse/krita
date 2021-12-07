@@ -154,7 +154,7 @@ void KisFilterSelectorWidget::showXMLdialog()
     if (currentFilter()->showConfigurationWidget()) {
         QDialog *xmlDialog = new QDialog(qApp->activeWindow());
         xmlDialog->setMinimumWidth(500);
-        xmlDialog->setWindowTitle(i18n("Filter configuration XML"));
+        xmlDialog->setWindowTitle(i18nc("@title:window", "Filter Configuration XML"));
         QVBoxLayout *xmllayout = new QVBoxLayout(xmlDialog);
         QPlainTextEdit *text = new QPlainTextEdit(xmlDialog);
         KisFilterConfigurationSP config = configuration();

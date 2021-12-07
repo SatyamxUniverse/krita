@@ -85,7 +85,7 @@ KisImportExportErrorCode KisHeightMapImport::convert(KisDocument *document, QIOD
         QApplication::restoreOverrideCursor();
 
         KoDialog* kdb = new KoDialog(qApp->activeWindow());
-        kdb->setWindowTitle(i18n("Heightmap Import Options"));
+        kdb->setWindowTitle(i18nc("@title:window", "Heightmap Import Options"));
         kdb->setButtons(KoDialog::Ok | KoDialog::Cancel);
 
         KisWdgOptionsHeightmap* wdg = new KisWdgOptionsHeightmap(kdb);

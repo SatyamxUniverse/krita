@@ -45,7 +45,7 @@
      <item>
       <widget class="QPushButton" name="pushButtonBookmarkCurrent">
        <property name="text">
-        <string>Bookmark current</string>
+        <string>Bookmark Current</string>
        </property>
       </widget>
      </item>

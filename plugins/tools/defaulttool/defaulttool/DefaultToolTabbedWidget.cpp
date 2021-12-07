@@ -22,11 +22,11 @@ DefaultToolTabbedWidget::DefaultToolTabbedWidget(KoInteractionTool *tool, QWidge
     setObjectName("default-tool-tabbed-widget");
 
     m_geometryWidget = new DefaultToolGeometryWidget(tool, this);
-    m_geometryWidget->setWindowTitle(i18n("Geometry"));
+    m_geometryWidget->setWindowTitle(i18nc("@title:window", "Geometry"));
     addTab(m_geometryWidget, KisIconUtils::loadIcon("geometry"), QString());
 
     m_strokeWidget = new KoStrokeConfigWidget(tool->canvas(), this);
-    m_strokeWidget->setWindowTitle(i18nc("Draws a line around an area", "Stroke"));
+    m_strokeWidget->setWindowTitle(i18nc("@title:window draws a line around an area", "Stroke"));
 
     KisDocumentAwareSpinBoxUnitManager* managerLineWidth = new KisDocumentAwareSpinBoxUnitManager(m_strokeWidget);
     KisDocumentAwareSpinBoxUnitManager* managerMitterLimit = new KisDocumentAwareSpinBoxUnitManager(m_strokeWidget);
@@ -38,7 +38,7 @@ DefaultToolTabbedWidget::DefaultToolTabbedWidget(KoInteractionTool *tool, QWidge
 
 
     m_fillWidget = new KoFillConfigWidget(tool->canvas(), KoFlake::Fill, true, this);
-    m_fillWidget->setWindowTitle(i18n("Fill"));
+    m_fillWidget->setWindowTitle(i18nc("@title:window", "Fill"));
     addTab(m_fillWidget, KisIconUtils::loadIcon("krita_tool_color_fill"), QString());
 
     connect(this, SIGNAL(currentChanged(int)), SLOT(slotCurrentIndexChanged(int)));

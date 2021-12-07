@@ -188,7 +188,7 @@
            <item>
             <widget class="QPushButton" name="btnNewsOptions">
              <property name="toolTip">
-              <string>News options</string>
+              <string>News Options</string>
              </property>
              <property name="text">
               <string/>
@@ -362,14 +362,14 @@
               <item>
                <widget class="QPushButton" name="bnVersionUpdate">
                 <property name="text">
-                 <string>Update now!</string>
+                 <string>Update Now!</string>
                 </property>
                </widget>
               </item>
               <item>
                <widget class="QPushButton" name="bnErrorDetails">
                 <property name="text">
-                 <string>Show details</string>
+                 <string>Show Details</string>
                 </property>
                </widget>
               </item>

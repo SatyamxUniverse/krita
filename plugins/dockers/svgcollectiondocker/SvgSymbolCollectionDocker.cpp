@@ -153,7 +153,7 @@ SvgSymbolCollectionDocker::SvgSymbolCollectionDocker(QWidget *parent)
     : QDockWidget(parent)
     , m_wdgSvgCollection(new Ui_WdgSvgCollection())
 {
-    setWindowTitle(i18n("Vector Libraries"));
+    setWindowTitle(i18nc("@title:window", "Vector Libraries"));
     QWidget* mainWidget = new QWidget(this);
     setWidget(mainWidget);
     m_wdgSvgCollection->setupUi(mainWidget);

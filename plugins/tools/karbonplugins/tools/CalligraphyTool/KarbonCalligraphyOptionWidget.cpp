@@ -206,7 +206,7 @@ void KarbonCalligraphyOptionWidget::saveProfileAs()
     while (1) {
         bool ok;
         name = QInputDialog::getText(this,
-                                     i18n("Profile name"),
+                                     i18nc("@title:window", "Profile Name"),
                                      i18n("Please insert the name by which "
                                           "you want to save this profile:"),
                                      QLineEdit::Normal, QString(), &ok);

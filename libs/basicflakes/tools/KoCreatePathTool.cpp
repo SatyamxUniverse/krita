@@ -560,7 +560,7 @@ QList<QPointer<QWidget> > KoCreatePathTool::createOptionWidgets()
     QWidget *specialSpacer = new QWidget();
     specialSpacer->setObjectName("SpecialSpacer");
     layout->addWidget(specialSpacer, 2, 1);
-    angleWidget->setWindowTitle(i18n("Angle Constraints"));
+    angleWidget->setWindowTitle(i18nc("@title:window", "Angle Constraints"));
     list.append(angleWidget);
 
     connect(angleEdit, SIGNAL(angleChanged(qreal)), this, SLOT(angleDeltaChanged(qreal)));

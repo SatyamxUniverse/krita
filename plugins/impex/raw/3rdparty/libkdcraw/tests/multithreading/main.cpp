@@ -53,7 +53,7 @@ int main(int argc, char* argv[])
         QString filter = i18n("Raw Files") + QString::fromLatin1(" (%1)").arg(QString::fromLatin1(raw_file_extentions));
         qDebug() << filter;
 
-        QStringList files = QFileDialog::getOpenFileNames(0, i18n("Select RAW files to process"),
+        QStringList files = QFileDialog::getOpenFileNames(0, i18nc("@title:window", "Select RAW Files to Process"),
                                                          QStandardPaths::standardLocations(QStandardPaths::PicturesLocation).first(),
                                                          filter);
 

@@ -1575,7 +1575,7 @@ void KisAnimTimelineFramesView::insertOrRemoveMultipleHoldFrames(bool insertion,
     bool ok = false;
     const int count = QInputDialog::getInt(this,
                                            i18nc("@title:window", "Insert or Remove Hold Frames"),
-                                           i18nc("@label:spinbox", "Enter number of frames"),
+                                           i18nc("@label:spinbox", "Enter number of frames:"),
                                            insertion ?
                                                m_d->insertKeyframeDialog->defaultTimingOfAddedFrames() :
                                                m_d->insertKeyframeDialog->defaultNumberOfHoldFramesToRemove(),

@@ -33,7 +33,7 @@
      <item>
       <widget class="QToolButton" name="btnSelectFile">
        <property name="toolTip">
-        <string>Select file name...</string>
+        <string>Select file name…</string>
        </property>
        <property name="text">
         <string>...</string>

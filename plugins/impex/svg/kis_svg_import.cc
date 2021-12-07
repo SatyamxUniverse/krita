@@ -45,7 +45,7 @@ KisImportExportErrorCode KisSVGImport::convert(KisDocument *document, QIODevice 
         bool okay = false;
         const QString name = QFileInfo(filename()).fileName();
         resolutionPPI = QInputDialog::getInt(0,
-                                             i18n("Import SVG"),
+                                             i18nc("@title:window", "Import SVG"),
                                              i18n("Enter preferred resolution (PPI) for \"%1\"", name),
                                              cfg.preferredVectorImportResolutionPPI(),
                                              0, 100000, 1, &okay);

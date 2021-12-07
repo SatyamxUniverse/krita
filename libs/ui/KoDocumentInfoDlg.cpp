@@ -71,7 +71,7 @@ KoDocumentInfoDlg::KoDocumentInfoDlg(QWidget* parent, KoDocumentInfo* docInfo)
 {
     d->info = docInfo;
 
-    setWindowTitle(i18n("Document Information"));
+    setWindowTitle(i18nc("@title:window", "Document Information"));
     //    setInitialSize(QSize(500, 500));
     setFaceType(KPageDialog::List);
     setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);

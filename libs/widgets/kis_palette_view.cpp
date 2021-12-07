@@ -100,7 +100,7 @@ void KisPaletteView::setCrossedKeyword(const QString &value)
 bool KisPaletteView::addEntryWithDialog(KoColor color)
 {
     KoDialog dialog;
-    dialog.setWindowTitle(i18nc("@title:dialog", "Add a new Color Swatch"));
+    dialog.setWindowTitle(i18nc("@title:dialog", "Add a New Color Swatch"));
     QFormLayout *editableItems = new QFormLayout(dialog.mainWidget());
 
     QComboBox *cmbGroups = new QComboBox;
@@ -144,7 +144,7 @@ bool KisPaletteView::addEntryWithDialog(KoColor color)
 bool KisPaletteView::addGroupWithDialog()
 {
     KoDialog dialog;
-    dialog.setWindowTitle(i18nc("@title:dialog","Add a new group"));
+    dialog.setWindowTitle(i18nc("@title:dialog","Add a New Group"));
     QFormLayout *editableItems = new QFormLayout(dialog.mainWidget());
     QLineEdit *lnName = new QLineEdit();
     lnName->setText(i18nc("Part of default name for a new group", "Color Group")+""+QString::number(m_d->model->colorSet()->getGroupNames().size()+1));

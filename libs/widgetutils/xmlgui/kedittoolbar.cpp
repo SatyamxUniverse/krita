@@ -353,7 +353,7 @@ ToolBarItem *ToolBarListWidget::currentItem() const
 IconTextEditDialog::IconTextEditDialog(QWidget *parent)
     : QDialog(parent)
 {
-    setWindowTitle(i18n("Change Text"));
+    setWindowTitle(i18nc("@title:window", "Change Text"));
     setModal(true);
 
     QVBoxLayout *layout = new QVBoxLayout(this);
@@ -606,7 +606,7 @@ void KEditToolBarPrivate::init()
 
     q->setDefaultToolBar(QString());
 
-    q->setWindowTitle(i18n("Configure Toolbars"));
+    q->setWindowTitle(i18nc("@title:window", "Configure Toolbars"));
     q->setModal(false);
 
     m_layout = new QVBoxLayout(q);
