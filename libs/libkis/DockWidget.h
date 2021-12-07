@@ -26,7 +26,7 @@ class KoCanvasBase;
  *       label = QLabel("Hello", self)
  *       self.setWidget(label)
  *       self.label = label
- *       self.setWindowTitle("Hello Docker")
+ *       self.setWindowTitlec("@title:window", "Hello Docker")
  *
  * def canvasChanged(self, canvas):
  *       self.label.setText("Hellodocker: canvas changed");

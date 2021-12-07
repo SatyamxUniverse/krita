@@ -42,7 +42,7 @@ KisDlgPaletteEditor::KisDlgPaletteEditor()
     , m_paletteEditor(new KisPaletteEditor(this))
     , m_currentGroupOriginalName(KoColorSet::GLOBAL_GROUP_NAME)
 {
-    setWindowTitle(i18n("Palette Editor"));
+    setWindowTitle(i18nc("@title:window", "Palette Editor"));
 
     m_ui->setupUi(this);
     m_ui->gbxPalette->setTitle(i18n("Palette options"));

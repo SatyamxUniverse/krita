@@ -153,21 +153,21 @@
      <item>
       <widget class="QPushButton" name="btnNewStyle">
        <property name="text">
-        <string comment="Save as new layer style...">&amp;Save as...</string>
+        <string comment="Save as new layer style...">&amp;Save As…</string>
        </property>
       </widget>
      </item>
      <item>
       <widget class="QPushButton" name="btnLoadStyle">
        <property name="text">
-        <string>&amp;Import...</string>
+        <string>&amp;Import…</string>
        </property>
       </widget>
      </item>
      <item>
       <widget class="QPushButton" name="btnSaveStyle">
        <property name="text">
-        <string>&amp;Export...</string>
+        <string>&amp;Export…</string>
        </property>
       </widget>
      </item>

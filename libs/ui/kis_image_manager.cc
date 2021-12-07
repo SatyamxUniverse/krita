@@ -194,7 +194,7 @@ void KisImageManager::slotImageColor()
 
     QColorDialog dlg;
     dlg.setOption(QColorDialog::ShowAlphaChannel, true);
-    dlg.setWindowTitle(i18n("Select a Color"));
+    dlg.setWindowTitle(i18nc("@title:window", "Select a Color"));
     KoColor bg = image->defaultProjectionColor();
     dlg.setCurrentColor(bg.toQColor());
 

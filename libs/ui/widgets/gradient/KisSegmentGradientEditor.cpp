@@ -789,7 +789,7 @@ void KisSegmentGradientEditor::editSelectedHandle()
 
     QDialog *dialog = new QDialog(this);
     dialog->setModal(true);
-    dialog->setWindowTitle(i18nc("Title for the segment gradient handle editor", "Edit Handle"));
+    dialog->setWindowTitle(i18nc("@title:window segment gradient handle editor", "Edit Handle"));
     dialog->setAttribute(Qt::WA_DeleteOnClose);
 
     QWidget *editor = handleEditorContainer->currentWidget();

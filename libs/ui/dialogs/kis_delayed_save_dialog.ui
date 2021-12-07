@@ -27,7 +27,7 @@
    <item>
     <widget class="QLabel" name="lblMessage">
      <property name="text">
-      <string>Waiting for image operation to complete...</string>
+      <string>Waiting for image operation to complete…</string>
      </property>
     </widget>
    </item>
@@ -62,7 +62,7 @@
      <item>
       <widget class="QPushButton" name="bnDontWait">
        <property name="text">
-        <string>Save without waiting</string>
+        <string>Save Without Waiting</string>
        </property>
       </widget>
      </item>
@@ -76,7 +76,7 @@
      <item>
       <widget class="QPushButton" name="bnDontSave">
        <property name="text">
-        <string>Close, do not save</string>
+        <string>Close, do Not Save</string>
        </property>
       </widget>
      </item>

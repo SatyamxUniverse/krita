@@ -34,7 +34,7 @@ SmallColorSelectorDock::SmallColorSelectorDock()
     connect(this, SIGNAL(dockLocationChanged(Qt::DockWidgetArea)),
             m_smallColorWidget, SLOT(update()));
 
-    setWindowTitle(i18n("Small Color Selector"));
+    setWindowTitle(i18nc("@title:window", "Small Color Selector"));
 }
 
 void SmallColorSelectorDock::setCanvas(KoCanvasBase * canvas)

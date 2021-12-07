@@ -446,7 +446,7 @@ void KisStopGradientEditor::editSelectedStop()
 
     QDialog *dialog = new QDialog(this);
     dialog->setModal(true);
-    dialog->setWindowTitle(i18nc("Title for the gradient stop editor", "Edit Stop"));
+    dialog->setWindowTitle(i18nc("@title:window gradient stop editor", "Edit Stop"));
     dialog->setAttribute(Qt::WA_DeleteOnClose);
 
     QWidget *editor = stopEditorContainer->currentWidget();

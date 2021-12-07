@@ -81,7 +81,7 @@ public:
 KBugReport::KBugReport(const KAboutData &aboutData, QWidget *_parent)
     : QDialog(_parent), d(new KBugReportPrivate(this))
 {
-    setWindowTitle(i18n("Submit Bug Report"));
+    setWindowTitle(i18nc("@title:window", "Submit Bug Report"));
 
     QDialogButtonBox *buttonBox = new QDialogButtonBox(this);
     buttonBox->setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);

@@ -24,8 +24,8 @@ KisDlgWebPExport::KisDlgWebPExport(QWidget *parent)
 
     preset->addItem(i18nc("WebP presets", "Default"), WEBP_PRESET_DEFAULT);
     preset->addItem(i18nc("WebP presets", "Portrait"), WEBP_PRESET_PICTURE);
-    preset->addItem(i18nc("WebP presets", "Outdoor photo"), WEBP_PRESET_PHOTO);
-    preset->addItem(i18nc("WebP presets", "Line drawing"), WEBP_PRESET_DRAWING);
+    preset->addItem(i18nc("WebP presets", "Outdoor Photo"), WEBP_PRESET_PHOTO);
+    preset->addItem(i18nc("WebP presets", "Line Drawing"), WEBP_PRESET_DRAWING);
     preset->addItem(i18nc("WebP presets", "Icon"), WEBP_PRESET_ICON);
     preset->addItem(i18nc("WebP presets", "Text"), WEBP_PRESET_TEXT);
 
@@ -36,8 +36,8 @@ KisDlgWebPExport::KisDlgWebPExport(QWidget *parent)
     alphaCompression->addItem(i18nc("WebP alpha plane compression", "Lossless"), 1);
 
     preprocessing->addItem(i18nc("WebP preprocessing filters", "None"), 0);
-    preprocessing->addItem(i18nc("WebP preprocessing filters", "Segment-smooth"), 1);
-    preprocessing->addItem(i18nc("WebP preprocessing filters", "Pseudo-random dithering"), 2);
+    preprocessing->addItem(i18nc("WebP preprocessing filters", "Segment-Smooth"), 1);
+    preprocessing->addItem(i18nc("WebP preprocessing filters", "Pseudo-Random Dithering"), 2);
 
     targetPSNR->setDisplayUnit(false);
     targetPSNR->setSuffix(" dB");

@@ -133,7 +133,7 @@
        <item column="1" row="4">
         <widget class="QPushButton" name="btnHdrMetadata">
          <property name="text">
-          <string>HDR Metadata...</string>
+          <string>HDR Metadata…</string>
          </property>
         </widget>
        </item>

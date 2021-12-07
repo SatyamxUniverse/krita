@@ -35,7 +35,7 @@ HistoryDock::HistoryDock()
     vl->addLayout(hl);
 
     setWidget(page);
-    setWindowTitle(i18n("Undo History"));
+    setWindowTitle(i18nc("@title:window", "Undo History"));
 }
 
 void HistoryDock::setCanvas(KoCanvasBase *canvas)

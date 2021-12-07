@@ -291,9 +291,9 @@ GeneralTab::GeneralTab(QWidget *_parent, const char *_name)
     //
     // Miscellaneous
     //
-    cmbStartupSession->addItem(i18n("Open default window"));
-    cmbStartupSession->addItem(i18n("Load previous session"));
-    cmbStartupSession->addItem(i18n("Show session manager"));
+    cmbStartupSession->addItem(i18n("Open Default Window"));
+    cmbStartupSession->addItem(i18n("Load Previous Session"));
+    cmbStartupSession->addItem(i18n("Show Session Manager"));
     cmbStartupSession->setCurrentIndex(cfg.sessionOnStartup());
 
     chkSaveSessionOnQuit->setChecked(cfg.saveSessionOnQuit(false));
@@ -1235,7 +1235,7 @@ void PerformanceTab::selectSwapDir()
 {
     KisImageConfig cfg(true);
     QString swapDir = cfg.swapDir();
-    swapDir = QFileDialog::getExistingDirectory(0, i18nc("@title:window", "Select a swap directory"), swapDir);
+    swapDir = QFileDialog::getExistingDirectory(0, i18nc("@title:window", "Select a Swap Directory"), swapDir);
     if (swapDir.isEmpty()) {
         return;
     }
@@ -1683,7 +1683,7 @@ KisDlgPreferences::KisDlgPreferences(QWidget* parent, const char* name)
     : KPageDialog(parent)
 {
     Q_UNUSED(name);
-    setWindowTitle(i18n("Configure Krita"));
+    setWindowTitle(i18nc("@title:window", "Configure Krita"));
     setStandardButtons(QDialogButtonBox::Ok | QDialogButtonBox::Cancel | QDialogButtonBox::RestoreDefaults);
 
     setFaceType(KPageDialog::List);

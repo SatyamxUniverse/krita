@@ -674,7 +674,7 @@ For example, to make your timelapse twice faster, the Input FPS should be twice 
               <string notr="true"/>
              </property>
              <property name="text">
-              <string notr="true">Exporting...</string>
+              <string notr="true">Exporting…</string>
              </property>
             </widget>
            </item>

@@ -21,7 +21,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>New Bundle...</string>
+   <string>New Bundle…</string>
   </property>
   <property name="windowOpacity">
    <double>1.000000000000000</double>
@@ -478,7 +478,7 @@
      <item column="1" row="10">
       <widget class="QPushButton" name="bnEmbedTags">
        <property name="text">
-        <string>Embed tags...</string>
+        <string>Embed Tags…</string>
        </property>
       </widget>
      </item>

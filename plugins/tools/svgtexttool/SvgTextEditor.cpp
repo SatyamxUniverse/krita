@@ -579,7 +579,7 @@ void SvgTextEditor::deselect()
 void SvgTextEditor::find()
 {
     QDialog findDialog;
-    findDialog.setWindowTitle(i18n("Find Text"));
+    findDialog.setWindowTitle(i18nc("@title:window", "Find Text"));
     QFormLayout *layout = new QFormLayout(&findDialog);
     QLineEdit *lnSearchKey = new QLineEdit();
     layout->addRow(i18n("Find:"), lnSearchKey);
@@ -621,7 +621,7 @@ void SvgTextEditor::findPrev()
 void SvgTextEditor::replace()
 {
     QDialog findDialog;
-    findDialog.setWindowTitle(i18n("Find and Replace all"));
+    findDialog.setWindowTitle(i18nc("@title:window", "Find and Replace All"));
     QFormLayout *layout = new QFormLayout(&findDialog);
     QLineEdit *lnSearchKey = new QLineEdit();
     QLineEdit *lnReplaceKey = new QLineEdit();
