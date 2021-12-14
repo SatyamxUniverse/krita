@@ -35,8 +35,7 @@ class PresetHistoryDock : public QDockWidget, public KoCanvasObserverBase {
 public:
     enum HistoryDataRole {
         ResourceID = Qt::UserRole,
-        BubbleMarkerRole = Qt::UserRole + 1,
-        MD5SumRole = Qt::UserRole + 2
+        BubbleMarkerRole = Qt::UserRole + 1
     };
 
     enum DisplayOrder {
@@ -60,7 +59,7 @@ private Q_SLOTS:
 private:
     void updatePresetState(int position);
     int bubblePreset(int position);
-    void addPreset(KisPaintOpPresetSP preset);
+    void addPreset(QString name, QIcon icon, int resourceId);
 private:
     QPointer<KisCanvas2> m_canvas;
     PresetHistoryList *m_presetHistory;
