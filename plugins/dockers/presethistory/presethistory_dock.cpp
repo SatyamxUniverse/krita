@@ -103,7 +103,7 @@ void PresetHistoryDock::setCanvas(KoCanvasBase * canvas)
 
         Q_FOREACH (const QString &p, presetHistory) {
             QModelIndex index = m_resourceModel->indexForResource(m_resourceModel->resourcesForName(p).first());
-            if (index.data(Qt::UserRole + KisAllResourcesModel::Status).toBool()) {
+            if (index.isValid() && index.data(Qt::UserRole + KisAllResourcesModel::Status).toBool()) {
                 addPreset(p, QPixmap::fromImage(index.data(Qt::UserRole + KisAbstractResourceModel::Thumbnail).value<QImage>()), index.data(Qt::UserRole+ KisAllResourcesModel::Id).toInt());
             }
         }
