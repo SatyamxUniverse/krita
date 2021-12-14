@@ -102,9 +102,9 @@ void PresetHistoryDock::setCanvas(KoCanvasBase * canvas)
 
 
         Q_FOREACH (const QString &p, presetHistory) {
-            QModelIndex index = m_resourceModel->indexForResource(m_resourceModel->resourcesForName(p).first());
-            if (index.isValid() && index.data(Qt::UserRole + KisAllResourcesModel::Status).toBool()) {
-                addPreset(p, QPixmap::fromImage(index.data(Qt::UserRole + KisAbstractResourceModel::Thumbnail).value<QImage>()), index.data(Qt::UserRole+ KisAllResourcesModel::Id).toInt());
+            KoResource *resource = m_resourceModel->indexForResource(m_resourceModel->resourcesForName(p).first();
+            if (resource) {
+                addPreset(p, QPixmap::fromImage(resource->image()), resource->resourceId());
             }
         }
         int ordering = cfg.readEntry("presethistorySorting", int(DisplayOrder::Static));
