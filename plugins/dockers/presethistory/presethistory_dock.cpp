@@ -104,8 +104,7 @@ void PresetHistoryDock::setCanvas(KoCanvasBase * canvas)
         Q_FOREACH (const QString &p, presetHistory) {
             QModelIndex index = m_resourceModel->indexForResource(m_resourceModel->resourcesForName(p).first());
             if (index.data(Qt::UserRole + KisAllResourcesModel::Status).toBool()) {
-                KisPaintOpPresetSP preset = m_resourceModel->resourceForIndex(index).dynamicCast<KisPaintOpPreset>();
-                addPreset(preset);
+                addPreset(p, QPixmap::fromImage(index.data(Qt::UserRole + KisAbstractResourceModel::Thumbnail).value<QImage>()), index.data(Qt::UserRole+ KisAllResourcesModel::Id).toInt());
             }
         }
         int ordering = cfg.readEntry("presethistorySorting", int(DisplayOrder::Static));
@@ -135,9 +134,7 @@ void PresetHistoryDock::unsetCanvas()
     QStringList presetHistory;
     for(int i = 0; i < m_presetHistory->count(); i++) {
         QListWidgetItem *item = m_presetHistory->item(i);
-        int id = item->data(ResourceID).toInt();
-        KisPaintOpPresetSP preset = m_resourceModel->resourceForId(id).dynamicCast<KisPaintOpPreset>();
-        presetHistory.insert(0, preset->name());
+        presetHistory.insert(0, item->text());
     }
     KisConfig cfg(false);
     cfg.writeEntry("presethistory", presetHistory.join(","));
@@ -169,7 +166,7 @@ void PresetHistoryDock::canvasResourceChanged(int key, const QVariant& v)
                     return;
                 }
             }
-            addPreset(preset);
+            addPreset(preset->name(), QPixmap::fromImage(preset->image()), preset->resourceId());
         }
     }
 }
@@ -244,13 +241,12 @@ int PresetHistoryDock::bubblePreset(int position)
     return position;
 }
 
-void PresetHistoryDock::addPreset(KisPaintOpPresetSP preset)
+void PresetHistoryDock::addPreset(QString name, QIcon icon, int resourceId)
 {
-    if (preset && !preset->md5Sum().isEmpty()) {
-        QListWidgetItem *item = new QListWidgetItem(QPixmap::fromImage(preset->image()), preset->name());
+    if (resourceId >= 0) {
+        QListWidgetItem *item = new QListWidgetItem(icon, name);
         item->setData(BubbleMarkerRole, QVariant(false));
-        item->setData(MD5SumRole, preset->md5Sum());
-        item->setData(ResourceID, preset->resourceId());
+        item->setData(ResourceID, resourceId);
         m_presetHistory->insertItem(0, item);
         m_presetHistory->setCurrentRow(0);
         if (m_presetHistory->count() > 10) {
