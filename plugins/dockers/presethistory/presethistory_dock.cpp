@@ -103,7 +103,7 @@ void PresetHistoryDock::setCanvas(KoCanvasBase * canvas)
 
         Q_FOREACH (const QString &p, presetHistory) {
             if (m_resourceModel->resourcesForName(p).count()>0) {
-                KoResourceSP *resource = m_resourceModel->resourcesForName(p).first();
+                KoResourceSP resource = m_resourceModel->resourcesForName(p).first();
                 if (resource) {
                     addPreset(p, QPixmap::fromImage(resource->image()), resource->resourceId());
                 }
