@@ -685,6 +685,11 @@ bool KisResourceLocator::updateResource(const QString &resourceType, const KoRes
     resource->setDirty(false);
     resource->updateLinkedResourcesMetaData(KisGlobalResourcesInterface::instance());
 
+    if (!setMetaDataForResource(resource->resourceId(), resource->metadata())) {
+        qWarning() << "Failed to update resource metadata" << resource;
+        return false;
+    }
+
     // The version needs already to have been incremented
     if (!KisResourceCacheDb::addResourceVersion(resource->resourceId(), QDateTime::currentDateTime(), storage, resource)) {
         qWarning() << "Failed to add a new version of the resource to the database" << resource->name();
