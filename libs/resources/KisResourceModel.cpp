@@ -484,10 +484,6 @@ bool KisAllResourcesModel::updateResource(KoResourceSP resource)
         qWarning() << "Failed to update resource" << resource;
         return false;
     }
-    if (!KisResourceLocator::instance()->setMetaDataForResource(resource->resourceId(), resource->metadata())) {
-        qWarning() << "Failed to update resource metadata" << resource;
-        return false;
-    }
     bool r = resetQuery();
     QModelIndex index = indexForResource(resource);
     emit dataChanged(index, index, {Qt::EditRole});
