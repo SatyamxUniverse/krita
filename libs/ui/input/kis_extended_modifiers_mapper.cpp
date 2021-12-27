@@ -82,7 +82,7 @@ struct KisExtendedModifiersMapper::Private
 {
     Private();
     
-    QString platformName;
+    bool xcbPlatform;
 #ifdef HAVE_X11
 
     QVector<KeyMapping> mapping;
@@ -97,8 +97,8 @@ struct KisExtendedModifiersMapper::Private
 
 KisExtendedModifiersMapper::Private::Private()
 {
-    platformName = QGuiApplication::platformName();
-    if (platformName == QLatin1String("xcb")) {
+    xcbPlatform = QGuiApplication::platformName() == QLatin1String("xcb");
+    if (xcbPlatform) {
         XQueryKeymap(QX11Info::display(), keysState);
 
         mapping.append(KeyMapping(XK_Shift_L, Qt::Key_Shift));
@@ -137,7 +137,7 @@ KisExtendedModifiersMapper::Private::Private()
 
 bool KisExtendedModifiersMapper::Private::checkKeyCodePressedX11(KeyCode key)
 {
-    if (platformName == QLatin1String("xcb")) {
+    if (xcbPlatform) {
         int byte = key / 8;
         char mask = 1 << (key % 8);
 
@@ -149,7 +149,7 @@ bool KisExtendedModifiersMapper::Private::checkKeyCodePressedX11(KeyCode key)
 
 bool KisExtendedModifiersMapper::Private::checkKeySymPressedX11(KeySym sym)
 {
-    if (platformName == QLatin1String("xcb")) {
+    if (xcbPlatform) {
         KeyCode key = XKeysymToKeycode(QX11Info::display(), sym);
         return key != 0 ? checkKeyCodePressedX11(key) : false;
     } else {
