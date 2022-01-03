@@ -51,7 +51,7 @@ KisEditProfilesDialog::KisEditProfilesDialog(QWidget *parent, Qt::WindowFlags fl
     d->ui->removeButton->setEnabled(d->profileModel->rowCount() > 1);
 
     setButtons(Close | Default);
-    setWindowTitle(i18n("Edit Profiles"));
+    setWindowTitle(i18nc("@title:window", "Edit Profiles"));
 }
 
 KisEditProfilesDialog::~KisEditProfilesDialog()

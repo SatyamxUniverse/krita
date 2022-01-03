@@ -28,7 +28,7 @@
 KisAboutApplication::KisAboutApplication(QWidget *parent)
     : QDialog(parent)
 {
-    setWindowTitle(i18n("About Krita"));
+    setWindowTitle(i18nc("@title:window", "About Krita"));
 
     QVBoxLayout *vlayout = new QVBoxLayout(this);
     vlayout->setMargin(0);

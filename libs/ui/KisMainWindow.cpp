@@ -1657,7 +1657,7 @@ void KisMainWindow::slotFileNew()
 
     KisOpenPane *startupWidget = new KisOpenPane(this, mimeFilter, QStringLiteral("templates/"));
     startupWidget->setWindowModality(Qt::WindowModal);
-    startupWidget->setWindowTitle(i18n("Create new document"));
+    startupWidget->setWindowTitle(i18nc("@title:window", "Create New Document"));
 
 
     KisConfig cfg(true);

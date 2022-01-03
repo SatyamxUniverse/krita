@@ -287,7 +287,7 @@ void KisLayerManager::layerProperties()
         Q_ASSERT(configBefore);
 
         KisDlgGeneratorLayer *dlg = new KisDlgGeneratorLayer(generatorLayer->name(), m_view, m_view->mainWindow(), generatorLayer, configBefore, KisStrokeId());
-        dlg->setWindowTitle(i18n("Fill Layer Properties"));
+        dlg->setWindowTitle(i18nc("@title:window", "Fill Layer Properties"));
         dlg->setAttribute(Qt::WA_DeleteOnClose);
 
         dlg->setConfiguration(configBefore.data());
@@ -498,7 +498,7 @@ void KisLayerManager::convertLayerToFileLayer(KisNodeSP source)
     QWidget *page = new QWidget(&dlg);
     dlg.setMainWidget(page);
     QBoxLayout *layout = new QVBoxLayout(page);
-    dlg.setWindowTitle(i18n("Save layers to..."));
+    dlg.setWindowTitle(i18nc("@title:window", "Save Layers to…"));
     QLabel *lbl = new QLabel(i18n("Choose the location where the layer will be saved to. The new file layer will then reference this location."));
     lbl->setWordWrap(true);
     layout->addWidget(lbl);

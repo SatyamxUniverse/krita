@@ -454,7 +454,7 @@ void DcrawSettingsWidget::setup(int advSettings)
 
     d->unclipColorLabel    = new QLabel(i18nc("@label:listbox", "Highlights:"), d->whiteBalanceSettings);
     d->unclipColorComboBox = new RComboBox(d->whiteBalanceSettings);
-    d->unclipColorComboBox->insertItem(0, i18nc("@item:inlistbox", "Solid white"));
+    d->unclipColorComboBox->insertItem(0, i18nc("@item:inlistbox", "Solid White"));
     d->unclipColorComboBox->insertItem(1, i18nc("@item:inlistbox", "Unclip"));
     d->unclipColorComboBox->insertItem(2, i18nc("@item:inlistbox", "Blend"));
     d->unclipColorComboBox->insertItem(3, i18nc("@item:inlistbox", "Rebuild"));
@@ -675,7 +675,7 @@ void DcrawSettingsWidget::setup(int advSettings)
     d->colormanSettings               = new QWidget(this);
     QGridLayout* const colormanLayout = new QGridLayout(d->colormanSettings);
 
-    d->inputColorSpaceLabel     = new QLabel(i18nc("@label:listbox", "Camera Profile:"), d->colormanSettings);
+    d->inputColorSpaceLabel     = new QLabel(i18nc("@label:listbox", "Camera profile:"), d->colormanSettings);
     d->inputColorSpaceComboBox  = new RComboBox(d->colormanSettings);
     d->inputColorSpaceComboBox->insertItem(RawDecodingSettings::NOINPUTCS,     i18nc("@item:inlistbox Camera Profile", "None"));
     d->inputColorSpaceComboBox->insertItem(RawDecodingSettings::EMBEDDED,      i18nc("@item:inlistbox Camera Profile", "Embedded"));

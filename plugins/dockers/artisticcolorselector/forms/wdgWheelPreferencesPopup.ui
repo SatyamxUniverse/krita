@@ -154,7 +154,7 @@
      <item>
       <widget class="QPushButton" name="bnDefault">
        <property name="text">
-        <string>Reset to default</string>
+        <string>Reset to Default</string>
        </property>
        <property name="flat">
         <bool>false</bool>

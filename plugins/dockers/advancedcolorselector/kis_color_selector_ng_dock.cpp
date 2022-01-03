@@ -21,7 +21,7 @@ KisColorSelectorNgDock::KisColorSelectorNgDock()
     setWidget(m_colorSelectorNgWidget);
     m_colorSelectorNgWidget->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
 
-    setWindowTitle(i18n("Advanced Color Selector"));
+    setWindowTitle(i18nc("@title:window", "Advanced Color Selector"));
 }
 
 void KisColorSelectorNgDock::setCanvas(KoCanvasBase * canvas)

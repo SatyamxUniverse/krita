@@ -13,7 +13,7 @@
    </sizepolicy>
   </property>
   <property name="windowTitle">
-   <string>New Bundle...</string>
+   <string>New Bundle…</string>
   </property>
   <layout class="QGridLayout" name="gridLayout_3">
    <item row="0" column="1">
@@ -393,7 +393,7 @@
      <item row="10" column="1">
       <widget class="QPushButton" name="bnEmbedTags">
        <property name="text">
-        <string>Embed tags...</string>
+        <string>Embed Tags…</string>
        </property>
       </widget>
      </item>

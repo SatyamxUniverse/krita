@@ -79,7 +79,7 @@ SnapshotDocker::SnapshotDocker()
     mainLayout->addLayout(buttonsLayout);
 
     setWidget(widget);
-    setWindowTitle(i18n("Snapshot Docker"));
+    setWindowTitle(i18nc("@title:window", "Snapshot Docker"));
 }
 
 SnapshotDocker::~SnapshotDocker()

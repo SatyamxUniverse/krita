@@ -157,7 +157,7 @@ QList<QPointer<QWidget> >  KoPathTool::createOptionWidgets()
     connect(this, SIGNAL(singleShapeChanged(KoPathShape*)), toolOptions, SLOT(setCurrentShape(KoPathShape*)));
     connect(toolOptions, SIGNAL(sigRequestUpdateActions()), this, SLOT(updateActions()));
     updateOptionsWidget();
-    toolOptions->setWindowTitle(i18n("Edit Shape"));
+    toolOptions->setWindowTitle(i18nc("@title:window", "Edit Shape"));
     list.append(toolOptions);
 
     return list;

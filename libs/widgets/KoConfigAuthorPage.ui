@@ -153,14 +153,14 @@
      <item column="1" row="5">
       <widget class="QPushButton" name="btnAdd">
        <property name="text">
-        <string>Add contact info</string>
+        <string>Add Contact Info</string>
        </property>
       </widget>
      </item>
      <item column="2" row="5">
       <widget class="QPushButton" name="btnRemove">
        <property name="text">
-        <string>Remove contact info</string>
+        <string>Remove Contact Info</string>
        </property>
       </widget>
      </item>

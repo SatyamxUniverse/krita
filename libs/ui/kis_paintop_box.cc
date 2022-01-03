@@ -95,7 +95,7 @@ KisPaintopBox::KisPaintopBox(KisViewManager *viewManager, QWidget *parent, const
 
     KAcceleratorManager::setNoAccel(this);
 
-    setWindowTitle(i18n("Painter's Toolchest"));
+    setWindowTitle(i18nc("@title:window", "Painter's Toolchest"));
 
     m_favoriteResourceManager = new KisFavoriteResourceManager(this);
 
@@ -433,7 +433,7 @@ KisPaintopBox::KisPaintopBox(KisViewManager *viewManager, QWidget *parent, const
     m_savePresetWidget = new KisPresetSaveWidget(this);
 
     m_presetsEditor = new KisPaintOpPresetsEditor(m_resourceProvider, m_favoriteResourceManager, m_savePresetWidget, m_brushEditorPopupButton);
-    m_presetsEditor->setWindowTitle(i18n("Brush Editor"));
+    m_presetsEditor->setWindowTitle(i18nc("@title:window", "Brush Editor"));
     m_brushEditorPopupButton->setPopupWidget(m_presetsEditor);
     m_brushEditorPopupButton->setPopupWidgetDetached(cfg.paintopPopupDetached());
 

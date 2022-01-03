@@ -34,7 +34,7 @@
          <item>
           <widget class="QPushButton" name="btnAddImages">
            <property name="text">
-            <string>Add images...</string>
+            <string>Add Images…</string>
            </property>
           </widget>
          </item>

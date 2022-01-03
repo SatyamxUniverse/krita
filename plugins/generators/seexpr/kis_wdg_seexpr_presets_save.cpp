@@ -65,7 +65,7 @@ void KisWdgSeExprPresetsSave::showDialog()
 
     // UI will look a bit different if we are saving a new preset
     if (m_useNewPresetDialog) {
-        setWindowTitle(i18n("Save New SeExpr Preset"));
+        setWindowTitle(i18nc("@title:window", "Save New SeExpr Preset"));
 
         if (preset) {
             // If the id is -1, this is a new preset that has never been saved, so it cannot be a copy
@@ -78,7 +78,7 @@ void KisWdgSeExprPresetsSave::showDialog()
             newPresetNameTextField->setEnabled(true);
         }
     } else {
-        setWindowTitle(i18n("Save SeExpr Preset"));
+        setWindowTitle(i18nc("@title:window", "Save SeExpr Preset"));
 
         if (preset) {
             const QString name(preset->name().replace("_", " "));

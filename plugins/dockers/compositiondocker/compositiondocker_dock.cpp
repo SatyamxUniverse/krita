@@ -417,7 +417,7 @@ void CompositionDockerDock::renameComposition()
     if (m_canvas && m_canvas->viewManager() && m_canvas->viewManager()->image() && index.isValid()) {
         KisLayerCompositionSP composition = m_model->compositionFromIndex(index);
         bool ok;
-        QString name = QInputDialog::getText(this, i18n("Rename Composition"),
+        QString name = QInputDialog::getText(this, i18nc("@title:window", "Rename Composition"),
                                              i18n("New Name:"), QLineEdit::Normal,
                                              composition->name(), &ok);
         if (ok && !name.isEmpty()) {

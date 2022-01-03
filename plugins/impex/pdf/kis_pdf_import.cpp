@@ -67,7 +67,7 @@ KisImportExportErrorCode KisPDFImport::convert(KisDocument *document, QIODevice 
     while (pdoc->isLocked()) {
         KPasswordDialog dlg(0);
         dlg.setPrompt(i18n("A password is required to read that pdf"));
-        dlg.setWindowTitle(i18n("A password is required to read that pdf"));
+        dlg.setWindowTitle(i18nc("@title:window", "A Password is Required to Read that PDF"));
         if (dlg.exec() != QDialog::Accepted) {
             dbgFile << "Password canceled";
             return ImportExportCodes::Cancelled;

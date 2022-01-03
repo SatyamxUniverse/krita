@@ -87,7 +87,7 @@ ProcessorDlg::ProcessorDlg(const QList<QUrl>& list)
     : QDialog(qApp->activeWindow()), d(new Private)
 {
     setModal(false);
-    setWindowTitle(i18n("Convert RAW files To PNG"));
+    setWindowTitle(i18nc("@title:window", "Convert RAW Files to PNG"));
 
     d->buttons               = new QDialogButtonBox(QDialogButtonBox::Apply | QDialogButtonBox::Close, this);
     d->thread                = new ActionThread(this);

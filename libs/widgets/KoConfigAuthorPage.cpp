@@ -274,7 +274,7 @@ void KoConfigAuthorPage::profileChanged(int i)
 void KoConfigAuthorPage::addUser()
 {
     bool ok;
-    QString profileName = QInputDialog::getText(this, i18n("Name of Profile"), i18n("Name (not duplicate or blank name):"), QLineEdit::Normal, "", &ok);
+    QString profileName = QInputDialog::getText(this, i18nc("@title:window", "Name of Profile"), i18n("Name (not duplicate or blank name):"), QLineEdit::Normal, "", &ok);
 
     if (!ok) {
         return;

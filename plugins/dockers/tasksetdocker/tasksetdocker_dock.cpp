@@ -193,7 +193,7 @@ void TasksetDockerDock::saveClicked()
     bool ok = false;
 
     while(!fileOverwriteAccepted) {
-        name = QInputDialog::getText(this, i18n("Taskset Name"),
+        name = QInputDialog::getText(this, i18nc("@title:window", "Taskset Name"),
                                      i18n("Name:"), QLineEdit::Normal,
                                      QString(), &ok);
         if (name.isNull() || name.isEmpty()) {

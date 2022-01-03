@@ -209,7 +209,7 @@ void PythonPluginManager::verifyDependenciesSetStatus(PythonPlugin& plugin)
                               "@info:tooltip"
                               , "<p>Failed to check version of dependency <application>%1</application>: "
                               "Module do not have PEP396 <code>__version__</code> attribute. "
-                              "It is not disabled, but behaviour is unpredictable...</p>"
+                              "It is not disabled, but behaviour is unpredictable…</p>"
                               , dependency
                           );
             }

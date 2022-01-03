@@ -67,7 +67,7 @@ void KisPresetSaveWidget::showDialog()
 
     // UI will look a bit different if we are saving a new brush
     if (m_useNewBrushDialog) {
-        setWindowTitle(i18n("Save New Brush Preset"));
+        setWindowTitle(i18nc("@title:window", "Save New Brush Preset"));
         newBrushNameTexField->setVisible(true);
         clearBrushPresetThumbnailButton->setVisible(true);
         loadImageIntoThumbnailButton->setVisible(true);
@@ -82,7 +82,7 @@ void KisPresetSaveWidget::showDialog()
 
 
     } else {
-        setWindowTitle(i18n("Save Brush Preset"));
+        setWindowTitle(i18nc("@title:window", "Save Brush Preset"));
 
         if (preset) {
             currentBrushNameLabel->setText(preset->name());
@@ -130,7 +130,7 @@ void KisPresetSaveWidget::loadImageFromLibrary()
 {
     //add dialog code here.
     QDialog dialog;
-    dialog.setWindowTitle(i18n("Preset Icon Library"));
+    dialog.setWindowTitle(i18nc("@title:window", "Preset Icon Library"));
     QVBoxLayout *layout = new QVBoxLayout(&dialog);
 
     KisPaintopPresetIconLibrary *libWidget = new KisPaintopPresetIconLibrary(&dialog);

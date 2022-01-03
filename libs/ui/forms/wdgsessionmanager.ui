@@ -31,14 +31,14 @@
        <item>
         <widget class="QPushButton" name="btnNew">
          <property name="text">
-          <string comment="New session">New...</string>
+          <string comment="New session">New…</string>
          </property>
         </widget>
        </item>
        <item>
         <widget class="QPushButton" name="btnRename">
          <property name="text">
-          <string>Rename...</string>
+          <string>Rename…</string>
          </property>
         </widget>
        </item>
@@ -52,7 +52,7 @@
        <item>
         <widget class="QPushButton" name="btnDelete">
          <property name="text">
-          <string>Delete...</string>
+          <string>Delete…</string>
          </property>
         </widget>
        </item>

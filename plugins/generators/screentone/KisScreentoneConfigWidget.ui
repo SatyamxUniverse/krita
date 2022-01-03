@@ -350,7 +350,7 @@
                <bool>false</bool>
               </property>
               <property name="text">
-               <string>Get From Image</string>
+               <string>Get from Image</string>
               </property>
              </widget>
             </item>

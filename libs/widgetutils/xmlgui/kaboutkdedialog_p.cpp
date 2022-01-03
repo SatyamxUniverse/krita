@@ -30,7 +30,7 @@ KAboutKdeDialog::KAboutKdeDialog(QWidget *parent)
     : QDialog(parent),
       d(0)
 {
-    setWindowTitle(i18n("About KDE"));
+    setWindowTitle(i18nc("@title:window", "About KDE"));
 
     KTitleWidget *titleWidget = new KTitleWidget(this);
     titleWidget->setText(i18n("<html><font size=\"5\">KDE - Be Free!</font></html>"));

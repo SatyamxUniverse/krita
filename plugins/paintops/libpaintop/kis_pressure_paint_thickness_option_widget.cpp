@@ -26,8 +26,8 @@ KisPressurePaintThicknessOptionWidget::KisPressurePaintThicknessOptionWidget()
     m_enabledLabel->setAlignment(Qt::AlignHCenter);
 
     m_cbThicknessMode = new QComboBox();
-    m_cbThicknessMode->addItem(i18n("Overwrite (Smooth out when low) existing paint thickness"), KisPressurePaintThicknessOption::OVERWRITE);
-    m_cbThicknessMode->addItem(i18n("Paint over existing paint thickness (controlled by Smudge Length)"), KisPressurePaintThicknessOption::OVERLAY);
+    m_cbThicknessMode->addItem(i18n("Overwrite (Smooth out when low) Existing Paint Thickness"), KisPressurePaintThicknessOption::OVERWRITE);
+    m_cbThicknessMode->addItem(i18n("Paint Over Existing Paint Thickness (controlled by Smudge Length)"), KisPressurePaintThicknessOption::OVERLAY);
 
     QFormLayout* formLayout = new QFormLayout();
     formLayout->addRow(i18n("Paint Thickness Mode:"), m_cbThicknessMode);

@@ -355,12 +355,12 @@ QList<QPointer<QWidget> > KoPencilTool::createOptionWidgets()
     modeBox->setCurrentIndex(m_mode);
     stackedWidget->setCurrentIndex(m_mode);
     optionWidget->setObjectName(i18n("Pencil"));
-    optionWidget->setWindowTitle(i18n("Pencil"));
+    optionWidget->setWindowTitle(i18nc("@title:window", "Pencil"));
     widgets.append(optionWidget);
 
     m_strokeWidget = new KoStrokeConfigWidget(canvas(), 0);
     m_strokeWidget->setNoSelectionTrackingMode(true);
-    m_strokeWidget->setWindowTitle(i18n("Line"));
+    m_strokeWidget->setWindowTitle(i18nc("@title:window", "Line"));
     connect(m_strokeWidget, SIGNAL(sigStrokeChanged()), SLOT(slotUpdatePencilCursor()));
     if (isActivated()) {
         m_strokeWidget->activate();
