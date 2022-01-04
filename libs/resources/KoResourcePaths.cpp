@@ -437,6 +437,13 @@ QStringList KoResourcePaths::findAllResourcesInternal(const QString &type,
 
     QString extraResourceDirs = qgetenv("EXTRA_RESOURCE_DIRS");
     dbgResources << "extraResourceDirs" << extraResourceDirs;
+
+    KConfigGroup cfg(KSharedConfig::openConfig(), "");
+    QString customPath = cfg.readEntry(KisResourceLocator::resourceLocationKey, "");
+    if (!customPath.isEmpty()) {
+        extraResourceDirs << customPath;
+    }
+
     if (!extraResourceDirs.isEmpty()) {
         Q_FOREACH(const QString &extraResourceDir, extraResourceDirs.split(':', QString::SkipEmptyParts)) {
             if (aliases.isEmpty()) {
@@ -488,29 +495,6 @@ QStringList KoResourcePaths::findAllResourcesInternal(const QString &type,
     dbgResources << "=====================================================";
 
     return resources;
-}
-
-QStringList KoResourcePaths::resourceDirsInternal(const QString &type)
-{
-    QStringList resourceDirs;
-    QStringList aliases = d->aliases(type);
-
-    Q_FOREACH (const QString &alias, aliases) {
-        QStringList aliasDirs;
-
-        aliasDirs << QStandardPaths::locateAll(d->mapTypeToQStandardPaths(type), alias, QStandardPaths::LocateDirectory);
-
-        aliasDirs << getInstallationPrefix() + "share/" + alias + "/"
-                  << QStandardPaths::locateAll(d->mapTypeToQStandardPaths(type), alias, QStandardPaths::LocateDirectory);
-        aliasDirs << getInstallationPrefix() + "share/krita/" + alias + "/"
-                  << QStandardPaths::locateAll(d->mapTypeToQStandardPaths(type), alias, QStandardPaths::LocateDirectory);
-
-        appendResources(&resourceDirs, aliasDirs, true);
-    }
-
-    dbgResources << "resourceDirs: type" << type << resourceDirs;
-
-    return resourceDirs;
 }
 
 QString KoResourcePaths::saveLocationInternal(const QString &type, const QString &suffix, bool create)
