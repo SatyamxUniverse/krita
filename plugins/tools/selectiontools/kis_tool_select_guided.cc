@@ -100,112 +100,257 @@ KisToolSelectGuided::~KisToolSelectGuided()
 {
 }
 
-/*
-void KisToolSelectGuided::GuidedSelection(KisPaintDeviceSP dev, KisPixelSelectionSP currentSelection, KisPixelSelectionSP newSelection, const QRect & rect,int radius,double eps)
-{
-
-    const KoID target_color = RGBAColorModelID;
-    const KoID target_depth = Float32BitsColorDepthID;
-    const KoID target_gray = GrayColorModelID;
-    const KoColorSpace *cs_currentSelection = newSelection->colorSpace();
-
-    dev->convertTo(KoColorSpaceRegistry::instance()->colorSpace(target_color.id(),target_depth.id()));
-
-    KisSequentialIterator test_iter(newSelection,rect);
-    QVector<float> endSel(1);
-    double v = 0;
-    double vi = 0.0039;
-    int b = 0;
-    for(int x = 0 ; x<rect.width() ; x++){
-        for(int y = 0 ; y<rect.height() ; y++){
-            quint8* sel_pixel = test_iter.rawData();
-            endSel[0]=v;
-            cs_currentSelection->fromNormalisedChannelsValue(sel_pixel,endSel);
-            v+=vi;
-            test_iter.nextPixel();
-            b++;
-            if(b>255){
-                b=0;
-                v=0;
-            };
-        }
-    }
-}
-*/
-
-
-
 void KisToolSelectGuided::GuidedSelection(KisPaintDeviceSP dev, KisPixelSelectionSP currentSelection, KisPixelSelectionSP newSelection,int radius,double eps)
 {
-    QRect imgrect,rect;
+        const int kernelWidth = radius;
+        const int kernelHeight = radius;
+        const int kernelWD = kernelWidth*kernelWidth;
+        const double convolveFactor = 1 / static_cast<double>(kernelWD);
 
-    const int kernelWidth = radius;
-    const int kernelHeight = radius;
+        QRect rect;
+        const KoID target_color = RGBAColorModelID;
+        const KoID target_depth = Float32BitsColorDepthID;
+        const KoID target_gray = GrayColorModelID;
+        const KoColorSpace *cs_currentSelection = currentSelection->colorSpace();
+        const KoColorSpace *Alpha32 = KoColorSpaceRegistry::instance()->alpha32f();
+        const KoColorSpace *RGB32F = KoColorSpaceRegistry::instance()->colorSpace(target_color.id(),target_depth.id());
 
-    const KoID target_color = RGBAColorModelID;
-    const KoID target_depth = Float32BitsColorDepthID;
-    const KoID target_gray = GrayColorModelID;
-    const KoColorSpace *Alpha32 = KoColorSpaceRegistry::instance()->alpha32f();
-    const KoColorSpace *original_selection = newSelection->colorSpace();
+        rect = dev->exactBounds();
 
-    dev->convertTo(KoColorSpaceRegistry::instance()->colorSpace(target_color.id(),target_depth.id()));
-    const KoColorSpace *devcol = dev->colorSpace();
-    imgrect = dev->exactBounds();
-    const QPoint tlpt = imgrect.topLeft();
+        dev->convertTo(RGB32F);
+        KisPaintDeviceSP mean_rgb = KisPaintDeviceSP(new KisPaintDevice(*dev.data()));
+        KisPaintDeviceSP var_rrrgrb = KisPaintDeviceSP(new KisPaintDevice(*dev.data()));
+        KisPaintDeviceSP var_gggbbb = KisPaintDeviceSP(new KisPaintDevice(*dev.data()));
+        KisPaintDeviceSP inv_rrrgrb = KisPaintDeviceSP(new KisPaintDevice(*dev.data()));
+        KisPaintDeviceSP inv_gggbbb = KisPaintDeviceSP(new KisPaintDevice(*dev.data()));
+        KisPaintDeviceSP mean_p_rgb = KisPaintDeviceSP(new KisPaintDevice(*dev.data()));
+        KisPaintDeviceSP cov_p_rgb = KisPaintDeviceSP(new KisPaintDevice(*dev.data()));
+        KisPaintDeviceSP a_rgb = KisPaintDeviceSP(new KisPaintDevice(*dev.data()));
+        KisPixelSelectionSP mean_p = KisPixelSelectionSP(new KisPixelSelection(currentSelection.data()));
+        mean_p->convertTo(Alpha32);
+        KisPixelSelectionSP tmpSel = KisPixelSelectionSP(new KisPixelSelection(currentSelection.data()));
 
-    currentSelection->convertTo(Alpha32);
+        const QBitArray grayFlag = QBitArray(newSelection->channelCount(), true);
+        const QBitArray RGBFlag = QBitArray(dev->colorSpace()->colorChannelCount(),true);
+        const QBitArray RGBAFlag = QBitArray(dev->colorSpace()->channelCount(),true);
 
-    KisPaintDeviceSP mean_rgb = KisPaintDeviceSP(new KisPaintDevice(*dev.data()));
-    KisPixelSelectionSP mean_p = KisPixelSelectionSP(new KisPixelSelection(*currentSelection.data()));
+        QRect boundSel= currentSelection->selectedExactRect();
+        boundSel = kisGrowRect(boundSel, radius*3);
+        QPoint sel_tlpt = boundSel.topLeft();
 
-    const QBitArray rgbFlag = QBitArray(dev->colorSpace()->colorChannelCount());
-    const QBitArray grayFlag = QBitArray(currentSelection->channelCount());
+        KisSequentialIterator iter_var_rrrgrb(var_rrrgrb,boundSel);
+        KisSequentialIterator iter_var_gggbbb(var_rrrgrb,boundSel);
+        QVector<float> col_rrrgrb(4);
+        QVector<float> col_gggbbb(4);
+        QVector<float> new_col_rrrgrb(4);
+        QVector<float> new_col_gggbbb(4);
+        new_col_rrrgrb[3]=1;
+        new_col_gggbbb[3]=1;
 
-
-    QImage rgb_blur_kernel(kernelWidth,kernelHeight,QImage::Format_RGB32);
-    rgb_blur_kernel.fill(0);
-    Eigen::Matrix<qreal, Eigen::Dynamic, Eigen::Dynamic> rgb_boxKernel(kernelHeight, kernelWidth);
-    for (int j = 0; j < kernelHeight; ++j) {
-        for (int i = 0; i < kernelWidth; ++i) {
-            rgb_boxKernel(j, i) = qRed(rgb_blur_kernel.pixel(i, j));
+        for ( int x = 0 ; x < boundSel.width() ; x++){
+            for ( int y = 0 ; y < boundSel.height() ; y++){
+                quint8* rrrgrb_pixel = iter_var_rrrgrb.rawData();
+                quint8* gggbbb_pixel = iter_var_gggbbb.rawData();
+                RGB32F->normalisedChannelsValue(rrrgrb_pixel,col_rrrgrb);
+                RGB32F->normalisedChannelsValue(gggbbb_pixel,col_gggbbb);
+                new_col_rrrgrb[0] = col_rrrgrb[0] * col_rrrgrb[0];
+                new_col_rrrgrb[1] = col_rrrgrb[0] * col_rrrgrb[1];
+                new_col_rrrgrb[2] = col_rrrgrb[0] * col_rrrgrb[2];
+                new_col_gggbbb[0] = col_gggbbb[1] * col_gggbbb[1];
+                new_col_gggbbb[1] = col_gggbbb[1] * col_gggbbb[2];
+                new_col_gggbbb[2] = col_gggbbb[2] * col_gggbbb[2];
+                RGB32F->fromNormalisedChannelsValue(rrrgrb_pixel,new_col_rrrgrb);
+                RGB32F->fromNormalisedChannelsValue(gggbbb_pixel,new_col_gggbbb);
+                iter_var_rrrgrb.nextPixel();
+                iter_var_gggbbb.nextPixel();
+            }
         }
-    }
 
-    QImage gray_blur_kernel(kernelWidth,kernelHeight,QImage::Format_Mono);
-    gray_blur_kernel.fill(0);
-    Eigen::Matrix<qreal, Eigen::Dynamic, Eigen::Dynamic> grayboxKernel(kernelHeight, kernelWidth);
-    for (int j = 0; j < kernelHeight; ++j) {
-        for (int i = 0; i < kernelWidth; ++i) {
-            grayboxKernel(j, i) = qRed(rgb_blur_kernel.pixel(i, j));
+
+        Eigen::Matrix<qreal, Eigen::Dynamic, Eigen::Dynamic> grayboxKernel(kernelHeight, kernelWidth);
+        for (int j = 0; j < kernelHeight; ++j) {
+            for (int i = 0; i < kernelWidth; ++i) {
+                grayboxKernel(i, j) = convolveFactor;
+            }
         }
-    }
 
-    KisConvolutionKernelSP rgb_kernel = KisConvolutionKernel::fromMatrix(rgb_boxKernel,0,rgb_boxKernel.sum());
-    KisConvolutionPainter boxblur_mean_rgb(mean_rgb);
-    boxblur_mean_rgb.setChannelFlags(rgbFlag);
-    boxblur_mean_rgb.applyMatrix(rgb_kernel,mean_rgb,tlpt,tlpt,imgrect.size(),BORDER_REPEAT);
+        KisConvolutionKernelSP main_box_kernel = KisConvolutionKernel::fromMatrix(grayboxKernel,0,grayboxKernel.sum());
+        KisConvolutionPainter boxblur_mean_rgb(mean_rgb);
+        boxblur_mean_rgb.setChannelFlags(RGBFlag);
+        boxblur_mean_rgb.applyMatrix(main_box_kernel,dev,sel_tlpt,sel_tlpt,boundSel.size(),BORDER_REPEAT);
 
-    KisConvolutionKernelSP gray_kernel = KisConvolutionKernel::fromMatrix(grayboxKernel,0,grayboxKernel.sum());
-    KisConvolutionPainter boxblur_mean_p(mean_p);
-    boxblur_mean_p.setChannelFlags(grayFlag);
-    boxblur_mean_p.applyMatrix(gray_kernel,mean_p,tlpt,tlpt,imgrect.size(),BORDER_REPEAT);
-
-    KisSequentialIterator test_iter(mean_p,imgrect);
-    KisSequentialIterator test_iter_2(newSelection,imgrect);
-    QVector<float> endsel(1);
-    QVector<float> endsel2(1);
-    for (int x = 0 ; x < imgrect.width() ; x++){
-        for (int y = 0 ; y < imgrect.height() ; x++){
-            test_iter.nextPixel();
-            test_iter_2.nextPixel();
-            quint8* mean_p_pixel = test_iter.rawData();
-            quint8* new_selection_pixel = test_iter_2.rawData();
-            Alpha32->normalisedChannelsValue(mean_p_pixel,endsel);
-            endsel2[0]=endsel[0];
-            original_selection->fromNormalisedChannelsValue(new_selection_pixel,endsel2);
-            Alpha32->fromNormalisedChannelsValue(mean_p_pixel,endsel);
+        KisSequentialIterator new_iter_var_rrrgrb(var_rrrgrb,boundSel);
+        KisSequentialIterator new_iter_var_gggbbb(var_gggbbb,boundSel);
+        KisSequentialIterator iter_mean_rgb(mean_rgb,boundSel);
+        QVector<float> col_mean_rgb(4);
+        for ( int x = 0 ; x < boundSel.width() ; x++){
+            for ( int y = 0 ; y < boundSel.height() ; y++){
+                quint8* var_rrrgrb_pixel = new_iter_var_rrrgrb.rawData();
+                quint8* var_gggbbb_pixel = new_iter_var_gggbbb.rawData();
+                quint8* mean_rgb_pixel = iter_mean_rgb.rawData();
+                RGB32F->normalisedChannelsValue(var_rrrgrb_pixel,col_rrrgrb);
+                RGB32F->normalisedChannelsValue(var_gggbbb_pixel,col_gggbbb);
+                RGB32F->normalisedChannelsValue(mean_rgb_pixel,col_mean_rgb);
+                new_col_rrrgrb[0] = col_rrrgrb[0] - col_mean_rgb[0] * col_mean_rgb[0] + eps;
+                new_col_rrrgrb[1] = col_rrrgrb[1] - col_mean_rgb[0] * col_mean_rgb[1];
+                new_col_rrrgrb[2] = col_rrrgrb[2] - col_mean_rgb[0] * col_mean_rgb[2];
+                new_col_gggbbb[0] = col_gggbbb[0] - col_mean_rgb[1] * col_mean_rgb[1] + eps;
+                new_col_gggbbb[1] = col_gggbbb[1] - col_mean_rgb[1] * col_mean_rgb[2];
+                new_col_gggbbb[2] = col_gggbbb[2] - col_mean_rgb[2] * col_mean_rgb[2] + eps;
+                RGB32F->fromNormalisedChannelsValue(var_rrrgrb_pixel,new_col_rrrgrb);
+                RGB32F->fromNormalisedChannelsValue(var_gggbbb_pixel,new_col_gggbbb);
+                new_iter_var_rrrgrb.nextPixel();
+                new_iter_var_gggbbb.nextPixel();
+                iter_mean_rgb.nextPixel();
+            }
         }
-    }
+
+        KisSequentialIterator val_var_rrrgrb(var_rrrgrb,boundSel);
+        KisSequentialIterator val_var_gggbbb(var_gggbbb,boundSel);
+        KisSequentialIterator iter_inv_rrrgrb(inv_rrrgrb,boundSel);
+        KisSequentialIterator iter_inv_gggbbb(inv_gggbbb,boundSel);
+        QVector<float> ref_var_rrrgrb(4);
+        QVector<float> ref_var_gggbbb(4);
+        QVector<float> new_inv_rrrgrb(4);
+        QVector<float> new_inv_gggbbb(4);
+        new_inv_rrrgrb[3]=1;
+        new_inv_gggbbb[3]=1;
+        float covDet;
+
+        for ( int x = 0 ; x < boundSel.width() ; x++){
+            for ( int y = 0 ; y < boundSel.height() ; y++){
+                quint8* val_var_rrrgrb_pixel = val_var_rrrgrb.rawData();
+                quint8* val_var_gggbbb_pixel = val_var_gggbbb.rawData();
+                quint8* iter_inv_rrrgrb_pixel = iter_inv_rrrgrb.rawData();
+                quint8* iter_inv_gggbbb_pixel = iter_inv_gggbbb.rawData();
+                RGB32F->normalisedChannelsValue(val_var_rrrgrb_pixel,ref_var_rrrgrb);
+                RGB32F->normalisedChannelsValue(val_var_gggbbb_pixel,ref_var_gggbbb);
+                new_inv_rrrgrb[0]=ref_var_gggbbb[0]*ref_var_gggbbb[2]-ref_var_gggbbb[1]*ref_var_gggbbb[1];
+                new_inv_rrrgrb[1]=ref_var_gggbbb[1]*ref_var_rrrgrb[2]-ref_var_rrrgrb[1]*ref_var_gggbbb[2];
+                new_inv_rrrgrb[2]=ref_var_rrrgrb[1]*ref_var_gggbbb[1]-ref_var_gggbbb[2]*ref_var_rrrgrb[2];
+                new_inv_gggbbb[0]=ref_var_rrrgrb[0]*ref_var_gggbbb[2]-ref_var_rrrgrb[1]*ref_var_rrrgrb[2];
+                new_inv_gggbbb[1]=ref_var_rrrgrb[1]*ref_var_rrrgrb[1]-ref_var_rrrgrb[0]*ref_var_gggbbb[1];
+                new_inv_gggbbb[2]=ref_var_rrrgrb[2]*ref_var_gggbbb[0]-ref_var_rrrgrb[1]*ref_var_rrrgrb[1];
+                covDet=new_inv_rrrgrb[0]*ref_var_rrrgrb[0]+new_inv_rrrgrb[1]*ref_var_rrrgrb[1]+new_inv_rrrgrb[2]*ref_var_rrrgrb[2];
+                if (covDet!=0){
+                    new_inv_rrrgrb[0]/=covDet;
+                    new_inv_rrrgrb[1]/=covDet;
+                    new_inv_rrrgrb[2]/=covDet;
+                    new_inv_gggbbb[0]/=covDet;
+                    new_inv_gggbbb[1]/=covDet;
+                    new_inv_gggbbb[2]/=covDet;
+                }
+                RGB32F->fromNormalisedChannelsValue(iter_inv_rrrgrb_pixel,new_inv_rrrgrb);
+                RGB32F->fromNormalisedChannelsValue(iter_inv_gggbbb_pixel,new_inv_gggbbb);
+                val_var_rrrgrb.nextPixel();
+                val_var_gggbbb.nextPixel();
+                iter_inv_rrrgrb.nextPixel();
+                iter_inv_gggbbb.nextPixel();
+            }
+        }
+
+        KisConvolutionPainter boxblur_mean_p(mean_p);
+        boxblur_mean_p.setChannelFlags(grayFlag);
+        boxblur_mean_p.applyMatrix(main_box_kernel,currentSelection,sel_tlpt,sel_tlpt,boundSel.size(),BORDER_REPEAT);
+
+        KisSequentialIterator iter_mean_p_rgb(mean_p_rgb,boundSel);
+        KisSequentialIterator val_p(mean_p,boundSel);
+        QVector<float> src_mean_p_rgb(4);
+        QVector<float> src_p(1);
+        QVector<float> dst_mean_p_rgb(4);
+        dst_mean_p_rgb[3]=1;
+
+        for ( int x = 0 ; x < boundSel.width() ; x++){
+            for ( int y = 0 ; y < boundSel.height() ; y++){
+                quint8* mean_p_rgb_pixel = iter_mean_p_rgb.rawData();
+                quint8* src_mean_p_pixel = val_p.rawData();
+                RGB32F->normalisedChannelsValue(mean_p_rgb_pixel,src_mean_p_rgb);
+                Alpha32->normalisedChannelsValue(src_mean_p_pixel,src_p);
+                dst_mean_p_rgb[0]=src_mean_p_rgb[0] * src_p[0];
+                dst_mean_p_rgb[1]=src_mean_p_rgb[1] * src_p[0];
+                dst_mean_p_rgb[2]=src_mean_p_rgb[2] * src_p[0];
+                RGB32F->fromNormalisedChannelsValue(mean_p_rgb_pixel,dst_mean_p_rgb);
+                iter_mean_rgb.nextPixel();
+                val_p.nextPixel();
+            }
+        }
+
+        KisSequentialIterator iter_mean_p_rgb_2(mean_p_rgb,boundSel);
+        KisSequentialIterator iter_mean_rgb_2(mean_rgb,boundSel);
+        KisSequentialIterator iter_mean_p_2(mean_p,boundSel);
+        KisSequentialIterator iter_inv_rrrgrb_2(inv_rrrgrb,boundSel);
+        KisSequentialIterator iter_inv_gggbbb_2(inv_rrrgrb,boundSel);
+        KisSequentialIterator iter_a_rgb(a_rgb,boundSel);
+        QVector<float> src_p_rgb(4);
+        QVector<float> src_mean_rgb(4);
+        QVector<float> src_mean_p(1);
+        QVector<float> src_inv_rrrgrb(4);
+        QVector<float> src_inv_gggbbb(4);
+        QVector<float> dst_cov_p_rgb(4);
+        QVector<float> dst_a_rgb(4);
+        dst_cov_p_rgb[3]=1;
+        for ( int x = 0 ; x < boundSel.width() ; x++){
+            for ( int y = 0 ; y < boundSel.height() ; y++){
+                quint8* mean_p_rgb_2_pixel = iter_mean_p_rgb_2.rawData();
+                quint8* mean_rgb_2_pixel = iter_mean_rgb_2.rawData();
+                quint8* mean_p_2_pixel = iter_mean_p_2.rawData();
+                quint8* inv_rrrgrb_pixel_2=iter_inv_rrrgrb_2.rawData();
+                quint8* inv_gggbbb_pixel_2=iter_inv_gggbbb_2.rawData();
+                quint8* a_rgb_pixel = iter_a_rgb.rawData();
+                RGB32F->normalisedChannelsValue(mean_p_rgb_2_pixel,src_p_rgb);
+                RGB32F->normalisedChannelsValue(mean_rgb_2_pixel,src_mean_rgb);
+                RGB32F->normalisedChannelsValue(inv_rrrgrb_pixel_2,src_inv_rrrgrb);
+                RGB32F->normalisedChannelsValue(inv_gggbbb_pixel_2,src_inv_gggbbb);
+                Alpha32->normalisedChannelsValue(mean_p_2_pixel,src_mean_p);
+                dst_cov_p_rgb[0]=src_p_rgb[0]-src_mean_rgb[0]*src_mean_p[0];
+                dst_cov_p_rgb[1]=src_p_rgb[1]-src_mean_rgb[1]*src_mean_p[0];
+                dst_cov_p_rgb[2]=src_p_rgb[2]-src_mean_rgb[2]*src_mean_p[0];
+                dst_a_rgb[0]=src_inv_rrrgrb[0]*dst_cov_p_rgb[0]+src_inv_rrrgrb[1]*dst_cov_p_rgb[1]+src_inv_rrrgrb[2]*dst_cov_p_rgb[2];
+                dst_a_rgb[1]=src_inv_rrrgrb[1]*dst_cov_p_rgb[0]+src_inv_gggbbb[0]*dst_cov_p_rgb[1]+src_inv_gggbbb[1]*dst_cov_p_rgb[2];
+                dst_a_rgb[2]=src_inv_rrrgrb[2]*dst_cov_p_rgb[0]+src_inv_gggbbb[1]*dst_cov_p_rgb[1]+src_inv_gggbbb[2]*dst_cov_p_rgb[2];
+                dst_a_rgb[3]=src_mean_p[0] - dst_a_rgb[0]*src_mean_rgb[0] - dst_a_rgb[1]*src_mean_rgb[1] - dst_a_rgb[2]*src_mean_rgb[2]; //cv::Mat b [Eqn.15]
+                RGB32F->fromNormalisedChannelsValue(a_rgb_pixel,dst_a_rgb);
+                iter_mean_p_rgb_2.nextPixel();
+                iter_mean_rgb_2.nextPixel();
+                iter_mean_p_2.nextPixel();
+                iter_inv_rrrgrb_2.nextPixel();
+                iter_inv_gggbbb_2.nextPixel();
+                iter_a_rgb.nextPixel();
+            }
+        }
+
+        KisConvolutionPainter boxblur_a_rgb(a_rgb);
+        boxblur_mean_p.setChannelFlags(RGBAFlag);
+        boxblur_mean_p.applyMatrix(main_box_kernel,a_rgb,sel_tlpt,sel_tlpt,boundSel.size(),BORDER_REPEAT);
+
+        KisSequentialIterator iter_a_rgb_end(a_rgb,boundSel);
+        KisSequentialIterator iter_dev(dev,boundSel);
+        KisSequentialIterator iter_tmpSel(tmpSel,boundSel);
+        QVector<float> src_a_rgb_end(4);
+        QVector<float> src_dev(4);
+        QVector<float> dst_tmpSel(1);
+
+        for ( int x = 0 ; x < boundSel.width() ; x++){
+            for ( int y = 0 ; y < boundSel.height() ; y++){
+                quint8* src_a_rgb_pixel = iter_a_rgb_end.rawData();
+                quint8* src_iter_dev_pixel = iter_tmpSel.rawData();
+                quint8* tmp_pixel = iter_tmpSel.rawData();
+                RGB32F->normalisedChannelsValue(src_a_rgb_pixel,src_a_rgb_end);
+                RGB32F->normalisedChannelsValue(src_iter_dev_pixel,src_dev);
+                dst_tmpSel[0]=src_a_rgb_end[0] * src_dev[0]
+                        + src_a_rgb_end[1] * src_dev[1]
+                        + src_a_rgb_end[2] * src_dev[2]
+                        + src_a_rgb_end[3];
+                Alpha32->fromNormalisedChannelsValue(tmp_pixel,dst_tmpSel);
+                iter_a_rgb_end.nextPixel();
+                iter_dev.nextPixel();
+                iter_tmpSel.nextPixel();
+            }
+        }
+
+        tmpSel->convertTo(cs_currentSelection);
+
+        newSelection->applySelection(tmpSel, SELECTION_REPLACE);
 }
 
 
@@ -240,9 +385,14 @@ void KisToolSelectGuided::beginPrimaryAction(KoPointerEvent *event)
         return;
     }
 
+    m_filterRadius = d->optionsWidget->getKernelRadius();
+    m_epsilon = d->optionsWidget->getEpsilon();
+
     GuidedSelection(sourceDevice,curSel,tmpSel,m_filterRadius,m_epsilon);
     tmpSel->invalidateOutlineCache();
     helper.selectPixelSelection(tmpSel,SELECTION_REPLACE);
+
+    KisPixelSelectionSP selAfter = kisCanvas->viewManager()->selection()->pixelSelection();
 
     QApplication::restoreOverrideCursor();
 }
