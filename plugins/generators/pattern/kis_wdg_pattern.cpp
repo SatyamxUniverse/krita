@@ -99,7 +99,8 @@ KisPropertiesConfigurationSP KisWdgPattern::configuration() const
     QVariant v;
     if (widget()->patternChooser->currentResource()) {
         config->setProperty("pattern", widget()->patternChooser->currentResource()->name());
-        config->setProperty("md5sum", widget()->patternChooser->currentResource()->md5Sum());
+        config->setProperty("pattern/md5sum", widget()->patternChooser->currentResource()->md5Sum());
+        config->setProperty("pattern/fileName", widget()->patternChooser->currentResource()->filename());
     }
 
     config->setProperty("transform_offset_x", m_widget->spbOffsetX->value());
