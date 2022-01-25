@@ -1420,6 +1420,16 @@ void KisConfig::setFullscreenMode(const bool value) const
     m_cfg.writeEntry("fullscreenMode", value);
 }
 
+int KisConfig::windowStateTransitionTimeout(bool defaultValue) const
+{
+    return (defaultValue ? 200 : m_cfg.readEntry("windowOverlayTransitionTimeout", 200));
+}
+
+void KisConfig::setWindowStateTransitionTimeout(const int value) const
+{
+     m_cfg.writeEntry("windowOverlayTransitionTimeout", value);
+}
+
 QStringList KisConfig::favoriteCompositeOps(bool defaultValue) const
 {
     return (defaultValue ? QStringList() :

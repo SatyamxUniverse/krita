@@ -153,7 +153,7 @@
 #include "KisUiFont.h"
 #include <KisResourceUserOperations.h>
 #include "KisRecentFilesManager.h"
-
+#include "KisWindowStateTransition.h"
 
 #include <mutex>
 
@@ -303,6 +303,8 @@ public:
     KisSignalAutoConnectionsStore screenConnectionsStore;
 
     KateCommandBar *commandBar {0};
+
+    QPointer<KisWindowStateTransition> savedWindowStateTransition;
 
     KisActionManager * actionManager() {
         return viewManager->actionManager();
@@ -2139,6 +2141,8 @@ void KisMainWindow::slotToolbarToggled(bool toggle)
 
 void KisMainWindow::viewFullscreen(bool fullScreen)
 {
+    if (!startWindowStateTransition("fullscreen", true)) return;
+
     KisConfig cfg(false);
     cfg.setFullscreenMode(fullScreen);
 
@@ -2148,6 +2152,8 @@ void KisMainWindow::viewFullscreen(bool fullScreen)
         setWindowState(windowState() & ~Qt::WindowFullScreen);   // reset
     }
     d->fullScreenMode->setChecked(isFullScreen());
+
+    endWindowStateTransition("fullscreen");
 }
 
 QDockWidget* KisMainWindow::createDockWidget(KoDockFactoryBase* factory)
@@ -2296,6 +2302,8 @@ QList<KoCanvasObserverBase*> KisMainWindow::canvasObservers() const
 
 void KisMainWindow::toggleDockersVisibility(bool visible)
 {
+    if (!startWindowStateTransition("view_toggledockers", false)) return;
+
     if (!visible) {
         d->dockerStateBeforeHiding = saveState();
 
@@ -2307,10 +2315,11 @@ void KisMainWindow::toggleDockersVisibility(bool visible)
                 }
             }
         }
-    }
-    else {
+    } else {
         restoreState(d->dockerStateBeforeHiding);
     }
+
+    endWindowStateTransition("view_toggledockers");
 }
 
 void KisMainWindow::slotDocumentTitleModified()
@@ -2996,6 +3005,29 @@ bool KisMainWindow::checkPaintOpAvailable()
 {
     KisPaintOpPresetResourceServer * rserver = KisResourceServerProvider::instance()->paintOpPresetServer();
     return (rserver->resourceCount() > 0);
+}
+
+bool KisMainWindow::startWindowStateTransition(const QString &actionName, bool fullscreen, int timeout)
+{
+    if (viewCount() == 0) return true;
+    if (!d->savedWindowStateTransition)
+        d->savedWindowStateTransition = new KisWindowStateTransition(this);
+
+    KisConfig cfg(true);
+
+    return d->savedWindowStateTransition->startTransition(
+        actionCollection()->action(actionName),
+        d->mdiArea,
+        fullscreen,
+        (timeout == -1 ? cfg.windowStateTransitionTimeout() : timeout)
+    );
+}
+
+void KisMainWindow::endWindowStateTransition(const QString &actionName)
+{
+    if (!d->savedWindowStateTransition || viewCount() == 0) return;
+
+    d->savedWindowStateTransition->endTransition(actionName);
 }
 
 #include <moc_KisMainWindow.cpp>

@@ -284,6 +284,7 @@ set(kritaui_LIB_SRCS
     widgets/KisHistogramPainter.cpp
     widgets/KisHistogramView.cpp
     widgets/kis_zoom_scrollbar.cpp
+    widgets/KisWindowStateTransition.cpp
 
     # Gradient related widgets
     widgets/gradient/KisStopGradientEditor.cpp
