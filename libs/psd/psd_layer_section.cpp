@@ -255,6 +255,10 @@ bool PSDLayerMaskSection::readPsdImpl(QIODevice &io)
             error = "Could not read global mask info visualization type";
             return false;
         }
+
+        if (globalMaskBlockLength >= 15) {
+            io.skip(qMax(globalMaskBlockLength - 15, 0x0U));
+        }
     }
 
     // global additional sections
@@ -320,6 +324,10 @@ bool PSDLayerMaskSection::readGlobalMask(QIODevice &io)
                 << globalLayerMaskInfo.colorComponents[3]; // 0
         dbgFile << "\tOpacity:" << globalLayerMaskInfo.opacity; // 50
         dbgFile << "\tKind:" << globalLayerMaskInfo.kind; // 128
+
+        if (globalMaskBlockLength >= 15) {
+            io.skip(qMax(globalMaskBlockLength - 15, 0x0U));
+        }
     }
 
     return true;
