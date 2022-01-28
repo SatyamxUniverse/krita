@@ -353,6 +353,10 @@ public:
                        const QColor & leftColor, const QColor & rightColor,
                        KoGradientSegmentEndpointType leftType = COLOR_ENDPOINT, KoGradientSegmentEndpointType rightType = COLOR_ENDPOINT);
 
+    void createSegment(int interpolation, int colorInterpolation, double startOffset, double endOffset, double middleOffset,
+                       const KoColor & leftColor, const KoColor & rightColor,
+                       KoGradientSegmentEndpointType leftType = COLOR_ENDPOINT, KoGradientSegmentEndpointType rightType = COLOR_ENDPOINT);
+
     /**
      * gets a list of end points of the segments in the gradient
      * colour picker. If two colours, one segment then two end
