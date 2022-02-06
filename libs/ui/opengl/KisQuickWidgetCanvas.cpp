@@ -7,7 +7,7 @@
 
 #define GL_GLEXT_PROTOTYPES
 
-#include "opengl/kis_opengl_canvas2.h"
+#include "opengl/KisQuickWidgetCanvas.h"
 #include "opengl/KisOpenGLCanvasRenderer.h"
 
 #include "canvas/kis_canvas2.h"
@@ -20,16 +20,16 @@
 
 static bool OPENGL_SUCCESS = false;
 
-class KisOpenGLCanvas2::CanvasBridge
+class KisQuickWidgetCanvas::CanvasBridge
     : public KisOpenGLCanvasRenderer::CanvasBridge
 {
-    friend class KisOpenGLCanvas2;
-    explicit CanvasBridge(KisOpenGLCanvas2 *canvas)
+    friend class KisQuickWidgetCanvas;
+    explicit CanvasBridge(KisQuickWidgetCanvas *canvas)
         : m_canvas(canvas)
     {}
     ~CanvasBridge() override = default;
     Q_DISABLE_COPY(CanvasBridge)
-    KisOpenGLCanvas2 *m_canvas;
+    KisQuickWidgetCanvas *m_canvas;
 protected:
     KisCanvas2 *canvas() const override {
         return m_canvas->canvas();
@@ -54,7 +54,7 @@ protected:
     }
 };
 
-struct KisOpenGLCanvas2::Private
+struct KisQuickWidgetCanvas::Private
 {
 public:
     ~Private() {
@@ -65,11 +65,11 @@ public:
     KisOpenGLCanvasRenderer *renderer;
 };
 
-KisOpenGLCanvas2::KisOpenGLCanvas2(KisCanvas2 *canvas,
-                                   KisCoordinatesConverter *coordinatesConverter,
-                                   QWidget *parent,
-                                   KisImageWSP image,
-                                   KisDisplayColorConverter *colorConverter)
+KisQuickWidgetCanvas::KisQuickWidgetCanvas(KisCanvas2 *canvas,
+                                           KisCoordinatesConverter *coordinatesConverter,
+                                           QWidget *parent,
+                                           KisImageWSP image,
+                                           KisDisplayColorConverter *colorConverter)
     : QOpenGLWidget(parent)
     , KisCanvasWidgetBase(canvas, coordinatesConverter)
     , d(new Private())
@@ -125,7 +125,7 @@ KisOpenGLCanvas2::KisOpenGLCanvas2(KisCanvas2 *canvas,
     cfg.writeEntry("canvasState", "OPENGL_SUCCESS");
 }
 
-KisOpenGLCanvas2::~KisOpenGLCanvas2()
+KisQuickWidgetCanvas::~KisQuickWidgetCanvas()
 {
     /**
      * Since we delete openGL resources, we should make sure the
@@ -145,38 +145,38 @@ KisOpenGLCanvas2::~KisOpenGLCanvas2()
     doneCurrent();
 }
 
-void KisOpenGLCanvas2::setDisplayFilter(QSharedPointer<KisDisplayFilter> displayFilter)
+void KisQuickWidgetCanvas::setDisplayFilter(QSharedPointer<KisDisplayFilter> displayFilter)
 {
     d->renderer->setDisplayFilter(displayFilter);
 }
 
-void KisOpenGLCanvas2::notifyImageColorSpaceChanged(const KoColorSpace *cs)
+void KisQuickWidgetCanvas::notifyImageColorSpaceChanged(const KoColorSpace *cs)
 {
     d->renderer->notifyImageColorSpaceChanged(cs);
 }
 
-void KisOpenGLCanvas2::setWrapAroundViewingMode(bool value)
+void KisQuickWidgetCanvas::setWrapAroundViewingMode(bool value)
 {
     d->renderer->setWrapAroundViewingMode(value);
     update();
 }
 
-bool KisOpenGLCanvas2::wrapAroundViewingMode() const
+bool KisQuickWidgetCanvas::wrapAroundViewingMode() const
 {
     return d->renderer->wrapAroundViewingMode();
 }
 
-void KisOpenGLCanvas2::initializeGL()
+void KisQuickWidgetCanvas::initializeGL()
 {
     d->renderer->initializeGL();
 }
 
-void KisOpenGLCanvas2::resizeGL(int width, int height)
+void KisQuickWidgetCanvas::resizeGL(int width, int height)
 {
     d->renderer->resizeGL(width, height);
 }
 
-void KisOpenGLCanvas2::paintGL()
+void KisQuickWidgetCanvas::paintGL()
 {
     const QRect updateRect = d->updateRect ? *d->updateRect : QRect();
 
@@ -194,7 +194,7 @@ void KisOpenGLCanvas2::paintGL()
     }
 }
 
-void KisOpenGLCanvas2::paintEvent(QPaintEvent *e)
+void KisQuickWidgetCanvas::paintEvent(QPaintEvent *e)
 {
     KIS_SAFE_ASSERT_RECOVER_RETURN(!d->updateRect);
 
@@ -203,78 +203,78 @@ void KisOpenGLCanvas2::paintEvent(QPaintEvent *e)
     d->updateRect = boost::none;
 }
 
-void KisOpenGLCanvas2::paintToolOutline(const QPainterPath &path)
+void KisQuickWidgetCanvas::paintToolOutline(const QPainterPath &path)
 {
     d->renderer->paintToolOutline(path);
 }
 
-bool KisOpenGLCanvas2::isBusy() const
+bool KisQuickWidgetCanvas::isBusy() const
 {
     return d->renderer->isBusy();
 }
 
-void KisOpenGLCanvas2::setLodResetInProgress(bool value)
+void KisQuickWidgetCanvas::setLodResetInProgress(bool value)
 {
     d->renderer->setLodResetInProgress(value);
 }
 
-void KisOpenGLCanvas2::slotConfigChanged()
+void KisQuickWidgetCanvas::slotConfigChanged()
 {
     d->renderer->updateConfig();
 
     notifyConfigChanged();
 }
 
-void KisOpenGLCanvas2::slotPixelGridModeChanged()
+void KisQuickWidgetCanvas::slotPixelGridModeChanged()
 {
     d->renderer->updatePixelGridMode();
 
     update();
 }
 
-void KisOpenGLCanvas2::slotShowFloatingMessage(const QString &message, int timeout, bool priority)
+void KisQuickWidgetCanvas::slotShowFloatingMessage(const QString &message, int timeout, bool priority)
 {
     canvas()->imageView()->showFloatingMessage(message, QIcon(), timeout, priority ? KisFloatingMessage::High : KisFloatingMessage::Medium);
 }
 
-QVariant KisOpenGLCanvas2::inputMethodQuery(Qt::InputMethodQuery query) const
+QVariant KisQuickWidgetCanvas::inputMethodQuery(Qt::InputMethodQuery query) const
 {
     return processInputMethodQuery(query);
 }
 
-void KisOpenGLCanvas2::inputMethodEvent(QInputMethodEvent *event)
+void KisQuickWidgetCanvas::inputMethodEvent(QInputMethodEvent *event)
 {
     processInputMethodEvent(event);
 }
 
-void KisOpenGLCanvas2::setDisplayColorConverter(KisDisplayColorConverter *colorConverter)
+void KisQuickWidgetCanvas::setDisplayColorConverter(KisDisplayColorConverter *colorConverter)
 {
     d->renderer->setDisplayColorConverter(colorConverter);
 }
 
-void KisOpenGLCanvas2::channelSelectionChanged(const QBitArray &channelFlags)
+void KisQuickWidgetCanvas::channelSelectionChanged(const QBitArray &channelFlags)
 {
     d->renderer->channelSelectionChanged(channelFlags);
 }
 
 
-void KisOpenGLCanvas2::finishResizingImage(qint32 w, qint32 h)
+void KisQuickWidgetCanvas::finishResizingImage(qint32 w, qint32 h)
 {
     d->renderer->finishResizingImage(w, h);
 }
 
-KisUpdateInfoSP KisOpenGLCanvas2::startUpdateCanvasProjection(const QRect & rc, const QBitArray &channelFlags)
+KisUpdateInfoSP KisQuickWidgetCanvas::startUpdateCanvasProjection(const QRect & rc, const QBitArray &channelFlags)
 {
     return d->renderer->startUpdateCanvasProjection(rc, channelFlags);
 }
 
 
-QRect KisOpenGLCanvas2::updateCanvasProjection(KisUpdateInfoSP info)
+QRect KisQuickWidgetCanvas::updateCanvasProjection(KisUpdateInfoSP info)
 {
     return d->renderer->updateCanvasProjection(info);
 }
 
-QVector<QRect> KisOpenGLCanvas2::updateCanvasProjection(const QVector<KisUpdateInfoSP> &infoObjects)
+QVector<QRect> KisQuickWidgetCanvas::updateCanvasProjection(const QVector<KisUpdateInfoSP> &infoObjects)
 {
 #if defined(Q_OS_MACOS) || defined(Q_OS_ANDROID)
     /**
@@ -303,12 +303,12 @@ QVector<QRect> KisOpenGLCanvas2::updateCanvasProjection(const QVector<KisUpdateI
     return result;
 }
 
-bool KisOpenGLCanvas2::callFocusNextPrevChild(bool next)
+bool KisQuickWidgetCanvas::callFocusNextPrevChild(bool next)
 {
     return focusNextPrevChild(next);
 }
 
-KisOpenGLImageTexturesSP KisOpenGLCanvas2::openGLImageTextures() const
+KisOpenGLImageTexturesSP KisQuickWidgetCanvas::openGLImageTextures() const
 {
     return d->renderer->openGLImageTextures();
 }

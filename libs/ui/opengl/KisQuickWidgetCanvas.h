@@ -5,8 +5,8 @@
  *  SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#ifndef KIS_OPENGL_CANVAS_2_H
-#define KIS_OPENGL_CANVAS_2_H
+#ifndef KIS_QUICK_WIDGET_CANVAS_H
+#define KIS_QUICK_WIDGET_CANVAS_H
 
 #include <QOpenGLWidget>
 #include "canvas/kis_canvas_widget_base.h"
@@ -27,7 +27,7 @@ class QPainterPath;
  * in the qpainter canvas.
  *
  */
-class KRITAUI_EXPORT KisOpenGLCanvas2
+class KRITAUI_EXPORT KisQuickWidgetCanvas
         : public QOpenGLWidget
         , public KisCanvasWidgetBase
 {
@@ -35,9 +35,9 @@ class KRITAUI_EXPORT KisOpenGLCanvas2
 
 public:
 
-    KisOpenGLCanvas2(KisCanvas2 *canvas, KisCoordinatesConverter *coordinatesConverter, QWidget *parent, KisImageWSP image, KisDisplayColorConverter *colorConverter);
+    KisQuickWidgetCanvas(KisCanvas2 *canvas, KisCoordinatesConverter *coordinatesConverter, QWidget *parent, KisImageWSP image, KisDisplayColorConverter *colorConverter);
 
-    ~KisOpenGLCanvas2() override;
+    ~KisQuickWidgetCanvas() override;
 
 public: // QOpenGLWidget
 
@@ -93,4 +93,4 @@ private:
     class CanvasBridge;
 };
 
-#endif // KIS_OPENGL_CANVAS_2_H
+#endif // KIS_QUICK_WIDGET_CANVAS_H
