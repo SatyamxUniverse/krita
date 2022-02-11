@@ -1184,6 +1184,7 @@ void KisViewManager::switchCanvasOnly(bool toggled)
         return;
     }
 
+    if (!main->startWindowStateTransition("view_show_canvas_only", cfg.hideTitlebarFullscreen() && !cfg.fullscreenMode())) return;
     cfg.writeEntry("CanvasOnlyActive", toggled);
 
     if (toggled) {
@@ -1284,6 +1285,8 @@ void KisViewManager::switchCanvasOnly(bool toggled)
     else {
         main->restoreState(d->canvasState);
     }
+
+    main->endWindowStateTransition("view_show_canvas_only");
 
 }
 

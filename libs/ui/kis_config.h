@@ -375,6 +375,9 @@ public:
     bool fullscreenMode(bool defaultValue = false) const;
     void setFullscreenMode(const bool value) const;
 
+    int windowStateTransitionTimeout(bool defaultValue = false) const;
+    void setWindowStateTransitionTimeout(const int value) const;
+
     QStringList favoriteCompositeOps(bool defaultValue = false) const;
     void setFavoriteCompositeOps(const QStringList& compositeOps) const;
 

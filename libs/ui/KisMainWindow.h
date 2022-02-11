@@ -182,6 +182,14 @@ public:
      */
     QImage layoutThumbnail();
 
+    /**
+     * Widget used to help with transistion of full screen and other repositioning of the canvas.
+     *
+     * hack: Includes an optional overlay that helps reduce flicker from window disapearing and reapearing going into full screen and opengl artifacts.
+     */
+    bool startWindowStateTransition(const QString &actionName, bool fullscreen, int timeout = -1);
+    void endWindowStateTransition(const QString &actionName);
+
 Q_SIGNALS:
 
     /**

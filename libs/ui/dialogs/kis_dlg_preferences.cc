@@ -1700,6 +1700,13 @@ void DisplaySettingsTab::slotPreferredSurfaceFormatChanged(int index)
 FullscreenSettingsTab::FullscreenSettingsTab(QWidget* parent) : WdgFullscreenSettingsBase(parent)
 {
     KisConfig cfg(true);
+    const int overlayWorkaround = cfg.windowStateTransitionTimeout();
+
+    chkOverlayWorkaround->setChecked(overlayWorkaround > 0);
+    intOverlayWorkaround->setValue(overlayWorkaround > 0 ? overlayWorkaround:cfg.windowStateTransitionTimeout(true));
+    intOverlayWorkaround->setEnabled(overlayWorkaround > 0);
+
+    connect(chkOverlayWorkaround, SIGNAL(toggled(bool)), intOverlayWorkaround, SLOT(setEnabled(bool)));
 
     chkDockers->setChecked(cfg.hideDockersFullscreen());
     chkMenu->setChecked(cfg.hideMenuFullscreen());
@@ -1713,6 +1720,12 @@ FullscreenSettingsTab::FullscreenSettingsTab(QWidget* parent) : WdgFullscreenSet
 void FullscreenSettingsTab::setDefault()
 {
     KisConfig cfg(true);
+    const int overlayWorkaround = cfg.windowStateTransitionTimeout(true);
+
+    chkOverlayWorkaround->setChecked(overlayWorkaround > 0);
+    intOverlayWorkaround->setValue(overlayWorkaround);
+    intOverlayWorkaround->setEnabled(overlayWorkaround > 0);
+
     chkDockers->setChecked(cfg.hideDockersFullscreen(true));
     chkMenu->setChecked(cfg.hideMenuFullscreen(true));
     chkScrollbars->setChecked(cfg.hideScrollbarsFullscreen(true));
@@ -2139,6 +2152,7 @@ bool KisDlgPreferences::editPreferences()
         cfg.setShowSingleChannelAsColor(m_displaySettings->chkChannelsAsColor->isChecked());
         cfg.setHidePopups(m_displaySettings->chkHidePopups->isChecked());
 
+        cfg.setWindowStateTransitionTimeout(m_fullscreenSettings->chkOverlayWorkaround->checkState() ? m_fullscreenSettings->intOverlayWorkaround->value():0);
         cfg.setHideDockersFullscreen(m_fullscreenSettings->chkDockers->checkState());
         cfg.setHideMenuFullscreen(m_fullscreenSettings->chkMenu->checkState());
         cfg.setHideScrollbarsFullscreen(m_fullscreenSettings->chkScrollbars->checkState());

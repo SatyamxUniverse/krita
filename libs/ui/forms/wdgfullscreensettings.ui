@@ -16,6 +16,49 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout">
    <item>
+    <layout class="QHBoxLayout" name="horizontalLayout" stretch="3,1,8">
+     <property name="topMargin">
+      <number>10</number>
+     </property>
+     <item>
+      <widget class="QLabel" name="label_2">
+       <property name="toolTip">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;On some platforms, the transistion to full screen causes flickering and/or temporary screen artifacts. This workaround creates an overlay to hide them during the transition for a smoother experience.&lt;/p&gt;&lt;p&gt;&lt;br/&gt;Options:&lt;/p&gt;&lt;p&gt;Enable/Disable the overlay&lt;br/&gt;If enabled, set the amount of milliseconds the overlay should last&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+       <property name="text">
+        <string>Anti-flicker overlay workaround</string>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QCheckBox" name="chkOverlayWorkaround">
+       <property name="toolTip">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;On some platforms, the transistion to full screen causes flickering and/or temporary screen artifacts. This workaround creates an overlay to hide them during the transition for a smoother experience.&lt;/p&gt;&lt;p&gt;&lt;br/&gt;Options:&lt;/p&gt;&lt;p&gt;Enable/Disable the overlay&lt;br/&gt;If enabled, set the amount of milliseconds the overlay should last&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+       <property name="text">
+        <string/>
+       </property>
+      </widget>
+     </item>
+     <item>
+      <widget class="QSpinBox" name="intOverlayWorkaround">
+       <property name="toolTip">
+        <string>&lt;html&gt;&lt;head/&gt;&lt;body&gt;&lt;p&gt;On some platforms, the transistion to full screen causes flickering and/or temporary screen artifacts. This workaround creates an overlay to hide them during the transition for a smoother experience.&lt;/p&gt;&lt;p&gt;&lt;br/&gt;Options:&lt;/p&gt;&lt;p&gt;Enable/Disable the overlay&lt;br/&gt;If enabled, set the amount of milliseconds the overlay should last&lt;/p&gt;&lt;/body&gt;&lt;/html&gt;</string>
+       </property>
+       <property name="suffix">
+        <string> ms</string>
+       </property>
+       <property name="minimum">
+        <number>0</number>
+       </property>
+       <property name="maximum">
+        <number>1000</number>
+       </property>
+      </widget>
+     </item>
+    </layout>
+   </item>
+   <item>
     <widget class="QLabel" name="label">
      <property name="text">
       <string>Select which parts of Krita will be hidden in canvas-only mode.</string>
