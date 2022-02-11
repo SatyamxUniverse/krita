@@ -1,6 +1,7 @@
 /* This file is part of the KDE project
  * SPDX-FileCopyrightText: 2006-2013 Boudewijn Rempt <boud@valdyas.org>
  * SPDX-FileCopyrightText: 2015 Michael Abrahams <miabraha@gmail.com>
+ * SPDX-FileCopyrightText: 2022 Alvin Wong <alvin@alvinhc.com>
  *
  *  SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -18,7 +19,54 @@
 #include <QPointer>
 #include "KisOpenGLModeProber.h"
 
+#include <QQuickRenderControl>
+#include <QQuickWindow>
+#include <QQuickItem>
+#include <QQmlEngine>
+#include <QQmlComponent>
+
 static bool OPENGL_SUCCESS = false;
+
+class KisQuickWidgetCanvas::RenderControl : public QQuickRenderControl
+{
+public:
+    RenderControl(KisQuickWidgetCanvas *canvas)
+        : QQuickRenderControl(canvas)
+        , m_canvas(canvas)
+    {}
+    ~RenderControl() override = default;
+
+    QWindow *renderWindow(QPoint *offset) override {
+        if (offset) {
+            *offset = m_canvas->mapTo(m_canvas->window(), QPoint());
+        }
+        return m_canvas->window()->windowHandle();
+    }
+
+private:
+    KisQuickWidgetCanvas *m_canvas;
+};
+
+struct KisQuickWidgetCanvas::Private
+{
+public:
+    ~Private() {
+        delete rootItem;
+        delete component;
+        delete renderControl;
+        delete offscreenQuickWindow;
+        delete renderer;
+    }
+
+    KisOpenGLCanvasRenderer *renderer {nullptr};
+
+    RenderControl *renderControl;
+    QQuickWindow *offscreenQuickWindow;
+    QQmlComponent *component;
+    QQuickItem *rootItem {nullptr};
+    bool quickSceneUpdatePending {true};
+    bool blockQuickSceneRenderRequest {false};
+};
 
 class KisQuickWidgetCanvas::CanvasBridge
     : public KisOpenGLCanvasRenderer::CanvasBridge
@@ -54,17 +102,6 @@ protected:
     }
 };
 
-struct KisQuickWidgetCanvas::Private
-{
-public:
-    ~Private() {
-        delete renderer;
-    }
-
-    boost::optional<QRect> updateRect;
-    KisOpenGLCanvasRenderer *renderer;
-};
-
 KisQuickWidgetCanvas::KisQuickWidgetCanvas(KisCanvas2 *canvas,
                                            KisCoordinatesConverter *coordinatesConverter,
                                            QWidget *parent,
@@ -76,6 +113,31 @@ KisQuickWidgetCanvas::KisQuickWidgetCanvas(KisCanvas2 *canvas,
 {
     KisConfig cfg(false);
     cfg.setCanvasState("OPENGL_STARTED");
+
+    d->renderControl = new RenderControl(this);
+    d->offscreenQuickWindow = new QQuickWindow(d->renderControl);
+    QWindow *topWindow = window()->windowHandle();
+    if (topWindow) {
+        d->offscreenQuickWindow->setScreen(topWindow->screen());
+    }
+    d->offscreenQuickWindow->setTitle(QLatin1String("KisQuickWidgetCanvas Offscreen Window"));
+    d->offscreenQuickWindow->setObjectName(d->offscreenQuickWindow->title());
+
+    connect(d->renderControl, SIGNAL(renderRequested()), SLOT(slotRenderRequested()));
+    connect(d->renderControl, SIGNAL(sceneChanged()), SLOT(slotSceneChanged()));
+
+    d->offscreenQuickWindow->setClearBeforeRendering(false);
+    d->offscreenQuickWindow->setPersistentOpenGLContext(true);
+
+    QQmlEngine *engine = new QQmlEngine(this);
+    if (!engine->incubationController()) {
+        engine->setIncubationController(d->offscreenQuickWindow->incubationController());
+    }
+
+    d->component = new QQmlComponent(engine, this);
+    connect(d->component, SIGNAL(statusChanged(QQmlComponent::Status)),
+            SLOT(slotComponentStatusChanged()));
+    d->component->loadUrl(QUrl("qrc:/kisqml/canvas/KisQuickWidgetCanvas.qml"));
 
     d->renderer = new KisOpenGLCanvasRenderer(new CanvasBridge(this), image, colorConverter);
 
@@ -95,7 +157,6 @@ KisQuickWidgetCanvas::KisQuickWidgetCanvas(KisCanvas2 *canvas,
 #endif
     setAttribute(Qt::WA_InputMethodEnabled, false);
     setAttribute(Qt::WA_DontCreateNativeAncestors, true);
-    setUpdateBehavior(PartialUpdate);
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
     // we should make sure the texture doesn't have alpha channel,
@@ -140,9 +201,70 @@ KisQuickWidgetCanvas::~KisQuickWidgetCanvas()
 
     makeCurrent();
 
+    d->renderControl->disconnect(this);
+    d->renderControl->invalidate();
     delete d;
 
     doneCurrent();
+}
+
+void KisQuickWidgetCanvas::slotComponentStatusChanged()
+{
+    if (d->component->isLoading()) {
+        return;
+    }
+    auto printComponetErrors = [this]() {
+        const QList<QQmlError> errorList = d->component->errors();
+        Q_FOREACH(const QQmlError &error, errorList) {
+            qWarning() << "KisQuickWidgetCanvas:" << error.url() << error.line() << error;
+        }
+    };
+    if (d->component->isError()) {
+        printComponetErrors();
+        return;
+    }
+    QObject *rootObject = d->component->create();
+    if (d->component->isError()) {
+        printComponetErrors();
+        qWarning() << "KisQuickWidgetCanvas: Trying to use the component anyway...";
+    }
+    d->rootItem = qobject_cast<QQuickItem *>(rootObject);
+    if (!d->rootItem) {
+        qWarning() << "KisQuickWidgetCanvas: Failed to get root QQuickItem.";
+        delete rootObject;
+        return;
+    }
+    d->rootItem->setParentItem(d->offscreenQuickWindow->contentItem());
+    disconnect(d->component, SIGNAL(statusChanged(QQmlComponent::Status)),
+               this, SLOT(slotComponentStatusChanged()));
+}
+
+void KisQuickWidgetCanvas::slotRenderRequested()
+{
+    if (d->quickSceneUpdatePending) {
+        return;
+    }
+    // Note: Although the docs of QQuickRenderControl::renderRequested
+    // states that "it is not necessary to call sync()", it seems that
+    // GammaRay does not capture the quick scene properly without calling
+    // polish() and sync(). Probably safer to do it anyway.
+    d->quickSceneUpdatePending = true;
+    if (d->blockQuickSceneRenderRequest) {
+        return;
+    }
+    canvas()->updateCanvas();
+}
+
+void KisQuickWidgetCanvas::slotSceneChanged()
+{
+    if (d->quickSceneUpdatePending) {
+        return;
+    }
+    d->quickSceneUpdatePending = true;
+    if (d->blockQuickSceneRenderRequest) {
+        return;
+    }
+    canvas()->updateCanvas();
 }
 
 void KisQuickWidgetCanvas::setDisplayFilter(QSharedPointer<KisDisplayFilter> displayFilter)
@@ -169,6 +291,7 @@ bool KisQuickWidgetCanvas::wrapAroundViewingMode() const
 void KisQuickWidgetCanvas::initializeGL()
 {
     d->renderer->initializeGL();
+    d->renderControl->initialize(context());
 }
 
 void KisQuickWidgetCanvas::resizeGL(int width, int height)
@@ -178,14 +301,31 @@ void KisQuickWidgetCanvas::resizeGL(int width, int height)
 
 void KisQuickWidgetCanvas::paintGL()
 {
-    const QRect updateRect = d->updateRect ? *d->updateRect : QRect();
-
     if (!OPENGL_SUCCESS) {
         KisConfig cfg(false);
         cfg.writeEntry("canvasState", "OPENGL_PAINT_STARTED");
     }
 
-    d->renderer->paintGL(updateRect);
+    // In case the QtQuick Scene requested updates from changes inside paintGL,
+    // don't call KisCanvas2::updateCanvas because that will schedule another
+    // update in the future. If it updates things like canvas FPS, calling
+    // updateCanvas will even cause a self-sustaining render loop.
+    //
+    // We are going to sync and render the QtQuick scene immediately after
+    // this too, so there is no point scheduling updates during paintGL.
+    d->blockQuickSceneRenderRequest = true;
+    d->renderer->paintGL();
+    d->blockQuickSceneRenderRequest = false;
+
+    d->offscreenQuickWindow->resetOpenGLState();
+
+    if (d->quickSceneUpdatePending) {
+        d->quickSceneUpdatePending = false;
+        d->renderControl->polishItems();
+        d->renderControl->sync();
+    }
+
+    d->renderControl->render();
 
     if (!OPENGL_SUCCESS) {
         KisConfig cfg(false);
@@ -196,11 +336,23 @@ void KisQuickWidgetCanvas::paintGL()
 
 void KisQuickWidgetCanvas::paintEvent(QPaintEvent *e)
 {
-    KIS_SAFE_ASSERT_RECOVER_RETURN(!d->updateRect);
+    // KIS_SAFE_ASSERT_RECOVER_RETURN(!d->updateRect);
 
-    d->updateRect = e->rect();
+    // TODO: I don't think we can even do partial painting with this stack...
+    // We probably need a different way to track dirty regions.
+    // d->updateRect = e->rect();
     QOpenGLWidget::paintEvent(e);
-    d->updateRect = boost::none;
+    // d->updateRect = boost::none;
+}
+
+void KisQuickWidgetCanvas::resizeEvent(QResizeEvent *e)
+{
+    if (d->rootItem) {
+        d->rootItem->setSize(QSizeF(size()));
+    }
+    d->offscreenQuickWindow->resize(size());
+
+    QOpenGLWidget::resizeEvent(e);
 }
 
 void KisQuickWidgetCanvas::paintToolOutline(const QPainterPath &path)

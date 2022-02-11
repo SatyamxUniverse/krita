@@ -69,6 +69,7 @@
 #include "kis_animation_player.h"
 #include "kis_animation_frame_cache.h"
 #include "opengl/kis_opengl_canvas2.h"
+#include "opengl/KisQuickWidgetCanvas.h"
 #include "opengl/kis_opengl.h"
 #include "kis_fps_decoration.h"
 
@@ -542,16 +543,37 @@ void KisCanvas2::createQPainterCanvas()
     setCanvasWidget(canvasWidget);
 }
 
+static bool useQuickWidget()
+{
+    static bool flag = []() {
+        QString canvas = qEnvironmentVariable("KIS_GLCANVAS", QStringLiteral("quick"));
+        if (canvas == QLatin1String("quick")) {
+            return true;
+        }
+        if (canvas != QLatin1String("gl")) {
+            qWarning() << "Unknown value for KIS_GLCANVAS" << canvas << "(accepted: quick, gl)";
+            return true;
+        }
+        return false;
+    }();
+    return flag;
+}
+
 void KisCanvas2::createOpenGLCanvas()
 {
     KisConfig cfg(true);
     m_d->openGLFilterMode = cfg.openGLFilteringMode();
     m_d->currentCanvasIsOpenGL = true;
 
-    KisOpenGLCanvas2 *canvasWidget = new KisOpenGLCanvas2(this, m_d->coordinatesConverter, 0, m_d->view->image(), &m_d->displayColorConverter);
-    m_d->frameCache = KisAnimationFrameCache::getFrameCache(canvasWidget->openGLImageTextures());
-
-    setCanvasWidget(canvasWidget);
+    if (useQuickWidget()) {
+        KisQuickWidgetCanvas *canvasWidget = new KisQuickWidgetCanvas(this, m_d->coordinatesConverter, 0, m_d->view->image(), &m_d->displayColorConverter);
+        m_d->frameCache = KisAnimationFrameCache::getFrameCache(canvasWidget->openGLImageTextures());
+        setCanvasWidget(canvasWidget);
+    } else {
+        KisOpenGLCanvas2 *canvasWidget = new KisOpenGLCanvas2(this, m_d->coordinatesConverter, 0, m_d->view->image(), &m_d->displayColorConverter);
+        m_d->frameCache = KisAnimationFrameCache::getFrameCache(canvasWidget->openGLImageTextures());
+        setCanvasWidget(canvasWidget);
+    }
 }
 
 void KisCanvas2::createCanvas(bool useOpenGL)

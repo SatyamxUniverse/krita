@@ -1,6 +1,7 @@
 /*
  * SPDX-FileCopyrightText: 2006 Boudewijn Rempt <boud@valdyas.org>
  * SPDX-FileCopyrightText: 2015 Michael Abrahams <miabraha@gmail.com>
+ * SPDX-FileCopyrightText: 2022 Alvin Wong <alvin@alvinhc.com>
  *
  *  SPDX-License-Identifier: GPL-2.0-or-later
  */
@@ -21,7 +22,7 @@ class QOpenGLShaderProgram;
 class QPainterPath;
 
 /**
- * KisOpenGLCanvas is the widget that shows the actual image using OpenGL
+ * KisQuickWidgetCanvas is KisOpenGLCanvas but with the ability to overlay a Qt Quick 2 scene.
  *
  * NOTE: if you change something in the event handling here, also change it
  * in the qpainter canvas.
@@ -39,12 +40,19 @@ public:
 
     ~KisQuickWidgetCanvas() override;
 
-public: // QOpenGLWidget
+private Q_SLOTS:
+    void slotComponentStatusChanged();
+    void slotRenderRequested();
+    void slotSceneChanged();
 
+public: // QOpenGLWidget
     void resizeGL(int width, int height) override;
     void initializeGL() override;
     void paintGL() override;
+
+public: // QWidget
     void paintEvent(QPaintEvent *e) override;
+    void resizeEvent(QResizeEvent *e) override;
 
     QVariant inputMethodQuery(Qt::InputMethodQuery query) const override;
     void inputMethodEvent(QInputMethodEvent *event) override;
@@ -91,6 +99,7 @@ private:
     Private * const d;
 
     class CanvasBridge;
+    class RenderControl;
 };
 
 #endif // KIS_QUICK_WIDGET_CANVAS_H

@@ -181,6 +181,7 @@ set(kritaui_LIB_SRCS
     opengl/KisOpenGLSync.cpp
     opengl/KisOpenGLBufferCreationGuard.cpp
     opengl/KisOpenGLCanvasRenderer.cpp
+    opengl/KisQuickWidgetCanvas.cpp
     kis_fps_decoration.cpp
 
     tool/KisToolChangesTracker.cpp
@@ -635,6 +636,8 @@ ki18n_wrap_ui(kritaui_LIB_SRCS
     imagesize/wdg_canvassize.ui
 )
 
+qt5_add_resources(kritaui_LIB_SRCS opengl/KisQuickWidgetCanvas.qrc)
+
 if(WIN32)
     if(USE_QT_TABLET_WINDOWS)
         ki18n_wrap_ui(kritaui_LIB_SRCS
@@ -651,7 +654,7 @@ endif()
 add_library(kritaui SHARED ${kritaui_HEADERS_MOC} ${kritaui_LIB_SRCS} )
 generate_export_header(kritaui BASE_NAME kritaui)
 
-target_link_libraries(kritaui KF5::CoreAddons KF5::Completion KF5::I18n KF5::ItemViews Qt5::Network
+target_link_libraries(kritaui KF5::CoreAddons KF5::Completion KF5::I18n KF5::ItemViews Qt5::Network Qt5::Quick
                       kritaversion kritaimpex kritacolor kritaimage kritalibbrush kritawidgets kritawidgetutils kritaresources ${PNG_LIBRARIES}
 )
 

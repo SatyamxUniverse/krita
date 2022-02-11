@@ -45,6 +45,7 @@
 #include <KisResourceServerProvider.h>
 
 #include "opengl/kis_opengl_canvas2.h"
+#include "opengl/KisQuickWidgetCanvas.h"
 #include "kis_canvas_resource_provider.h"
 #include "canvas/kis_canvas2.h"
 #include "kis_coordinates_converter.h"
@@ -581,12 +582,16 @@ QWidget* KisTool::createOptionWidget()
 void KisTool::paintToolOutline(QPainter* painter, const QPainterPath &path)
 {
     KisOpenGLCanvas2 *canvasWidget = dynamic_cast<KisOpenGLCanvas2 *>(canvas()->canvasWidget());
+    KisQuickWidgetCanvas *canvasWidget2 = dynamic_cast<KisQuickWidgetCanvas *>(canvas()->canvasWidget());
     if (canvasWidget)  {
         painter->beginNativePainting();
         canvasWidget->paintToolOutline(path);
         painter->endNativePainting();
-    }
-    else {
+    } else if (canvasWidget2) {
+        painter->beginNativePainting();
+        canvasWidget2->paintToolOutline(path);
+        painter->endNativePainting();
+    } else {
         painter->save();
         painter->setCompositionMode(QPainter::RasterOp_SourceXorDestination);
         painter->setPen(QColor(128, 255, 128));
