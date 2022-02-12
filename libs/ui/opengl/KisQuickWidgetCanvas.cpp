@@ -15,6 +15,7 @@
 #include "kis_config.h"
 #include "kis_config_notifier.h"
 #include "kis_debug.h"
+#include "KisWidgetScreenChangeNotifier.h"
 
 #include <QPointer>
 #include "KisOpenGLModeProber.h"
@@ -50,6 +51,9 @@ private:
 struct KisQuickWidgetCanvas::Private
 {
 public:
+    Private(KisQuickWidgetCanvas *parent)
+        : screenChangeNotifier(parent)
+    {}
     ~Private() {
         delete rootItem;
         delete component;
@@ -66,6 +70,8 @@ public:
     QQuickItem *rootItem {nullptr};
     bool quickSceneUpdatePending {true};
     bool blockQuickSceneRenderRequest {false};
+
+    KisWidgetScreenChangeNotifier screenChangeNotifier;
 };
 
 class KisQuickWidgetCanvas::CanvasBridge
@@ -109,7 +115,7 @@ KisQuickWidgetCanvas::KisQuickWidgetCanvas(KisCanvas2 *canvas,
                                            KisDisplayColorConverter *colorConverter)
     : QOpenGLWidget(parent)
     , KisCanvasWidgetBase(canvas, coordinatesConverter)
-    , d(new Private())
+    , d(new Private(this))
 {
     KisConfig cfg(false);
     cfg.setCanvasState("OPENGL_STARTED");
@@ -120,6 +126,8 @@ KisQuickWidgetCanvas::KisQuickWidgetCanvas(KisCanvas2 *canvas,
     if (topWindow) {
         d->offscreenQuickWindow->setScreen(topWindow->screen());
     }
+    connect(&d->screenChangeNotifier, SIGNAL(screenChanged(QScreen *)),
+            SLOT(slotScreenChanged(QScreen *)));
     d->offscreenQuickWindow->setTitle(QLatin1String("KisQuickWidgetCanvas Offscreen Window"));
     d->offscreenQuickWindow->setObjectName(d->offscreenQuickWindow->title());
 
@@ -265,6 +273,11 @@ void KisQuickWidgetCanvas::slotSceneChanged()
         return;
     }
     canvas()->updateCanvas();
+}
+
+void KisQuickWidgetCanvas::slotScreenChanged(QScreen *screen)
+{
+    d->offscreenQuickWindow->setScreen(screen);
 }
 
 void KisQuickWidgetCanvas::setDisplayFilter(QSharedPointer<KisDisplayFilter> displayFilter)

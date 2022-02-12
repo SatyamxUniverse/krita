@@ -44,6 +44,7 @@ private Q_SLOTS:
     void slotComponentStatusChanged();
     void slotRenderRequested();
     void slotSceneChanged();
+    void slotScreenChanged(QScreen *);
 
 public: // QOpenGLWidget
     void resizeGL(int width, int height) override;
