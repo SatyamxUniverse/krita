@@ -10,6 +10,8 @@
 
 #include "opengl/KisQuickWidgetCanvas.h"
 #include "opengl/KisOpenGLCanvasRenderer.h"
+#include "opengl/KisOpenGLSync.h"
+#include "opengl/kis_opengl_canvas_debugger.h"
 
 #include "canvas/kis_canvas2.h"
 #include "kis_config.h"
@@ -63,6 +65,7 @@ public:
     }
 
     KisOpenGLCanvasRenderer *renderer {nullptr};
+    QScopedPointer<KisOpenGLSync> glSyncObject;
 
     RenderControl *renderControl;
     QQuickWindow *offscreenQuickWindow;
@@ -305,6 +308,7 @@ void KisQuickWidgetCanvas::initializeGL()
 {
     d->renderer->initializeGL();
     d->renderControl->initialize(context());
+    KisOpenGLSync::init(context());
 }
 
 void KisQuickWidgetCanvas::resizeGL(int width, int height)
@@ -337,8 +341,9 @@ void KisQuickWidgetCanvas::paintGL()
         d->renderControl->polishItems();
         d->renderControl->sync();
     }
-
     d->renderControl->render();
+
+    d->glSyncObject.reset(new KisOpenGLSync());
 
     if (!OPENGL_SUCCESS) {
         KisConfig cfg(false);
@@ -375,7 +380,9 @@ void KisQuickWidgetCanvas::paintToolOutline(const QPainterPath &path)
 
 bool KisQuickWidgetCanvas::isBusy() const
 {
-    return d->renderer->isBusy();
+    const bool isBusyStatus = d->glSyncObject && !d->glSyncObject->isSignaled();
+    KisOpenglCanvasDebugger::instance()->nofitySyncStatus(isBusyStatus);
+    return isBusyStatus;
 }
 
 void KisQuickWidgetCanvas::setLodResetInProgress(bool value)

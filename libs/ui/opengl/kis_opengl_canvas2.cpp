@@ -9,6 +9,8 @@
 
 #include "opengl/kis_opengl_canvas2.h"
 #include "opengl/KisOpenGLCanvasRenderer.h"
+#include "opengl/KisOpenGLSync.h"
+#include "opengl/kis_opengl_canvas_debugger.h"
 
 #include "canvas/kis_canvas2.h"
 #include "kis_config.h"
@@ -63,6 +65,7 @@ public:
 
     boost::optional<QRect> updateRect;
     KisOpenGLCanvasRenderer *renderer;
+    QScopedPointer<KisOpenGLSync> glSyncObject;
 };
 
 KisOpenGLCanvas2::KisOpenGLCanvas2(KisCanvas2 *canvas,
@@ -169,6 +172,7 @@ bool KisOpenGLCanvas2::wrapAroundViewingMode() const
 void KisOpenGLCanvas2::initializeGL()
 {
     d->renderer->initializeGL();
+    KisOpenGLSync::init(context());
 }
 
 void KisOpenGLCanvas2::resizeGL(int width, int height)
@@ -186,6 +190,8 @@ void KisOpenGLCanvas2::paintGL()
     }
 
     d->renderer->paintGL(updateRect);
+
+    d->glSyncObject.reset(new KisOpenGLSync());
 
     if (!OPENGL_SUCCESS) {
         KisConfig cfg(false);
@@ -210,7 +216,9 @@ void KisOpenGLCanvas2::paintToolOutline(const QPainterPath &path)
 
 bool KisOpenGLCanvas2::isBusy() const
 {
-    return d->renderer->isBusy();
+    const bool isBusyStatus = d->glSyncObject && !d->glSyncObject->isSignaled();
+    KisOpenglCanvasDebugger::instance()->nofitySyncStatus(isBusyStatus);
+    return isBusyStatus;
 }
 
 void KisOpenGLCanvas2::setLodResetInProgress(bool value)
