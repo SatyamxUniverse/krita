@@ -51,9 +51,6 @@ protected:
     QWidget *widget() const override {
         return m_canvas;
     }
-    void drawDecorations(QPainter &gc, const QRect &updateWidgetRect) const override {
-        m_canvas->drawDecorations(gc, updateWidgetRect);
-    }
 };
 
 struct KisOpenGLCanvas2::Private
@@ -191,7 +188,20 @@ void KisOpenGLCanvas2::paintGL()
 
     KisOpenglCanvasDebugger::instance()->nofityPaintRequested();
     d->renderer->paintCanvasOnly(updateRect);
-    d->renderer->paintDecorations(updateRect);
+    {
+        QPainter gc(this);
+        if (!updateRect.isEmpty()) {
+            gc.setClipRect(updateRect);
+        }
+
+        QRect decorationsBoundingRect = coordinatesConverter()->imageRectInWidgetPixels().toAlignedRect();
+
+        if (!updateRect.isEmpty()) {
+            decorationsBoundingRect &= updateRect;
+        }
+
+        drawDecorations(gc, decorationsBoundingRect);
+    }
 
     d->glSyncObject.reset(new KisOpenGLSync());
 
