@@ -340,7 +340,9 @@ void KisQuickWidgetCanvas::paintGL()
     // We are going to sync and render the QtQuick scene immediately after
     // this too, so there is no point scheduling updates during paintGL.
     d->blockQuickSceneRenderRequest = true;
-    d->renderer->paintGL();
+    KisOpenglCanvasDebugger::instance()->nofityPaintRequested();
+    d->renderer->paintCanvasOnly();
+    d->renderer->paintDecorations();
     d->blockQuickSceneRenderRequest = false;
 
     d->offscreenQuickWindow->resetOpenGLState();
