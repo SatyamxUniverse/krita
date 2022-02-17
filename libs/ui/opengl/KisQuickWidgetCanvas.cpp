@@ -30,6 +30,20 @@
 
 static bool OPENGL_SUCCESS = false;
 
+/**
+ * The shared QQmlEngine to be used for the canvas. This should only be used
+ * when constructing the root component of the canvas. In other cases, get
+ * the engine directly via the root QQuickItem instead.
+ *
+ * TODO: Perhaps make this application-global.
+ */
+QQmlEngine *sharedQmlEngine()
+{
+    static QQmlEngine s_engine;
+    // TODO: Create a QQmlIncubationController for the engine.
+    return &s_engine;
+}
+
 class KisQuickWidgetCanvas::RenderControl : public QQuickRenderControl
 {
 public:
@@ -140,12 +154,7 @@ KisQuickWidgetCanvas::KisQuickWidgetCanvas(KisCanvas2 *canvas,
     d->offscreenQuickWindow->setClearBeforeRendering(false);
     d->offscreenQuickWindow->setPersistentOpenGLContext(true);
 
-    QQmlEngine *engine = new QQmlEngine(this);
-    if (!engine->incubationController()) {
-        engine->setIncubationController(d->offscreenQuickWindow->incubationController());
-    }
-
-    d->component = new QQmlComponent(engine, this);
+    d->component = new QQmlComponent(sharedQmlEngine(), this);
     connect(d->component, SIGNAL(statusChanged(QQmlComponent::Status)),
             SLOT(slotComponentStatusChanged()));
     d->component->loadUrl(QUrl("qrc:/kisqml/canvas/KisQuickWidgetCanvas.qml"));
