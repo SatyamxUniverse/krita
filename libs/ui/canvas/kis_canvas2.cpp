@@ -546,13 +546,12 @@ void KisCanvas2::createQPainterCanvas()
 static bool useQuickWidget()
 {
     static bool flag = []() {
-        QString canvas = qEnvironmentVariable("KIS_GLCANVAS", QStringLiteral("quick"));
+        QString canvas = qEnvironmentVariable("KIS_GLCANVAS", QStringLiteral("gl"));
         if (canvas == QLatin1String("quick")) {
             return true;
         }
         if (canvas != QLatin1String("gl")) {
             qWarning() << "Unknown value for KIS_GLCANVAS" << canvas << "(accepted: quick, gl)";
-            return true;
         }
         return false;
     }();
