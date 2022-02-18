@@ -6,16 +6,17 @@
 
 #include "KisCanvasDecorationPaintItem_p.h"
 
+#include "KisCanvasDecorationOpenGLRenderNode_p.h"
 #include "kis_canvas_decoration.h"
 #include "kis_canvas2.h"
 #include "kis_coordinates_converter.h"
 
 #include <QQmlProperty>
+#include <QSGRenderNode>
+#include <QSGRendererInterface>
+#include <QQuickWindow>
 
 class KisCanvas2;
-
-// FIXME: Remove the overhead of a QImage or FBO of QQuickPaintedItem by
-// implementing a custom QSGNode.
 
 class KisCanvasDecorationPaintItem::Private
 {
@@ -26,7 +27,7 @@ class KisCanvasDecorationPaintItem::Private
 };
 
 KisCanvasDecorationPaintItem::KisCanvasDecorationPaintItem(KisCanvasDecoration *decoration)
-    : QQuickPaintedItem()
+    : QQuickItem()
     , d(new Private)
 {
     setParent(decoration);
@@ -37,7 +38,8 @@ KisCanvasDecorationPaintItem::KisCanvasDecorationPaintItem(KisCanvasDecoration *
     setObjectName(QStringLiteral("PaintItem/") + decoName);
 
     d->decoration = decoration;
-    setRenderTarget(FramebufferObject);
+    setFlag(ItemHasContents);
+    // setRenderTarget(FramebufferObject);
 }
 
 KisCanvasDecorationPaintItem::~KisCanvasDecorationPaintItem()
@@ -45,17 +47,43 @@ KisCanvasDecorationPaintItem::~KisCanvasDecorationPaintItem()
     delete d;
 }
 
-void KisCanvasDecorationPaintItem::paint(QPainter *painter)
+QSGNode *KisCanvasDecorationPaintItem::updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *updatePaintNodeData)
 {
-    if (!d->canvas) {
-        return;
+    Q_UNUSED(updatePaintNodeData)
+
+    QSGRenderNode *node = static_cast<QSGRenderNode *>(oldNode);
+
+    QSGRendererInterface *ri = window()->rendererInterface();
+    if (!ri)
+        return nullptr;
+
+    switch (ri->graphicsApi()) {
+    case QSGRendererInterface::OpenGL:
+        if (!node) {
+            node = new KisCanvasDecorationOpenGLRenderNode(d->decoration);
+        }
+        static_cast<KisCanvasDecorationOpenGLRenderNode *>(node)->sync(this, d->canvas);
+        break;
+    case QSGRendererInterface::Software:
+        {
+            static auto once = []() {
+                qWarning() << "KisCanvasDecorationPaintItem: Does not yet support the Qt Quick software adaptation";
+                return true;
+            }();
+            Q_UNUSED(once)
+        }
+        break;
+    default:
+        {
+            static auto once = [ri]() {
+                qWarning() << "KisCanvasDecorationPaintItem: Unsupported render interface" << ri->graphicsApi();
+                return true;
+            }();
+            Q_UNUSED(once)
+        }
+        break;
     }
-    if (!isVisible()) {
-        return;
-    }
-    auto coordinatesConverter = d->canvas->coordinatesConverter();
-    QRectF docRect(coordinatesConverter->widgetToDocument(QRectF(QPointF(), size())));
-    d->decoration->paint(*painter, docRect, coordinatesConverter, d->canvas);
+    return node;
 }
 
 void KisCanvasDecorationPaintItem::setAnchorsFill(QQuickItem *item)

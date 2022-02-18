@@ -7,14 +7,14 @@
 #ifndef KIS_CANVAS_DECORATION_PAINT_ITEM_P_H
 #define KIS_CANVAS_DECORATION_PAINT_ITEM_P_H
 
-#include <QQuickPaintedItem>
+#include <QQuickItem>
 
 class KisCanvasDecoration;
 class KisCoordinatesConverter;
 class KisCanvas2;
 
 class KisCanvasDecorationPaintItem
-    : public QQuickPaintedItem
+    : public QQuickItem
 {
     Q_OBJECT
     Q_DISABLE_COPY(KisCanvasDecorationPaintItem)
@@ -26,7 +26,7 @@ public:
     KisCanvasDecorationPaintItem(KisCanvasDecoration *decoration);
     ~KisCanvasDecorationPaintItem() override;
 
-    void paint(QPainter *painter) override;
+    QSGNode *updatePaintNode(QSGNode *oldNode, UpdatePaintNodeData *updatePaintNodeData) override;
 
     void setCanvas(KisCanvas2 *canvas);
 

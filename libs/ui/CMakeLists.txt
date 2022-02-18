@@ -53,6 +53,7 @@ set(kritaui_LIB_SRCS
     canvas/KisSnapPixelStrategy.cpp
     canvas/KisMirrorAxisConfig.cpp
     canvas/KisCanvasDecorationPaintItem.cpp
+    canvas/KisCanvasDecorationOpenGLRenderNode.cpp
 
     dialogs/kis_about_application.cpp
     dialogs/kis_dlg_adj_layer_props.cc
