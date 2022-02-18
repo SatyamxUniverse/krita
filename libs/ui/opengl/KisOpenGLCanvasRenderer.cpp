@@ -373,7 +373,7 @@ void KisOpenGLCanvasRenderer::resizeGL(int width, int height)
     coordinatesConverter()->setCanvasWidgetSize(widgetSizeAlignedToDevicePixel());
 }
 
-void KisOpenGLCanvasRenderer::paintCanvasOnly(const QRect &updateRect)
+void KisOpenGLCanvasRenderer::paintCanvasOnly(const QRect &updateRect, bool blitFullFBO)
 {
     if (d->canvasFBO) {
         d->canvasFBO->bind();
@@ -384,7 +384,7 @@ void KisOpenGLCanvasRenderer::paintCanvasOnly(const QRect &updateRect)
     if (d->canvasFBO) {
         d->canvasFBO->release();
         QRect blitRect;
-        if (updateRect.isEmpty()) {
+        if (updateRect.isEmpty() || blitFullFBO) {
             blitRect = QRect(QPoint(), d->viewportDevicePixelSize);
         } else {
             const QTransform scale = QTransform::fromScale(1.0, -1.0) * QTransform::fromTranslate(0, d->viewportWidgetSize.height()) * QTransform::fromScale(devicePixelRatioF(), devicePixelRatioF());

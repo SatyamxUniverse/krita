@@ -82,6 +82,7 @@ public:
     KisQuickWidgetCanvas *const q;
     KisOpenGLCanvasRenderer *renderer {nullptr};
     QScopedPointer<KisOpenGLSync> glSyncObject;
+    boost::optional<QRect> updateRect;
 
     RenderControl *renderControl;
     QQuickWindow *offscreenQuickWindow;
@@ -179,6 +180,7 @@ KisQuickWidgetCanvas::KisQuickWidgetCanvas(KisCanvas2 *canvas,
 #endif
     setAttribute(Qt::WA_InputMethodEnabled, false);
     setAttribute(Qt::WA_DontCreateNativeAncestors, true);
+    setUpdateBehavior(PartialUpdate);
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
     // we should make sure the texture doesn't have alpha channel,
@@ -334,6 +336,8 @@ void KisQuickWidgetCanvas::resizeGL(int width, int height)
 
 void KisQuickWidgetCanvas::paintGL()
 {
+    const QRect updateRect = d->updateRect ? *d->updateRect : QRect();
+
     if (!OPENGL_SUCCESS) {
         KisConfig cfg(false);
         cfg.writeEntry("canvasState", "OPENGL_PAINT_STARTED");
@@ -350,7 +354,7 @@ void KisQuickWidgetCanvas::paintGL()
     // this too, so there is no point scheduling updates during paintGL.
     d->blockQuickSceneRenderRequest = true;
     KisOpenglCanvasDebugger::instance()->nofityPaintRequested();
-    d->renderer->paintCanvasOnly();
+    d->renderer->paintCanvasOnly(updateRect, true);
     {
         QPainter gc(this);
         setDrawDecorationsMask(Shapes);
@@ -387,13 +391,13 @@ void KisQuickWidgetCanvas::paintGL()
 
 void KisQuickWidgetCanvas::paintEvent(QPaintEvent *e)
 {
-    // KIS_SAFE_ASSERT_RECOVER_RETURN(!d->updateRect);
+    KIS_SAFE_ASSERT_RECOVER_RETURN(!d->updateRect);
 
-    // TODO: I don't think we can even do partial painting with this stack...
-    // We probably need a different way to track dirty regions.
-    // d->updateRect = e->rect();
+    // TODO: Track the modified image rect instead. This should be decoupled
+    //       from the QWidget hierarchy.
+    d->updateRect = e->rect();
     QOpenGLWidget::paintEvent(e);
-    // d->updateRect = boost::none;
+    d->updateRect = boost::none;
 }
 
 void KisQuickWidgetCanvas::resizeEvent(QResizeEvent *e)
