@@ -1,10 +1,13 @@
 /*
  *  SPDX-FileCopyrightText: 2015 Dmitry Kazakov <dimula73@gmail.com>
+ *  SPDX-FileCopyrightText: 2018 Bernhard Liebl <poke1024@gmx.de>
+ *  SPDX-FileCopyrightText: 2022 Alvin Wong <alvin@alvinhc.com>
  *
  *  SPDX-License-Identifier: GPL-2.0-or-later
  */
 
 #include "kis_fps_decoration.h"
+#include "kis_fps_decoration_p.h"
 
 #include <QApplication>
 #include <QPainter>
@@ -15,6 +18,10 @@
 #include <QGraphicsScene>
 #include <QGraphicsPixmapItem>
 #include <QGraphicsDropShadowEffect>
+#include <QQuickItem>
+#include <QQmlEngine>
+#include <QQmlComponent>
+#include <QQmlProperty>
 
 const QString KisFpsDecoration::idTag = "fps_decoration";
 
@@ -37,6 +44,9 @@ KisFpsDecoration::KisFpsDecoration(QPointer<KisView> view)
 
 KisFpsDecoration::~KisFpsDecoration()
 {
+    // Delete quickItem before data to prevent TypeError messages
+    delete m_quickItem;
+    delete m_data;
 }
 
 void KisFpsDecoration::drawDecoration(QPainter& gc, const QRectF& /*updateRect*/, const KisCoordinatesConverter */*converter*/, KisCanvas2* /*canvas*/)
@@ -122,4 +132,74 @@ QString KisFpsDecoration::getText() const
     }
 
     return lines.join('\n');
+}
+
+QQuickItem *KisFpsDecoration::initOrGetQuickItem(QQmlEngine *engine)
+{
+    if (m_quickItem) {
+        return m_quickItem;
+    }
+
+    static bool registerOnce = []() {
+        qmlRegisterUncreatableType<KisFpsDecorationData>(
+                "org.krita.ui", 1, 0,"KisFpsDecorationData",
+                QStringLiteral("Uncreatable"));
+        return true;
+    }();
+    Q_UNUSED(registerOnce)
+
+    QQmlComponent component(engine, QUrl("qrc:/kisqml/canvas/decorations/KisFpsDecoration.qml"), QQmlComponent::PreferSynchronous);
+    QObject *qmlObject = component.beginCreate(engine->rootContext());
+    if (!qmlObject) {
+        qWarning() << "KisFpsDecoration: Failed to create QML component";
+        Q_FOREACH(const QQmlError &error, component.errors()) {
+            qWarning() << "KisFpsDecoration:" << error.url() << error.line() << error;
+        }
+        return nullptr;
+    }
+    m_quickItem = qobject_cast<QQuickItem *>(qmlObject);
+    if (!m_quickItem) {
+        qWarning() << "KisFpsDecoration: Created QML component is not QQuickItem!";
+        delete qmlObject;
+        return nullptr;
+    }
+    m_data = new KisFpsDecorationData(this);
+    m_quickItem->setProperty("d", QVariant::fromValue(m_data));
+    component.completeCreate();
+
+    m_quickItem->setParent(this);
+    return m_quickItem;
+}
+
+QQuickItem *KisFpsDecoration::quickItem() const
+{
+    return m_quickItem;
+}
+
+void KisFpsDecoration::updateQuickItem()
+{
+    if (!m_quickItem) {
+        return;
+    }
+
+    if (KisOpenglCanvasDebugger::instance()->showFpsOnCanvas()) {
+        m_data->setShowFps(true);
+        m_data->setFps(KisOpenglCanvasDebugger::instance()->accumulatedFps());
+    } else {
+        m_data->setShowFps(false);
+    }
+
+    KisStrokeSpeedMonitor *monitor = KisStrokeSpeedMonitor::instance();
+    if (monitor->haveStrokeSpeedMeasurement()) {
+        m_data->setShowStrokeSpeed(true);
+        m_data->setLastCursorSpeed(monitor->lastCursorSpeed());
+        m_data->setLastRenderingSpeed(monitor->lastRenderingSpeed());
+        m_data->setLastStrokeSaturated(monitor->lastStrokeSaturated());
+        m_data->setLastFps(monitor->lastFps());
+        m_data->setAvgCursorSpeed(monitor->avgCursorSpeed());
+        m_data->setAvgRenderingSpeed(monitor->avgRenderingSpeed());
+        m_data->setAvgFps(monitor->avgFps());
+    } else {
+        m_data->setShowStrokeSpeed(false);
+    }
 }
