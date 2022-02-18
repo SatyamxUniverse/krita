@@ -329,6 +329,8 @@ void KisQuickWidgetCanvas::paintGL()
         cfg.writeEntry("canvasState", "OPENGL_PAINT_STARTED");
     }
 
+    QRect decorationsBoundingRect = coordinatesConverter()->imageRectInWidgetPixels().toAlignedRect();
+
     // In case the QtQuick Scene requested updates from changes inside paintGL,
     // don't call KisCanvas2::updateCanvas because that will schedule another
     // update in the future. If it updates things like canvas FPS, calling
@@ -341,16 +343,7 @@ void KisQuickWidgetCanvas::paintGL()
     d->renderer->paintCanvasOnly();
     {
         QPainter gc(this);
-        // if (!updateRect.isEmpty()) {
-        //     gc.setClipRect(updateRect);
-        // }
-
-        QRect decorationsBoundingRect = coordinatesConverter()->imageRectInWidgetPixels().toAlignedRect();
-
-        // if (!updateRect.isEmpty()) {
-        //     decorationsBoundingRect &= updateRect;
-        // }
-
+        setDrawDecorationsMask(static_cast<DecorationsMaskFlag>(Shapes | CanvasDecorations));
         drawDecorations(gc, decorationsBoundingRect);
     }
     d->blockQuickSceneRenderRequest = false;
@@ -363,6 +356,12 @@ void KisQuickWidgetCanvas::paintGL()
         d->renderControl->sync();
     }
     d->renderControl->render();
+
+    {
+        QPainter gc(this);
+        setDrawDecorationsMask(ToolOutline);
+        drawDecorations(gc, decorationsBoundingRect);
+    }
 
     d->glSyncObject.reset(new KisOpenGLSync());
 

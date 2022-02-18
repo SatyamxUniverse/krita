@@ -52,6 +52,8 @@ public:
 
     bool ignorenextMouseEventExceptRightMiddleClick; // HACK work around Qt bug not sending tablet right/dblclick https://bugreports.qt.io/browse/QTBUG-8598
     QColor borderColor;
+
+    DecorationsMaskFlag drawDecorationsMask {DecorationsMaskAll};
 };
 
 KisCanvasWidgetBase::KisCanvasWidgetBase(KisCanvas2 * canvas, KisCoordinatesConverter *coordinatesConverter)
@@ -92,7 +94,7 @@ void KisCanvasWidgetBase::drawDecorations(QPainter & gc, const QRect &updateWidg
 
     gc.setRenderHint(QPainter::SmoothPixmapTransform);
 
-    {
+    if (m_d->drawDecorationsMask & Shapes) {
         KisQPainterStateSaver paintShapesState(&gc);
         gc.setTransform(m_d->coordinatesConverter->documentToWidgetTransform());
 
@@ -101,15 +103,17 @@ void KisCanvasWidgetBase::drawDecorations(QPainter & gc, const QRect &updateWidg
 
     }
 
-    // ask the decorations to paint themselves
-    // decorations are painted in "widget" coordinate system
-    Q_FOREACH (KisCanvasDecorationSP deco, m_d->decorations) {
-        if (deco->visible()) {
-            deco->paint(gc, m_d->coordinatesConverter->widgetToDocument(updateWidgetRect), m_d->coordinatesConverter,m_d->canvas);
+    if (m_d->drawDecorationsMask & CanvasDecorations) {
+        // ask the decorations to paint themselves
+        // decorations are painted in "widget" coordinate system
+        Q_FOREACH (KisCanvasDecorationSP deco, m_d->decorations) {
+            if (deco->visible()) {
+                deco->paint(gc, m_d->coordinatesConverter->widgetToDocument(updateWidgetRect), m_d->coordinatesConverter,m_d->canvas);
+            }
         }
     }
 
-    {
+    if (m_d->drawDecorationsMask & ToolOutline) {
         KisQPainterStateSaver paintDecorationsState(&gc);
         gc.setTransform(m_d->coordinatesConverter->flakeToWidgetTransform());
 
@@ -231,4 +235,9 @@ QVariant KisCanvasWidgetBase::processInputMethodQuery(Qt::InputMethodQuery query
 void KisCanvasWidgetBase::processInputMethodEvent(QInputMethodEvent *event)
 {
     m_d->toolProxy->inputMethodEvent(event);
+}
+
+void KisCanvasWidgetBase::setDrawDecorationsMask(DecorationsMaskFlag mask)
+{
+    m_d->drawDecorationsMask = mask;
 }
