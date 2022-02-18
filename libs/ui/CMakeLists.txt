@@ -52,6 +52,7 @@ set(kritaui_LIB_SRCS
     canvas/KisSnapPointStrategy.cpp
     canvas/KisSnapPixelStrategy.cpp
     canvas/KisMirrorAxisConfig.cpp
+    canvas/KisCanvasDecorationPaintItem.cpp
 
     dialogs/kis_about_application.cpp
     dialogs/kis_dlg_adj_layer_props.cc

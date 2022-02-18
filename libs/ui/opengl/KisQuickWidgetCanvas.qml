@@ -47,4 +47,9 @@ Screen height: ${Screen.height}
 Screen dpr: ${Screen.devicePixelRatio}`
         }
     }
+
+    Item {
+        objectName: "canvasDecorationsContainer"
+        anchors.fill: root
+    }
 }

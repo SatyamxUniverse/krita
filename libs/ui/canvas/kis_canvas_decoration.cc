@@ -5,14 +5,18 @@
  */
 
 #include "kis_canvas_decoration.h"
+#include "KisCanvasDecorationPaintItem_p.h"
 #include "kis_canvas2.h"
 #include "kis_debug.h"
+
+#include <QQmlEngine>
 
 struct KisCanvasDecoration::Private {
     bool visible;
     QPointer<KisView> view;
     QString id;
     int priority = 0;
+    KisCanvasDecorationPaintItem *paintQuickItem {nullptr};
 };
 
 KisCanvasDecoration::KisCanvasDecoration(const QString& id, QPointer<KisView>parent)
@@ -42,7 +46,13 @@ const QString& KisCanvasDecoration::id() const
 
 void KisCanvasDecoration::setVisible(bool v)
 {
+    if (d->visible == v) {
+        return;
+    }
     d->visible = v;
+    if (quickItem()) {
+        quickItem()->setVisible(v);
+    }
     if (d->view &&
             d->view->canvasBase()) {
 
@@ -69,6 +79,36 @@ void KisCanvasDecoration::paint(QPainter& gc, const QRectF& updateArea, const Ki
     }
 
     drawDecoration(gc, updateArea, converter,canvas);
+}
+
+QQuickItem *KisCanvasDecoration::initOrGetQuickItem(QQmlEngine *engine)
+{
+    if (d->paintQuickItem) {
+        return d->paintQuickItem;
+    }
+
+    d->paintQuickItem = new KisCanvasDecorationPaintItem(this);
+    engine->setContextForObject(d->paintQuickItem, engine->rootContext());
+    connect(d->paintQuickItem, &KisCanvasDecorationPaintItem::parentChanged,
+            d->paintQuickItem, &KisCanvasDecorationPaintItem::setAnchorsFill);
+    d->paintQuickItem->setVisible(d->visible);
+    return d->paintQuickItem;
+}
+
+QQuickItem *KisCanvasDecoration::quickItem() const
+{
+    return d->paintQuickItem;
+}
+
+void KisCanvasDecoration::updateQuickItem()
+{
+    if (!d->paintQuickItem) {
+        return;
+    }
+    d->paintQuickItem->setCanvas(d->view ? d->view->canvasBase() : nullptr);
+    if (d->paintQuickItem->isVisible()) {
+        d->paintQuickItem->update();
+    }
 }
 
 int KisCanvasDecoration::priority() const

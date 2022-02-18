@@ -68,7 +68,8 @@ struct KisQuickWidgetCanvas::Private
 {
 public:
     Private(KisQuickWidgetCanvas *parent)
-        : screenChangeNotifier(parent)
+        : q(parent)
+        , screenChangeNotifier(parent)
     {}
     ~Private() {
         delete rootItem;
@@ -78,6 +79,7 @@ public:
         delete renderer;
     }
 
+    KisQuickWidgetCanvas *const q;
     KisOpenGLCanvasRenderer *renderer {nullptr};
     QScopedPointer<KisOpenGLSync> glSyncObject;
 
@@ -85,10 +87,13 @@ public:
     QQuickWindow *offscreenQuickWindow;
     QQmlComponent *component;
     QQuickItem *rootItem {nullptr};
+    QQuickItem *decorationsContainer {nullptr};
     bool quickSceneUpdatePending {true};
     bool blockQuickSceneRenderRequest {false};
 
     KisWidgetScreenChangeNotifier screenChangeNotifier;
+
+    void readdSceneDecorations();
 };
 
 class KisQuickWidgetCanvas::CanvasBridge
@@ -154,7 +159,7 @@ KisQuickWidgetCanvas::KisQuickWidgetCanvas(KisCanvas2 *canvas,
     d->component = new QQmlComponent(sharedQmlEngine(), this);
     connect(d->component, SIGNAL(statusChanged(QQmlComponent::Status)),
             SLOT(slotComponentStatusChanged()));
-    d->component->loadUrl(QUrl("qrc:/kisqml/canvas/KisQuickWidgetCanvas.qml"));
+    d->component->loadUrl(QUrl("qrc:/kisqml/canvas/KisQuickWidgetCanvas.qml"), QQmlComponent::PreferSynchronous);
 
     d->renderer = new KisOpenGLCanvasRenderer(new CanvasBridge(this), image, colorConverter);
 
@@ -254,6 +259,11 @@ void KisQuickWidgetCanvas::slotComponentStatusChanged()
     d->rootItem->setParentItem(d->offscreenQuickWindow->contentItem());
     disconnect(d->component, SIGNAL(statusChanged(QQmlComponent::Status)),
                this, SLOT(slotComponentStatusChanged()));
+
+    d->decorationsContainer = d->rootItem->findChild<QQuickItem *>(QLatin1String("canvasDecorationsContainer"));
+    if (!d->decorationsContainer) {
+        qWarning() << "KisQuickWidgetCanvas: Failed to get canvasDecorationsContainer.";
+    }
 }
 
 void KisQuickWidgetCanvas::slotRenderRequested()
@@ -343,8 +353,11 @@ void KisQuickWidgetCanvas::paintGL()
     d->renderer->paintCanvasOnly();
     {
         QPainter gc(this);
-        setDrawDecorationsMask(static_cast<DecorationsMaskFlag>(Shapes | CanvasDecorations));
+        setDrawDecorationsMask(Shapes);
         drawDecorations(gc, decorationsBoundingRect);
+    }
+    Q_FOREACH(KisCanvasDecorationSP deco, decorations()) {
+        deco->updateQuickItem();
     }
     d->blockQuickSceneRenderRequest = false;
 
@@ -498,6 +511,60 @@ QVector<QRect> KisQuickWidgetCanvas::updateCanvasProjection(const QVector<KisUpd
 bool KisQuickWidgetCanvas::callFocusNextPrevChild(bool next)
 {
     return focusNextPrevChild(next);
+}
+
+void KisQuickWidgetCanvas::addDecoration(KisCanvasDecorationSP deco)
+{
+    KisCanvasWidgetBase::addDecoration(deco);
+    d->readdSceneDecorations();
+}
+
+void KisQuickWidgetCanvas::removeDecoration(const QString& id)
+{
+    KisCanvasWidgetBase::removeDecoration(id);
+    d->readdSceneDecorations();
+}
+
+void KisQuickWidgetCanvas::setDecorations(const QList<KisCanvasDecorationSP > &decorations)
+{
+    KisCanvasWidgetBase::setDecorations(decorations);
+    d->readdSceneDecorations();
+}
+
+void KisQuickWidgetCanvas::Private::readdSceneDecorations()
+{
+    if (!decorationsContainer) {
+        return;
+    }
+    QQmlEngine *engine = qmlEngine(rootItem);
+    QVector<QQuickItem *> decoItems;
+    Q_FOREACH(KisCanvasDecorationSP deco, q->decorations()) {
+        QQuickItem *item = deco->initOrGetQuickItem(engine);
+        if (item) {
+            decoItems.append(item);
+        } else {
+            QString name(deco->objectName());
+            if (name.isEmpty()) {
+                name = deco->metaObject()->className();
+            }
+            static QSet<QString> loggedDecos;
+            if (!loggedDecos.contains(name)) {
+                qWarning() << "Decoration" << name << item << "did not return a QQuickItem!";
+                loggedDecos.insert(name);
+            }
+        }
+    }
+    Q_FOREACH(QQuickItem *item, decorationsContainer->childItems()) {
+        if (!decoItems.contains(item)) {
+            item->setParentItem(nullptr);
+        }
+    }
+    Q_FOREACH(QQuickItem *item, decoItems) {
+        item->setParentItem(decorationsContainer);
+    }
+    for (int i = 1; i < decoItems.size(); i++) {
+        decoItems[i]->stackAfter(decoItems[i - 1]);
+    }
 }
 
 KisOpenGLImageTexturesSP KisQuickWidgetCanvas::openGLImageTextures() const

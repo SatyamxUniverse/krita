@@ -94,6 +94,9 @@ private Q_SLOTS:
 
 protected: // KisCanvasWidgetBase
     bool callFocusNextPrevChild(bool next) override;
+    void addDecoration(KisCanvasDecorationSP deco) override;
+    void removeDecoration(const QString& id) override;
+    void setDecorations(const QList<KisCanvasDecorationSP > &) override;
 
 private:
     struct Private;
