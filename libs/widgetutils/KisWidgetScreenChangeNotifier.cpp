@@ -85,10 +85,10 @@ void KisWidgetScreenChangeNotifier::setWindow(QWidget *windowWidget)
         disconnect(d->lastWindow, &QWindow::screenChanged,
                    this, &KisWidgetScreenChangeNotifier::slotWindowScreenChanged);
     }
-    if (!newWindow && windowWidget->isWindow()) {
-        // We need the QWindow, so use winId() to force it to be created.
-        windowWidget->winId();
-        newWindow = windowWidget->windowHandle();
+    if (!newWindow) {
+        // The native window hasn't been created yet... It should be created
+        // when the widget is shown, so install an event filter to catch that.
+        d->widget->installEventFilter(this);
     }
     d->lastWindow = newWindow;
     if (newWindow) {
@@ -102,6 +102,19 @@ void KisWidgetScreenChangeNotifier::setWindow(QWidget *windowWidget)
     }
     // If newWindow is nullptr, we do not change lastScreen. This is
     // intentional. We also don't want to emit `screenChanged(nullptr)`.
+}
+
+bool KisWidgetScreenChangeNotifier::eventFilter(QObject *watched, QEvent *event)
+{
+    if (watched != d->widget) {
+        // ???
+        return false;
+    }
+    if (event->type() == QEvent::Show) {
+        d->widget->removeEventFilter(this);
+        setWindow(d->widget->window());
+    }
+    return false;
 }
 
 void KisWidgetScreenChangeNotifier::slotWindowScreenChanged(QScreen *screen)

@@ -51,6 +51,7 @@ Q_SIGNALS:
 
 private:
     void setWindow(QWidget *);
+    bool eventFilter(QObject *watched, QEvent *event) override;
 
 private Q_SLOTS:
     void slotWidgetDestroyed();
