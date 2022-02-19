@@ -283,7 +283,7 @@ void KisQuickWidgetCanvas::slotRenderRequested()
     if (d->blockQuickSceneRenderRequest) {
         return;
     }
-    canvas()->updateCanvas();
+    canvas()->updateCanvasScene();
 }
 
 void KisQuickWidgetCanvas::slotSceneChanged()
@@ -295,7 +295,7 @@ void KisQuickWidgetCanvas::slotSceneChanged()
     if (d->blockQuickSceneRenderRequest) {
         return;
     }
-    canvas()->updateCanvas();
+    canvas()->updateCanvasScene();
 }
 
 void KisQuickWidgetCanvas::slotScreenChanged(QScreen *screen)
