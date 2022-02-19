@@ -16,6 +16,7 @@
 #include "kis_config.h"
 #include "kis_config_notifier.h"
 #include "kis_debug.h"
+#include "KisRepaintDebugger.h"
 
 #include <QPointer>
 #include "KisOpenGLModeProber.h"
@@ -63,6 +64,7 @@ public:
     boost::optional<QRect> updateRect;
     KisOpenGLCanvasRenderer *renderer;
     QScopedPointer<KisOpenGLSync> glSyncObject;
+    KisRepaintDebugger repaintDbg;
 };
 
 KisOpenGLCanvas2::KisOpenGLCanvas2(KisCanvas2 *canvas,
@@ -202,6 +204,8 @@ void KisOpenGLCanvas2::paintGL()
 
         drawDecorations(gc, decorationsBoundingRect);
     }
+
+    d->repaintDbg.paint(this, updateRect.isEmpty() ? rect() : updateRect);
 
     d->glSyncObject.reset(new KisOpenGLSync());
 

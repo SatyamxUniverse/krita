@@ -18,6 +18,7 @@
 #include "kis_config_notifier.h"
 #include "kis_debug.h"
 #include "KisWidgetScreenChangeNotifier.h"
+#include "KisRepaintDebugger.h"
 
 #include <QPointer>
 #include "KisOpenGLModeProber.h"
@@ -83,6 +84,7 @@ public:
     KisOpenGLCanvasRenderer *renderer {nullptr};
     QScopedPointer<KisOpenGLSync> glSyncObject;
     boost::optional<QRect> updateRect;
+    KisRepaintDebugger repaintDbg;
 
     RenderControl *renderControl;
     QQuickWindow *offscreenQuickWindow;
@@ -379,6 +381,8 @@ void KisQuickWidgetCanvas::paintGL()
         setDrawDecorationsMask(ToolOutline);
         drawDecorations(gc, decorationsBoundingRect);
     }
+
+    d->repaintDbg.paint(this, updateRect.isEmpty() ? rect() : updateRect);
 
     d->glSyncObject.reset(new KisOpenGLSync());
 

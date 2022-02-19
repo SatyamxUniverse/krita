@@ -43,6 +43,7 @@ set(kritawidgetutils_LIB_SRCS
     KisRecentFilesManager.cpp
     KisTopLevelWidgetChangeNotifier.cpp
     KisWidgetScreenChangeNotifier.cpp
+    KisRepaintDebugger.cpp
 
     config/kcolorscheme.cpp
     config/kcolorschememanager.cpp
