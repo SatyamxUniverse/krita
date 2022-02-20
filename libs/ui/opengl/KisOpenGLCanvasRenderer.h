@@ -58,7 +58,7 @@ public:
     /**
      * Paint only the canvas background and image tiles.
      */
-    void paintCanvasOnly(const QRect &updateRect = QRect(), bool blitFullFBO = false);
+    void paintCanvasOnly(const QRect &canvasUpdateRect, const QRect &viewportUpdateRect = QRect());
 
 private:
     void renderCanvasGL(const QRect &updateRect);

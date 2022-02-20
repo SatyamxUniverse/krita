@@ -83,7 +83,7 @@ public:
     KisQuickWidgetCanvas *const q;
     KisOpenGLCanvasRenderer *renderer {nullptr};
     QScopedPointer<KisOpenGLSync> glSyncObject;
-    boost::optional<QRect> updateRect;
+    QRect canvasUpdateRect;
     KisRepaintDebugger repaintDbg;
 
     RenderControl *renderControl;
@@ -182,7 +182,6 @@ KisQuickWidgetCanvas::KisQuickWidgetCanvas(KisCanvas2 *canvas,
 #endif
     setAttribute(Qt::WA_InputMethodEnabled, false);
     setAttribute(Qt::WA_DontCreateNativeAncestors, true);
-    setUpdateBehavior(PartialUpdate);
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 10, 0)
     // we should make sure the texture doesn't have alpha channel,
@@ -334,12 +333,11 @@ void KisQuickWidgetCanvas::initializeGL()
 void KisQuickWidgetCanvas::resizeGL(int width, int height)
 {
     d->renderer->resizeGL(width, height);
+    d->canvasUpdateRect = QRect(0, 0, width, height);
 }
 
 void KisQuickWidgetCanvas::paintGL()
 {
-    const QRect updateRect = d->updateRect ? *d->updateRect : QRect();
-
     if (!OPENGL_SUCCESS) {
         KisConfig cfg(false);
         cfg.writeEntry("canvasState", "OPENGL_PAINT_STARTED");
@@ -356,7 +354,9 @@ void KisQuickWidgetCanvas::paintGL()
     // this too, so there is no point scheduling updates during paintGL.
     d->blockQuickSceneRenderRequest = true;
     KisOpenglCanvasDebugger::instance()->nofityPaintRequested();
-    d->renderer->paintCanvasOnly(updateRect, true);
+    QRect canvasUpdateRect = d->canvasUpdateRect;
+    d->canvasUpdateRect = QRect();
+    d->renderer->paintCanvasOnly(canvasUpdateRect);
     {
         QPainter gc(this);
         setDrawDecorationsMask(Shapes);
@@ -382,7 +382,7 @@ void KisQuickWidgetCanvas::paintGL()
         drawDecorations(gc, decorationsBoundingRect);
     }
 
-    d->repaintDbg.paint(this, updateRect.isEmpty() ? rect() : updateRect);
+    d->repaintDbg.paint(this, canvasUpdateRect);
 
     d->glSyncObject.reset(new KisOpenGLSync());
 
@@ -391,17 +391,6 @@ void KisQuickWidgetCanvas::paintGL()
         cfg.writeEntry("canvasState", "OPENGL_SUCCESS");
         OPENGL_SUCCESS = true;
     }
-}
-
-void KisQuickWidgetCanvas::paintEvent(QPaintEvent *e)
-{
-    KIS_SAFE_ASSERT_RECOVER_RETURN(!d->updateRect);
-
-    // TODO: Track the modified image rect instead. This should be decoupled
-    //       from the QWidget hierarchy.
-    d->updateRect = e->rect();
-    QOpenGLWidget::paintEvent(e);
-    d->updateRect = boost::none;
 }
 
 void KisQuickWidgetCanvas::resizeEvent(QResizeEvent *e)
@@ -517,6 +506,11 @@ QVector<QRect> KisQuickWidgetCanvas::updateCanvasProjection(const QVector<KisUpd
 #endif
 
     return result;
+}
+
+void KisQuickWidgetCanvas::addCanvasUpdateRect(const QRect &rect)
+{
+    d->canvasUpdateRect |= rect;
 }
 
 bool KisQuickWidgetCanvas::callFocusNextPrevChild(bool next)

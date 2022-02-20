@@ -62,6 +62,7 @@ public:
     }
 
     boost::optional<QRect> updateRect;
+    QRect canvasUpdateRect;
     KisOpenGLCanvasRenderer *renderer;
     QScopedPointer<KisOpenGLSync> glSyncObject;
     KisRepaintDebugger repaintDbg;
@@ -177,6 +178,7 @@ void KisOpenGLCanvas2::initializeGL()
 void KisOpenGLCanvas2::resizeGL(int width, int height)
 {
     d->renderer->resizeGL(width, height);
+    d->canvasUpdateRect = QRect(0, 0, width, height);
 }
 
 void KisOpenGLCanvas2::paintGL()
@@ -189,7 +191,9 @@ void KisOpenGLCanvas2::paintGL()
     }
 
     KisOpenglCanvasDebugger::instance()->nofityPaintRequested();
-    d->renderer->paintCanvasOnly(updateRect);
+    QRect canvasUpdateRect = d->canvasUpdateRect;
+    d->canvasUpdateRect = QRect();
+    d->renderer->paintCanvasOnly(canvasUpdateRect, updateRect);
     {
         QPainter gc(this);
         if (!updateRect.isEmpty()) {
@@ -325,6 +329,11 @@ QVector<QRect> KisOpenGLCanvas2::updateCanvasProjection(const QVector<KisUpdateI
 #endif
 
     return result;
+}
+
+void KisOpenGLCanvas2::addCanvasUpdateRect(const QRect &rect)
+{
+    d->canvasUpdateRect |= rect;
 }
 
 bool KisOpenGLCanvas2::callFocusNextPrevChild(bool next)

@@ -52,7 +52,6 @@ public: // QOpenGLWidget
     void paintGL() override;
 
 public: // QWidget
-    void paintEvent(QPaintEvent *e) override;
     void resizeEvent(QResizeEvent *e) override;
 
     QVariant inputMethodQuery(Qt::InputMethodQuery query) const override;
@@ -75,6 +74,7 @@ public: // Implement kis_abstract_canvas_widget interface
     KisUpdateInfoSP startUpdateCanvasProjection(const QRect & rc, const QBitArray &channelFlags) override;
     QRect updateCanvasProjection(KisUpdateInfoSP info) override;
     QVector<QRect> updateCanvasProjection(const QVector<KisUpdateInfoSP> &infoObjects) override;
+    void addCanvasUpdateRect(const QRect &rect) override;
 
     QWidget *widget() override {
         return this;
