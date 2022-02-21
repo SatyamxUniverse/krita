@@ -408,10 +408,7 @@ void KisQuickWidgetCanvas::paintGL()
 void KisQuickWidgetCanvas::resizeEvent(QResizeEvent *e)
 {
     if (d->rootItem) {
-        QSize viewportSize = size() * devicePixelRatioF();
-        qreal scaledWidth = viewportSize.width() / devicePixelRatioF();
-        qreal scaledHeight = viewportSize.height() / devicePixelRatioF();
-        d->rootItem->setSize(QSizeF(scaledWidth, scaledHeight));
+        d->rootItem->setSize(QSizeF(size()));
     }
     d->offscreenQuickWindow->resize(size());
 
