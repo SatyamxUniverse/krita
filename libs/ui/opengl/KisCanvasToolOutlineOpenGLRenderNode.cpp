@@ -8,6 +8,7 @@
 
 #include <kis_canvas2.h>
 #include <KoToolProxy.h>
+#include <KoShapeManager.h>
 
 #include <QQuickWindow>
 #include <QOpenGLPaintDevice>
@@ -50,6 +51,19 @@ void KisCanvasToolOutlineOpenGLRenderNode::render(const RenderState *state)
     // XXX: This is safe only because we are rendering QtQuick scenes on the
     //      GUI thread.
     auto coordinatesConverter = m_canvas->coordinatesConverter();
+
+    // HACK: Paint the global shapes together with the tool outline so that
+    //       we don't need to make an extra render node for this.
+    // Note: According to Dmitry on IRC this probably paints nothing because
+    //       it is mostly a fallback object for the Ko-based tools...
+    // TODO: Can we remove this?
+    gc.setTransform(coordinatesConverter->documentToWidgetTransform());
+    // Paint the shapes (other than the layers)
+    m_canvas->globalShapeManager()->paint(gc, false);
+
+    gc.end();
+    gc.begin(&pd);
+
     gc.setTransform(coordinatesConverter->flakeToWidgetTransform());
     m_canvas->toolProxy()->paint(gc, *m_canvas->viewConverter());
 }
