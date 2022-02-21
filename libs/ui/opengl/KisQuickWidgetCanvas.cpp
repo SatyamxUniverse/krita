@@ -10,6 +10,7 @@
 
 #include "opengl/KisQuickWidgetCanvas.h"
 #include "opengl/KisQuickCanvasProjectionItem.h"
+#include "opengl/KisCanvasToolOutlinePaintItem_p.h"
 #include "opengl/KisOpenGLCanvasRenderer.h"
 #include "opengl/KisOpenGLSync.h"
 #include "opengl/kis_opengl_canvas_debugger.h"
@@ -282,6 +283,9 @@ void KisQuickWidgetCanvas::slotComponentStatusChanged()
         qWarning() << "KisQuickWidgetCanvas: Failed to get canvasProjection.";
     }
     d->canvasItem->m_renderer = d->renderer;
+
+    auto *toolOutlineItem = new KisCanvasToolOutlinePaintItem(d->canvasItem, canvas());
+    toolOutlineItem->setAnchorsFill(d->canvasItem);
 }
 
 void KisQuickWidgetCanvas::slotRenderRequested()
@@ -390,7 +394,7 @@ void KisQuickWidgetCanvas::paintGL()
 
     {
         QPainter gc(this);
-        setDrawDecorationsMask(static_cast<KisCanvasWidgetBase::DecorationsMaskFlag>(Shapes | ToolOutline));
+        setDrawDecorationsMask(Shapes);
         drawDecorations(gc, decorationsBoundingRect);
     }
 
