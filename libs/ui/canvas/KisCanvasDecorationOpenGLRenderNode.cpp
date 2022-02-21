@@ -22,7 +22,17 @@ KisCanvasDecorationOpenGLRenderNode::~KisCanvasDecorationOpenGLRenderNode() {}
 
 QSGRenderNode::StateFlags KisCanvasDecorationOpenGLRenderNode::changedStates() const
 {
-    return DepthState | StencilState | ScissorState | ColorState | BlendState;
+    return DepthState | StencilState | ScissorState | ColorState | BlendState | ViewportState;
+}
+
+QSGRenderNode::RenderingFlags KisCanvasDecorationOpenGLRenderNode::flags() const
+{
+    return BoundedRectRendering;
+}
+
+QRectF KisCanvasDecorationOpenGLRenderNode::rect() const
+{
+    return QRectF(0, 0, m_size.width(), m_size.height());
 }
 
 void KisCanvasDecorationOpenGLRenderNode::render(const RenderState *state)

@@ -22,6 +22,8 @@ class KisCanvasDecorationOpenGLRenderNode
     ~KisCanvasDecorationOpenGLRenderNode() override;
 
     StateFlags changedStates() const override;
+    RenderingFlags flags() const override;
+    QRectF rect() const override;
     void render(const RenderState *state) override;
 
     void sync(QQuickItem *item, KisCanvas2 *canvas);
