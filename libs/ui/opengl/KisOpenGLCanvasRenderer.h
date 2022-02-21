@@ -26,6 +26,7 @@ class KisDisplayColorConverter;
 class KisDisplayFilter;
 class QOpenGLShaderProgram;
 class QPainterPath;
+class QOpenGLFramebufferObject;
 
 #ifndef Q_MOC_RUN
 #ifndef Q_OS_MACOS
@@ -53,6 +54,7 @@ public:
 
 public:
     void resizeGL(int width, int height);
+    void resizeWithFBO(int width, int height, QOpenGLFramebufferObject *fbo);
     void initializeGL();
 
     /**
@@ -61,6 +63,7 @@ public:
     void paintCanvasOnly(const QRect &canvasUpdateRect, const QRect &viewportUpdateRect = QRect());
 
 private:
+    void updateSize(int width, int height);
     void renderCanvasGL(const QRect &updateRect);
 
 public:

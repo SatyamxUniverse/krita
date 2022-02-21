@@ -6,9 +6,20 @@
 
 import QtQuick 2.12
 import QtQuick.Window 2.12
+import org.krita.ui 1.0
 
 Item {
     id: root
+
+    KisCanvasProjection {
+        objectName: "canvasProjection"
+        anchors.fill: root
+
+        Item {
+            objectName: "canvasDecorationsContainer"
+            anchors.fill: parent
+        }
+    }
 
     Rectangle {
         id: block
@@ -46,10 +57,5 @@ Screen width: ${Screen.width}
 Screen height: ${Screen.height}
 Screen dpr: ${Screen.devicePixelRatio}`
         }
-    }
-
-    Item {
-        objectName: "canvasDecorationsContainer"
-        anchors.fill: root
     }
 }

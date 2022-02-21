@@ -184,6 +184,7 @@ set(kritaui_LIB_SRCS
     opengl/KisOpenGLBufferCreationGuard.cpp
     opengl/KisOpenGLCanvasRenderer.cpp
     opengl/KisQuickWidgetCanvas.cpp
+    opengl/KisQuickCanvasProjectionItem.cpp
     kis_fps_decoration.cpp
 
     tool/KisToolChangesTracker.cpp

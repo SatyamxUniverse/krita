@@ -82,6 +82,7 @@ public:
     KisShaderProgram *overlayInvertedShader{0};
 
     QScopedPointer<QOpenGLFramebufferObject> canvasFBO;
+    QOpenGLFramebufferObject *quickCanvasFBO;
 
     bool displayShaderCompiledWithDisplayFilterSupport{false};
 
@@ -352,7 +353,7 @@ void KisOpenGLCanvasRenderer::reportFailedShaderCompilation(const QString &conte
     cfg.setCanvasState("OPENGL_FAILED");
 }
 
-void KisOpenGLCanvasRenderer::resizeGL(int width, int height)
+void KisOpenGLCanvasRenderer::updateSize(int width, int height)
 {
     d->viewportWidgetSize = QSize(width, height);
     // This is how QOpenGLCanvas sets the FBO and the viewport size. If
@@ -361,6 +362,15 @@ void KisOpenGLCanvasRenderer::resizeGL(int width, int height)
     int viewportHeight = static_cast<int>(height * devicePixelRatioF());
     d->viewportDevicePixelSize = QSize(viewportWidth, viewportHeight);
 
+    // The given size is the widget size but here we actually want to give
+    // KisCoordinatesConverter the viewport size aligned to device pixels.
+    coordinatesConverter()->setCanvasWidgetSize(widgetSizeAlignedToDevicePixel());
+}
+
+void KisOpenGLCanvasRenderer::resizeGL(int width, int height)
+{
+    updateSize(width, height);
+
     if (KisOpenGL::useFBOForToolOutlineRendering()) {
         QOpenGLFramebufferObjectFormat format;
         if (KisOpenGLModeProber::instance()->useHDRMode()) {
@@ -368,9 +378,12 @@ void KisOpenGLCanvasRenderer::resizeGL(int width, int height)
         }
         d->canvasFBO.reset(new QOpenGLFramebufferObject(d->viewportDevicePixelSize, format));
     }
-    // The given size is the widget size but here we actually want to give
-    // KisCoordinatesConverter the viewport size aligned to device pixels.
-    coordinatesConverter()->setCanvasWidgetSize(widgetSizeAlignedToDevicePixel());
+}
+
+void KisOpenGLCanvasRenderer::resizeWithFBO(int width, int height, QOpenGLFramebufferObject *fbo)
+{
+    updateSize(width, height);
+    d->quickCanvasFBO = fbo;
 }
 
 void KisOpenGLCanvasRenderer::paintCanvasOnly(const QRect &canvasUpdateRect, const QRect &viewportUpdateRect)
@@ -390,6 +403,8 @@ void KisOpenGLCanvasRenderer::paintCanvasOnly(const QRect &canvasUpdateRect, con
         }
         QOpenGLFramebufferObject::blitFramebuffer(nullptr, blitRect, d->canvasFBO.data(), blitRect, GL_COLOR_BUFFER_BIT, GL_NEAREST);
         QOpenGLFramebufferObject::bindDefault();
+    } else if (d->quickCanvasFBO) {
+        renderCanvasGL(canvasUpdateRect);
     } else {
         QRect fullUpdateRect = canvasUpdateRect | viewportUpdateRect;
         if (fullUpdateRect.isEmpty()) {
@@ -437,7 +452,7 @@ void KisOpenGLCanvasRenderer::paintToolOutline(const QPainterPath &path)
 
     // For the legacy shader, we should use old fixed function
     // blending operations if available.
-    if (!d->canvasFBO && !KisOpenGL::supportsLoD() && !KisOpenGL::hasOpenGLES()) {
+    if (!d->canvasFBO && !d->quickCanvasFBO && !KisOpenGL::supportsLoD() && !KisOpenGL::hasOpenGLES()) {
         #ifndef QT_OPENGL_ES_2
         glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
         glEnable(GL_COLOR_LOGIC_OP);
@@ -494,9 +509,9 @@ void KisOpenGLCanvasRenderer::paintToolOutline(const QPainterPath &path)
             d->overlayInvertedShader->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, texCoords.constData());
         }
 
-        if (d->canvasFBO){
+        if (d->canvasFBO || d->quickCanvasFBO){
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, d->canvasFBO->texture());
+            glBindTexture(GL_TEXTURE_2D, (d->canvasFBO ? d->canvasFBO.data() : d->quickCanvasFBO)->texture());
 
             glDrawArrays(GL_LINE_STRIP, 0, vertices.size());
 

@@ -9,6 +9,7 @@
 #define GL_GLEXT_PROTOTYPES
 
 #include "opengl/KisQuickWidgetCanvas.h"
+#include "opengl/KisQuickCanvasProjectionItem.h"
 #include "opengl/KisOpenGLCanvasRenderer.h"
 #include "opengl/KisOpenGLSync.h"
 #include "opengl/kis_opengl_canvas_debugger.h"
@@ -91,6 +92,7 @@ public:
     QQmlComponent *component;
     QQuickItem *rootItem {nullptr};
     QQuickItem *decorationsContainer {nullptr};
+    KisQuickCanvasProjectionItem *canvasItem {nullptr};
     bool quickSceneUpdatePending {true};
     bool blockQuickSceneRenderRequest {false};
 
@@ -159,16 +161,23 @@ KisQuickWidgetCanvas::KisQuickWidgetCanvas(KisCanvas2 *canvas,
     d->offscreenQuickWindow->setClearBeforeRendering(false);
     d->offscreenQuickWindow->setPersistentOpenGLContext(true);
 
-    d->component = new QQmlComponent(sharedQmlEngine(), this);
-    connect(d->component, SIGNAL(statusChanged(QQmlComponent::Status)),
-            SLOT(slotComponentStatusChanged()));
-    d->component->loadUrl(QUrl("qrc:/kisqml/canvas/KisQuickWidgetCanvas.qml"), QQmlComponent::PreferSynchronous);
-
     d->renderer = new KisOpenGLCanvasRenderer(new CanvasBridge(this), image, colorConverter);
 
     connect(d->renderer->openGLImageTextures().data(),
             SIGNAL(sigShowFloatingMessage(QString, int, bool)),
             SLOT(slotShowFloatingMessage(QString, int, bool)));
+
+    static bool registerOnce = []() {
+        qmlRegisterType<KisQuickCanvasProjectionItem>(
+                "org.krita.ui", 1, 0,"KisCanvasProjection");
+        return true;
+    }();
+    Q_UNUSED(registerOnce)
+
+    d->component = new QQmlComponent(sharedQmlEngine(), this);
+    connect(d->component, SIGNAL(statusChanged(QQmlComponent::Status)),
+            SLOT(slotComponentStatusChanged()));
+    d->component->loadUrl(QUrl("qrc:/kisqml/canvas/KisQuickWidgetCanvas.qml"), QQmlComponent::PreferSynchronous);
 
     setAcceptDrops(true);
     setAutoFillBackground(false);
@@ -267,6 +276,12 @@ void KisQuickWidgetCanvas::slotComponentStatusChanged()
     if (!d->decorationsContainer) {
         qWarning() << "KisQuickWidgetCanvas: Failed to get canvasDecorationsContainer.";
     }
+
+    d->canvasItem = d->rootItem->findChild<KisQuickCanvasProjectionItem *>(QLatin1String("canvasProjection"));
+    if (!d->canvasItem) {
+        qWarning() << "KisQuickWidgetCanvas: Failed to get canvasProjection.";
+    }
+    d->canvasItem->m_renderer = d->renderer;
 }
 
 void KisQuickWidgetCanvas::slotRenderRequested()
@@ -332,7 +347,6 @@ void KisQuickWidgetCanvas::initializeGL()
 
 void KisQuickWidgetCanvas::resizeGL(int width, int height)
 {
-    d->renderer->resizeGL(width, height);
     d->canvasUpdateRect = QRect(0, 0, width, height);
 }
 
@@ -356,11 +370,9 @@ void KisQuickWidgetCanvas::paintGL()
     KisOpenglCanvasDebugger::instance()->nofityPaintRequested();
     QRect canvasUpdateRect = d->canvasUpdateRect;
     d->canvasUpdateRect = QRect();
-    d->renderer->paintCanvasOnly(canvasUpdateRect);
-    {
-        QPainter gc(this);
-        setDrawDecorationsMask(Shapes);
-        drawDecorations(gc, decorationsBoundingRect);
+    if (!canvasUpdateRect.isEmpty()) {
+        d->canvasItem->m_canvasUpdateRect = canvasUpdateRect;
+        d->canvasItem->update();
     }
     Q_FOREACH(KisCanvasDecorationSP deco, decorations()) {
         deco->updateQuickItem();
@@ -378,7 +390,7 @@ void KisQuickWidgetCanvas::paintGL()
 
     {
         QPainter gc(this);
-        setDrawDecorationsMask(ToolOutline);
+        setDrawDecorationsMask(static_cast<KisCanvasWidgetBase::DecorationsMaskFlag>(Shapes | ToolOutline));
         drawDecorations(gc, decorationsBoundingRect);
     }
 
