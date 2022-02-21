@@ -128,9 +128,6 @@ protected:
     QColor borderColor() const override {
         return m_canvas->borderColor();
     }
-    QWidget *widget() const override {
-        return m_canvas;
-    }
 };
 
 KisQuickWidgetCanvas::KisQuickWidgetCanvas(KisCanvas2 *canvas,
