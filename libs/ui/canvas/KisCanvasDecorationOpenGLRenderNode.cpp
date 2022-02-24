@@ -61,6 +61,6 @@ void KisCanvasDecorationOpenGLRenderNode::render(const RenderState *state)
 void KisCanvasDecorationOpenGLRenderNode::sync(QQuickItem *item, KisCanvas2 *canvas)
 {
     m_canvas = canvas;
-    m_size = item->size().toSize();
+    m_size = item->size();
     m_dpr = item->window()->effectiveDevicePixelRatio();
 }

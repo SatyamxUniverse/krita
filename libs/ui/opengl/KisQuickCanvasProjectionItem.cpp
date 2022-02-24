@@ -32,7 +32,7 @@ private:
     QQuickWindow *m_window {nullptr};
     KisOpenGLCanvasRenderer *m_renderer {nullptr};
     QRect m_canvasUpdateRect;
-    QSize m_size;
+    QSizeF m_size;
     qreal m_dpr;
 };
 
@@ -60,13 +60,17 @@ KisQuickCanvasProjectionItem::Renderer::Renderer(KisOpenGLCanvasRenderer *render
 KisQuickCanvasProjectionItem::Renderer::~Renderer()
 {}
 
-QOpenGLFramebufferObject *KisQuickCanvasProjectionItem::Renderer::createFramebufferObject(const QSize &size)
+QOpenGLFramebufferObject *KisQuickCanvasProjectionItem::Renderer::createFramebufferObject(const QSize &_size)
 {
+    Q_UNUSED(_size);
     QOpenGLFramebufferObjectFormat format;
     if (KisOpenGLModeProber::instance()->useHDRMode()) {
         format.setInternalTextureFormat(GL_RGBA16F);
     }
-    auto newFBO = new QOpenGLFramebufferObject(size, format);
+    // QQuickFramebufferObject use incorrect rounding when calculating the FBO
+    // size. Here we just calculate our own size and use it instead.
+    QSize realSize = (m_size * m_dpr).toSize();
+    auto *newFBO = new QOpenGLFramebufferObject(realSize, format);
     m_renderer->resizeWithFBO(newFBO);
     return newFBO;
 }
@@ -82,7 +86,7 @@ void KisQuickCanvasProjectionItem::Renderer::synchronize(QQuickFramebufferObject
 {
     KisQuickCanvasProjectionItem *item = static_cast<KisQuickCanvasProjectionItem *>(item_);
     m_window = item->window();
-    m_size = item->size().toSize();
+    m_size = item->size();
     m_dpr = item->window()->effectiveDevicePixelRatio();
     m_canvasUpdateRect = item->m_canvasUpdateRect;
     item->m_canvasUpdateRect = QRect();

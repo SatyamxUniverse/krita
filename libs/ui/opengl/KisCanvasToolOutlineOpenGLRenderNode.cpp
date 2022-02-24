@@ -70,6 +70,6 @@ void KisCanvasToolOutlineOpenGLRenderNode::render(const RenderState *state)
 
 void KisCanvasToolOutlineOpenGLRenderNode::sync(QQuickItem *item)
 {
-    m_size = item->size().toSize();
+    m_size = item->size();
     m_dpr = item->window()->effectiveDevicePixelRatio();
 }
