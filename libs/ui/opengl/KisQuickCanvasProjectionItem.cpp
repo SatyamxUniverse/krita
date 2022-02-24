@@ -67,7 +67,7 @@ QOpenGLFramebufferObject *KisQuickCanvasProjectionItem::Renderer::createFramebuf
         format.setInternalTextureFormat(GL_RGBA16F);
     }
     auto newFBO = new QOpenGLFramebufferObject(size, format);
-    m_renderer->resizeWithFBO(m_size.width(), m_size.height(), newFBO);
+    m_renderer->resizeWithFBO(newFBO);
     return newFBO;
 }
 

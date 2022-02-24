@@ -54,7 +54,7 @@ public:
 
 public:
     void resizeGL(int width, int height);
-    void resizeWithFBO(int width, int height, QOpenGLFramebufferObject *fbo);
+    void resizeWithFBO(QOpenGLFramebufferObject *fbo);
     void initializeGL();
 
     /**
@@ -63,7 +63,7 @@ public:
     void paintCanvasOnly(const QRect &canvasUpdateRect, const QRect &viewportUpdateRect = QRect());
 
 private:
-    void updateSize(int width, int height);
+    void updateSize(const QSize &viewportSize);
     void renderCanvasGL(const QRect &updateRect);
 
 public:
@@ -102,7 +102,6 @@ private:
     void drawImageTiles(int firstCol, int lastCol, int firstRow, int lastRow, qreal scaleX, qreal scaleY, const QPoint &wrapAroundOffset);
     void drawCheckers(const QRect &updateRect);
     void drawGrid(const QRect &updateRect);
-    QSizeF widgetSizeAlignedToDevicePixel() const;
 
     QRectF widgetToSurface(const QRectF &rc);
     QRectF surfaceToWidget(const QRectF &rc);
