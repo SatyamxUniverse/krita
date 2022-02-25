@@ -76,6 +76,10 @@ void KisToolSelectContiguous::activate(const QSet<KoShape*> &shapes)
 void KisToolSelectContiguous::beginPrimaryAction(KoPointerEvent *event)
 {
     KisToolSelectBase::beginPrimaryAction(event);
+    if (isMovingSelection()) {
+        return;
+    }
+
     KisPaintDeviceSP dev;
 
     if (!currentNode() ||
@@ -86,9 +90,7 @@ void KisToolSelectContiguous::beginPrimaryAction(KoPointerEvent *event)
         return;
     }
 
-    if (KisToolSelect::selectionDidMove()) {
-        return;
-    }
+    beginSelectInteraction();
 
     QApplication::setOverrideCursor(KisCursor::waitCursor());
 
@@ -178,6 +180,16 @@ void KisToolSelectContiguous::beginPrimaryAction(KoPointerEvent *event)
     applicator.end();
     QApplication::restoreOverrideCursor();
 
+}
+
+void KisToolSelectContiguous::endPrimaryAction(KoPointerEvent *event)
+{
+    if (isMovingSelection()) {
+        KisToolSelectBase::endPrimaryAction(event);
+        return;
+    }
+
+    endSelectInteraction();
 }
 
 void KisToolSelectContiguous::paint(QPainter &painter, const KoViewConverter &converter)
@@ -316,6 +328,10 @@ void KisToolSelectContiguous::resetCursorStyle()
         useCursor(KisCursor::load("tool_contiguous_selection_cursor_add.png", 6, 6));
     } else if (selectionAction() == SELECTION_SUBTRACT) {
         useCursor(KisCursor::load("tool_contiguous_selection_cursor_sub.png", 6, 6));
+    } else if (selectionAction() == SELECTION_INTERSECT) {
+        useCursor(KisCursor::load("tool_contiguous_selection_cursor_inter.png", 6, 6));
+    } else if (selectionAction() == SELECTION_SYMMETRICDIFFERENCE) {
+        useCursor(KisCursor::load("tool_contiguous_selection_cursor_symdiff.png", 6, 6));
     } else {
         KisToolSelect::resetCursorStyle();
     }

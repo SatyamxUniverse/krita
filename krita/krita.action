@@ -395,10 +395,10 @@
     </Action>
     <Action name="increase_opacity">
       <icon>opacity-increase</icon>
-      <text>Increase opacity</text>
+      <text>Increase Opacity</text>
       <whatsThis/>
-      <toolTip>Increase opacity</toolTip>
-      <iconText>Increase opacity</iconText>
+      <toolTip>Increase brush Opacity</toolTip>
+      <iconText>Increase Opacity</iconText>
       <activationFlags>0</activationFlags>
       <activationConditions>0</activationConditions>
       <shortcut>O</shortcut>
@@ -407,13 +407,85 @@
     </Action>
     <Action name="decrease_opacity">
       <icon>opacity-decrease</icon>
-      <text>Decrease opacity</text>
+      <text>Decrease Opacity</text>
       <whatsThis/>
-      <toolTip>Decrease opacity</toolTip>
-      <iconText>Decrease opacity</iconText>
+      <toolTip>Decrease brush Opacity</toolTip>
+      <iconText>Decrease Opacity</iconText>
       <activationFlags>0</activationFlags>
       <activationConditions>0</activationConditions>
       <shortcut>I</shortcut>
+      <isCheckable>false</isCheckable>
+      <statusTip/>
+    </Action>
+    <Action name="increase_flow">
+      <icon></icon>
+      <text>Increase Flow</text>
+      <whatsThis/>
+      <toolTip>Increase brush Flow</toolTip>
+      <iconText>Increase Flow</iconText>
+      <activationFlags>0</activationFlags>
+      <activationConditions>0</activationConditions>
+      <shortcut></shortcut>
+      <isCheckable>false</isCheckable>
+      <statusTip/>
+    </Action>
+    <Action name="decrease_flow">
+      <icon></icon>
+      <text>Decrease Flow</text>
+      <whatsThis/>
+      <toolTip>Decrease brush Flow</toolTip>
+      <iconText>Decrease Flow</iconText>
+      <activationFlags>0</activationFlags>
+      <activationConditions>0</activationConditions>
+      <shortcut></shortcut>
+      <isCheckable>false</isCheckable>
+      <statusTip/>
+    </Action>
+    <Action name="increase_fade">
+      <icon></icon>
+      <text>Increase Fade</text>
+      <whatsThis/>
+      <toolTip>Increase brush Fade</toolTip>
+      <iconText>Increase Fade</iconText>
+      <activationFlags>0</activationFlags>
+      <activationConditions>0</activationConditions>
+      <shortcut></shortcut>
+      <isCheckable>false</isCheckable>
+      <statusTip/>
+    </Action>
+    <Action name="decrease_fade">
+      <icon></icon>
+      <text>Decrease Fade</text>
+      <whatsThis/>
+      <toolTip>Decrease brush Fade</toolTip>
+      <iconText>Decrease Fade</iconText>
+      <activationFlags>0</activationFlags>
+      <activationConditions>0</activationConditions>
+      <shortcut></shortcut>
+      <isCheckable>false</isCheckable>
+      <statusTip/>
+    </Action>
+    <Action name="increase_scatter">
+      <icon></icon>
+      <text>Increase Scatter</text>
+      <whatsThis/>
+      <toolTip>Increase brush Scatter strength</toolTip>
+      <iconText>Increase Scatter</iconText>
+      <activationFlags>0</activationFlags>
+      <activationConditions>0</activationConditions>
+      <shortcut></shortcut>
+      <isCheckable>false</isCheckable>
+      <statusTip/>
+    </Action>
+    <Action name="decrease_scatter">
+      <icon></icon>
+      <text>Decrease Scatter</text>
+      <whatsThis/>
+      <toolTip>Decrease brush Scatter strength</toolTip>
+      <iconText>Decrease Scatter</iconText>
+      <activationFlags>0</activationFlags>
+      <activationConditions>0</activationConditions>
+      <shortcut></shortcut>
       <isCheckable>false</isCheckable>
       <statusTip/>
     </Action>

@@ -110,6 +110,11 @@ QSqlError createDatabase(const QString &location)
         return db.lastError();
     }
 
+    // will be filled correctly later
+    QVersionNumber oldSchemaVersionNumber;
+    QVersionNumber newSchemaVersionNumber = QVersionNumber::fromString(KisResourceCacheDb::databaseVersion);
+
+
     QStringList tables = QStringList() << "version_information"
                                        << "storage_types"
                                        << "resource_types"
@@ -159,8 +164,8 @@ QSqlError createDatabase(const QString &location)
             kritaVersion = q.value(1).toString();
             creationDate = q.value(2).toInt();
 
-            QVersionNumber oldSchemaVersionNumber = QVersionNumber::fromString(schemaVersion);
-            QVersionNumber newSchemaVersionNumber = QVersionNumber::fromString(KisResourceCacheDb::databaseVersion);
+            oldSchemaVersionNumber = QVersionNumber::fromString(schemaVersion);
+            newSchemaVersionNumber = QVersionNumber::fromString(KisResourceCacheDb::databaseVersion);
 
             if (QVersionNumber::compare(oldSchemaVersionNumber, newSchemaVersionNumber) != 0) {
 
@@ -169,7 +174,9 @@ QSqlError createDatabase(const QString &location)
                 schemaIsOutDated = true;
                 KBackup::numberedBackupFile(location + "/" + KisResourceCacheDb::resourceCacheDbFilename);
 
-                if (newSchemaVersionNumber == QVersionNumber::fromString("0.0.16")  && QVersionNumber::compare(oldSchemaVersionNumber, QVersionNumber::fromString("0.0.14")) > 0) {
+                if (newSchemaVersionNumber == QVersionNumber::fromString("0.0.16")
+                        && QVersionNumber::compare(oldSchemaVersionNumber, QVersionNumber::fromString("0.0.14")) > 0
+                        && QVersionNumber::compare(oldSchemaVersionNumber, QVersionNumber::fromString("0.0.16")) < 0) {
                     bool from14to15 = oldSchemaVersionNumber == QVersionNumber::fromString("0.0.14");
                     bool from15to16 = oldSchemaVersionNumber == QVersionNumber::fromString("0.0.14")
                             || oldSchemaVersionNumber == QVersionNumber::fromString("0.0.15");
@@ -241,6 +248,10 @@ QSqlError createDatabase(const QString &location)
             return QSqlError();
         }
     }
+
+    KisUsageLogger::log(QString("Creating database from scratch (%1, %2).")
+                        .arg(oldSchemaVersionNumber.toString().isEmpty() ? QString("database didn't exist") : ("old schema version: " + oldSchemaVersionNumber.toString()))
+                        .arg("new schema version: " + newSchemaVersionNumber.toString()));
 
     // Create tables
     Q_FOREACH(const QString &table, tables) {

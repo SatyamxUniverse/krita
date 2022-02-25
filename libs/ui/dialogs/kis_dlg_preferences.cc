@@ -169,6 +169,14 @@ GeneralTab::GeneralTab(QWidget *_parent, const char *_name)
 {
     KisConfig cfg(true);
 
+    // HACK ALERT!
+    // QScrollArea contents are opaque at multiple levels
+    // The contents themselves AND the viewport widget
+    {
+        scrollAreaWidgetContents->setAutoFillBackground(false);
+        scrollAreaWidgetContents->parentWidget()->setAutoFillBackground(false);
+    }
+
     //
     // Cursor Tab
     //
@@ -270,6 +278,8 @@ GeneralTab::GeneralTab(QWidget *_parent, const char *_name)
     m_kineticScrollingSensitivitySlider->setRange(0, 100);
     m_kineticScrollingSensitivitySlider->setValue(cfg.kineticScrollingSensitivity());
     m_chkKineticScrollingHideScrollbars->setChecked(cfg.kineticScrollingHiddenScrollbars());
+
+    intZoomMarginSize->setValue(cfg.zoomMarginSize());
 
     //
     // File handling
@@ -478,6 +488,7 @@ void GeneralTab::setDefault()
     chkEnableSmoothZooming->setChecked(cfg.smoothZooming(true));
     m_kineticScrollingSensitivitySlider->setValue(cfg.kineticScrollingSensitivity(true));
     m_chkKineticScrollingHideScrollbars->setChecked(cfg.kineticScrollingHiddenScrollbars(true));
+    intZoomMarginSize->setValue(cfg.zoomMarginSize(0));
     m_chkSwitchSelectionCtrlAlt->setChecked(cfg.switchSelectionCtrlAlt(true));
     chkEnableTouch->setChecked(!cfg.disableTouchOnCanvas(true));
     chkEnableTouchRotation->setChecked(!cfg.disableTouchRotation(true));
@@ -605,6 +616,11 @@ int GeneralTab::kineticScrollingSensitivity()
 bool GeneralTab::kineticScrollingHiddenScrollbars()
 {
     return m_chkKineticScrollingHideScrollbars->isChecked();
+}
+
+int GeneralTab::zoomMarginSize()
+{
+    return intZoomMarginSize->value();
 }
 
 bool GeneralTab::switchSelectionCtrlAlt()
@@ -1105,10 +1121,12 @@ PerformanceTab::PerformanceTab(QWidget *parent, const char *name)
     intPoolLimit->setMinimumWidth(80);
     intUndoLimit->setMinimumWidth(80);
 
-    label_5->setVisible(false);
-    sliderPoolLimit->setVisible(false);
-    intPoolLimit->setVisible(false);
-
+    {
+        formLayout->takeRow(2);
+        label_5->setVisible(false);
+        intPoolLimit->setVisible(false);
+        sliderPoolLimit->setVisible(false);
+    }
 
     SliderAndSpinBoxSync *sync1 =
         new SliderAndSpinBoxSync(sliderMemoryLimit,
@@ -2043,6 +2061,8 @@ bool KisDlgPreferences::editPreferences()
         cfg.setKineticScrollingGesture(m_general->kineticScrollingGesture());
         cfg.setKineticScrollingSensitivity(m_general->kineticScrollingSensitivity());
         cfg.setKineticScrollingHideScrollbars(m_general->kineticScrollingHiddenScrollbars());
+
+        cfg.setZoomMarginSize(m_general->zoomMarginSize());
 
         cfg.setSwitchSelectionCtrlAlt(m_general->switchSelectionCtrlAlt());
         cfg.setDisableTouchOnCanvas(!m_general->chkEnableTouch->isChecked());

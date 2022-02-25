@@ -16,6 +16,7 @@
 #include "kis_touch_shortcut.h"
 #include "kis_native_gesture_shortcut.h"
 #include "kis_config.h"
+#include <KoPointerEvent.h>
 
 //#define DEBUG_MATCHER
 
@@ -71,6 +72,7 @@ public:
 
     KisTouchShortcut *touchShortcut;
     KisNativeGestureShortcut *nativeGestureShortcut;
+    QList<QTouchEvent::TouchPoint> lastTouchPoints;
 
     std::function<KisInputActionGroupsMask()> actionGroupMask;
     bool suppressAllActions;
@@ -364,6 +366,7 @@ bool KisShortcutMatcher::touchBeginEvent( QTouchEvent* event )
 
     Private::RecursionNotifier notifier(this);
 
+    m_d->lastTouchPoints = event->touchPoints();
     return !notifier.isInRecursion();
 }
 
@@ -413,7 +416,11 @@ void KisShortcutMatcher::touchCancelEvent(QTouchEvent *event, const QPointF &loc
     if (m_d->touchShortcut) {
         KisTouchShortcut *touchShortcut = m_d->touchShortcut;
         m_d->touchShortcut = 0;
-        touchShortcut->action()->end(event);
+        QScopedPointer<QEvent> dstEvent;
+        KoPointerEvent::copyQtPointerEvent(event, dstEvent);
+        // HACK: Because TouchEvents in KoPointerEvent need to contain at least one touchpoint
+        dynamic_cast<QTouchEvent *>(dstEvent.data())->setTouchPoints(m_d->lastTouchPoints);
+        touchShortcut->action()->end(dstEvent.data());
         touchShortcut->action()->deactivate(touchShortcut->shortcutIndex());
     }
 }
