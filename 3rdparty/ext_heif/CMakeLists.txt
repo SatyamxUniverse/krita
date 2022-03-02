@@ -63,10 +63,6 @@ endif(WIN32)
 
 set(EXTRA_AVIF_DEPS "")
 
-find_program(MESON_BINARY_PATH meson)
-find_program(NINJA_BINARY_PATH ninja)
-find_program(RUSTC_BINARY_PATH rustc)
-
 if(MESON_BINARY_PATH AND NINJA_BINARY_PATH AND RUSTC_BINARY_PATH)
     message(STATUS "Enabling AVIF support.")
 
