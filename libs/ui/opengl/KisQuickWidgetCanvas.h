@@ -1,12 +1,13 @@
 /*
  * SPDX-FileCopyrightText: 2006 Boudewijn Rempt <boud@valdyas.org>
  * SPDX-FileCopyrightText: 2015 Michael Abrahams <miabraha@gmail.com>
+ * SPDX-FileCopyrightText: 2022 Alvin Wong <alvin@alvinhc.com>
  *
  *  SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#ifndef KIS_OPENGL_CANVAS_2_H
-#define KIS_OPENGL_CANVAS_2_H
+#ifndef KIS_QUICK_WIDGET_CANVAS_H
+#define KIS_QUICK_WIDGET_CANVAS_H
 
 #include <QOpenGLWidget>
 #include "canvas/kis_canvas_widget_base.h"
@@ -21,13 +22,13 @@ class QOpenGLShaderProgram;
 class QPainterPath;
 
 /**
- * KisOpenGLCanvas is the widget that shows the actual image using OpenGL
+ * KisQuickWidgetCanvas is KisOpenGLCanvas but with the ability to overlay a Qt Quick 2 scene.
  *
  * NOTE: if you change something in the event handling here, also change it
  * in the qpainter canvas.
  *
  */
-class KRITAUI_EXPORT KisOpenGLCanvas2
+class KRITAUI_EXPORT KisQuickWidgetCanvas
         : public QOpenGLWidget
         , public KisCanvasWidgetBase
 {
@@ -35,16 +36,23 @@ class KRITAUI_EXPORT KisOpenGLCanvas2
 
 public:
 
-    KisOpenGLCanvas2(KisCanvas2 *canvas, KisCoordinatesConverter *coordinatesConverter, QWidget *parent, KisImageWSP image, KisDisplayColorConverter *colorConverter);
+    KisQuickWidgetCanvas(KisCanvas2 *canvas, KisCoordinatesConverter *coordinatesConverter, QWidget *parent, KisImageWSP image, KisDisplayColorConverter *colorConverter);
 
-    ~KisOpenGLCanvas2() override;
+    ~KisQuickWidgetCanvas() override;
+
+private Q_SLOTS:
+    void slotComponentStatusChanged();
+    void slotRenderRequested();
+    void slotSceneChanged();
+    void slotScreenChanged(QScreen *);
 
 public: // QOpenGLWidget
-
     void resizeGL(int width, int height) override;
     void initializeGL() override;
     void paintGL() override;
-    void paintEvent(QPaintEvent *e) override;
+
+public: // QWidget
+    void resizeEvent(QResizeEvent *e) override;
 
     QVariant inputMethodQuery(Qt::InputMethodQuery query) const override;
     void inputMethodEvent(QInputMethodEvent *event) override;
@@ -86,12 +94,16 @@ private Q_SLOTS:
 
 protected: // KisCanvasWidgetBase
     bool callFocusNextPrevChild(bool next) override;
+    void addDecoration(KisCanvasDecorationSP deco) override;
+    void removeDecoration(const QString& id) override;
+    void setDecorations(const QList<KisCanvasDecorationSP > &) override;
 
 private:
     struct Private;
     Private * const d;
 
     class CanvasBridge;
+    class RenderControl;
 };
 
-#endif // KIS_OPENGL_CANVAS_2_H
+#endif // KIS_QUICK_WIDGET_CANVAS_H

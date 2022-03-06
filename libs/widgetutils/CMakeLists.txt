@@ -41,6 +41,9 @@ set(kritawidgetutils_LIB_SRCS
     KisWrappableHBoxLayout.cpp
     KisPopupSelfActivatingLineEdit.cpp
     KisRecentFilesManager.cpp
+    KisTopLevelWidgetChangeNotifier.cpp
+    KisWidgetScreenChangeNotifier.cpp
+    KisRepaintDebugger.cpp
 
     config/kcolorscheme.cpp
     config/kcolorschememanager.cpp

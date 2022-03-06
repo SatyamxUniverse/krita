@@ -81,6 +81,15 @@ protected:
     /// To be implemented by the derived canvas
     virtual bool callFocusNextPrevChild(bool next) = 0;
 
+    enum DecorationsMaskFlag {
+        Shapes = 0x1,
+        CanvasDecorations = 0x2,
+        ToolOutline = 0x4,
+        DecorationsMaskAll = Shapes | CanvasDecorations | ToolOutline,
+    };
+
+    void setDrawDecorationsMask(DecorationsMaskFlag mask);
+
 private:
     struct Private;
     Private * const m_d;

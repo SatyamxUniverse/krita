@@ -1,0 +1,10 @@
+<!--
+  SPDX-FileCopyrightText: none
+  SPDX-License-Identifier: CC0-1.0
+-->
+<RCC>
+    <qresource prefix="/kisqml/canvas">
+        <file alias="KisQuickWidgetCanvas.qml">KisQuickWidgetCanvas.qml</file>
+        <file alias="decorations/KisFpsDecoration.qml">KisFpsDecoration.qml</file>
+    </qresource>
+</RCC>

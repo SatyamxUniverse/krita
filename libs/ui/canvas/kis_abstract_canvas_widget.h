@@ -74,6 +74,8 @@ public:
     virtual QRect updateCanvasProjection(KisUpdateInfoSP info) = 0;
     virtual QVector<QRect> updateCanvasProjection(const QVector<KisUpdateInfoSP> &infoObjects) = 0;
 
+    virtual void addCanvasUpdateRect(const QRect &rect) = 0;
+
     /**
      * Returns true if the asynchronous engine of the canvas
      * (e.g. openGL pipeline) is busy with processing of the previous

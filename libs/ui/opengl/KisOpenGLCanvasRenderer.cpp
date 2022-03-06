@@ -8,11 +8,9 @@
 #define GL_GLEXT_PROTOTYPES
 
 #include "opengl/KisOpenGLCanvasRenderer.h"
-#include "opengl/KisOpenGLSync.h"
 
 #include "kis_algebra_2d.h"
 #include "opengl/kis_opengl_shader_loader.h"
-#include "opengl/kis_opengl_canvas_debugger.h"
 #include "canvas/kis_canvas2.h"
 #include "canvas/kis_coordinates_converter.h"
 #include "canvas/kis_display_filter.h"
@@ -84,6 +82,7 @@ public:
     KisShaderProgram *overlayInvertedShader{0};
 
     QScopedPointer<QOpenGLFramebufferObject> canvasFBO;
+    QOpenGLFramebufferObject *quickCanvasFBO;
 
     bool displayShaderCompiledWithDisplayFilterSupport{false};
 
@@ -93,8 +92,6 @@ public:
     QSharedPointer<KisDisplayFilter> displayFilter;
     KisOpenGL::FilterMode filterMode;
     bool proofingConfigIsUpdated=false;
-
-    QScopedPointer<KisOpenGLSync> glSyncObject;
 
     bool wrapAroundMode{false};
 
@@ -124,7 +121,7 @@ public:
     bool lodSwitchInProgress = false;
 
     CanvasBridge *canvasBridge;
-    QSize viewportWidgetSize;
+    QSizeF pixelAlignedWidgetSize;
     QSize viewportDevicePixelSize;
 
     int xToColWithWrapCompensation(int x, const QRect &imageRect) {
@@ -196,11 +193,6 @@ KisCoordinatesConverter *KisOpenGLCanvasRenderer::coordinatesConverter() const
 QColor KisOpenGLCanvasRenderer::borderColor() const
 {
     return d->canvasBridge->borderColor();
-}
-
-void KisOpenGLCanvasRenderer::drawDecorations(QPainter &gc, const QRect &updateWidgetRect) const
-{
-    return d->canvasBridge->drawDecorations(gc, updateWidgetRect);
 }
 
 void KisOpenGLCanvasRenderer::setDisplayFilter(QSharedPointer<KisDisplayFilter> displayFilter)
@@ -298,8 +290,6 @@ void KisOpenGLCanvasRenderer::initializeGL()
         glVertexAttribPointer(PROGRAM_TEXCOORD_ATTRIBUTE, 2, GL_FLOAT, GL_FALSE, 0 ,0);
     }
 
-    KisOpenGLSync::init(context());
-
     d->canvasInitialized = true;
 }
 
@@ -355,7 +345,7 @@ void KisOpenGLCanvasRenderer::reportFailedShaderCompilation(const QString &conte
 
     qDebug() << "Shader Compilation Failure: " << context;
     // TODO: Should do something else when using QtQuick2
-    QMessageBox::critical(d->canvasBridge->widget(), i18nc("@title:window", "Krita"),
+    QMessageBox::critical(qApp->activeWindow(), i18nc("@title:window", "Krita"),
                           i18n("Krita could not initialize the OpenGL canvas:\n\n%1\n\n Krita will disable OpenGL and close now.", context),
                           QMessageBox::Close);
 
@@ -363,14 +353,27 @@ void KisOpenGLCanvasRenderer::reportFailedShaderCompilation(const QString &conte
     cfg.setCanvasState("OPENGL_FAILED");
 }
 
+void KisOpenGLCanvasRenderer::updateSize(const QSize &viewportSize)
+{
+    d->viewportDevicePixelSize = viewportSize;
+    d->pixelAlignedWidgetSize = QSizeF(viewportSize) / devicePixelRatioF();
+
+    // The widget size may be an integer but here we actually want to give
+    // KisCoordinatesConverter the logical viewport size aligned to device
+    // pixels.
+    coordinatesConverter()->setCanvasWidgetSize(d->pixelAlignedWidgetSize);
+}
+
 void KisOpenGLCanvasRenderer::resizeGL(int width, int height)
 {
-    d->viewportWidgetSize = QSize(width, height);
     // This is how QOpenGLCanvas sets the FBO and the viewport size. If
     // devicePixelRatioF() is non-integral, the result is truncated.
+    // *Correction*: The FBO size is actually rounded, but the glViewport call
+    // uses integer truncation and that's what really matters.
     int viewportWidth = static_cast<int>(width * devicePixelRatioF());
     int viewportHeight = static_cast<int>(height * devicePixelRatioF());
-    d->viewportDevicePixelSize = QSize(viewportWidth, viewportHeight);
+
+    updateSize(QSize(viewportWidth, viewportHeight));
 
     if (KisOpenGL::useFBOForToolOutlineRendering()) {
         QOpenGLFramebufferObjectFormat format;
@@ -379,35 +382,40 @@ void KisOpenGLCanvasRenderer::resizeGL(int width, int height)
         }
         d->canvasFBO.reset(new QOpenGLFramebufferObject(d->viewportDevicePixelSize, format));
     }
-    // The given size is the widget size but here we actually want to give
-    // KisCoordinatesConverter the viewport size aligned to device pixels.
-    coordinatesConverter()->setCanvasWidgetSize(widgetSizeAlignedToDevicePixel());
-    paintGL();
 }
 
-void KisOpenGLCanvasRenderer::paintGL(const QRect &updateRect)
+void KisOpenGLCanvasRenderer::resizeWithFBO(QOpenGLFramebufferObject *fbo)
 {
-    KisOpenglCanvasDebugger::instance()->nofityPaintRequested();
+    updateSize(fbo->size());
+    d->quickCanvasFBO = fbo;
+}
 
+void KisOpenGLCanvasRenderer::paintCanvasOnly(const QRect &canvasUpdateRect, const QRect &viewportUpdateRect)
+{
     if (d->canvasFBO) {
-        d->canvasFBO->bind();
-    }
-
-    renderCanvasGL(updateRect);
-
-    if (d->canvasFBO) {
-        const QTransform scale = QTransform::fromScale(1.0, -1.0) * QTransform::fromTranslate(0, d->viewportWidgetSize.height()) * QTransform::fromScale(devicePixelRatioF(), devicePixelRatioF());
-
-        const QRect blitRect = scale.mapRect(QRectF(updateRect)).toAlignedRect();
-
-        d->canvasFBO->release();
+        if (!canvasUpdateRect.isEmpty()) {
+            d->canvasFBO->bind();
+            renderCanvasGL(canvasUpdateRect);
+            d->canvasFBO->release();
+        }
+        QRect blitRect;
+        if (viewportUpdateRect.isEmpty()) {
+            blitRect = QRect(QPoint(), d->viewportDevicePixelSize);
+        } else {
+            const QTransform scale = QTransform::fromScale(1.0, -1.0) * QTransform::fromTranslate(0, d->pixelAlignedWidgetSize.height()) * QTransform::fromScale(devicePixelRatioF(), devicePixelRatioF());
+            blitRect = scale.mapRect(QRectF(viewportUpdateRect)).toAlignedRect();
+        }
         QOpenGLFramebufferObject::blitFramebuffer(nullptr, blitRect, d->canvasFBO.data(), blitRect, GL_COLOR_BUFFER_BIT, GL_NEAREST);
         QOpenGLFramebufferObject::bindDefault();
+    } else if (d->quickCanvasFBO) {
+        renderCanvasGL(canvasUpdateRect);
+    } else {
+        QRect fullUpdateRect = canvasUpdateRect | viewportUpdateRect;
+        if (fullUpdateRect.isEmpty()) {
+            fullUpdateRect = QRect(QPoint(), d->viewportDevicePixelSize);
+        }
+        renderCanvasGL(fullUpdateRect);
     }
-
-    renderDecorations(updateRect);
-
-    d->glSyncObject.reset(new KisOpenGLSync());
 }
 
 void KisOpenGLCanvasRenderer::paintToolOutline(const QPainterPath &path)
@@ -416,7 +424,7 @@ void KisOpenGLCanvasRenderer::paintToolOutline(const QPainterPath &path)
         return;
     }
 
-    QSizeF widgetSize = widgetSizeAlignedToDevicePixel();
+    const QSizeF &widgetSize = d->pixelAlignedWidgetSize;
 
     // setup the mvp transformation
     QMatrix4x4 projectionMatrix;
@@ -437,8 +445,8 @@ void KisOpenGLCanvasRenderer::paintToolOutline(const QPainterPath &path)
 
     // NOTE: Texture matrix transforms flake space -> widget space -> OpenGL UV texcoord space..
     const QMatrix4x4 widgetToFBOTexCoordTransform =
-            KisAlgebra2D::mapToRectInverse(QRect(QPoint(0, d->viewportWidgetSize.height()),
-                                                 QSize(d->viewportWidgetSize.width(), -1 * d->viewportWidgetSize.height())));
+            KisAlgebra2D::mapToRectInverse(QRectF(QPointF(0, widgetSize.height()),
+                                                 QSizeF(widgetSize.width(), -1 * widgetSize.height())));
     const QMatrix4x4 textureMatrix = widgetToFBOTexCoordTransform *
         QMatrix4x4(coordinatesConverter()->flakeToWidgetTransform());
 
@@ -448,7 +456,7 @@ void KisOpenGLCanvasRenderer::paintToolOutline(const QPainterPath &path)
 
     // For the legacy shader, we should use old fixed function
     // blending operations if available.
-    if (!d->canvasFBO && !KisOpenGL::supportsLoD() && !KisOpenGL::hasOpenGLES()) {
+    if (!d->canvasFBO && !d->quickCanvasFBO && !KisOpenGL::supportsLoD() && !KisOpenGL::hasOpenGLES()) {
         #ifndef QT_OPENGL_ES_2
         glHint(GL_LINE_SMOOTH_HINT, GL_NICEST);
         glEnable(GL_COLOR_LOGIC_OP);
@@ -505,9 +513,9 @@ void KisOpenGLCanvasRenderer::paintToolOutline(const QPainterPath &path)
             d->overlayInvertedShader->setAttributeArray(PROGRAM_TEXCOORD_ATTRIBUTE, texCoords.constData());
         }
 
-        if (d->canvasFBO){
+        if (d->canvasFBO || d->quickCanvasFBO){
             glActiveTexture(GL_TEXTURE0);
-            glBindTexture(GL_TEXTURE_2D, d->canvasFBO->texture());
+            glBindTexture(GL_TEXTURE_2D, (d->canvasFBO ? d->canvasFBO.data() : d->quickCanvasFBO)->texture());
 
             glDrawArrays(GL_LINE_STRIP, 0, vertices.size());
 
@@ -532,13 +540,6 @@ void KisOpenGLCanvasRenderer::paintToolOutline(const QPainterPath &path)
     }
 
     d->overlayInvertedShader->release();
-}
-
-bool KisOpenGLCanvasRenderer::isBusy() const
-{
-    const bool isBusyStatus = d->glSyncObject && !d->glSyncObject->isSignaled();
-    KisOpenglCanvasDebugger::instance()->nofitySyncStatus(isBusyStatus);
-    return isBusyStatus;
 }
 
 void KisOpenGLCanvasRenderer::setLodResetInProgress(bool value)
@@ -584,7 +585,7 @@ void KisOpenGLCanvasRenderer::drawCheckers(const QRect &updateRect)
     QRectF textureRect;
     QRectF modelRect;
 
-    QSizeF widgetSize = widgetSizeAlignedToDevicePixel();
+    const QSizeF &widgetSize = d->pixelAlignedWidgetSize;
     QRectF viewportRect = !d->wrapAroundMode ?
                 converter->imageRectInViewportPixels() :
                 converter->widgetToViewport(QRectF(0, 0, widgetSize.width(), widgetSize.height()));
@@ -665,7 +666,7 @@ void KisOpenGLCanvasRenderer::drawGrid(const QRect &updateRect)
         return;
     }
 
-    QSizeF widgetSize = widgetSizeAlignedToDevicePixel();
+    const QSizeF &widgetSize = d->pixelAlignedWidgetSize;
 
     QMatrix4x4 projectionMatrix;
     projectionMatrix.setToIdentity();
@@ -746,7 +747,7 @@ void KisOpenGLCanvasRenderer::drawImage(const QRect &updateRect)
 
     d->displayShader->bind();
 
-    const QSizeF widgetSize = widgetSizeAlignedToDevicePixel();
+    const QSizeF &widgetSize = d->pixelAlignedWidgetSize;
 
     QMatrix4x4 textureMatrix;
     textureMatrix.setToIdentity();
@@ -826,7 +827,7 @@ void KisOpenGLCanvasRenderer::drawImage(const QRect &updateRect)
 void KisOpenGLCanvasRenderer::drawImageTiles(int firstCol, int lastCol, int firstRow, int lastRow, qreal scaleX, qreal scaleY, const QPoint &wrapAroundOffset)
 {
     KisCoordinatesConverter *converter = coordinatesConverter();
-    const QSizeF widgetSize = widgetSizeAlignedToDevicePixel();
+    const QSizeF &widgetSize = d->pixelAlignedWidgetSize;
 
     QMatrix4x4 projectionMatrix;
     projectionMatrix.setToIdentity();
@@ -938,14 +939,6 @@ void KisOpenGLCanvasRenderer::drawImageTiles(int firstCol, int lastCol, int firs
     glBindBuffer(GL_ARRAY_BUFFER, 0);
 }
 
-QSizeF KisOpenGLCanvasRenderer::widgetSizeAlignedToDevicePixel() const
-{
-    QSize viewportSize = d->viewportDevicePixelSize;
-    qreal scaledWidth = viewportSize.width() / devicePixelRatioF();
-    qreal scaledHeight = viewportSize.height() / devicePixelRatioF();
-    return QSizeF(scaledWidth, scaledHeight);
-}
-
 void KisOpenGLCanvasRenderer::updateConfig()
 {
     KisConfig cfg(true);
@@ -973,7 +966,7 @@ QRectF KisOpenGLCanvasRenderer::widgetToSurface(const QRectF &rc)
     const qreal ratio = devicePixelRatioF();
 
     return QRectF(rc.x() * ratio,
-                  (d->viewportWidgetSize.height() - rc.y() - rc.height()) * ratio,
+                  (d->pixelAlignedWidgetSize.height() - rc.y() - rc.height()) * ratio,
                   rc.width() * ratio,
                   rc.height() * ratio);
 }
@@ -983,7 +976,7 @@ QRectF KisOpenGLCanvasRenderer::surfaceToWidget(const QRectF &rc)
     const qreal ratio = devicePixelRatioF();
 
     return QRectF(rc.x() / ratio,
-                  d->viewportWidgetSize.height() - (rc.y() + rc.height()) / ratio,
+                  d->pixelAlignedWidgetSize.height() - (rc.y() + rc.height()) / ratio,
                   rc.width() / ratio,
                   rc.height() / ratio);
 }
@@ -1015,6 +1008,8 @@ void KisOpenGLCanvasRenderer::renderCanvasGL(const QRect &updateRect)
         glEnable(GL_SCISSOR_TEST);
     }
 
+    glDisable(GL_DEPTH_TEST);
+
     drawBackground(alignedUpdateRect);
     drawCheckers(alignedUpdateRect);
     drawImage(alignedUpdateRect);
@@ -1031,27 +1026,6 @@ void KisOpenGLCanvasRenderer::renderCanvasGL(const QRect &updateRect)
         d->quadVAO.release();
     }
 }
-
-void KisOpenGLCanvasRenderer::renderDecorations(const QRect &updateRect)
-{
-    // Creates an OpenGL paint device with the current OpenGL context
-    QOpenGLPaintDevice paintDevice(d->viewportDevicePixelSize);
-    paintDevice.setDevicePixelRatio(devicePixelRatioF());
-
-    QPainter gc(&paintDevice);
-    gc.setClipRect(updateRect);
-
-    QRect decorationsBoundingRect = coordinatesConverter()->imageRectInWidgetPixels().toAlignedRect();
-
-    if (!updateRect.isEmpty()) {
-        decorationsBoundingRect &= updateRect;
-    }
-
-    drawDecorations(gc, decorationsBoundingRect);
-
-    gc.end();
-}
-
 
 void KisOpenGLCanvasRenderer::setDisplayColorConverter(KisDisplayColorConverter *colorConverter)
 {

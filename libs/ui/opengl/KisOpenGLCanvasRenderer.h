@@ -26,6 +26,7 @@ class KisDisplayColorConverter;
 class KisDisplayFilter;
 class QOpenGLShaderProgram;
 class QPainterPath;
+class QOpenGLFramebufferObject;
 
 #ifndef Q_MOC_RUN
 #ifndef Q_OS_MACOS
@@ -53,12 +54,17 @@ public:
 
 public:
     void resizeGL(int width, int height);
+    void resizeWithFBO(QOpenGLFramebufferObject *fbo);
     void initializeGL();
-    void paintGL(const QRect &updateRect = QRect());
+
+    /**
+     * Paint only the canvas background and image tiles.
+     */
+    void paintCanvasOnly(const QRect &canvasUpdateRect, const QRect &viewportUpdateRect = QRect());
 
 private:
+    void updateSize(const QSize &viewportSize);
     void renderCanvasGL(const QRect &updateRect);
-    void renderDecorations(const QRect &updateRect);
 
 public:
     void paintToolOutline(const QPainterPath &path);
@@ -75,7 +81,6 @@ public:
     KisUpdateInfoSP startUpdateCanvasProjection(const QRect & rc, const QBitArray &channelFlags);
     QRect updateCanvasProjection(KisUpdateInfoSP info);
 
-    bool isBusy() const;
     void setLodResetInProgress(bool value);
 
 private:
@@ -97,7 +102,6 @@ private:
     void drawImageTiles(int firstCol, int lastCol, int firstRow, int lastRow, qreal scaleX, qreal scaleY, const QPoint &wrapAroundOffset);
     void drawCheckers(const QRect &updateRect);
     void drawGrid(const QRect &updateRect);
-    QSizeF widgetSizeAlignedToDevicePixel() const;
 
     QRectF widgetToSurface(const QRectF &rc);
     QRectF surfaceToWidget(const QRectF &rc);
@@ -111,8 +115,6 @@ private:
     qreal devicePixelRatioF() const;
     KisCoordinatesConverter *coordinatesConverter() const;
     QColor borderColor() const;
-
-    void drawDecorations(QPainter &gc, const QRect &updateWidgetRect) const;
 };
 
 class KisOpenGLCanvasRenderer::CanvasBridge
@@ -131,13 +133,6 @@ protected:
     virtual qreal devicePixelRatioF() const = 0;
     virtual KisCoordinatesConverter *coordinatesConverter() const = 0;
     virtual QColor borderColor() const = 0;
-
-    // Widget parent for KisOpenGLCanvasRenderer::reportFailedShaderCompilation
-    // to show a QMessageBox. (Return `nullptr` if not using widgets?)
-    virtual QWidget *widget() const = 0;
-
-    // drawDecorations is a member of KisCanvasWidgetBase.
-    virtual void drawDecorations(QPainter &gc, const QRect &updateWidgetRect) const = 0;
 };
 
 #endif // KIS_OPENGL_CANVAS_RENDERER_H

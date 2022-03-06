@@ -9,11 +9,14 @@
 
 #include "opengl/kis_opengl_canvas2.h"
 #include "opengl/KisOpenGLCanvasRenderer.h"
+#include "opengl/KisOpenGLSync.h"
+#include "opengl/kis_opengl_canvas_debugger.h"
 
 #include "canvas/kis_canvas2.h"
 #include "kis_config.h"
 #include "kis_config_notifier.h"
 #include "kis_debug.h"
+#include "KisRepaintDebugger.h"
 
 #include <QPointer>
 #include "KisOpenGLModeProber.h"
@@ -46,12 +49,6 @@ protected:
     QColor borderColor() const override {
         return m_canvas->borderColor();
     }
-    QWidget *widget() const override {
-        return m_canvas;
-    }
-    void drawDecorations(QPainter &gc, const QRect &updateWidgetRect) const override {
-        m_canvas->drawDecorations(gc, updateWidgetRect);
-    }
 };
 
 struct KisOpenGLCanvas2::Private
@@ -62,7 +59,10 @@ public:
     }
 
     boost::optional<QRect> updateRect;
+    QRect canvasUpdateRect;
     KisOpenGLCanvasRenderer *renderer;
+    QScopedPointer<KisOpenGLSync> glSyncObject;
+    KisRepaintDebugger repaintDbg;
 };
 
 KisOpenGLCanvas2::KisOpenGLCanvas2(KisCanvas2 *canvas,
@@ -169,11 +169,13 @@ bool KisOpenGLCanvas2::wrapAroundViewingMode() const
 void KisOpenGLCanvas2::initializeGL()
 {
     d->renderer->initializeGL();
+    KisOpenGLSync::init(context());
 }
 
 void KisOpenGLCanvas2::resizeGL(int width, int height)
 {
     d->renderer->resizeGL(width, height);
+    d->canvasUpdateRect = QRect(0, 0, width, height);
 }
 
 void KisOpenGLCanvas2::paintGL()
@@ -185,7 +187,28 @@ void KisOpenGLCanvas2::paintGL()
         cfg.writeEntry("canvasState", "OPENGL_PAINT_STARTED");
     }
 
-    d->renderer->paintGL(updateRect);
+    KisOpenglCanvasDebugger::instance()->nofityPaintRequested();
+    QRect canvasUpdateRect = d->canvasUpdateRect;
+    d->canvasUpdateRect = QRect();
+    d->renderer->paintCanvasOnly(canvasUpdateRect, updateRect);
+    {
+        QPainter gc(this);
+        if (!updateRect.isEmpty()) {
+            gc.setClipRect(updateRect);
+        }
+
+        QRect decorationsBoundingRect = coordinatesConverter()->imageRectInWidgetPixels().toAlignedRect();
+
+        if (!updateRect.isEmpty()) {
+            decorationsBoundingRect &= updateRect;
+        }
+
+        drawDecorations(gc, decorationsBoundingRect);
+    }
+
+    d->repaintDbg.paint(this, updateRect.isEmpty() ? rect() : updateRect);
+
+    d->glSyncObject.reset(new KisOpenGLSync());
 
     if (!OPENGL_SUCCESS) {
         KisConfig cfg(false);
@@ -210,7 +233,9 @@ void KisOpenGLCanvas2::paintToolOutline(const QPainterPath &path)
 
 bool KisOpenGLCanvas2::isBusy() const
 {
-    return d->renderer->isBusy();
+    const bool isBusyStatus = d->glSyncObject && !d->glSyncObject->isSignaled();
+    KisOpenglCanvasDebugger::instance()->nofitySyncStatus(isBusyStatus);
+    return isBusyStatus;
 }
 
 void KisOpenGLCanvas2::setLodResetInProgress(bool value)
@@ -301,6 +326,11 @@ QVector<QRect> KisOpenGLCanvas2::updateCanvasProjection(const QVector<KisUpdateI
 #endif
 
     return result;
+}
+
+void KisOpenGLCanvas2::addCanvasUpdateRect(const QRect &rect)
+{
+    d->canvasUpdateRect |= rect;
 }
 
 bool KisOpenGLCanvas2::callFocusNextPrevChild(bool next)

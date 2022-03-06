@@ -18,6 +18,7 @@
 
 #include "opengl/kis_opengl_canvas2.h"
 #include "canvas/kis_qpainter_canvas.h"
+#include "opengl/KisQuickWidgetCanvas.h"
 #include "KisMainWindow.h"
 
 Q_GLOBAL_STATIC(KisQtWidgetsTweaker, kqwt_instance)
@@ -160,8 +161,9 @@ public:
     {
         Q_UNUSED(event);
 
-        if (qobject_cast<KisQPainterCanvas*>(receiver) != nullptr||
-            qobject_cast<KisOpenGLCanvas2*> (receiver) != nullptr) {
+        if (qobject_cast<KisQPainterCanvas*>    (receiver) != nullptr ||
+            qobject_cast<KisOpenGLCanvas2*>     (receiver) != nullptr ||
+            qobject_cast<KisQuickWidgetCanvas*> (receiver) != nullptr) {
 
             return DecisionOnShortcutOverride::dontOverrideShortcut;
         } else {
