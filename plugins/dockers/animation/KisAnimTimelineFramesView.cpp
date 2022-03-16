@@ -132,7 +132,6 @@ struct KisAnimTimelineFramesView::Private
     QPixmap renderToPixmap(const QModelIndexList &indexes, QRect *r) const;
 
     KisIconToolTip tip;
-    QElapsedTimer timeSinceClick;
 
     KisActionManager *actionMan = 0;
 };
@@ -962,24 +961,6 @@ void KisAnimTimelineFramesView::mousePressEvent(QMouseEvent *event)
 {
     QPersistentModelIndex index = indexAt(event->pos());
 
-    if (m_d->modifiersCatcher->modifierPressed("pan-zoom")) {
-        if (event->button() == Qt::RightButton) {
-            // TODO: try calculate index under mouse cursor even when
-            //       it is outside any visible row
-//            qreal staticPoint = index.isValid() ? index.column() : currentIndex().column();
-//            m_d->zoomDragButton->beginZoom(event->pos(), staticPoint);
-        } else if (event->button() == Qt::LeftButton) {
-            m_d->initialDragPanPos = event->pos();
-            m_d->initialDragPanValue =
-                    QPoint(horizontalScrollBar()->value(),
-                           verticalScrollBar()->value());
-        }
-
-        m_d->timeSinceClick.start();
-        event->accept();
-
-    }
-
     if (event->button() == Qt::RightButton) {
 
         int numSelectedItems = selectionModel()->selectedIndexes().size();
@@ -1087,8 +1068,14 @@ void KisAnimTimelineFramesView::mousePressEvent(QMouseEvent *event)
 
         m_d->initialDragPanPos = event->pos();
 
-        m_d->timeSinceClick.start();
-        QAbstractItemView::mousePressEvent(event);
+        if (m_d->modifiersCatcher->modifierPressed("pan-zoom")) {
+            m_d->initialDragPanPos = event->pos();
+            m_d->initialDragPanValue =
+                    QPoint(horizontalScrollBar()->value(),
+                           verticalScrollBar()->value());
+        } else {
+            QAbstractItemView::mousePressEvent(event);
+        }
     }
 }
 
@@ -1121,13 +1108,6 @@ void KisAnimTimelineFramesView::mouseMoveEvent(QMouseEvent *e)
     }
 
     if (m_d->modifiersCatcher->modifierPressed("pan-zoom")) {
-
-        // Hotfix -- Ignore move events that come in too hot to prevent selection bugs on MacOS. See BUG:447107
-        const qint64 DELAY_MOVE_RESPONSE_TIME = 100;
-        if (m_d->timeSinceClick.elapsed() < DELAY_MOVE_RESPONSE_TIME) {
-            return;
-        }
-
         if (e->buttons() & Qt::RightButton) {
 
 //            m_d->zoomDragButton->continueZoom(e->pos());
