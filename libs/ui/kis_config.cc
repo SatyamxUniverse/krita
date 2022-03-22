@@ -1884,14 +1884,31 @@ void KisConfig::setTrimFramesImport(bool trim)
     m_cfg.writeEntry("TrimFramesImport", trim);
 }
 
-bool KisConfig::toolOptionsInDocker(bool defaultValue) const
+KisConfig::ToolOptionsLocation KisConfig::toolOptionsLocation(bool defaultValue) const
 {
-    return (defaultValue ? true : m_cfg.readEntry("ToolOptionsInDocker", true));
+    if (defaultValue) {
+        return ToolOptionsLocation_Docker;
+    }
+    const QString toolOptionsLocationStr = m_cfg.readEntry("ToolOptionsLocation", "");
+    if (toolOptionsLocationStr == "toolbarButton") {
+        return ToolOptionsLocation_ToolbarButton;
+    } else if (toolOptionsLocationStr == "docker") {
+        return ToolOptionsLocation_Docker;
+    } else if (toolOptionsLocationStr == "toolsToolbar") {
+        return ToolOptionsLocation_ToolsToolbar;
+    }
+    return m_cfg.readEntry("ToolOptionsInDocker", true) == true ? ToolOptionsLocation_Docker : ToolOptionsLocation_ToolbarButton;
 }
 
-void KisConfig::setToolOptionsInDocker(bool inDocker)
+void KisConfig::setToolOptionsLocation(ToolOptionsLocation toolOptionsLocation)
 {
-    m_cfg.writeEntry("ToolOptionsInDocker", inDocker);
+    if (toolOptionsLocation == ToolOptionsLocation_ToolbarButton) {
+        m_cfg.writeEntry("ToolOptionsLocation", "toolbarButton");
+    } else if (toolOptionsLocation == ToolOptionsLocation_Docker) {
+        m_cfg.writeEntry("ToolOptionsLocation", "docker");
+    } else {
+        m_cfg.writeEntry("ToolOptionsLocation", "toolsToolbar");
+    }
 }
 
 bool KisConfig::kineticScrollingEnabled(bool defaultValue) const

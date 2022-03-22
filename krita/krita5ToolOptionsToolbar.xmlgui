@@ -1,0 +1,10 @@
+<?xml version="1.1"?>
+<kpartgui xmlns="http://www.kde.org/standards/kxmlgui/1.0"
+xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+name="Krita"
+version="502"
+xsi:schemaLocation="http://www.kde.org/standards/kxmlgui/1.0  http://www.kde.org/standards/kxmlgui/1.0/kxmlgui.xsd">
+  <ToolBar name="ToolOptions" fullWidth="true" newLine="true" noEdit="true" position="top">
+    <Text>Tool Options</Text>
+  </ToolBar>
+</kpartgui>

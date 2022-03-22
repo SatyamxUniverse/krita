@@ -77,7 +77,7 @@ public:
     bool trimKra();
     bool trimFramesImport();
     bool useZip64();
-    bool toolOptionsInDocker();
+    KisConfig::ToolOptionsLocation toolOptionsLocation();
     bool smoothZooming();
     bool kineticScrollingEnabled();
     int kineticScrollingGesture();

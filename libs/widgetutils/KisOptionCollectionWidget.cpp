@@ -446,6 +446,8 @@ void KisOptionCollectionWidget::setOrientation(Qt::Orientation orientation, bool
     }
     QBoxLayout *layoutMain = dynamic_cast<QBoxLayout*>(layout());
     layoutMain->setDirection(orientation == Qt::Vertical ? QBoxLayout::TopToBottom : QBoxLayout::LeftToRight);
+
+    emit orientationChanged(orientation);
 }
 
 int KisOptionCollectionWidget::size() const
@@ -660,6 +662,8 @@ void KisOptionCollectionWidgetWithHeader::setOrientation(Qt::Orientation orienta
     m_d->layoutWidgets->setDirection(orientation == Qt::Vertical ? QBoxLayout::TopToBottom : QBoxLayout::LeftToRight);
     QBoxLayout *layoutMain = dynamic_cast<QBoxLayout*>(layout());
     layoutMain->setDirection(orientation == Qt::Vertical ? QBoxLayout::TopToBottom : QBoxLayout::LeftToRight);
+
+    emit orientationChanged(orientation);
 }
 
 int KisOptionCollectionWidgetWithHeader::size() const

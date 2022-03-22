@@ -173,6 +173,7 @@ private Q_SLOTS:
     void slot_widgetLabels_selectionChanged();
     void slot_buttonGroupMultipleFill_buttonToggled(QAbstractButton *button, bool checked);
     void slot_buttonReset_clicked();
+    void slot_m_optionWidget_orientationChanged(Qt::Orientation orientation);
 };
 
 

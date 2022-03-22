@@ -8,5 +8,6 @@
     </qresource>
     <qresource prefix="/kxmlgui5">
         <file alias="krita5.xmlgui">krita5.xmlgui</file>
+        <file alias="krita5ToolOptionsToolbar.xmlgui">krita5ToolOptionsToolbar.xmlgui</file>
     </qresource>
 </RCC>
