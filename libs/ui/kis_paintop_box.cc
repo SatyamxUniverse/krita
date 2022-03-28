@@ -105,7 +105,7 @@ KisPaintopBox::KisPaintopBox(KisViewManager *viewManager, QWidget *parent, const
     // NOTE: buttonsize should be the same value as the one used in ktoolbar for all QToolButton
     int buttonsize = grp.readEntry("ButtonSize", 32);
 
-    if (!cfg.toolOptionsInDocker()) {
+    if (cfg.toolOptionsLocation() == KisConfig::ToolOptionsLocation_ToolbarButton) {
         m_toolOptionsPopupButton = new KisPopupButton(this);
         m_toolOptionsPopupButton->setIcon(KisIconUtils::loadIcon("view-choose"));
         m_toolOptionsPopupButton->setToolTip(i18n("Tool Settings"));
@@ -330,7 +330,7 @@ KisPaintopBox::KisPaintopBox(KisViewManager *viewManager, QWidget *parent, const
     baseLayout->setContentsMargins(0, 0, 0, 0);
 
     m_layout = new QHBoxLayout(m_paintopWidget);
-    if (!cfg.toolOptionsInDocker()) {
+    if (cfg.toolOptionsLocation() == KisConfig::ToolOptionsLocation_ToolbarButton) {
         m_layout->addWidget(m_toolOptionsPopupButton);
     }
     m_layout->addWidget(m_brushEditorPopupButton);
@@ -399,7 +399,7 @@ KisPaintopBox::KisPaintopBox(KisViewManager *viewManager, QWidget *parent, const
     viewManager->actionCollection()->addAction("previous_preset", action);
     connect(action, SIGNAL(triggered()), this, SLOT(slotSwitchToPreviousPreset()));
 
-    if (!cfg.toolOptionsInDocker()) {
+    if (cfg.toolOptionsLocation() == KisConfig::ToolOptionsLocation_ToolbarButton) {
         action = new QWidgetAction(this);
         KisActionRegistry::instance()->propertizeAction("show_tool_options", action);
         viewManager->actionCollection()->addAction("show_tool_options", action);
@@ -434,7 +434,7 @@ KisPaintopBox::KisPaintopBox(KisViewManager *viewManager, QWidget *parent, const
     connect(action, SIGNAL(triggered()), m_workspaceWidget, SLOT(showPopupWidget()));
     workspacePopup->addAction(action);
 
-    if (!cfg.toolOptionsInDocker()) {
+    if (cfg.toolOptionsLocation() == KisConfig::ToolOptionsLocation_ToolbarButton) {
         m_toolOptionsPopup = new KisToolOptionsPopup();
         m_toolOptionsPopupButton->setPopupWidget(m_toolOptionsPopup);
     }
@@ -1448,7 +1448,8 @@ void KisPaintopBox::slotUpdateSelectionIcon()
     m_vMirrorAction->setIcon(KisIconUtils::loadIcon("symmetry-vertical"));
 
     KisConfig cfg(true);
-    if (!cfg.toolOptionsInDocker() && m_toolOptionsPopupButton) {
+    if (cfg.toolOptionsLocation() == KisConfig::ToolOptionsLocation_ToolbarButton
+        && m_toolOptionsPopupButton) {
         m_toolOptionsPopupButton->setIcon(KisIconUtils::loadIcon("configure"));
     }
 

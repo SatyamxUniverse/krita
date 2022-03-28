@@ -556,6 +556,7 @@ QWidget* KisToolFill::createOptionWidget()
     connect(m_widgetLabels, SIGNAL(selectionChanged()), SLOT(slot_widgetLabels_selectionChanged()));
     connect(m_buttonMultipleFillAny->group(), SIGNAL(buttonToggled(QAbstractButton*, bool)), SLOT(slot_buttonGroupMultipleFill_buttonToggled(QAbstractButton*, bool)));
     connect(buttonReset, SIGNAL(clicked()), SLOT(slot_buttonReset_clicked()));
+    connect(m_optionWidget, SIGNAL(orientationChanged(Qt::Orientation)), SLOT(slot_m_optionWidget_orientationChanged(Qt::Orientation)));
     
     return m_optionWidget;
 }
@@ -788,4 +789,11 @@ void KisToolFill::slot_buttonReset_clicked()
     m_buttonReferenceCurrent->setChecked(true);
     m_widgetLabels->setSelection({});
     m_buttonMultipleFillAny->setChecked(true);
+}
+
+void KisToolFill::slot_m_optionWidget_orientationChanged(Qt::Orientation orientation)
+{
+    m_checkBoxSelectionAsBoundary->setSizePolicy(orientation == Qt::Vertical ? QSizePolicy::Ignored : QSizePolicy::Preferred,
+                                                 QSizePolicy::Preferred);
+    m_widgetLabels->setButtonWrapEnabled(orientation == Qt::Vertical);
 }

@@ -152,6 +152,9 @@ public:
      */
     int numberOfVisibleWidgets() const;
 
+Q_SIGNALS:
+    void orientationChanged(Qt::Orientation);
+
 private:
     class Private;
     QScopedPointer<Private> m_d;
@@ -323,6 +326,9 @@ public:
      * @brief Get the number of visible widgets in the list
      */
     int numberOfVisibleWidgets() const;
+
+Q_SIGNALS:
+    void orientationChanged(Qt::Orientation);
 
 protected:
     void resizeEvent(QResizeEvent*) override;

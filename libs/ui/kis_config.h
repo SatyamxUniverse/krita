@@ -532,8 +532,14 @@ public:
     bool trimFramesImport(bool defaultValue = false) const;
     void setTrimFramesImport(bool trim);
 
-    bool toolOptionsInDocker(bool defaultValue = false) const;
-    void setToolOptionsInDocker(bool inDocker);
+    enum ToolOptionsLocation
+    {
+        ToolOptionsLocation_Docker,
+        ToolOptionsLocation_ToolbarButton,
+        ToolOptionsLocation_ToolsToolbar
+    };
+    ToolOptionsLocation toolOptionsLocation(bool defaultValue = false) const;
+    void setToolOptionsLocation(ToolOptionsLocation toolOptionsLocation);
 
     bool kineticScrollingEnabled(bool defaultValue = false) const;
     void setKineticScrollingEnabled(bool enabled);

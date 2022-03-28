@@ -42,7 +42,7 @@
    <item>
     <widget class="QTabWidget" name="tabWidget">
      <property name="currentIndex">
-      <number>2</number>
+      <number>0</number>
      </property>
      <widget class="QWidget" name="tab">
       <attribute name="title">
@@ -494,17 +494,24 @@
           <item>
            <widget class="QRadioButton" name="m_radioToolOptionsInDocker">
             <property name="text">
-             <string>In Doc&amp;ker</string>
+             <string>Doc&amp;ker</string>
             </property>
            </widget>
           </item>
           <item>
            <widget class="QRadioButton" name="m_radioToolOptionsInToolbar">
             <property name="text">
-             <string>I&amp;n Toolbar</string>
+             <string>Toolbar Button</string>
             </property>
             <property name="checked">
              <bool>true</bool>
+            </property>
+           </widget>
+          </item>
+          <item>
+           <widget class="QRadioButton" name="m_radioToolOptionsInToolsToolbar">
+            <property name="text">
+             <string>Tool Options Toolbar</string>
             </property>
            </widget>
           </item>
@@ -844,8 +851,8 @@
            <rect>
             <x>0</x>
             <y>0</y>
-            <width>654</width>
-            <height>652</height>
+            <width>552</width>
+            <height>584</height>
            </rect>
           </property>
           <property name="sizePolicy">

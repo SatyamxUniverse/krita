@@ -257,7 +257,10 @@ GeneralTab::GeneralTab(QWidget *_parent, const char *_name)
     //
     // Tools tab
     //
-    m_radioToolOptionsInDocker->setChecked(cfg.toolOptionsInDocker());
+    const KisConfig::ToolOptionsLocation toolOptionsLocation = cfg.toolOptionsLocation();
+    m_radioToolOptionsInDocker->setChecked(toolOptionsLocation == KisConfig::ToolOptionsLocation_Docker);
+    m_radioToolOptionsInToolbar->setChecked(toolOptionsLocation == KisConfig::ToolOptionsLocation_ToolbarButton);
+    m_radioToolOptionsInToolsToolbar->setChecked(toolOptionsLocation == KisConfig::ToolOptionsLocation_ToolsToolbar);
     cmbFlowMode->setCurrentIndex((int)!cfg.readEntry<bool>("useCreamyAlphaDarken", true));
     m_chkSwitchSelectionCtrlAlt->setChecked(cfg.switchSelectionCtrlAlt());
     chkEnableTouch->setChecked(!cfg.disableTouchOnCanvas());
@@ -480,7 +483,9 @@ void GeneralTab::setDefault()
     m_chkHiDPIFractionalScaling->setChecked(true);
 #endif
     chkUsageLogging->setChecked(true);
-    m_radioToolOptionsInDocker->setChecked(cfg.toolOptionsInDocker(true));
+    m_radioToolOptionsInDocker->setChecked(cfg.toolOptionsLocation(true) == KisConfig::ToolOptionsLocation_Docker);
+    m_radioToolOptionsInToolbar->setChecked(cfg.toolOptionsLocation(true) == KisConfig::ToolOptionsLocation_ToolbarButton);
+    m_radioToolOptionsInToolsToolbar->setChecked(cfg.toolOptionsLocation(true) == KisConfig::ToolOptionsLocation_ToolsToolbar);
     cmbFlowMode->setCurrentIndex(0);
     m_groupBoxKineticScrollingSettings->setChecked(cfg.kineticScrollingEnabled(true));
     m_cmbKineticScrollingGesture->setCurrentIndex(cfg.kineticScrollingGesture(true));
@@ -586,9 +591,15 @@ bool GeneralTab::useZip64()
     return chkZip64->isChecked();
 }
 
-bool GeneralTab::toolOptionsInDocker()
+KisConfig::ToolOptionsLocation GeneralTab::toolOptionsLocation()
 {
-    return m_radioToolOptionsInDocker->isChecked();
+    if (m_radioToolOptionsInDocker->isChecked()) {
+        return KisConfig::ToolOptionsLocation_Docker;
+    } else if (m_radioToolOptionsInToolbar->isChecked()) {
+        return KisConfig::ToolOptionsLocation_ToolbarButton;
+    } else {
+        return KisConfig::ToolOptionsLocation_ToolsToolbar;
+    }
 }
 
 bool GeneralTab::smoothZooming()
@@ -2050,7 +2061,7 @@ bool KisDlgPreferences::editPreferences()
 #endif
         kritarc.setValue("LogUsage", m_general->chkUsageLogging->isChecked());
 
-        cfg.setToolOptionsInDocker(m_general->toolOptionsInDocker());
+        cfg.setToolOptionsLocation(m_general->toolOptionsLocation());
 
         cfg.writeEntry<bool>("useCreamyAlphaDarken", (bool)!m_general->cmbFlowMode->currentIndex());
 

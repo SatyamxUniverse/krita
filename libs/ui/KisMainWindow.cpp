@@ -153,7 +153,7 @@
 #include "KisUiFont.h"
 #include <KisResourceUserOperations.h>
 #include "KisRecentFilesManager.h"
-
+#include <KisToolOptionsToolbarContainer.h>
 
 #include <mutex>
 
@@ -276,6 +276,7 @@ public:
     QMap<QString, QDockWidget *> dockWidgetsMap;
     QByteArray dockerStateBeforeHiding;
     KoToolDocker *toolOptionsDocker {0};
+    KisToolOptionsToolbarContainer *toolsToolbarContainer {0};
 
     QCloseEvent *deferredClosingEvent {0};
 
@@ -379,7 +380,7 @@ KisMainWindow::KisMainWindow(QUuid uuid)
     QDockWidget *toolbox = createDockWidget(&toolBoxFactory);
 
     KisConfig cfg(true);
-    if (cfg.toolOptionsInDocker()) {
+    if (cfg.toolOptionsLocation() == KisConfig::ToolOptionsLocation_Docker) {
         ToolDockerFactory toolDockerFactory;
         d->toolOptionsDocker = qobject_cast<KoToolDocker*>(createDockWidget(&toolDockerFactory));
         d->toolOptionsDocker->toggleViewAction()->setEnabled(true);
@@ -547,6 +548,9 @@ KisMainWindow::KisMainWindow(QUuid uuid)
     // If we have customized the toolbars, load that first
     setLocalXMLFile(KoResourcePaths::locateLocal("data", "krita5.xmlgui"));
     setXMLFile(":/kxmlgui5/krita5.xmlgui");
+    if (cfg.toolOptionsLocation() == KisConfig::ToolOptionsLocation_ToolsToolbar) {
+        setXMLFile(":/kxmlgui5/krita5ToolOptionsToolbar.xmlgui", true);
+    }
 
     guiFactory()->addClient(this);
     connect(guiFactory(), SIGNAL(makingChanges(bool)), SLOT(slotXmlGuiMakingChanges(bool)));
@@ -556,8 +560,12 @@ KisMainWindow::KisMainWindow(QUuid uuid)
     Q_FOREACH (QWidget* it, guiFactory()->containers("ToolBar")) {
         KToolBar * toolBar = ::qobject_cast<KToolBar *>(it);
         if (toolBar) {
-            toolBar->setMovable(KisConfig(true).readEntry<bool>("LockAllDockerPanels", false));
-
+            if (toolBar->objectName() == "ToolOptions") {
+                toolBar->setMinimumHeight(32);
+                toolBar->setAllowedAreas(Qt::TopToolBarArea | Qt::BottomToolBarArea);
+                d->toolsToolbarContainer = new KisToolOptionsToolbarContainer;
+                toolBar->addWidget(d->toolsToolbarContainer);
+            }
             KToggleAction* act = new KToggleAction(i18n("Show %1 Toolbar", toolBar->windowTitle()), this);
             actionCollection()->addAction(toolBar->objectName().toUtf8(), act);
             act->setCheckedState(KGuiItem(i18n("Hide %1 Toolbar", toolBar->windowTitle())));
@@ -2725,8 +2733,9 @@ void KisMainWindow::newOptionWidgets(KoCanvasController *controller, const QList
 
     if (d->toolOptionsDocker) {
         d->toolOptionsDocker->setOptionWidgets(optionWidgetList);
-    }
-    else {
+    } else if (d->toolsToolbarContainer) {
+        d->toolsToolbarContainer->setOptionWidgets(optionWidgetList);
+    } else {
         d->viewManager->paintOpBox()->newOptionWidgets(optionWidgetList);
     }
 }
