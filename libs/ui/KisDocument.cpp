@@ -1359,7 +1359,7 @@ void KisDocument::slotAutoSaveImpl(std::unique_ptr<KisDocument> &&optionalCloned
         emit statusBarMessage(i18n("Autosaving postponed: document is busy..."), errorMessageTimeout);
     }
 
-    if (!result == KritaUtils::JobResult::Success && !hadClonedDocument && d->autoSaveFailureCount >= 3) {
+    if (result != KritaUtils::JobResult::Success && !hadClonedDocument && d->autoSaveFailureCount >= 3) {
         KisCloneDocumentStroke *stroke = new KisCloneDocumentStroke(this);
         connect(stroke, SIGNAL(sigDocumentCloned(KisDocument*)),
                 this, SLOT(slotInitiateAsyncAutosaving(KisDocument*)),
