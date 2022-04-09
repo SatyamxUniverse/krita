@@ -19,3 +19,6 @@ Dependencies:
 - 'on': ['Linux', 'FreeBSD']
   'require':
     'frameworks/kcrash': '@stable'
+
+Options:
+  per-test-timeout: 4:00
