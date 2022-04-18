@@ -10,7 +10,11 @@ set(kritaselectiontools_SOURCES
     kis_selection_modifier_mapper.cc
     KisMagneticWorker.cc
     KisToolSelectMagnetic.cc
+    kis_tool_select_guided.cc
+    kis_tool_select_guided_options_widget.cc
 )
+
+ki18n_wrap_ui(kritaselectiontools_SOURCES kis_tool_select_guided_options_widget.ui)
 
 qt5_add_resources(kritaselectiontools_SOURCES selectiontools.qrc)
 
@@ -31,5 +35,6 @@ install( FILES
         KisToolSelectOutline.action
         KisToolSelectPath.action
         KisToolSelectMagnetic.action
+        KisToolSelectGuided.action
     DESTINATION  ${DATA_INSTALL_DIR}/krita/actions
 )

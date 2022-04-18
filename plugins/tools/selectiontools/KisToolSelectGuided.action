@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ActionCollection version="2" name="Tools">
+  <Actions category="tool-shortcuts">
+      <text>Tool Shortcuts</text>
+    <Action name="KisToolSelectGuided">
+      <icon></icon>
+      <text>Guided Selection Tool</text>
+      <whatsThis></whatsThis>
+      <toolTip>Guided Selection Tool</toolTip>
+      <iconText>Guided Selection Tooll</iconText>
+      <shortcut></shortcut>
+      <isCheckable>false</isCheckable>
+      <statusTip></statusTip>
+    </Action>
+  </Actions>
+</ActionCollection>
