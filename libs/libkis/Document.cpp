@@ -64,6 +64,20 @@
 
 #include <kis_image_animation_interface.h>
 
+#include <QPointF>
+#include <QVector>
+
+#include <KoCanvasResourceProvider.h>
+#include "strokes/KisFreehandStrokeInfo.h"
+#include "kis_resources_snapshot.h"
+#include "kis_canvas_resource_provider.h"
+#include "strokes/freehand_stroke.h"
+#include "kis_painting_information_builder.h"
+#include "KisAsyncronousStrokeUpdateHelper.h"
+#include "kis_stroke_strategy.h"
+#include "PaintingResources.h"
+
+
 struct Document::Private {
     Private() {}
     QPointer<KisDocument> document;
@@ -1091,4 +1105,45 @@ void Document::removeAnnotation(const QString &type)
 {
     KisImageSP image = d->document->image().toStrongRef();
     image->removeAnnotation(type);
+}
+
+
+void Document::paintLine(const QPoint pointOne, const QPoint pointTwo)
+{
+    KisPaintInformation pointOneInfo;
+    pointOneInfo.setPressure(1.0);
+    pointOneInfo.setPos(pointOne);
+
+    KisPaintInformation pointTwoInfo;
+    pointTwoInfo.setPressure(1.0);
+    pointTwoInfo.setPos(pointTwo);
+
+    PaintingResources::addStrokeJob(d->document->image(), new FreehandStrokeStrategy::Data(0,pointOneInfo, pointTwoInfo));
+}
+
+
+void Document::paintRectangle(const QRectF &rect)
+{
+    // reference class where this stuff is being done. Maybe can use the "facade" like that does for setup?
+    // void KisFigurePaintingToolHelper::paintRect(const QRectF &rect)
+
+    PaintingResources::addStrokeJob(d->document->image(), new FreehandStrokeStrategy::Data(0,FreehandStrokeStrategy::Data::RECT, rect));
+}
+
+void Document::paintPolygon(const QList<QPointF> listPoint)
+{
+    // strategy needs points in vPointF format
+    QVector<QPointF> points = points.fromList(listPoint);
+
+    PaintingResources::addStrokeJob(d->document->image(), new FreehandStrokeStrategy::Data(0,FreehandStrokeStrategy::Data::POLYGON, points));
+}
+
+void Document::paintEllipse(const QRectF &rect)
+{
+    PaintingResources::addStrokeJob(d->document->image(), new FreehandStrokeStrategy::Data(0,FreehandStrokeStrategy::Data::ELLIPSE, rect));
+}
+
+void Document::paintPath(const QPainterPath &path)
+{
+    PaintingResources::addStrokeJob(d->document->image(), new FreehandStrokeStrategy::Data(0, FreehandStrokeStrategy::Data::PAINTER_PATH, path));
 }
