@@ -103,6 +103,14 @@ public Q_SLOTS:
     QByteArray annotation(const QString &type);
     void setAnnotation(const QString &type, const QString &description, const QByteArray &annotation);
     void removeAnnotation(const QString &type);
+
+
+    void paintLine(const QPoint pointOne, const QPoint pointTwo);
+    void paintRectangle(const QRectF &rect);
+    void paintPolygon(const QList<QPointF> points);
+    void paintEllipse(const QRectF &rect);
+    void paintPath(const QPainterPath &path);
+    
 private:
 
 };
