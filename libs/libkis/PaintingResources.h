@@ -26,6 +26,8 @@
 #include "KoCanvasResourceProvider.h"
 #include "kis_stroke_strategy.h"
 
+#include <kis_figure_painting_tool_helper.h>
+
 #include "libkis.h"
 
 #include "View.h"
@@ -38,9 +40,7 @@
  */
 namespace PaintingResources
 {
-
-  KisStrokeId setupStrokeForPainting(KisImageWSP image); // set up when using painting strokes
-  void addStrokeJob(KisImageWSP image, KisStrokeJobData *data);
+    KisFigurePaintingToolHelper createHelper(KisImageWSP image);
 };
 
 #endif // LIBKIS_PAINTINGRESOURCES_H

@@ -908,7 +908,7 @@ print(root.childNodes())
      * @param pointOne starting point
      * @param pointTwo end point
      */
-    void paintLine(const QPoint pointOne, const QPoint pointTwo);
+    void paintLine(const QPointF pointOne, const QPointF pointTwo);
 
     /**
      * @brief paint a rectangle on the canvas. Uses current brush preset

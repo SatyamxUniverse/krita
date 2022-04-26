@@ -55,17 +55,7 @@
 #include "kis_stroke_strategy.h"
 
 
-
-void PaintingResources::addStrokeJob(KisImageWSP image, KisStrokeJobData *data)
-{
-    KisStrokeId strokeId = setupStrokeForPainting(image);
-    image->addJob(strokeId, data);
-    image->addJob(strokeId, new KisAsyncronousStrokeUpdateHelper::UpdateData(true));
-    image->endStroke(strokeId);
-}
-
-
-KisStrokeId PaintingResources::setupStrokeForPainting(KisImageWSP image)
+KisFigurePaintingToolHelper PaintingResources::createHelper(KisImageWSP image)
 {
     // need to grab the resource provider
     KisView *activeView = KisPart::instance()->currentMainwindow()->activeView();
@@ -74,9 +64,14 @@ KisStrokeId PaintingResources::setupStrokeForPainting(KisImageWSP image)
     // grab the image and current layer
     KisNodeSP node = activeView->currentNode();
 
-    KisResourcesSnapshotSP resources = new KisResourcesSnapshot(image, node, resourceManager);
-    KisFreehandStrokeInfo *strokeInfo = new KisFreehandStrokeInfo();
-    KisStrokeStrategy* strokeStrategy =  new FreehandStrokeStrategy(resources, strokeInfo, kundo2_noi18n("python_stroke"));
+    const KUndo2MagicString name = kundo2_noi18n("python_stroke");
+    KisFigurePaintingToolHelper helper(
+        name,
+        image,
+        node, resourceManager,
+        KisToolShapeUtils::StrokeStyle::StrokeStyleForeground,
+        KisToolShapeUtils::FillStyle::FillStyleNone
+    );
 
-    return image->startStroke( strokeStrategy );
+    return helper;
 }

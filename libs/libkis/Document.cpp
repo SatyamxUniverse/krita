@@ -1108,7 +1108,7 @@ void Document::removeAnnotation(const QString &type)
 }
 
 
-void Document::paintLine(const QPoint pointOne, const QPoint pointTwo)
+void Document::paintLine(const QPointF pointOne, const QPointF pointTwo)
 {
     KisPaintInformation pointOneInfo;
     pointOneInfo.setPressure(1.0);
@@ -1118,7 +1118,8 @@ void Document::paintLine(const QPoint pointOne, const QPoint pointTwo)
     pointTwoInfo.setPressure(1.0);
     pointTwoInfo.setPos(pointTwo);
 
-    PaintingResources::addStrokeJob(d->document->image(), new FreehandStrokeStrategy::Data(0,pointOneInfo, pointTwoInfo));
+    auto helper = PaintingResources::createHelper(d->document->image());
+    helper.paintLine(pointOneInfo, pointTwoInfo);
 }
 
 
@@ -1127,23 +1128,26 @@ void Document::paintRectangle(const QRectF &rect)
     // reference class where this stuff is being done. Maybe can use the "facade" like that does for setup?
     // void KisFigurePaintingToolHelper::paintRect(const QRectF &rect)
 
-    PaintingResources::addStrokeJob(d->document->image(), new FreehandStrokeStrategy::Data(0,FreehandStrokeStrategy::Data::RECT, rect));
+    auto helper = PaintingResources::createHelper(d->document->image());
+    helper.paintRect(rect);
 }
 
 void Document::paintPolygon(const QList<QPointF> listPoint)
 {
     // strategy needs points in vPointF format
     QVector<QPointF> points = points.fromList(listPoint);
-
-    PaintingResources::addStrokeJob(d->document->image(), new FreehandStrokeStrategy::Data(0,FreehandStrokeStrategy::Data::POLYGON, points));
+    auto helper = PaintingResources::createHelper(d->document->image());
+    helper.paintPolygon(points);
 }
 
 void Document::paintEllipse(const QRectF &rect)
 {
-    PaintingResources::addStrokeJob(d->document->image(), new FreehandStrokeStrategy::Data(0,FreehandStrokeStrategy::Data::ELLIPSE, rect));
+    auto helper = PaintingResources::createHelper(d->document->image());
+    helper.paintEllipse(rect);
 }
 
 void Document::paintPath(const QPainterPath &path)
 {
-    PaintingResources::addStrokeJob(d->document->image(), new FreehandStrokeStrategy::Data(0, FreehandStrokeStrategy::Data::PAINTER_PATH, path));
+    auto helper = PaintingResources::createHelper(d->document->image());
+    helper.paintPainterPath(path);
 }
