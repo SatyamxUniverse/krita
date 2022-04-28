@@ -63,6 +63,8 @@ KisToolFreehand::KisToolFreehand(KoCanvasBase * canvas, const QCursor & cursor, 
     m_helper = new KisToolFreehandHelper(m_infoBuilder, canvas->resourceManager(), transactionText);
 
     connect(m_helper, SIGNAL(requestExplicitUpdateOutline()), SLOT(explicitUpdateOutline()));
+
+    connect(qobject_cast<KisCanvas2*>(canvas)->viewManager(), SIGNAL(brushOutlineToggled()), SLOT(explicitUpdateOutline()));
 }
 
 KisToolFreehand::~KisToolFreehand()
@@ -287,7 +289,7 @@ void KisToolFreehand::activateAlternateAction(AlternateAction action)
     }
 
     useCursor(KisCursor::blankCursor());
-    setOutlineEnabled(true);
+    setOutlineVisible(true);
 }
 
 void KisToolFreehand::deactivateAlternateAction(AlternateAction action)
@@ -298,7 +300,7 @@ void KisToolFreehand::deactivateAlternateAction(AlternateAction action)
     }
 
     resetCursorStyle();
-    setOutlineEnabled(false);
+    setOutlineVisible(false);
 }
 
 void KisToolFreehand::beginAlternateAction(KoPointerEvent *event, AlternateAction action)
