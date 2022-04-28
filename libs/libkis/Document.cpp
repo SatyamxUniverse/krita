@@ -1118,7 +1118,7 @@ void Document::paintLine(const QPointF pointOne, const QPointF pointTwo)
     pointTwoInfo.setPressure(1.0);
     pointTwoInfo.setPos(pointTwo);
 
-    auto helper = PaintingResources::createHelper(d->document->image());
+    KisFigurePaintingToolHelper helper = PaintingResources::createHelper(d->document->image());
     helper.paintLine(pointOneInfo, pointTwoInfo);
 }
 
@@ -1128,7 +1128,7 @@ void Document::paintRectangle(const QRectF &rect)
     // reference class where this stuff is being done. Maybe can use the "facade" like that does for setup?
     // void KisFigurePaintingToolHelper::paintRect(const QRectF &rect)
 
-    auto helper = PaintingResources::createHelper(d->document->image());
+    KisFigurePaintingToolHelper helper = PaintingResources::createHelper(d->document->image());
     helper.paintRect(rect);
 }
 
@@ -1136,18 +1136,18 @@ void Document::paintPolygon(const QList<QPointF> listPoint)
 {
     // strategy needs points in vPointF format
     QVector<QPointF> points = points.fromList(listPoint);
-    auto helper = PaintingResources::createHelper(d->document->image());
+    KisFigurePaintingToolHelper helper = PaintingResources::createHelper(d->document->image());
     helper.paintPolygon(points);
 }
 
 void Document::paintEllipse(const QRectF &rect)
 {
-    auto helper = PaintingResources::createHelper(d->document->image());
+    KisFigurePaintingToolHelper helper = PaintingResources::createHelper(d->document->image());
     helper.paintEllipse(rect);
 }
 
 void Document::paintPath(const QPainterPath &path)
 {
-    auto helper = PaintingResources::createHelper(d->document->image());
+    KisFigurePaintingToolHelper helper = PaintingResources::createHelper(d->document->image());
     helper.paintPainterPath(path);
 }
