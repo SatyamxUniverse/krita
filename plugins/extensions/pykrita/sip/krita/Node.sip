@@ -66,6 +66,12 @@ public Q_SLOTS:
     QString layerStyleToAsl();
     void setLayerStyleFromAsl(const QString &asl);
     QUuid uniqueId() const;
+
+    void paintLine(const QPoint pointOne, const QPoint pointTwo);
+    void paintRectangle(const QRectF &rect);
+    void paintPolygon(const QList<QPointF> points);
+    void paintEllipse(const QRectF &rect);
+    void paintPath(const QPainterPath &path);
 Q_SIGNALS:
 private:
 };
