@@ -69,7 +69,6 @@
 
 
 
-
 struct Document::Private {
     Private() {}
     QPointer<KisDocument> document;
