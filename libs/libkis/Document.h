@@ -6,11 +6,8 @@
 #ifndef LIBKIS_DOCUMENT_H
 #define LIBKIS_DOCUMENT_H
 
-#include <QRectF>
-
 #include "kritalibkis_export.h"
 #include "libkis.h"
-#include "kis_stroke_strategy.h"
 
 #include "GroupLayer.h"
 #include "CloneLayer.h"

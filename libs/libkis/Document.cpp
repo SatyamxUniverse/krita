@@ -64,8 +64,6 @@
 
 #include <kis_image_animation_interface.h>
 
-
-
 struct Document::Private {
     Private() {}
     QPointer<KisDocument> document;
