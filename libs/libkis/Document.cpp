@@ -64,9 +64,6 @@
 
 #include <kis_image_animation_interface.h>
 
-#include <QPointF>
-#include <QVector>
-
 
 
 struct Document::Private {

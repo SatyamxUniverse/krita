@@ -6,8 +6,6 @@
 #ifndef LIBKIS_DOCUMENT_H
 #define LIBKIS_DOCUMENT_H
 
-#include <QObject>
-
 #include <QRectF>
 
 #include "kritalibkis_export.h"
