@@ -47,7 +47,6 @@
 #include <QAction>
 #include <QWindow>
 #include <QTemporaryDir>
-#include <QScrollArea>
 #include <kactioncollection.h>
 #include <kactionmenu.h>
 #include <kis_debug.h>
@@ -142,7 +141,6 @@
 #include <KisImageConfigNotifier.h>
 #include "KisWindowLayoutManager.h"
 #include <KisUndoActionsUpdateManager.h>
-#include "KisWelcomePageWidget.h"
 #include "KisRecentDocumentsModelWrapper.h"
 #include <KritaVersionWrapper.h>
 #include "KisCanvasWindow.h"
@@ -186,7 +184,6 @@ public:
         , windowMenu(new KActionMenu(i18nc("@action:inmenu", "&Window"), parent))
         , documentMenu(new KActionMenu(i18nc("@action:inmenu", "New &View"), parent))
         , workspaceMenu(new KActionMenu(i18nc("@action:inmenu", "Wor&kspace"), parent))
-        , welcomePage(new KisWelcomePageWidget(parent))
         , widgetStack(new QStackedWidget(parent))
         , mdiArea(new QMdiArea(parent))
         , windowMapper(new KisSignalMapper(parent))
@@ -194,13 +191,6 @@ public:
     {
         if (id.isNull()) this->id = QUuid::createUuid();
 
-        welcomeScroller = new QScrollArea();
-        welcomeScroller->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-        welcomeScroller->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-        welcomeScroller->setWidget(welcomePage);
-        welcomeScroller->setWidgetResizable(true);
-
-        widgetStack->addWidget(welcomeScroller);
         widgetStack->addWidget(mdiArea);
         mdiArea->setTabsMovable(true);
         mdiArea->setActivationOrder(QMdiArea::ActivationHistoryOrder);
@@ -281,9 +271,6 @@ public:
     QCloseEvent *deferredClosingEvent {nullptr};
 
     Digikam::ThemeManager *themeManager {nullptr};
-
-    QScrollArea *welcomeScroller {nullptr};
-    KisWelcomePageWidget *welcomePage {nullptr};
 
 
     QStackedWidget *widgetStack {nullptr};
@@ -491,9 +478,6 @@ KisMainWindow::KisMainWindow(QUuid uuid)
     actionCollection()->addAssociatedWidget(d->canvasWindow);
 
     createActions();
-
-    // the welcome screen needs to grab actions...so make sure this line goes after the createAction() so they exist
-    d->welcomePage->setMainWindow(this);
 
     d->recentFiles->setRecentFilesModel(&KisRecentDocumentsModelWrapper::instance()->model());
 
@@ -1079,7 +1063,6 @@ KisView *KisMainWindow::activeView() const
 
 bool KisMainWindow::openDocument(const QString &path, OpenFlags flags)
 {
-    ScopedWidgetDisabler disabler(d->welcomePage->dropFrameBorder);
     QApplication::processEvents(); // make UI more responsive
 
     if (!QFile(path).exists()) {
@@ -2909,7 +2892,6 @@ void KisMainWindow::createActions()
     d->themeManager->setThemeMenuAction(new KActionMenu(i18nc("@action:inmenu", "&Themes"), this));
     d->themeManager->registerThemeActions(actionCollection());
     connect(d->themeManager, SIGNAL(signalThemeChanged()), this, SLOT(slotThemeChanged()), Qt::QueuedConnection);
-    connect(this, SIGNAL(themeChanged()), d->welcomePage, SLOT(slotUpdateThemeColors()), Qt::UniqueConnection);
     d->toggleDockers = actionManager->createAction("view_toggledockers");
 
 
