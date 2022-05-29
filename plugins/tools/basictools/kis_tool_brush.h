@@ -117,6 +117,7 @@ private:
     KisDoubleSliderSpinBox *m_sliderTailAggressiveness {0};
     QCheckBox *m_chkSmoothPressure {0};
     QCheckBox *m_chkUseScalableDistance {0};
+    QCheckBox *m_chkEraserSmoothing {0};
 
     QCheckBox *m_chkStabilizeSensors {0};
     QCheckBox *m_chkDelayDistance {0};

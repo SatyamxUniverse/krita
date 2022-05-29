@@ -36,7 +36,8 @@ KisToolLineHelper::KisToolLineHelper(KisPaintingInformationBuilder *infoBuilder,
     : KisToolFreehandHelper(infoBuilder,
                             resourceManager,
                             transactionText,
-                            new KisSmoothingOptions(false)),
+                            new KisSmoothingOptions(false, false),
+                            new KisSmoothingOptions(true, false)),
       m_d(new Private(infoBuilder))
 {
 }

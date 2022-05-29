@@ -71,6 +71,7 @@ KisToolFreehand::KisToolFreehand(KoCanvasBase * canvas, const QCursor & cursor, 
 
     connect(provider, SIGNAL(sigEraserModeToggled(bool)), SLOT(explicitUpdateOutline()));
     connect(provider, SIGNAL(sigEraserModeToggled(bool)), SLOT(resetCursorStyle()));
+    connect(provider, SIGNAL(sigEraserModeToggled(bool)), SLOT(toggleEraserSmoothing(bool)));
     connect(provider, SIGNAL(sigPaintOpPresetChanged(KisPaintOpPresetSP)), SLOT(explicitUpdateOutline()));
     connect(provider, SIGNAL(sigPaintOpPresetChanged(KisPaintOpPresetSP)), SLOT(resetCursorStyle()));
 }
@@ -131,6 +132,20 @@ void KisToolFreehand::resetCursorStyle()
     default:
         KisToolPaint::resetCursorStyle();
         break;
+    }
+}
+void KisToolFreehand::toggleEraserSmoothing(bool eraserOn)
+{
+    if(m_helper->toggleEraserSmoothing(eraserOn))
+        updateSettingsViews();
+}
+void KisToolFreehand::setEraserSmoothingAllowed(bool allowed)
+{
+    m_helper->setEraserSmoothingAllowed(allowed);
+    if(!allowed) {
+        toggleEraserSmoothing(false);
+    } else {
+        toggleEraserSmoothing(canvas()->resourceManager()->resource(KoCanvasResource::EraserMode).value<bool>());
     }
 }
 

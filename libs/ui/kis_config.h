@@ -510,6 +510,33 @@ public:
     bool lineSmoothingStabilizeSensors(bool defaultValue = false) const;
     void setLineSmoothingStabilizeSensors(bool value);
 
+    int eraserSmoothingType(bool defaultValue = false) const;
+    void setEraserSmoothingType(int value);
+
+    qreal eraserSmoothingDistance(bool defaultValue = false) const;
+    void setEraserSmoothingDistance(qreal value);
+
+    qreal eraserSmoothingTailAggressiveness(bool defaultValue = false) const;
+    void setEraserSmoothingTailAggressiveness(qreal value);
+
+    bool eraserSmoothingSmoothPressure(bool defaultValue = false) const;
+    void setEraserSmoothingSmoothPressure(bool value);
+
+    bool eraserSmoothingScalableDistance(bool defaultValue = false) const;
+    void setEraserSmoothingScalableDistance(bool value);
+
+    qreal eraserSmoothingDelayDistance(bool defaultValue = false) const;
+    void setEraserSmoothingDelayDistance(qreal value);
+
+    bool eraserSmoothingUseDelayDistance(bool defaultValue = false) const;
+    void setEraserSmoothingUseDelayDistance(bool value);
+
+    bool eraserSmoothingFinishStabilizedCurve(bool defaultValue = false) const;
+    void setEraserSmoothingFinishStabilizedCurve(bool value);
+
+    bool eraserSmoothingStabilizeSensors(bool defaultValue = false) const;
+    void setEraserSmoothingStabilizeSensors(bool value);
+
     int tabletEventsDelay(bool defaultValue = false) const;
     void setTabletEventsDelay(int value);
 
