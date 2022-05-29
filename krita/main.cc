@@ -32,6 +32,7 @@
 #include <QThread>
 #include <QLibraryInfo>
 #include <QTranslator>
+#include <QDomImplementation>
 
 #include <QOperatingSystemVersion>
 
@@ -52,6 +53,10 @@
 #include <kis_image_config.h>
 #include "KisUiFont.h"
 #include <KisMainWindow.h>
+
+#include <KisSupportedArchitectures.h>
+
+
 
 #include <KLocalizedTranslator>
 
@@ -131,7 +136,7 @@ typedef enum ORIENTATION_PREFERENCE {
     typedef BOOL (WINAPI *pSetDisplayAutoRotationPreferences_t)(
         ORIENTATION_PREFERENCE orientation
         );
-#endif()
+#endif
 void resetRotation()
 {
     QLibrary user32Lib("user32");
@@ -251,6 +256,9 @@ extern "C" MAIN_EXPORT int MAIN_FN(int argc, char **argv)
     QCoreApplication::setAttribute(Qt::AA_UseHighDpiPixmaps, true);
 
     QCoreApplication::setAttribute(Qt::AA_DisableShaderDiskCache, true);
+
+    // We don't want to save invalid XML through QDomDocument
+    QDomImplementation::setInvalidDataPolicy(QDomImplementation::DropInvalidChars);
 
 #ifdef HAVE_HIGH_DPI_SCALE_FACTOR_ROUNDING_POLICY
     // This rounding policy depends on a series of patches to Qt related to
@@ -488,6 +496,8 @@ extern "C" MAIN_EXPORT int MAIN_FN(int argc, char **argv)
         }
     }
 
+    KisUsageLogger::writeLocaleSysInfo();
+
 #if defined Q_OS_WIN && defined USE_QT_TABLET_WINDOWS && defined QT_HAS_WINTAB_SWITCH
     const bool forceWinTab = !KisConfig::useWin8PointerInputNoApp(&kritarc);
     QCoreApplication::setAttribute(Qt::AA_MSWindowsUseWinTabAPI, forceWinTab);
@@ -687,7 +697,12 @@ extern "C" MAIN_EXPORT int MAIN_FN(int argc, char **argv)
     KisUsageLogger::writeSysInfo(QString("  GPU Acceleration: %1").arg(kritarc.value("OpenGLRenderer", "auto").toString()));
     KisUsageLogger::writeSysInfo(QString("  Memory: %1 Mb").arg(KisImageConfig(true).totalRAM()));
     KisUsageLogger::writeSysInfo(QString("  Number of Cores: %1").arg(QThread::idealThreadCount()));
-    KisUsageLogger::writeSysInfo(QString("  Swap Location: %1\n").arg(KisImageConfig(true).swapDir()));
+    KisUsageLogger::writeSysInfo(QString("  Swap Location: %1").arg(KisImageConfig(true).swapDir()));
+    KisUsageLogger::writeSysInfo(QString("  Built for: %1").arg(xsimd::current_arch::name()));
+    KisUsageLogger::writeSysInfo(QString("  Base instruction set: %1").arg(KisSupportedArchitectures<QString>::currentArchitecture()));
+    KisUsageLogger::writeSysInfo(QString("  Supported instruction sets: %1").arg(KisSupportedArchitectures<QString>::supportedInstructionSets()));
+
+    KisUsageLogger::writeSysInfo("");
 
     KisConfig(true).logImportantSettings();
 

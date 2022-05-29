@@ -63,116 +63,53 @@ endif(WIN32)
 
 set(EXTRA_AVIF_DEPS "")
 
-find_program(MESON_BINARY_PATH meson)
-find_program(NINJA_BINARY_PATH ninja)
-find_program(RUSTC_BINARY_PATH rustc)
-
-if(MESON_BINARY_PATH AND NINJA_BINARY_PATH AND RUSTC_BINARY_PATH)
-    message(STATUS "Enabling AVIF support.")
-
+find_package(Perl)
+if(NOT PERL_FOUND AND WIN32)
     ExternalProject_Add(
-        ext_dav1d
+        ext_strawberryperl
         DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-        URL https://downloads.videolan.org/pub/videolan/dav1d/0.9.0/dav1d-0.9.0.tar.xz
-        URL_HASH SHA256=cfae88e8067c9b2e5b96d95a7a00155c353376fe9b992a96b4336e0eab19f9f6
+        # From https://strawberryperl.com/download/5.32.1.1/strawberry-perl-5.32.1.1-32bit-portable.zip
+        URL https://files.kde.org/krita/build/dependencies/strawberry-perl-5.32.1.1-32bit-portable.zip
+        URL_HASH SHA1=28bca91cadd6651c2b2463db8587c170bf17f2fa
 
-        CONFIGURE_COMMAND meson <SOURCE_DIR> --prefix=${EXTPREFIX_heif}
-
-        BUILD_COMMAND meson compile -j${SUBMAKE_JOBS}
-
-        INSTALL_COMMAND meson install
-
-        DEPENDS ext_nasm
-    )
-
-    ExternalProject_Add(
-        ext_cargo_c
-        DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-        URL https://github.com/lu-zero/cargo-c/archive/refs/tags/v0.8.1.tar.gz
-        URL_HASH SHA256=c8eeac1ac6852e551597f38411ac741aeacd6927cc8057e73ed73c7c1e63ee61
-
+        BUILD_COMMAND ${CMAKE_COMMAND} -E echo Deploying Strawberry Perl portable
         CONFIGURE_COMMAND ""
+        INSTALL_COMMAND ""
+        UPDATE_COMMAND ""
 
-        BUILD_COMMAND ""
+        SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/Strawberry"
+    )
+    set(USE_STRAWBERRYPERL 1)
+    set(LIBAOM_EXTRA_CMAKE_ARGS -DPERL_EXECUTABLE=${CMAKE_CURRENT_BINARY_DIR}/Strawberry/perl/bin/perl.exe)
+    set(LIBAOM_STRAWBERRYPERL_DEP ext_strawberryperl)
+elseif(PERL_FOUND AND WIN32)
+    set(LIBAOM_EXTRA_CMAKE_ARGS -DPERL_EXECUTABLE=${PERL_EXECUTABLE})
+endif()
 
-        INSTALL_COMMAND cargo install --path <SOURCE_DIR> -j ${SUBMAKE_JOBS} --root ${EXTPREFIX_heif}
+if(NOT WIN32)
+    set(LIBAOM_EXTRA_CMAKE_ARGS -DCONFIG_PIC=1)
+endif()
+
+if(PERL_FOUND OR USE_STRAWBERRYPERL)
+    message(STATUS "Building AVIF support using libaom.")
+
+    ExternalProject_Add(
+        ext_libaom
+        DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
+
+        URL https://storage.googleapis.com/aom-releases/libaom-3.2.0.tar.gz
+        URL_HASH SHA256=8fa7418bf4ea12ef6dcf0eeb21cba932b71c6079ffdf7b9d13cf907fa46c0568
+
+        CMAKE_ARGS ${LIBAOM_EXTRA_CMAKE_ARGS} -DCMAKE_INSTALL_PREFIX=${EXTPREFIX_heif} -DCMAKE_BUILD_TYPE=${GLOBAL_BUILD_TYPE} -DENABLE_EXAMPLES=OFF -DENABLE_TESTDATA=OFF -DENABLE_TESTS=OFF -DENABLE_TOOLS=OFF ${GLOBAL_PROFILE}
 
         UPDATE_COMMAND ""
 
-        BUILD_IN_SOURCE 1
+        DEPENDS ext_nasm ${LIBAOM_STRAWBERRYPERL_DEP}
     )
 
-    ExternalProject_Add(
-        ext_rav1e
-        DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-        URL https://github.com/xiph/rav1e/archive/v0.5.0-alpha.tar.gz
-        URL_HASH SHA256=fd884fa387d01860eaf22a0a97353525221eb32bf6b9154bbfa21b6cce5988c8
-
-        CONFIGURE_COMMAND ""
-
-        BUILD_COMMAND cargo cbuild --release --prefix=${EXTPREFIX_heif} --library-type=cdylib -j${SUBMAKE_JOBS}
-
-        INSTALL_COMMAND cargo cinstall --release --library-type=cdylib --prefix=${EXTPREFIX_heif}
-
-        BUILD_IN_SOURCE 1
-
-        DEPENDS ext_nasm ext_cargo_c
-    )
-
-    set(EXTRA_AVIF_DEPS ext_rav1e ext_dav1d)
+    set(EXTRA_AVIF_DEPS ext_libaom)
 else()
-    if (NOT MESON_BINARY_PATH)
-        message(WARNING "Meson Build system was not found, see https://mesonbuild.com")
-    endif()
-    if (NOT NINJA_BINARY_PATH)
-        message(WARNING "Ninja Build system was not found, see https://ninja-build.org/")
-    endif()
-    if (NOT RUSTC_BINARY_PATH)
-        message(WARNING "Rust compiler was not found, see https://www.rust-lang.org/")
-    endif()
-
-    find_package(Perl)
-    if(NOT PERL_FOUND AND WIN32)
-        ExternalProject_Add(
-            ext_strawberryperl
-            DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-            # From https://strawberryperl.com/download/5.32.1.1/strawberry-perl-5.32.1.1-32bit-portable.zip
-            URL https://files.kde.org/krita/build/dependencies/strawberry-perl-5.32.1.1-32bit-portable.zip
-            URL_HASH SHA1=28bca91cadd6651c2b2463db8587c170bf17f2fa
-
-            BUILD_COMMAND ${CMAKE_COMMAND} -E echo Deploying Strawberry Perl portable
-            CONFIGURE_COMMAND ""
-            INSTALL_COMMAND ""
-            UPDATE_COMMAND ""
-
-            SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/Strawberry"
-        )
-        set(USE_STRAWBERRYPERL 1)
-        set(LIBAOM_EXTRA_CMAKE_ARGS -DPERL_EXECUTABLE=${CMAKE_CURRENT_BINARY_DIR}/Strawberry/perl/bin/perl.exe)
-        set(LIBAOM_STRAWBERRYPERL_DEP ext_strawberryperl)
-    endif(NOT PERL_FOUND AND WIN32)
-
-    if(PERL_FOUND OR USE_STRAWBERRYPERL)
-        message(WARNING "Building alternative AVIF support using libaom.")
-
-        ExternalProject_Add(
-            ext_libaom
-            DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-
-            URL https://storage.googleapis.com/aom-releases/libaom-3.2.0.tar.gz
-            URL_HASH SHA256=8fa7418bf4ea12ef6dcf0eeb21cba932b71c6079ffdf7b9d13cf907fa46c0568
-
-            CMAKE_ARGS ${LIBAOM_EXTRA_CMAKE_ARGS} -DCMAKE_INSTALL_PREFIX=${EXTPREFIX_heif} -DCMAKE_BUILD_TYPE=${GLOBAL_BUILD_TYPE} -DENABLE_EXAMPLES=OFF -DENABLE_TESTDATA=OFF -DENABLE_TESTS=OFF -DENABLE_TOOLS=OFF ${GLOBAL_PROFILE}
-
-            UPDATE_COMMAND ""
-
-            DEPENDS ext_nasm ${LIBAOM_STRAWBERRYPERL_DEP}
-        )
-
-        set(EXTRA_AVIF_DEPS ext_libaom)
-    else(PERL_FOUND OR USE_STRAWBERRYPERL)
-        message(WARNING "Perl not available, disabling AVIF support.")
-    endif(PERL_FOUND OR USE_STRAWBERRYPERL)
+    message(WARNING "Perl not available, disabling AVIF support.")
 endif()
 
 # Incorporate Handbrake's extensions for building x265
@@ -191,40 +128,17 @@ else()
     set(x265_12bit_LIBRARY libx265_main12.a)
     set(x265_EXTRA_LINK_FLAGS -L${EXTPREFIX_heif}/lib)
 endif()
-if ((CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64.*|AARCH64.*|arm64.*|ARM64.*)" 
-    OR CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm.*|ARM.*)")
-    AND NOT APPLE)
-    # x265 in 32-bit platforms cannot support 10-bit and 12-bit images
-    # because they either crash on malloc or require SSE4.1+ extensions
-    # Support for 10-bit and 12-bit also requires NEON extensions
-    # and these are broken since 3.3
-    ExternalProject_Add(
-        ext_libx265
-        DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-        URL https://github.com/videolan/x265/archive/3.4.tar.gz
-        URL_HASH SHA512=17639324c9428087cda9cfa5b57bcb82403226ec5b4fc0da46028e0700452f7bb12df0f4f3a8fd5d70ebdd912ba7589bd99b01c9b7e0d4fa00424e1502580090
-
-        SOURCE_SUBDIR source/
-
-        CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTPREFIX_heif} -DCMAKE_BUILD_TYPE=${GLOBAL_BUILD_TYPE} ${GLOBAL_PROFILE} -DENABLE_SHARED=TRUE
-
-        UPDATE_COMMAND ""
-
-        DEPENDS ext_nasm
-    )
-else()
 ExternalProject_Add(ext_libx265_10bit
     DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-    URL https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs/x265-snapshot-20210203-12666.tar.gz
-    URL_HASH SHA256=a4a712c9fbe724c263f4506e19aeca74e0259b33126d2e60c813352483f5110c
+    URL https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs/x265-snapshot-20220222-12712.tar.gz
+    URL_HASH SHA256=e6182435b25b04a00c75770d2a1c11e7731eb5e118c377933eeec2665980db70
 
     SOURCE_SUBDIR source/
 
-    PATCH_COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/A00-darwin-Revert-Add-aarch64-support-Part-2.patch
-        COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/A01-darwin-neon-support-for-arm64.patch
+    PATCH_COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/A01-build-fix.patch
         COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/A02-threads-priority.patch
+        COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/A03-threads-pool-adjustments.patch
         COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/0001-Silence-nasm-2.15-warnings.patch
-        COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/0002-Fix-rc-versioning.patch
         COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/0003-Skip-PDB-in-MinGW.patch
 
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTPREFIX_heif} -DCMAKE_BUILD_TYPE=${GLOBAL_BUILD_TYPE} ${GLOBAL_PROFILE} -DHIGH_BIT_DEPTH=TRUE -DEXPORT_C_API=FALSE -DENABLE_CLI=FALSE -DENABLE_SHARED=FALSE
@@ -232,16 +146,15 @@ ExternalProject_Add(ext_libx265_10bit
 )
 ExternalProject_Add(ext_libx265_12bit
     DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-    URL https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs/x265-snapshot-20210203-12666.tar.gz
-    URL_HASH SHA256=a4a712c9fbe724c263f4506e19aeca74e0259b33126d2e60c813352483f5110c
+    URL https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs/x265-snapshot-20220222-12712.tar.gz
+    URL_HASH SHA256=e6182435b25b04a00c75770d2a1c11e7731eb5e118c377933eeec2665980db70
 
     SOURCE_SUBDIR source/
 
-    PATCH_COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/A00-darwin-Revert-Add-aarch64-support-Part-2.patch
-        COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/A01-darwin-neon-support-for-arm64.patch
+    PATCH_COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/A01-build-fix.patch
         COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/A02-threads-priority.patch
+        COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/A03-threads-pool-adjustments.patch
         COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/0001-Silence-nasm-2.15-warnings.patch
-        COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/0002-Fix-rc-versioning.patch
         COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/0003-Skip-PDB-in-MinGW.patch
 
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTPREFIX_heif} -DCMAKE_BUILD_TYPE=${GLOBAL_BUILD_TYPE} ${GLOBAL_PROFILE} 
@@ -251,16 +164,15 @@ ExternalProject_Add(ext_libx265_12bit
 ExternalProject_Add(
     ext_libx265
     DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-    URL https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs/x265-snapshot-20210203-12666.tar.gz
-    URL_HASH SHA256=a4a712c9fbe724c263f4506e19aeca74e0259b33126d2e60c813352483f5110c
+    URL https://github.com/HandBrake/HandBrake-contribs/releases/download/contribs/x265-snapshot-20220222-12712.tar.gz
+    URL_HASH SHA256=e6182435b25b04a00c75770d2a1c11e7731eb5e118c377933eeec2665980db70
 
     SOURCE_SUBDIR source/
 
-    PATCH_COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/A00-darwin-Revert-Add-aarch64-support-Part-2.patch
-        COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/A01-darwin-neon-support-for-arm64.patch
+    PATCH_COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/A01-build-fix.patch
         COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/A02-threads-priority.patch
+        COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/A03-threads-pool-adjustments.patch
         COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/0001-Silence-nasm-2.15-warnings.patch
-        COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/0002-Fix-rc-versioning.patch
         COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/0003-Skip-PDB-in-MinGW.patch
 
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTPREFIX_heif} -DCMAKE_BUILD_TYPE=${GLOBAL_BUILD_TYPE} ${GLOBAL_PROFILE} -DENABLE_SHARED=TRUE  -DENABLE_HDR10_PLUS=TRUE -DEXTRA_LIB:String=${x265_10bit_LIBRARY}$<SEMICOLON>${x265_12bit_LIBRARY} -DEXTRA_LINK_FLAGS:String=${x265_EXTRA_LINK_FLAGS} -DLINKED_10BIT=TRUE -DLINKED_12BIT=TRUE
@@ -269,14 +181,16 @@ ExternalProject_Add(
 
     DEPENDS ext_nasm ext_libx265_10bit ext_libx265_12bit
 )
-endif()
 
 ExternalProject_Add(
     ext_libheif
     DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
 
-    URL https://github.com/strukturag/libheif/archive/8f8035a102e959a3488f69e8befe09d51cf596a7.tar.gz
-    URL_HASH SHA256=12cfab1aaa588191bb28a67b275d0e99b379ab8221dcc7a18adcb6a34b661943
+    URL https://github.com/strukturag/libheif/archive/5a7b2f4ec49c3788460db698cb68223d537ea4c5.tar.gz
+    URL_HASH SHA256=6be490b74bef2f91683d5649f2aa22652b0f558ff7a7f713a016fe3582b01f87
+
+    PATCH_COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/clang-aom-link-pthread.patch
+        COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/0001-Don-t-assume-wide-char-streams-are-supported-on-Wind.patch
 
     CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTPREFIX_heif} -DCMAKE_BUILD_TYPE=${GLOBAL_BUILD_TYPE} -DBUILD_EXAMPLES=OFF ${GLOBAL_PROFILE}
 

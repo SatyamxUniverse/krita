@@ -143,12 +143,11 @@ get_git_branch(GIT_BRANCH)
 
 if(GIT_SHA1)
    string(SUBSTRING ${GIT_SHA1} 0 7 GIT_SHA1)
-   set(KRITA_GIT_SHA1_STRING ${GIT_SHA1})
-   if(GIT_BRANCH)
-       set(KRITA_GIT_BRANCH_STRING ${GIT_BRANCH})
-   else()
-       set(KRITA_GIT_BRANCH_STRING "(detached HEAD)")
+   set(KRITA_GIT_SHA1_STRING ${GIT_SHA1} CACHE STRING "Git commit of the current build" FORCE)
+   if(NOT GIT_BRANCH)
+       set(GIT_BRANCH "(detached HEAD)")
    endif()
+   set(KRITA_GIT_BRANCH_STRING ${GIT_BRANCH} CACHE STRING "Git branch of the current build" FORCE)
 endif()
 
 # create test make targets
@@ -185,6 +184,17 @@ add_feature_info("Dr. Mingw" USE_DRMINGW "Enable the Dr. Mingw crash handler")
         else (USE_MINGW_HARDENING_LINKER)
             message(WARNING "Linker Security Flags not enabled!")
         endif (USE_MINGW_HARDENING_LINKER)
+
+        # Clang does not generate DWARF aranges data by default, which makes
+        # DrMingw not able to parse the DWARF debug symbols. Add -gdwarf-aranges
+        # explicitly.
+        # See: https://github.com/jrfonseca/drmingw/issues/42#issuecomment-516614561
+        if (CMAKE_C_COMPILER_ID STREQUAL "Clang")
+            set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -gdwarf-aranges")
+        endif ()
+        if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+            set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -gdwarf-aranges")
+        endif ()
     elseif (MSVC)
         # Increase the stack size to match MinGW's. Prevents crashes with GMic.
         set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:4194304")
@@ -290,7 +300,9 @@ if(MINGW)
         endif(ENABLE_PYTHON_2)
         TestCompileLinkPythonLibs(CAN_USE_PYTHON_LIBS)
         if (NOT CAN_USE_PYTHON_LIBS)
-            message(FATAL_ERROR "Compiling with Python library failed, please check whether the architecture is correct. Python will be disabled.")
+            file(READ ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeError.log ERROR_LOG)
+            string(REPLACE "\n" "\n  " ERROR_LOG "${ERROR_LOG}")
+            message(FATAL_ERROR "Compiling with Python library failed, please check whether the architecture is correct!\nCMakeError.log:\n  ${ERROR_LOG}\n\n")
         endif (NOT CAN_USE_PYTHON_LIBS)
     endif (Python_FOUND)
 else(MINGW)
@@ -806,6 +818,22 @@ set_package_properties(LibRaw PROPERTIES
     TYPE OPTIONAL
     PURPOSE "Required to build the raw import plugin")
 
+find_package(JPEGXL 0.7.0)
+set_package_properties(JPEGXL PROPERTIES
+    DESCRIPTION "JPEG XL is a royalty-free raster-graphics file format that supports both lossy and lossless compression and is experimentally supported by Chrome, Firefox, and Edge."
+    URL "https://github.com/libjxl/libjxl"
+    TYPE OPTIONAL
+    PURPOSE "Required by the Krita JPEG-XL filter")
+if (JPEGXL_FOUND)
+    list (APPEND ANDROID_EXTRA_LIBS ${JPEGXL_LIBRARIES})
+    # because libjxl depends on brotli and it is installed in the same folder
+    get_filename_component (_base_dir ${JPEGXL_LIBRARY} DIRECTORY)
+    list (APPEND ANDROID_EXTRA_LIBS 
+                    ${_base_dir}/libbrotlidec.so
+                    ${_base_dir}/libbrotlicommon.so
+                    ${_base_dir}/libbrotlienc.so)
+endif()
+
 find_package(FFTW3)
 set_package_properties(FFTW3 PROPERTIES
     DESCRIPTION "A fast, free C FFT library"
@@ -937,51 +965,37 @@ endif()
 list (APPEND ANDROID_EXTRA_LIBS ${LCMS2_LIBRARIES})
 
 ##
-## Test for Vc
+## Test for xsimd
 ##
-set(OLD_CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} )
-set(CMAKE_MODULE_PATH ${CMAKE_SOURCE_DIR}/cmake/modules )
-set(HAVE_VC FALSE)
-if (NOT (CMAKE_SYSTEM_PROCESSOR MATCHES "^(aarch64.*|AARCH64.*|arm64.*|ARM64.*|riscv64.*|RISCV64.*)" 
-    OR CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm.*|ARM.*)"))
-    find_package(Vc 1.1.0)
-    set_package_properties(Vc PROPERTIES
-        DESCRIPTION "Portable, zero-overhead SIMD library for C++"
-        URL "https://github.com/VcDevel/Vc"
-        TYPE OPTIONAL
-        PURPOSE "Required by the Krita for vectorization")
-    macro_bool_to_01(Vc_FOUND HAVE_VC)
-endif()
-configure_file(config-vc.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config-vc.h )
+find_package(xsimd 8.1.0)
+set_package_properties(xsimd PROPERTIES
+    DESCRIPTION "C++ wrappers for SIMD intrinsics"
+    URL "https://github.com/xtensor-stack/xsimd"
+    TYPE OPTIONAL
+    PURPOSE "Required by Krita for vectorization")
+macro_bool_to_01(xsimd_FOUND HAVE_XSIMD)
+configure_file(config-xsimd.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config-xsimd.h )
 
-if(HAVE_VC)
-    message(STATUS "Vc found!")
-    set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH}
-                        "${CMAKE_SOURCE_DIR}/cmake/vc")
-
-    include (VcMacros)
-
-    if(Vc_COMPILER_IS_CLANG)
-        set(ADDITIONAL_VC_FLAGS "-ffp-contract=fast")
-        if(NOT WIN32)
-            set(ADDITIONAL_VC_FLAGS "${ADDITIONAL_VC_FLAGS} -fPIC")
-        endif()
-    elseif (NOT MSVC)
-        set(ADDITIONAL_VC_FLAGS "-fabi-version=0 -ffp-contract=fast")
-        if(NOT WIN32)
-            set(ADDITIONAL_VC_FLAGS "${ADDITIONAL_VC_FLAGS} -fPIC")
-        endif()
-    endif()
-
+if(HAVE_XSIMD)
     macro(ko_compile_for_all_implementations_no_scalar _objs _src)
-        vc_compile_for_all_implementations(${_objs} ${_src} FLAGS ${ADDITIONAL_VC_FLAGS} ONLY SSE2 SSSE3 SSE4_1 AVX AVX2+FMA+BMI2)
+        if("aarch64" IN_LIST XSIMD_ARCH)
+            xsimd_compile_for_all_implementations(${_objs} ${_src} FLAGS ${xsimd_ARCHITECTURE_FLAGS} ONLY NEON64)
+        endif()
+
+        if ("arm" IN_LIST XSIMD_ARCH)
+            xsimd_compile_for_all_implementations(${_objs} ${_src} FLAGS ${xsimd_ARCHITECTURE_FLAGS} ONLY NEON)
+        endif()
+
+        if ("x86" IN_LIST XSIMD_ARCH OR "x86-64" IN_LIST XSIMD_ARCH)
+            xsimd_compile_for_all_implementations(${_objs} ${_src} FLAGS ${xsimd_ARCHITECTURE_FLAGS} ONLY SSE2 SSSE3 SSE4_1 AVX AVX2+FMA)
+        endif()
     endmacro()
 
     macro(ko_compile_for_all_implementations _objs _src)
-        vc_compile_for_all_implementations(${_objs} ${_src} FLAGS ${ADDITIONAL_VC_FLAGS} ONLY Scalar SSE2 SSSE3 SSE4_1 AVX AVX2+FMA+BMI2)
+        xsimd_compile_for_all_implementations(${_objs} ${_src} FLAGS ${xsimd_ARCHITECTURE_FLAGS} ONLY Scalar)
+        ko_compile_for_all_implementations_no_scalar(${_objs} ${_src})
     endmacro()
 endif()
-set(CMAKE_MODULE_PATH ${OLD_CMAKE_MODULE_PATH} )
 
 ##
 ## Test endianness

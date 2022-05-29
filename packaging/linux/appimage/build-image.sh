@@ -38,6 +38,8 @@ export PYTHONPATH=$DEPS_INSTALL_PREFIX/sip
 fi
 export PYTHONHOME=$DEPS_INSTALL_PREFIX
 
+source ${KRITA_SOURCES}/packaging/linux/appimage/override_compiler.sh.inc
+
 # Switch over to our build prefix
 cd $BUILD_PREFIX
 
@@ -59,7 +61,24 @@ cp -r $DEPS_INSTALL_PREFIX/lib/python3.8 $APPDIR/usr/lib
 if [ -d $DEPS_INSTALL_PREFIX/share/sip ] ; then
 cp -r $DEPS_INSTALL_PREFIX/share/sip $APPDIR/usr/share
 fi
+
 cp -r $DEPS_INSTALL_PREFIX/translations $APPDIR/usr/
+
+if [ ! -d $APPDIR/usr/libstdcpp-fallback/ ] ; then
+    mkdir -p $APPDIR/usr/libstdcpp-fallback/
+    cd $APPDIR/usr/libstdcpp-fallback/
+    cp  /usr/lib/x86_64-linux-gnu/libstdc++.so.6.* ./
+    ln -s `find ./ -name 'libstdc++.so.6.*' -maxdepth 1 -type f | head -n1 | xargs basename` libstdc++.so.6
+fi
+
+mkdir $BUILD_PREFIX/krita-apprun-build
+(
+    cd $BUILD_PREFIX/krita-apprun-build
+    cmake -DCMAKE_BUILD_TYPE=Release $KRITA_SOURCES/packaging/linux/appimage/krita-apprun/
+    cmake --build .
+    cp AppRun $APPDIR
+)
+rm -rf $BUILD_PREFIX/krita-apprun-build
 
 if [ -d $APPDIR/usr/lib/python3.8/site-packages ]; then
     rm -rf $APPDIR/usr/lib/python3.8/site-packages/packaging*
@@ -206,8 +225,9 @@ ls $APPDIR
 if [ -n "$STRIP_APPIMAGE" ]; then
     # strip debugging information
     function find-elf-files {
-        # python libraries are not strippable (strip fails with error)
-        find $1 -type f -name "*" -not -name "*.o" -not -path "*/python3.8/*" -exec sh -c '
+        # * python libraries are not strippable (strip fails with error)
+        # * AppImage packages should not be stripped, because it breaks them
+        find $1 -type f -name "*" -not -name "*.o" -not -path "*/python3.8/*" -not -name "AppImageUpdate" -not -name "libstdc++.so.6.*" -exec sh -c '
             case "$(head -n 1 "$1")" in
             ?ELF*) exit 0;;
             esac
@@ -238,7 +258,7 @@ install -Dm 755 /usr/lib/$TRIPLET/libgstreamer-1.0.so $APPDIR/usr/lib/
 
 GSTREAMER_BINARIES="-executable=${GSTREAMER_TARGET}/gst-plugin-scanner -executable=${APPDIR}/usr/lib/libgstreamer-1.0.so"
 for plugin in alsa app audioconvert audioparsers audioresample autodetect \
-              coreelements id3demux jack mpg123 mulaw playback pulse \
+              coreelements id3demux jack mpg123 mulaw playback pulseaudio \
               typefindfunctions wavparse; do
 	GSTREAMER_BINARIES="${GSTREAMER_BINARIES} -executable=${GSTREAMER_TARGET}/libgst${plugin}.so"
 done

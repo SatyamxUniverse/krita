@@ -80,8 +80,10 @@ set(GLOBAL_PROFILE ${GLOBAL_PROFILE} -DBUILD_TESTING=false)
 
 if (WIN32)
         option(ENABLE_MSYS2_FIXES "Enable patches that are needed for MSYS2+Clang Krita build" OFF)
-	option(QT_ENABLE_DEBUG_INFO "Build Qt with debug info included" OFF)
+	option(QT_ENABLE_DEBUG_INFO "Build Qt with full debug info included" OFF)
 	option(QT_ENABLE_DYNAMIC_OPENGL "Build Qt with dynamic ANGLE support '-opengl dynamic -angle' (needs env var 'WindowsSdkDir' set to path of Windows 10 SDK)" ON)
+    option(USE_EXTERNAL_ANGLE "Use a newer custom Google ANGLE build instead of the one bundled in Qt" ON)
+
     if (QT_ENABLE_DYNAMIC_OPENGL)
 		if (DEFINED ENV{WindowsSdkDir})
 			message(STATUS "WindowsSdkDir is set to '$ENV{WindowsSdkDir}'")
@@ -89,6 +91,10 @@ if (WIN32)
 			message(FATAL_ERROR "Environment variable 'WindowsSdkDir' not set! Please set it to path of Windows 10 SDK or disable QT_ENABLE_DYNAMIC_OPENGL")
 		endif ()
     endif ()
+
+    if(USE_EXTERNAL_ANGLE AND NOT QT_ENABLE_DYNAMIC_OPENGL)
+        message(WARNING "USE_EXTERNAL_ANGLE does not have any effect when QT_ENABLE_DYNAMIC_OPENGL is disabled.")
+    endif()
 
     if(ENABLE_MSYS2_FIXES)
         find_package(ZLIB)
@@ -150,6 +156,26 @@ if (MINGW)
 	else ()
 		message(WARNING "Linker Security Flags not enabled!")
 	endif ()
+
+    # Generate reduced debug info
+    set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -g1")
+    set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -g1")
+
+    # Clang does not generate DWARF aranges data by default, which makes
+    # DrMingw not able to parse the DWARF debug symbols. Add -gdwarf-aranges
+    # explicitly.
+    # See: https://github.com/jrfonseca/drmingw/issues/42#issuecomment-516614561
+    if (CMAKE_C_COMPILER_ID STREQUAL "Clang")
+        set(CMAKE_C_FLAGS_RELWITHDEBINFO "${CMAKE_C_FLAGS_RELWITHDEBINFO} -gdwarf-aranges")
+    endif ()
+    if (CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
+        set(CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO} -gdwarf-aranges")
+    endif ()
+
+    set(GLOBAL_PROFILE ${GLOBAL_PROFILE}
+        -DCMAKE_C_FLAGS_RELWITHDEBINFO=${CMAKE_C_FLAGS_RELWITHDEBINFO}
+        -DCMAKE_CXX_FLAGS_RELWITHDEBINFO=${CMAKE_CXX_FLAGS_RELWITHDEBINFO}
+    )
 elseif (MSVC)
 	set(SECURITY_C_FLAGS ${CMAKE_C_FLAGS})
 	set(SECURITY_CXX_FLAGS ${CMAKE_CXX_FLAGS})
@@ -290,7 +316,9 @@ if (WIN32)
             TestCompileLinkPythonLibs(CAN_USE_PYTHON_LIBS)
             DumpSitePackages(KRITA_PYTHONPATH)
             if (NOT CAN_USE_PYTHON_LIBS)
-                message(FATAL_ERROR "Compiling with Python library failed, please check whether the architecture is correct!")
+                file(READ ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeError.log ERROR_LOG)
+                string(REPLACE "\n" "\n  " ERROR_LOG "${ERROR_LOG}")
+                message(FATAL_ERROR "Compiling with Python library failed, please check whether the architecture is correct!\nCMakeError.log:\n  ${ERROR_LOG}\n\n")
             endif ()
         else ()
             message(FATAL_ERROR "Python requirements not met. To disable Python deps, set ENABLE_PYTHON_DEPS to OFF.")
@@ -348,13 +376,17 @@ endif()
 add_subdirectory( ext_exiv2 )
 add_subdirectory( ext_lcms2 )
 add_subdirectory( ext_openexr )
-add_subdirectory( ext_vc )
 add_subdirectory( ext_gsl )
 add_subdirectory( ext_fftw3 )
 add_subdirectory( ext_ocio )
 add_subdirectory( ext_openjpeg )
 add_subdirectory( ext_fontconfig)
 add_subdirectory( ext_freetype)
+
+if(USE_EXTERNAL_ANGLE AND QT_ENABLE_DYNAMIC_OPENGL)
+    add_subdirectory(ext_googleangle)
+endif()
+
 add_subdirectory( ext_qt )
 add_subdirectory( ext_poppler )
 add_subdirectory( ext_libraw )
@@ -371,7 +403,6 @@ endif ()
 
 if (WIN32)
     add_subdirectory( ext_drmingw )
-#    add_subdirectory( ext_ffmpeg )
 endif ()
 
 if(UNIX)
@@ -390,3 +421,5 @@ if (UNIX AND NOT APPLE)
 endif()
 
 add_subdirectory(ext_webp)
+add_subdirectory(ext_jpegxl)
+add_subdirectory(ext_xsimd)

@@ -270,6 +270,8 @@ void KisConfig::setUseDefaultColorSpace(bool value) const
     m_cfg.writeEntry("useDefaultColorSpace", value);
 }
 
+// brush cursor settings
+
 void cleanOldCursorStyleKeys(KConfigGroup &cfg)
 {
     if (cfg.hasKey("newCursorStyle") &&
@@ -398,6 +400,88 @@ OutlineStyle KisConfig::newOutlineStyle(bool defaultValue) const
 void KisConfig::setNewOutlineStyle(OutlineStyle style)
 {
     m_cfg.writeEntry("newOutlineStyle", (int)style);
+}
+
+OutlineStyle KisConfig::lastUsedOutlineStyle(bool defaultValue) const
+{
+    if (defaultValue) {
+        return OUTLINE_NONE;
+    }
+
+    int style = m_cfg.readEntry("lastUsedOutlineStyle", int(-1));
+
+    return (OutlineStyle) style;
+}
+
+void KisConfig::setLastUsedOutlineStyle(OutlineStyle style)
+{
+    m_cfg.writeEntry("lastUsedOutlineStyle", (int)style);
+}
+
+// eraser cursor settings
+
+bool KisConfig::separateEraserCursor(bool defaultValue) const
+{
+    return (defaultValue ? false : m_cfg.readEntry("separateEraserCursor", false));
+}
+
+void KisConfig::setSeparateEraserCursor(bool value) const
+{
+    m_cfg.writeEntry("separateEraserCursor", value);
+}
+
+CursorStyle KisConfig::eraserCursorStyle(bool defaultValue) const
+{
+    if (defaultValue) {
+        return CURSOR_STYLE_ERASER;
+    }
+
+    int style = m_cfg.readEntry("eraserCursorStyle", int(-1));
+
+    // compatibility with future versions
+    if (style < 0 || style >= N_CURSOR_STYLE_SIZE) {
+        style = CURSOR_STYLE_ERASER;
+    }
+
+    return (CursorStyle) style;
+}
+
+void KisConfig::setEraserCursorStyle(CursorStyle style)
+{
+    m_cfg.writeEntry("eraserCursorStyle", (int)style);
+}
+
+QColor KisConfig::getEraserCursorMainColor(bool defaultValue) const
+{
+    QColor col;
+    col.setRgbF(0.501961, 1.0, 0.501961);
+    return (defaultValue ? col : m_cfg.readEntry("eraserCursorMaincColor", col));
+}
+
+void KisConfig::setEraserCursorMainColor(const QColor &v) const
+{
+    m_cfg.writeEntry("eraserCursorMaincColor", v);
+}
+
+OutlineStyle KisConfig::eraserOutlineStyle(bool defaultValue) const
+{
+    if (defaultValue) {
+        return OUTLINE_FULL;
+    }
+
+    int style = m_cfg.readEntry("eraserOutlineStyle", int(-1));
+
+    // compatibility with future versions
+    if (style < 0 || style >= N_OUTLINE_STYLE_SIZE) {
+        style = OUTLINE_FULL;
+    }
+
+    return (OutlineStyle) style;
+}
+
+void KisConfig::setEraserOutlineStyle(OutlineStyle style)
+{
+    m_cfg.writeEntry("eraserOutlineStyle", (int)style);
 }
 
 QRect KisConfig::colorPreviewRect() const
@@ -1038,6 +1122,8 @@ void KisConfig::setShowGlobalSelection(bool showGlobalSelection) const
     m_cfg.writeEntry("ShowGlobalSelection", showGlobalSelection);
 }
 
+// brush outline settings
+
 bool KisConfig::showOutlineWhilePainting(bool defaultValue) const
 {
     return (defaultValue ? true : m_cfg.readEntry("ShowOutlineWhilePainting", true));
@@ -1056,6 +1142,28 @@ bool KisConfig::forceAlwaysFullSizedOutline(bool defaultValue) const
 void KisConfig::setForceAlwaysFullSizedOutline(bool value) const
 {
     m_cfg.writeEntry("forceAlwaysFullSizedOutline", value);
+}
+
+// eraser outline settings
+
+bool KisConfig::showEraserOutlineWhilePainting(bool defaultValue) const
+{
+    return (defaultValue ? true : m_cfg.readEntry("ShowEraserOutlineWhilePainting", true));
+}
+
+void KisConfig::setShowEraserOutlineWhilePainting(bool showEraserOutlineWhilePainting) const
+{
+    m_cfg.writeEntry("ShowEraserOutlineWhilePainting", showEraserOutlineWhilePainting);
+}
+
+bool KisConfig::forceAlwaysFullSizedEraserOutline(bool defaultValue) const
+{
+    return (defaultValue ? false : m_cfg.readEntry("forceAlwaysFullSizedEraserOutline", false));
+}
+
+void KisConfig::setForceAlwaysFullSizedEraserOutline(bool value) const
+{
+    m_cfg.writeEntry("forceAlwaysFullSizedEraserOutline", value);
 }
 
 KisConfig::SessionOnStartup KisConfig::sessionOnStartup(bool defaultValue) const
@@ -1593,6 +1701,16 @@ int KisConfig::layerThumbnailSize(bool defaultValue) const
 void KisConfig::setLayerThumbnailSize(int size)
 {
     m_cfg.writeEntry("layerThumbnailSize", size);
+}
+
+int KisConfig::layerTreeIndentation(bool defaultValue) const
+{
+    return (defaultValue ? 50 : m_cfg.readEntry("layerTreeIndentation", 50));
+}
+
+void KisConfig::setLayerTreeIndentation(int percentage)
+{
+    m_cfg.writeEntry("layerTreeIndentation", percentage);
 }
 
 bool KisConfig::sliderLabels(bool defaultValue) const

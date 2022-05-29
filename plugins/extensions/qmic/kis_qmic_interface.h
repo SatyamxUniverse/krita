@@ -16,12 +16,13 @@
 #include <QObject>
 #include <QRect>
 #include <QScopedPointer>
-#include <QSharedPointer>
 #include <QSize>
 #include <QVector>
 
 class KisQmicApplicator;
 class KisViewManager;
+
+#define KRITA_QMIC_INTERFACE_VERSION 0x05010001
 
 struct KRITAQMICINTERFACE_EXPORT KisQMicImage {
     QMutex m_mutex;
@@ -68,7 +69,7 @@ public:
     KisImageInterface(KisViewManager *parent = nullptr);
     ~KisImageInterface() override;
 
-    QSize gmic_qt_get_image_size();
+    QSize gmic_qt_get_image_size(int mode);
     QVector<KisQMicImageSP> gmic_qt_get_cropped_images(int mode, QRectF &cropRect);
     void gmic_qt_output_images(int mode, QVector<KisQMicImageSP> layers);
     void gmic_qt_detach();
@@ -76,10 +77,6 @@ public:
 private:
     struct Private;
     const QScopedPointer<Private> p;
-
-private Q_SLOTS:
-    void slotStartApplicator(QVector<KisQMicImageSP> gmicImages);
-    void slotGmicFinished(bool successfully, int milliseconds, const QString &msg);
 };
 
 #endif

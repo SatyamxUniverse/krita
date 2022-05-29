@@ -47,6 +47,7 @@
 #include "kis_painting_information_builder.h"
 #include "kis_tool_freehand_helper.h"
 #include "strokes/freehand_stroke.h"
+#include "kis_tool_utils.h"
 
 using namespace std::placeholders; // For _1 placeholder
 
@@ -63,6 +64,15 @@ KisToolFreehand::KisToolFreehand(KoCanvasBase * canvas, const QCursor & cursor, 
     m_helper = new KisToolFreehandHelper(m_infoBuilder, canvas->resourceManager(), transactionText);
 
     connect(m_helper, SIGNAL(requestExplicitUpdateOutline()), SLOT(explicitUpdateOutline()));
+
+    connect(qobject_cast<KisCanvas2*>(canvas)->viewManager(), SIGNAL(brushOutlineToggled()), SLOT(explicitUpdateOutline()));
+
+    KisCanvasResourceProvider *provider = qobject_cast<KisCanvas2*>(canvas)->viewManager()->canvasResourceProvider();
+
+    connect(provider, SIGNAL(sigEraserModeToggled(bool)), SLOT(explicitUpdateOutline()));
+    connect(provider, SIGNAL(sigEraserModeToggled(bool)), SLOT(resetCursorStyle()));
+    connect(provider, SIGNAL(sigPaintOpPresetChanged(KisPaintOpPresetSP)), SLOT(explicitUpdateOutline()));
+    connect(provider, SIGNAL(sigPaintOpPresetChanged(KisPaintOpPresetSP)), SLOT(resetCursorStyle()));
 }
 
 KisToolFreehand::~KisToolFreehand()
@@ -86,7 +96,10 @@ void KisToolFreehand::resetCursorStyle()
 {
     KisConfig cfg(true);
 
-    switch (cfg.newCursorStyle()) {
+    bool useSeparateEraserCursor = cfg.separateEraserCursor() &&
+            canvas()->resourceManager()->resource(KoCanvasResource::CurrentEffectiveCompositeOp).toString() == COMPOSITE_ERASE;
+
+    switch (useSeparateEraserCursor ? cfg.eraserCursorStyle() : cfg.newCursorStyle()) {
     case CURSOR_STYLE_NO_CURSOR:
         useCursor(KisCursor::blankCursor());
         break;
@@ -110,6 +123,9 @@ void KisToolFreehand::resetCursorStyle()
         break;
     case CURSOR_STYLE_WHITE_PIXEL:
         useCursor(KisCursor::pixelWhiteCursor());
+        break;
+    case CURSOR_STYLE_ERASER:
+        useCursor(KisCursor::eraserCursor());
         break;
     case CURSOR_STYLE_TOOLICON:
     default:
@@ -287,7 +303,7 @@ void KisToolFreehand::activateAlternateAction(AlternateAction action)
     }
 
     useCursor(KisCursor::blankCursor());
-    setOutlineEnabled(true);
+    setOutlineVisible(true);
 }
 
 void KisToolFreehand::deactivateAlternateAction(AlternateAction action)
@@ -298,7 +314,7 @@ void KisToolFreehand::deactivateAlternateAction(AlternateAction action)
     }
 
     resetCursorStyle();
-    setOutlineEnabled(false);
+    setOutlineVisible(false);
 }
 
 void KisToolFreehand::beginAlternateAction(KoPointerEvent *event, AlternateAction action)
@@ -382,7 +398,7 @@ void KisToolFreehand::endAlternateAction(KoPointerEvent *event, AlternateAction 
         return;
     }
 
-    QCursor::setPos(m_initialGestureGlobalPoint);
+    KisToolUtils::setCursorPos(m_initialGestureGlobalPoint);
     requestUpdateOutline(m_initialGestureDocPoint, 0);
 
     setMode(HOVER_MODE);

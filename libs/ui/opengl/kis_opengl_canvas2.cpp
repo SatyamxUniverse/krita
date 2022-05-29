@@ -13,9 +13,11 @@
 #include "opengl/kis_opengl_canvas_debugger.h"
 
 #include "canvas/kis_canvas2.h"
+#include <kis_canvas_resource_provider.h>
 #include "kis_config.h"
 #include "kis_config_notifier.h"
 #include "kis_debug.h"
+#include <KisViewManager.h>
 #include "KisRepaintDebugger.h"
 
 #include <QPointer>
@@ -120,6 +122,10 @@ KisOpenGLCanvas2::KisOpenGLCanvas2(KisCanvas2 *canvas,
 
     connect(KisConfigNotifier::instance(), SIGNAL(configChanged()), SLOT(slotConfigChanged()));
     connect(KisConfigNotifier::instance(), SIGNAL(pixelGridModeChanged()), SLOT(slotPixelGridModeChanged()));
+
+    connect(canvas->viewManager()->canvasResourceProvider(), SIGNAL(sigEraserModeToggled(bool)), SLOT(slotUpdateCursorColor()));
+    connect(canvas->viewManager()->canvasResourceProvider(), SIGNAL(sigPaintOpPresetChanged(KisPaintOpPresetSP)), SLOT(slotUpdateCursorColor()));
+
     slotConfigChanged();
     slotPixelGridModeChanged();
     cfg.writeEntry("canvasState", "OPENGL_SUCCESS");
@@ -188,7 +194,7 @@ void KisOpenGLCanvas2::paintGL()
     }
 
     KisOpenglCanvasDebugger::instance()->nofityPaintRequested();
-    QRect canvasImageDirtyRect = d->canvasImageDirtyRect;
+    QRect canvasImageDirtyRect = d->canvasImageDirtyRect & rect();
     d->canvasImageDirtyRect = QRect();
     d->renderer->paintCanvasOnly(canvasImageDirtyRect, updateRect);
     {
@@ -260,6 +266,11 @@ void KisOpenGLCanvas2::slotPixelGridModeChanged()
     d->renderer->updatePixelGridMode();
 
     update();
+}
+
+void KisOpenGLCanvas2::slotUpdateCursorColor()
+{
+    d->renderer->updateCursorColor();
 }
 
 void KisOpenGLCanvas2::slotShowFloatingMessage(const QString &message, int timeout, bool priority)

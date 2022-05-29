@@ -5,7 +5,6 @@
  *  SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#include <compositeops/KoVcMultiArchBuildSupport.h> //MSVC requires that Vc come first
 #include "kis_indirect_painting_support.h"
 
 #include <QMutex>
@@ -128,7 +127,7 @@ bool KisIndirectPaintingSupport::hasTemporaryTarget() const
 void KisIndirectPaintingSupport::setupTemporaryPainter(KisPainter *painter) const
 {
      painter->setOpacity(d->compositeOpacity);
-     painter->setCompositeOp(d->compositeOp);
+     painter->setCompositeOpId(d->compositeOp);
      painter->setChannelFlags(d->channelFlags);
      painter->setSelection(d->selection);
 }

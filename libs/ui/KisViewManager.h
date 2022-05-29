@@ -58,13 +58,13 @@ public:
      * @param parent   a parent widget we show ourselves in.
      * @param actionCollection an action collection.
      */
-    KisViewManager(QWidget *parent, KActionCollection *actionCollection);
+    KisViewManager(QWidget *parent, KisKActionCollection *actionCollection);
     ~KisViewManager() override;
 
     /**
      * Retrieves the entire action collection.
      */
-    virtual KActionCollection* actionCollection() const;
+    virtual KisKActionCollection* actionCollection() const;
 
 public:  // Krita specific interfaces
 
@@ -218,6 +218,9 @@ public Q_SLOTS:
 
     void slotToggleFgBg();
     void slotResetFgBg();
+
+    // Enable the last set brush outline, or disable it if already enabled
+    void slotToggleBrushOutline();
     
 Q_SIGNALS:
 
@@ -227,6 +230,8 @@ Q_SIGNALS:
      * sent out when the view has changed.
      */
     void viewChanged();
+
+    void brushOutlineToggled();
 
 private Q_SLOTS:
 

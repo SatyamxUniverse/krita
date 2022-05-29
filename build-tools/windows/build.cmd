@@ -733,21 +733,18 @@ if not "%ARG_NO_INTERACTIVE%" == "1" (
 )
 
 :: Initialize clean PATH
-set PATH=%SystemRoot%\system32;%SystemRoot%;%SystemRoot%\System32\Wbem;%SYSTEMROOT%\System32\WindowsPowerShell\v1.0\
-set PATH=%PYTHON_BIN_DIR%;%MINGW_BIN_DIR%;%PATH%
+set "PATH=%SystemRoot%\system32;%SystemRoot%;%SystemRoot%\System32\Wbem;%SYSTEMROOT%\System32\WindowsPowerShell\v1.0\"
+set "PATH=%PYTHON_BIN_DIR%;%MINGW_BIN_DIR%;%PATH%"
 if NOT "%KRITA_GIT_DIR%" == "" (
-    set PATH=%PATH%;%KRITA_GIT_DIR%
+    set "PATH=%PATH%;%KRITA_GIT_DIR%"
 )
 if NOT "%KRITA_NINJA_DIR%" == "" (
     if NOT "%KRITA_NINJA_DIR%" == "%MINGW_BIN_DIR%" (
-        set PATH=%PATH%;%KRITA_NINJA_DIR%
+        set "PATH=%PATH%;%KRITA_NINJA_DIR%"
     )
 )
 if NOT "%SVN_DIR%" == "" (
-    set PATH=%PATH%;%SVN_DIR%
-)
-if NOT "%PERL_DIR%" == "" (
-    set PATH=%PATH%;%PERL_DIR%
+    set "PATH=%PATH%;%SVN_DIR%"
 )
 
 echo Creating dirs...
@@ -848,10 +845,16 @@ set "BUILDDIR_KRITA_INSTALL_CMAKE=%BUILDDIR_KRITA_INSTALL_CMAKE: =\ %"
 set "BUILDDIR_PLUGINS_INSTALL_CMAKE=%KRITA_INSTALL_DIR:\=/%"
 set "BUILDDIR_PLUGINS_INSTALL_CMAKE=%BUILDDIR_KRITA_INSTALL_CMAKE: =\ %"
 
-set PATH=%DEPS_INSTALL_DIR%\bin;%PATH%
+if not "%PERL_DIR%" == "" (
+    set "PERL_EXECUTABLE=%PERL_DIR%\perl.exe"
+    set "PERL_EXECUTABLE=!PERL_EXECUTABLE:\=/!"
+    set "PERL_EXECUTABLE=!PERL_EXECUTABLE: =\ !"
+)
+
+set "PATH=%DEPS_INSTALL_DIR%\bin;%PATH%"
 
 if not "%GETTEXT_SEARCH_PATH%" == "" (
-    set PATH=!PATH!;!GETTEXT_SEARCH_PATH!
+    set "PATH=%PATH%;%GETTEXT_SEARCH_PATH%"
 )
 
 :: Prepare the CMake command lines
@@ -859,6 +862,7 @@ set CMDLINE_CMAKE_DEPS="%CMAKE_EXE%" "%KRITA_SRC_DIR%\3rdparty" ^
     -DSUBMAKE_JOBS=%PARALLEL_JOBS% ^
     -DQT_ENABLE_DEBUG_INFO=%QT_ENABLE_DEBUG_INFO% ^
     -DQT_ENABLE_DYNAMIC_OPENGL=%QT_ENABLE_DYNAMIC_OPENGL% ^
+    -DPERL_EXECUTABLE=%PERL_EXECUTABLE% ^
     -DEXTERNALS_DOWNLOAD_DIR=%BUILDDIR_DOWNLOAD_CMAKE% ^
     -DINSTALL_ROOT=%BUILDDIR_DEPS_INSTALL_CMAKE% ^
     -G "MinGW Makefiles" ^
@@ -942,11 +946,11 @@ echo Running CMake for deps...
 echo.
 
 set EXT_TARGETS=patch zlib gettext openssl boost exiv2 fftw3 eigen3 jpeg lcms2
-set EXT_TARGETS=%EXT_TARGETS% ocio openexr png icoutils tiff gsl vc libraw
+set EXT_TARGETS=%EXT_TARGETS% ocio openexr png icoutils tiff gsl libraw
 set EXT_TARGETS=%EXT_TARGETS% giflib qt kwindowsystem drmingw gmic freetype poppler 
 set EXT_TARGETS=%EXT_TARGETS% python sip pyqt
 set EXT_TARGETS=%EXT_TARGETS% lzma quazip openjpeg libde265 libx265 libheif
-set EXT_TARGETS=%EXT_TARGETS% seexpr mypaint webp
+set EXT_TARGETS=%EXT_TARGETS% seexpr mypaint webp jpegxl xsimd
 
 for %%a in (%EXT_TARGETS%) do (
     set TEST_HAS_TARGET=

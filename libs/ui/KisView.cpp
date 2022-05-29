@@ -120,7 +120,7 @@ public:
     QPointer<KisDocument> document; // our KisDocument
     QWidget *tempActiveWidget {nullptr};
 
-    KActionCollection* actionCollection {nullptr};
+    KisKActionCollection* actionCollection {nullptr};
     KisCoordinatesConverter viewConverter;
     KisCanvasController canvasController;
     KisCanvas2 canvas;
@@ -484,10 +484,10 @@ void KisView::dropEvent(QDropEvent *event)
         forceRecenter = false;
     }
 
-    dbgUI << Q_FUNC_INFO
-          << "Formats: " << event->mimeData()->formats()
-          << "Urls: " << event->mimeData()->urls()
-          << "Has images: " << event->mimeData()->hasImage();
+    dbgUI << Q_FUNC_INFO;
+    dbgUI << "\t Formats: " << event->mimeData()->formats();
+    dbgUI << "\t Urls: " << event->mimeData()->urls();
+    dbgUI << "\t Has images: " << event->mimeData()->hasImage();
 
     if (event->mimeData()->hasFormat("application/x-krita-node")) {
         KisShapeController *kritaShapeController =

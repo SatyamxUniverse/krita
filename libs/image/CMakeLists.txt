@@ -25,14 +25,14 @@ if(FFTW3_FOUND)
   include_directories(${FFTW3_INCLUDE_DIR})
 endif()
 
-if(HAVE_VC)
-  include_directories(SYSTEM ${Vc_INCLUDE_DIR} ${Qt5Core_INCLUDE_DIRS} ${Qt5Gui_INCLUDE_DIRS})
+if(HAVE_XSIMD)
   ko_compile_for_all_implementations_no_scalar(__per_arch_circle_mask_generator_objs kis_brush_mask_applicator_factories.cpp)
   ko_compile_for_all_implementations_no_scalar(_per_arch_processor_objs kis_brush_mask_processor_factories.cpp)
 
   message("Following objects are generated from the per-arch lib")
-  message("${__per_arch_circle_mask_generator_objs}")
-  message("${_per_arch_processor_objs}")
+  foreach(_obj IN LISTS __per_arch_circle_mask_generator_objs _per_arch_processor_objs)
+    message("    * ${_obj}")
+  endforeach()
 endif()
 
 set(kritaimage_LIB_SRCS
@@ -346,6 +346,8 @@ set(kritaimage_LIB_SRCS
    kis_psd_layer_style.cpp
    KisBezierGradientMesh.cpp
    KisBezierTransformMesh.cpp
+
+   KisEncloseAndFillPainter.cpp
 )
 
 set(einspline_SRCS
@@ -389,9 +391,7 @@ if(FFTW3_FOUND)
   target_link_libraries(kritaimage PRIVATE ${FFTW3_LIBRARIES})
 endif()
 
-if(HAVE_VC)
-  target_link_libraries(kritaimage PUBLIC ${Vc_LIBRARIES})
-endif()
+target_link_libraries(kritaimage PUBLIC kritamultiarch)
 
 if (NOT GSL_FOUND)
   message (WARNING "KRITA WARNING! No GNU Scientific Library was found! Krita's Shaped Gradients might be non-normalized! Please install GSL library.")

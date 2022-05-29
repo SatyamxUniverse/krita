@@ -311,20 +311,9 @@ QMenu* ToolReferenceImages::popupActionsMenu()
 
         m_contextMenu->addSeparator();
 
-        KisAction* cut = new KisAction(i18n("Cut"));
-        cut->setIcon(KisIconUtils::loadIcon("edit-cut"));
-        KisAction* copy = new KisAction(i18n("Copy"));
-        copy->setIcon(KisIconUtils::loadIcon("edit-copy"));
-        KisAction* paste = new KisAction(i18n("Paste"));
-        paste->setIcon(KisIconUtils::loadIcon("edit-paste"));
-
-        connect(cut,SIGNAL(triggered()),this,SLOT(cut()));
-        connect(copy,SIGNAL(triggered()),this,SLOT(copy()));
-        connect(paste,SIGNAL(triggered()),this,SLOT(paste()));
-
-        m_contextMenu->addAction(cut);
-        m_contextMenu->addAction(copy);
-        m_contextMenu->addAction(paste);
+        m_contextMenu->addAction(action("edit_cut"));
+        m_contextMenu->addAction(action("edit_copy"));
+        m_contextMenu->addAction(action("edit_paste"));
 
         m_contextMenu->addSeparator();
 
@@ -346,10 +335,12 @@ void ToolReferenceImages::cut()
 void ToolReferenceImages::copy() const
 {
     QList<KoShape *> shapes = koSelection()->selectedShapes();
-    KoShape* shape = shapes.at(0);
-    KisReferenceImage *reference = dynamic_cast<KisReferenceImage*>(shape);
-    QClipboard *cb = QApplication::clipboard();
-    cb->setImage(reference->getImage());
+    if (!shapes.isEmpty()) {
+        KoShape* shape = shapes.at(0);
+        KisReferenceImage *reference = dynamic_cast<KisReferenceImage*>(shape);
+        QClipboard *cb = QApplication::clipboard();
+        cb->setImage(reference->getImage());
+    }
 }
 
 bool ToolReferenceImages::paste()

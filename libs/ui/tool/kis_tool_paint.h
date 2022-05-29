@@ -80,6 +80,8 @@ protected:
 protected:
     bool isOutlineEnabled() const;
     void setOutlineEnabled(bool enabled);
+    bool isOutlineVisible() const;
+    void setOutlineVisible(bool visible);
 
     bool sampleColor(const QPointF &documentPixel, AlternateAction action);
 
@@ -100,8 +102,6 @@ protected:
     virtual QString quickHelp() const {
         return QString();
     }
-
-    const KoCompositeOp* compositeOp();
 
 public Q_SLOTS:
     void activate(const QSet<KoShape*> &shapes) override;
@@ -175,6 +175,7 @@ private:
     AlternateAction delayedAction {AlternateAction::NONE};
 
     bool m_isOutlineEnabled;
+    bool m_isOutlineVisible;
     std::vector<int> m_standardBrushSizes;
 
     KisStrokeId m_samplerStrokeId;

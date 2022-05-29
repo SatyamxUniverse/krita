@@ -328,6 +328,7 @@ bool KisInputManager::eventFilterImpl(QEvent * event)
             deregisterPopupWidget();
 
             if (wasVisible) {
+                d->popupWasActive = true;
                 event->setAccepted(true);
                 return true; // Event consumed.
             }
@@ -620,6 +621,8 @@ bool KisInputManager::eventFilterImpl(QEvent * event)
     case QEvent::TouchBegin:
     {
         d->debugEvent<QTouchEvent, false>(event);
+        // The popup was dismissed in previous TouchBegin->TouchEnd sequence. We now have a new TouchBegin.
+        d->popupWasActive = false;
         if (startTouch(retval)) {
             QTouchEvent *touchEvent = static_cast<QTouchEvent *>(event);
             KisAbstractInputAction::setInputManager(this);
@@ -630,12 +633,16 @@ bool KisInputManager::eventFilterImpl(QEvent * event)
             d->buttonPressed = false;
             d->resetCompressor();
             event->accept();
-            break;
         }
+        break;
     }
 
     case QEvent::TouchUpdate:
     {
+        if (d->popupWasActive) {
+            event->setAccepted(true);
+            return true;
+        }
         QTouchEvent *touchEvent = static_cast<QTouchEvent*>(event);
         d->debugEvent<QTouchEvent, false>(event);
 
@@ -696,6 +703,10 @@ bool KisInputManager::eventFilterImpl(QEvent * event)
 
     case QEvent::TouchEnd:
     {
+        if (d->popupWasActive) {
+            event->setAccepted(true);
+            return true;
+        }
         d->debugEvent<QTouchEvent, false>(event);
         endTouch();
         QTouchEvent *touchEvent = static_cast<QTouchEvent*>(event);
@@ -717,6 +728,10 @@ bool KisInputManager::eventFilterImpl(QEvent * event)
     }
     case QEvent::TouchCancel:
     {
+        if (d->popupWasActive) {
+            event->setAccepted(true);
+            return true;
+        }
         d->debugEvent<QTouchEvent, false>(event);
         endTouch();
         QTouchEvent *touchEvent = static_cast<QTouchEvent*>(event);
@@ -813,6 +828,9 @@ void KisInputManager::slotAboutToChangeTool()
     if (canvas() && canvas()->canvasWidget()) {
         currentLocalPos = canvas()->canvasWidget()->mapFromGlobal(QCursor::pos());
     }
+    // once more, don't forget the global state whenever matcher may trigger a KisAbstractInputAction
+    KisAbstractInputAction::setInputManager(this);
+
     d->matcher.lostFocusEvent(currentLocalPos);
 }
 
@@ -822,6 +840,9 @@ void KisInputManager::slotToolChanged()
     KoToolManager *toolManager = KoToolManager::instance();
     KoToolBase *tool = toolManager->toolById(canvas(), toolManager->activeToolId());
     if (tool) {
+        // once more, don't forget the global state whenever matcher may trigger a KisAbstractInputAction
+        KisAbstractInputAction::setInputManager(this);
+
         d->setMaskSyntheticEvents(tool->maskSyntheticEvents());
         if (tool->isInTextMode()) {
             d->forwardAllEventsToTool = true;

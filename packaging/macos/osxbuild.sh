@@ -60,6 +60,7 @@ for arg in "${@}"; do
         OSXBUILD_CLEAN="keep dirty"
     elif [[ "${arg}" = --debug ]]; then
         OSXBUILD_TYPE="Debug"
+    elif [[ "${arg}" = --tests ]]; then
         OSXBUILD_TESTING="ON"
     elif [[ "${arg}" = --install_tarball ]]; then
         OSXBUILD_TARBALLINSTALL="TRUE"
@@ -115,6 +116,11 @@ fi
 OSXBUILD_X86_64_BUILD=$(sysctl -n hw.optional.x86_64)
 if [[ ${OSXBUILD_UNIVERSAL} ]]; then
     OSX_ARCHITECTURES="x86_64\;arm64"
+fi
+
+OSXBUILD_GENERATOR="Unix Makefiles"
+if [[ -e $(which ninja) ]]; then
+    OSXBUILD_GENERATOR="Ninja"
 fi
 
 # Prints stderr and stdout to log files
@@ -202,7 +208,7 @@ cmake_3rdparty () {
             continue
         fi
         print_msg "Building ${package}"
-        log_cmd cmake --build . --config RelWithDebInfo --target ${package}
+        log_cmd cmake --build . --config RelWithDebInfo -j${MAKE_THREADS} --target ${package}
 
         print_if_error "Failed build ${package}"
         if [[ ! ${osxbuild_error} -ne 0 ]]; then
@@ -236,8 +242,8 @@ cmake_3rdparty_plugins () {
             continue
         fi
         print_msg "Building ${package}"
-        log_cmd cmake --build . --config RelWithDebInfo --target ${package}
-        
+        log_cmd cmake --build . --config RelWithDebInfo -j${MAKE_THREADS} --target ${package}
+
         print_if_error "Failed build ${package}"
         if [[ ! ${osxbuild_error} -ne 0 ]]; then
             print_msg "Build Success! ${package}"
@@ -338,6 +344,7 @@ build_3rdparty () {
         ext_pkgconfig \
         ext_gettext \
         ext_openssl \
+        ext_python \
         ext_qt \
         ext_boost \
         ext_eigen3 \
@@ -353,7 +360,6 @@ build_3rdparty () {
         ext_tiff \
         ext_openjpeg \
         ext_gsl \
-        ext_vc \
         ext_libraw \
         ext_giflib \
         ext_freetype \
@@ -376,7 +382,6 @@ build_3rdparty () {
 
     # for python
     cmake_3rdparty \
-        ext_python \
         ext_sip \
         ext_pyqt
 
@@ -399,6 +404,8 @@ build_3rdparty () {
     cmake_3rdparty ext_seexpr
     cmake_3rdparty ext_mypaint
     cmake_3rdparty ext_webp
+    cmake_3rdparty ext_jpegxl
+    cmake_3rdparty ext_xsimd
 
 
     ## All builds done, creating a new install onlydeps install dir
@@ -447,42 +454,45 @@ build_krita () {
         fi
     fi
 
-
-    CMAKE_CMD="cmake ${KIS_SRC_DIR} \
-        -DFOUNDATION_BUILD=ON \
-        -DBRANDING=${KRITA_BRANDING} \
-        -DBoost_INCLUDE_DIR=${KIS_INSTALL_DIR}/include \
-        -DCMAKE_INSTALL_PREFIX=${KIS_INSTALL_DIR} \
-        -DCMAKE_PREFIX_PATH=${KIS_INSTALL_DIR} \
-        -DDEFINE_NO_DEPRECATED=1 \
-        -DBUILD_TESTING=${OSXBUILD_TESTING} \
-        -DHIDE_SAFE_ASSERTS=${OSXBUILD_HIDE_SAFEASSERTS} \
-        -DFETCH_TRANSLATIONS=ON \
-        -DKDE_INSTALL_BUNDLEDIR=${KIS_INSTALL_DIR}/bin \
-        -DPYQT_SIP_DIR_OVERRIDE=${KIS_INSTALL_DIR}/share/sip/ \
-        -DCMAKE_BUILD_TYPE=${OSXBUILD_TYPE} \
-        -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13 \
-        -DPYTHON_INCLUDE_DIR=${KIS_INSTALL_DIR}/lib/Python.framework/Headers \
-        -DCMAKE_OSX_ARCHITECTURES=${OSX_ARCHITECTURES} \
-        -DMACOS_UNIVERSAL=${OSXBUILD_UNIVERSAL}"
+    declare -a CMAKE_CMD
+    CMAKE_CMD=(cmake "${KIS_SRC_DIR}"
+        -G "\"${OSXBUILD_GENERATOR}\""
+        -DFOUNDATION_BUILD=ON
+        -DBRANDING="${KRITA_BRANDING}"
+        -DBoost_INCLUDE_DIR="${KIS_INSTALL_DIR}/include"
+        -DCMAKE_INSTALL_PREFIX="${KIS_INSTALL_DIR}"
+        -DCMAKE_PREFIX_PATH="${KIS_INSTALL_DIR}"
+        -DDEFINE_NO_DEPRECATED=1
+        -DBUILD_TESTING="${OSXBUILD_TESTING}"
+        -DHIDE_SAFE_ASSERTS"=${OSXBUILD_HIDE_SAFEASSERTS}"
+        -DFETCH_TRANSLATIONS=ON
+        -DKDE_INSTALL_BUNDLEDIR="${KIS_INSTALL_DIR}/bin"
+        -DPYQT_SIP_DIR_OVERRIDE="${KIS_INSTALL_DIR}/share/sip/"
+        -DCMAKE_BUILD_TYPE="${OSXBUILD_TYPE}"
+        -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13
+        -DPYTHON_INCLUDE_DIR="${KIS_INSTALL_DIR}/lib/Python.framework/Headers"
+        -DCMAKE_OSX_ARCHITECTURES="${OSX_ARCHITECTURES}"
+        -DMACOS_UNIVERSAL="${OSXBUILD_UNIVERSAL}"
+        )
 
     # hack:: Jenkins runs in x86_64 env, force run cmake in arm64 env.
+    printf -v CMAKE_CMD_STRING '%s ' "${CMAKE_CMD[@]}"
     if [[ ${OSXBUILD_UNIVERSAL} ]]; then
-        log_cmd env /usr/bin/arch -arm64 /bin/zsh -c "${CMAKE_CMD}"
+        log_cmd env /usr/bin/arch -arm64 /bin/zsh -c "${CMAKE_CMD_STRING}"
     else
-        log_cmd ${CMAKE_CMD}
+        log_cmd /bin/zsh -c "${CMAKE_CMD_STRING}"
     fi
 
     print_if_error "Configuration error! ${filename}" "exit"
 
     # copiling phase
-    log_cmd make -j${MAKE_THREADS}
+    log_cmd cmake --build . -j${MAKE_THREADS}
     print_if_error "Krita compilation failed! ${filename}" "exit"
 
     # compile integrations
-    if test ${OSTYPE} == "darwin*"; then
-        cd ${KIS_BUILD_DIR}/krita/integration/kritaquicklook
-        make -j${MAKE_THREADS}
+    if test "${OSTYPE}" == "darwin*"; then
+        cd "${KIS_BUILD_DIR}/krita/integration/kritaquicklook"
+        cmake --build . -j${MAKE_THREADS}
     fi
 }
 
@@ -531,12 +541,12 @@ install_krita () {
     osxbuild_error="${?}"
     print_if_error "could not cd to ${KIS_BUILD_DIR}" "exit"
 
-    make install
+    cmake --install .
 
     # compile integrations
     if test ${OSTYPE} == "darwin*"; then
         cd ${KIS_BUILD_DIR}/krita/integration
-        make install
+        cmake --install .
     fi
 }
 
@@ -744,6 +754,8 @@ print_usage () {
     printf "OPTIONS:\t\t"
     printf "\n \t --dirty \t [build/install] (old default) Keep old build directories before build to start fresh"
     printf "\n \t --debug \t [build] Build in Debug mode"
+    printf "\n \t --tests \t [build] Build tests"
+    printf "\n \t --showasserts \t [build] Do not hide asserts"
     printf "\n \t --universal \t [build] (arm only) Build universal binary files."
     printf "\n"
     printf "\n \t --install_tarball \n \t\t\t [buildtarball] Install just built tarball file."

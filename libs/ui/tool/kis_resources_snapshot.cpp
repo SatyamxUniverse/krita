@@ -206,7 +206,7 @@ void KisResourcesSnapshot::setupPainter(KisPainter* painter)
     }
 
     painter->setOpacity(m_d->opacity);
-    painter->setCompositeOp(m_d->compositeOp);
+    painter->setCompositeOpId(m_d->compositeOpId);
     painter->setMirrorInformation(m_d->axesCenter, m_d->mirrorMaskHorizontal, m_d->mirrorMaskVertical);
 
     painter->setStrokeStyle(m_d->strokeStyle);
@@ -233,7 +233,7 @@ void KisResourcesSnapshot::setupMaskingBrushPainter(KisPainter *painter)
     painter->setChannelFlags(QBitArray());
 
     // masked brush always paints in indirect mode
-    painter->setCompositeOp(COMPOSITE_ALPHA_DARKEN);
+    painter->setCompositeOpId(COMPOSITE_ALPHA_DARKEN);
 
     painter->setMirrorInformation(m_d->axesCenter, m_d->mirrorMaskHorizontal, m_d->mirrorMaskVertical);
 
@@ -255,14 +255,6 @@ KisPostExecutionUndoAdapter* KisResourcesSnapshot::postExecutionUndoAdapter() co
 void KisResourcesSnapshot::setCurrentNode(KisNodeSP node)
 {
     m_d->currentNode = node;
-
-    KisPaintDeviceSP device;
-    if(m_d->currentNode && (device = m_d->currentNode->paintDevice())) {
-        m_d->compositeOp = device->colorSpace()->compositeOp(m_d->compositeOpId);
-        if(!m_d->compositeOp) {
-            m_d->compositeOp = device->colorSpace()->compositeOp(COMPOSITE_OVER);
-        }
-    }
 }
 
 void KisResourcesSnapshot::setStrokeStyle(KisPainter::StrokeStyle strokeStyle)
@@ -324,7 +316,7 @@ KisSelectionSP KisResourcesSnapshot::activeSelection() const
 
     KisSelectionSP selection = m_d->image ? m_d->image->globalSelection() : 0;
 
-    KisLayerSP layer = qobject_cast<KisLayer*>(m_d->currentNode.data());
+    KisLayerSP layer;
     KisSelectionMaskSP mask;
     if((layer = qobject_cast<KisLayer*>(m_d->currentNode.data()))) {
          selection = layer->selection();
@@ -366,11 +358,6 @@ void KisResourcesSnapshot::setOpacity(qreal opacity)
 quint8 KisResourcesSnapshot::opacity() const
 {
     return m_d->opacity;
-}
-
-const KoCompositeOp* KisResourcesSnapshot::compositeOp() const
-{
-    return m_d->compositeOp;
 }
 
 QString KisResourcesSnapshot::compositeOpId() const

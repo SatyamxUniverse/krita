@@ -8,15 +8,12 @@
 #include "KoDocumentInfo.h"
 
 #include "KisDocument.h"
-#include "KoXmlNS.h"
-
 #include <QDateTime>
 #include <KoStoreDevice.h>
-#include <KoXmlWriter.h>
 #include <QDomDocument>
-#include <KoXmlReader.h>
 #include <QDir>
 
+#include <kis_dom_utils.h>
 #include <kconfig.h>
 #include <kconfiggroup.h>
 #include <klocalizedstring.h>
@@ -50,7 +47,6 @@ KoDocumentInfo::KoDocumentInfo(const KoDocumentInfo &rhs, QObject *parent)
       m_authorInfoOverride(rhs.m_authorInfoOverride),
       m_aboutInfo(rhs.m_aboutInfo),
       m_generator(rhs.m_generator)
-
 {
 }
 
@@ -81,9 +77,9 @@ QDomDocument KoDocumentInfo::save(QDomDocument &doc)
         doc.documentElement().appendChild(s);
 
     s = saveAuthorInfo(doc);
-    if (!s.isNull())
+    if (!s.isNull()) {
         doc.documentElement().appendChild(s);
-
+    }
 
     if (doc.documentElement().isNull())
         return QDomDocument();
@@ -144,46 +140,6 @@ QString KoDocumentInfo::aboutInfo(const QString &info) const
     return m_aboutInfo[info];
 }
 
-bool KoDocumentInfo::saveOasisAuthorInfo(KoXmlWriter &xmlWriter)
-{
-    Q_FOREACH (const QString & tag, m_authorTags) {
-        if (!authorInfo(tag).isEmpty() && tag == "creator") {
-            xmlWriter.startElement("dc:creator");
-            xmlWriter.addTextNode(authorInfo("creator"));
-            xmlWriter.endElement();
-        } else if (!authorInfo(tag).isEmpty()) {
-            xmlWriter.startElement("meta:user-defined");
-            xmlWriter.addAttribute("meta:name", tag);
-            xmlWriter.addTextNode(authorInfo(tag));
-            xmlWriter.endElement();
-        }
-    }
-
-    return true;
-}
-
-bool KoDocumentInfo::loadOasisAuthorInfo(const QDomNode &metaDoc)
-{
-    QDomElement e = KoXml::namedItemNS(metaDoc, KoXmlNS::dc, "creator");
-    if (!e.isNull() && !e.text().isEmpty())
-        setActiveAuthorInfo("creator", e.text());
-
-    QDomNode n = metaDoc.firstChild();
-    for (; !n.isNull(); n = n.nextSibling()) {
-        if (!n.isElement())
-            continue;
-
-        QDomElement e = n.toElement();
-        if (!(e.namespaceURI() == KoXmlNS::meta &&
-                e.localName() == "user-defined" && !e.text().isEmpty()))
-            continue;
-
-        QString name = e.attributeNS(KoXmlNS::meta, "name", QString());
-        setActiveAuthorInfo(name, e.text());
-    }
-
-    return true;
-}
 
 bool KoDocumentInfo::loadAuthorInfo(const QDomElement &e)
 {
@@ -195,11 +151,11 @@ bool KoDocumentInfo::loadAuthorInfo(const QDomElement &e)
             continue;
 
         if (e.tagName() == "full-name") {
-            setActiveAuthorInfo("creator", e.text().trimmed());
+            setActiveAuthorInfo("creator", KisDomUtils::unescapeText(e.text().trimmed()));
         } else if (e.tagName() == "contact") {
-            m_contact.insert(e.text(), e.attribute("type"));
+            m_contact.insert(KisDomUtils::unescapeText(e.text()), e.attribute("type"));
         } else {
-            setActiveAuthorInfo(e.tagName(), e.text().trimmed());
+            setActiveAuthorInfo(e.tagName(), KisDomUtils::unescapeText(e.text().trimmed()));
         }
     }
 
@@ -218,91 +174,19 @@ QDomElement KoDocumentInfo::saveAuthorInfo(QDomDocument &doc)
             t = doc.createElement(tag);
 
         e.appendChild(t);
-        t.appendChild(doc.createTextNode(authorInfo(tag)));
+        t.appendChild(doc.createTextNode(KisDomUtils::escapeText(authorInfo(tag))));
     }
     for (int i=0; i<m_contact.keys().size(); i++) {
         t = doc.createElement("contact");
         e.appendChild(t);
         QString key = m_contact.keys().at(i);
         t.setAttribute("type", m_contact[key]);
-        t.appendChild(doc.createTextNode(key));
+        t.appendChild(doc.createTextNode(KisDomUtils::escapeText(key)));
     }
 
     return e;
 }
 
-bool KoDocumentInfo::saveOasisAboutInfo(KoXmlWriter &xmlWriter)
-{
-    Q_FOREACH (const QString &tag, m_aboutTags) {
-        if (!aboutInfo(tag).isEmpty() || tag == "title") {
-            if (tag == "keyword") {
-                Q_FOREACH (const QString & tmp, aboutInfo("keyword").split(';')) {
-                    xmlWriter.startElement("meta:keyword");
-                    xmlWriter.addTextNode(tmp);
-                    xmlWriter.endElement();
-                }
-            } else if (tag == "title" || tag == "description" || tag == "subject" ||
-                       tag == "date" || tag == "language") {
-                QByteArray elementName(QString("dc:" + tag).toLatin1());
-                xmlWriter.startElement(elementName.constData());
-                xmlWriter.addTextNode(aboutInfo(tag));
-                xmlWriter.endElement();
-            } else {
-                QByteArray elementName(QString("meta:" + tag).toLatin1());
-                xmlWriter.startElement(elementName.constData());
-                xmlWriter.addTextNode(aboutInfo(tag));
-                xmlWriter.endElement();
-            }
-        }
-    }
-
-    return true;
-}
-
-bool KoDocumentInfo::loadOasisAboutInfo(const QDomNode &metaDoc)
-{
-    QStringList keywords;
-    QDomElement e;
-    forEachElement(e, metaDoc) {
-        QString tag(e.localName());
-        if (! m_aboutTags.contains(tag) && tag != "generator") {
-            continue;
-        }
-
-        //debugOdf<<"localName="<<e.localName();
-        if (tag == "keyword") {
-            if (!e.text().isEmpty())
-                keywords << e.text().trimmed();
-        } else if (tag == "description") {
-            //this is the odf way but add meta:comment if it's already loaded
-            QDomElement e  = KoXml::namedItemNS(metaDoc, KoXmlNS::dc, tag);
-            if (!e.isNull() && !e.text().isEmpty())
-                setAboutInfo("description", aboutInfo("description") + e.text().trimmed());
-        } else if (tag == "abstract") {
-            //this was the old way so add it to dc:description
-            QDomElement e  = KoXml::namedItemNS(metaDoc, KoXmlNS::meta, tag);
-            if (!e.isNull() && !e.text().isEmpty())
-                setAboutInfo("description", aboutInfo("description") + e.text().trimmed());
-        } else if (tag == "title"|| tag == "subject"
-                   || tag == "date" || tag == "language") {
-            QDomElement e  = KoXml::namedItemNS(metaDoc, KoXmlNS::dc, tag);
-            if (!e.isNull() && !e.text().isEmpty())
-                setAboutInfo(tag, e.text().trimmed());
-        } else if (tag == "generator") {
-            setOriginalGenerator(e.text().trimmed());
-        } else {
-            QDomElement e  = KoXml::namedItemNS(metaDoc, KoXmlNS::meta, tag);
-            if (!e.isNull() && !e.text().isEmpty())
-                setAboutInfo(tag, e.text().trimmed());
-        }
-    }
-
-    if (keywords.count() > 0) {
-        setAboutInfo("keyword", keywords.join(", "));
-    }
-
-    return true;
-}
 
 bool KoDocumentInfo::loadAboutInfo(const QDomElement &e)
 {
@@ -313,10 +197,11 @@ bool KoDocumentInfo::loadAboutInfo(const QDomElement &e)
         if (tmp.isNull())
             continue;
 
-        if (tmp.tagName() == "abstract")
-            setAboutInfo("abstract", tmp.text());
+        if (tmp.tagName() == "abstract") {
+            setAboutInfo("abstract", KisDomUtils::unescapeText(tmp.text()));
+        }
 
-        setAboutInfo(tmp.tagName(), tmp.text());
+        setAboutInfo(tmp.tagName(), KisDomUtils::unescapeText(tmp.text()));
     }
 
     return true;
@@ -331,11 +216,11 @@ QDomElement KoDocumentInfo::saveAboutInfo(QDomDocument &doc)
         if (tag == "abstract") {
             t = doc.createElement("abstract");
             e.appendChild(t);
-            t.appendChild(doc.createCDATASection(aboutInfo(tag)));
+            t.appendChild(doc.createCDATASection(KisDomUtils::escapeText(aboutInfo(tag))));
         } else {
             t = doc.createElement(tag);
             e.appendChild(t);
-            t.appendChild(doc.createTextNode(aboutInfo(tag)));
+            t.appendChild(doc.createTextNode(KisDomUtils::escapeText(aboutInfo(tag))));
         }
     }
 
@@ -389,37 +274,37 @@ void KoDocumentInfo::updateParameters()
 
             QDomElement el = root.firstChildElement("nickname");
             if (!el.isNull()) {
-                setActiveAuthorInfo("creator", el.text());
+                setActiveAuthorInfo("creator", KisDomUtils::unescapeText(el.text()));
             }
             el = root.firstChildElement("givenname");
             if (!el.isNull()) {
-                setActiveAuthorInfo("creator-first-name", el.text());
+                setActiveAuthorInfo("creator-first-name", KisDomUtils::unescapeText(el.text()));
             }
             el = root.firstChildElement("middlename");
             if (!el.isNull()) {
-                setActiveAuthorInfo("initial", el.text());
+                setActiveAuthorInfo("initial", KisDomUtils::unescapeText(el.text()));
             }
             el = root.firstChildElement("familyname");
             if (!el.isNull()) {
-               setActiveAuthorInfo("creator-last-name", el.text());
+               setActiveAuthorInfo("creator-last-name", KisDomUtils::unescapeText(el.text()));
             }
             el = root.firstChildElement("title");
             if (!el.isNull()) {
-                setActiveAuthorInfo("author-title", el.text());
+                setActiveAuthorInfo("author-title", KisDomUtils::unescapeText(el.text()));
             }
             el = root.firstChildElement("position");
             if (!el.isNull()) {
-                setActiveAuthorInfo("position", el.text());
+                setActiveAuthorInfo("position", KisDomUtils::unescapeText(el.text()));
             }
             el = root.firstChildElement("company");
             if (!el.isNull()) {
-                setActiveAuthorInfo("company", el.text());
+                setActiveAuthorInfo("company", KisDomUtils::unescapeText(el.text()));
             }
 
             m_contact.clear();
             el = root.firstChildElement("contact");
             while (!el.isNull()) {
-                m_contact.insert(el.text(), el.attribute("type"));
+                m_contact.insert(KisDomUtils::unescapeText(el.text()), el.attribute("type"));
                 el = el.nextSiblingElement("contact");
             }
         }

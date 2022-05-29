@@ -197,7 +197,7 @@
       <text>Search Actions</text>
       <whatsThis/>
       <toolTip>Open the command bar to search through actions.</toolTip>
-      <iconText>Search Actions.</iconText>
+      <iconText>Search Actions</iconText>
       <shortcut>Ctrl+Return</shortcut>
       <isCheckable>false</isCheckable>
       <statusTip/>
@@ -694,6 +694,16 @@
       <isCheckable>false</isCheckable>
       <statusTip/>
     </Action>
+    <Action name="toggle_brush_outline">
+      <icon/>
+      <text>Toggle Brush Outline</text>
+      <whatsThis/>
+      <toolTip>Disable the brush outline, or enable the previously used brush outline shape if already disabled</toolTip>
+      <iconText>Toggle Brush Outline</iconText>
+      <shortcut></shortcut>
+      <isCheckable>false</isCheckable>
+      <statusTip/>
+    </Action>
     <Action name="selection_tool_mode_add">
       <icon/>
       <text>Selection Mode: Add</text>
@@ -803,7 +813,7 @@
       <text>Toggle Snap To Assistants</text>
       <whatsThis/>
       <toolTip>Toggle Snap to Assistants</toolTip>
-      <iconText>ToggleAssistant</iconText>
+      <iconText>Toggle Snap To Assistants</iconText>
       <shortcut>Ctrl+Shift+L</shortcut>
       <isCheckable>true</isCheckable>
       <statusTip/>
@@ -880,7 +890,7 @@
     </Action>
   </Actions>
   <Actions category="Filters">
-    <text comment="Filter as an effect">Filters</text>
+    <text context="Filter as an effect">Filters</text>
     <Action name="krita_filter_colortoalpha">
       <icon>color-to-alpha</icon>
       <text>&amp;Color to Alpha...</text>
@@ -1752,7 +1762,7 @@
       <text>Previous Frame</text>
       <whatsThis/>
       <toolTip>Change time to previous frame</toolTip>
-      <iconText>Change time to previous frame</iconText>
+      <iconText>Previous Frame</iconText>
       <activationFlags>1</activationFlags>
       <activationConditions>0</activationConditions>
       <shortcut/>
@@ -1764,7 +1774,7 @@
       <text>Next Frame</text>
       <whatsThis/>
       <toolTip>Change time to next frame</toolTip>
-      <iconText>Change time to next frame</iconText>
+      <iconText>Next Frame</iconText>
       <activationFlags>1</activationFlags>
       <activationConditions>0</activationConditions>
       <shortcut/>
@@ -1776,7 +1786,7 @@
       <text>Previous Keyframe</text>
       <whatsThis/>
       <toolTip>Change time to previous keyframe</toolTip>
-      <iconText>Change time to previous keyframe</iconText>
+      <iconText>Previous Keyframe</iconText>
       <activationFlags>1</activationFlags>
       <activationConditions>0</activationConditions>
       <shortcut/>
@@ -1788,7 +1798,7 @@
       <text>Next Keyframe</text>
       <whatsThis/>
       <toolTip>Change time to next keyframe</toolTip>
-      <iconText>Change time to next keyframe</iconText>
+      <iconText>Next Keyframe</iconText>
       <activationFlags>1</activationFlags>
       <activationConditions>0</activationConditions>
       <shortcut/>
@@ -1800,7 +1810,7 @@
       <text>Previous Matching Keyframe</text>
       <whatsThis/>
       <toolTip>Change time to previous keyframe of the same color</toolTip>
-      <iconText>Change time to previous matching keyframe</iconText>
+      <iconText>Previous Matching Keyframe</iconText>
       <activationFlags>1</activationFlags>
       <activationConditions>0</activationConditions>
       <shortcut/>
@@ -1812,7 +1822,7 @@
       <text>Next Matching Keyframe</text>
       <whatsThis/>
       <toolTip>Change time to next keyframe of the same color</toolTip>
-      <iconText>Change time to next matching keyframe</iconText>
+      <iconText>Next Matching Keyframe</iconText>
       <activationFlags>1</activationFlags>
       <activationConditions>0</activationConditions>
       <shortcut/>
@@ -1824,7 +1834,7 @@
       <text>Previous Unfiltered Keyframe</text>
       <whatsThis/>
       <toolTip>Change time to previous keyframe that has visible onion skin</toolTip>
-      <iconText>Change time to previous matching keyframe</iconText>
+      <iconText>Previous Unfiltered Keyframe</iconText>
       <activationFlags>1</activationFlags>
       <activationConditions>0</activationConditions>
       <shortcut/>
@@ -1836,7 +1846,7 @@
       <text>Next Unfiltered Keyframe</text>
       <whatsThis/>
       <toolTip>Change time to next keyframe that has visible onion skin</toolTip>
-      <iconText>Change time to next matching keyframe</iconText>
+      <iconText>Next Unfiltered Keyframe</iconText>
       <activationFlags>1</activationFlags>
       <activationConditions>0</activationConditions>
       <shortcut/>
@@ -3449,8 +3459,8 @@
       <icon>properties</icon>
       <text>&amp;Properties...</text>
       <whatsThis/>
-      <toolTip comment="Layer Properties">Properties</toolTip>
-      <iconText comment="Layer Properties">Properties</iconText>
+      <toolTip context="Layer Properties">Properties</toolTip>
+      <iconText context="Layer Properties">Properties</iconText>
       <activationFlags>1000</activationFlags>
       <activationConditions>1</activationConditions>
       <shortcut>F3</shortcut>

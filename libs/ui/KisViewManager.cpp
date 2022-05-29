@@ -110,7 +110,6 @@
 #include "kis_statusbar.h"
 #include <KisTemplateCreateDia.h>
 #include <kis_tool_freehand.h>
-#include "kis_tooltip_manager.h"
 #include <kis_undo_adapter.h>
 #include "KisView.h"
 #include "kis_zoom_manager.h"
@@ -151,7 +150,7 @@ class KisViewManager::KisViewManagerPrivate
 
 public:
 
-    KisViewManagerPrivate(KisViewManager *_q, KActionCollection *_actionCollection, QWidget *_q_parent)
+    KisViewManagerPrivate(KisViewManager *_q, KisKActionCollection *_actionCollection, QWidget *_q_parent)
         : filterManager(_q)
         , selectionManager(_q)
         , statusBar(_q)
@@ -194,6 +193,7 @@ public:
     KisAction *gamutCheck {nullptr};
     KisAction *toggleFgBg {nullptr};
     KisAction *resetFgBg {nullptr};
+    KisAction *toggleBrushOutline {nullptr};
 
     KisSelectionManager selectionManager;
     KisGuidesManager guidesManager;
@@ -218,7 +218,7 @@ public:
     KisCanvasResourceProvider canvasResourceProvider;
     KoCanvasResourceProvider canvasResourceManager;
     KisSignalCompressor guiUpdateCompressor;
-    KActionCollection *actionCollection {nullptr};
+    KisKActionCollection *actionCollection {nullptr};
     KisMirrorManager mirrorManager;
     KisInputManager inputManager;
 
@@ -234,7 +234,7 @@ public:
     bool blockUntilOperationsFinishedImpl(KisImageSP image, bool force);
 };
 
-KisViewManager::KisViewManager(QWidget *parent, KActionCollection *_actionCollection)
+KisViewManager::KisViewManager(QWidget *parent, KisKActionCollection *_actionCollection)
     : d(new KisViewManagerPrivate(this, _actionCollection, parent))
 {
     d->actionCollection = _actionCollection;
@@ -357,7 +357,7 @@ void KisViewManager::initializeResourceManager(KoCanvasResourceProvider *resourc
                       KoCanvasResource::BackgroundColor)));
 }
 
-KActionCollection *KisViewManager::actionCollection() const
+KisKActionCollection *KisViewManager::actionCollection() const
 {
     return d->actionCollection;
 }
@@ -750,6 +750,9 @@ void KisViewManager::createActions()
 
     d->resetFgBg =  actionManager()->createAction("reset_fg_bg");
     connect(d->resetFgBg, SIGNAL(triggered(bool)), this, SLOT(slotResetFgBg()));
+
+    d->toggleBrushOutline =  actionManager()->createAction("toggle_brush_outline");
+    connect(d->toggleBrushOutline, SIGNAL(triggered(bool)), this, SLOT(slotToggleBrushOutline()));
 
 }
 
@@ -1532,6 +1535,25 @@ void KisViewManager::slotResetFgBg()
     // see a comment in slotToggleFgBg()
     d->canvasResourceManager.setBackgroundColor(KoColor(Qt::white, KoColorSpaceRegistry::instance()->rgb8()));
     d->canvasResourceManager.setForegroundColor(KoColor(Qt::black, KoColorSpaceRegistry::instance()->rgb8()));
+}
+
+void KisViewManager::slotToggleBrushOutline()
+{
+    KisConfig cfg(true);
+
+    OutlineStyle style;
+
+    if (cfg.newOutlineStyle() != OUTLINE_NONE) {
+        style = OUTLINE_NONE;
+        cfg.setLastUsedOutlineStyle(cfg.newOutlineStyle());
+    } else {
+        style = cfg.lastUsedOutlineStyle();
+        cfg.setLastUsedOutlineStyle(OUTLINE_NONE);
+    }
+
+    cfg.setNewOutlineStyle(style);
+
+    emit brushOutlineToggled();
 }
 
 void KisViewManager::slotResetRotation()

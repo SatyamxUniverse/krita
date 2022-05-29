@@ -32,6 +32,8 @@ export PATH=$DEPS_INSTALL_PREFIX/bin:$PATH
 export PKG_CONFIG_PATH=$DEPS_INSTALL_PREFIX/share/pkgconfig:$DEPS_INSTALL_PREFIX/lib/pkgconfig:/usr/lib/pkgconfig:$PKG_CONFIG_PATH
 export CMAKE_PREFIX_PATH=$DEPS_INSTALL_PREFIX:$CMAKE_PREFIX_PATH
 
+source ${KRITA_SOURCES}/packaging/linux/appimage/override_compiler.sh.inc
+
 # A krita build layout looks like this:
 # krita/ -- the source directory
 # downloads/ -- downloads of the dependencies from files.kde.org
@@ -98,9 +100,6 @@ cmake --build . --config RelWithDebInfo --target ext_exiv2
 cmake --build . --config RelWithDebInfo --target ext_lcms2
 cmake --build . --config RelWithDebInfo --target ext_ocio
 cmake --build . --config RelWithDebInfo --target ext_openexr
-if [[ $ARCH != "arm*" ]]; then
-cmake --build . --config RelWithDebInfo --target ext_vc
-fi
 cmake --build . --config RelWithDebInfo --target ext_libraw
 cmake --build . --config RelWithDebInfo --target ext_giflib
 #cmake --build . --config RelWithDebInfo --target ext_gsl
@@ -122,3 +121,5 @@ cmake --build . --config RelWithDebInfo --target ext_seexpr
 cmake --build . --config RelWithDebInfo --target ext_mypaint
 cmake --build . --config RelWithDebInfo --target ext_fcitx-qt5
 cmake --build . --config RelWithDebInfo --target ext_webp
+cmake --build . --config RelWithDebInfo --target ext_jpegxl
+cmake --build . --config RelWithDebInfo --target ext_xsimd

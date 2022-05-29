@@ -161,7 +161,6 @@ set(kritaui_LIB_SRCS
     kis_action_manager.cpp
     KisActionPlugin.cpp
     kis_canvas_controls_manager.cpp
-    kis_tooltip_manager.cpp
     kis_multinode_property.cpp
     KisWelcomePageWidget.cpp
     KisChangeCloneLayersCommand.cpp
@@ -378,6 +377,7 @@ set(kritaui_LIB_SRCS
     input/config/kis_key_input_editor.cpp
     input/config/KisGestureSelector.cpp
     processing/fill_processing_visitor.cpp
+    processing/KisEncloseAndFillProcessingVisitor.cpp
     canvas/kis_mirror_axis.cpp
 
     imagesize/imagesize.cc

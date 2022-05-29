@@ -109,7 +109,7 @@ private Q_SLOTS:
     void slotRenameCurrentNode();
 
     void slotAdjustCurrentBeforeRemoveRows(const QModelIndex &parent, int first, int last);
-    void selectionChanged(const QModelIndexList selection);
+    void selectionChanged(const QModelIndexList &selection);
     void slotNodeManagerChangedSelection(const QList<KisNodeSP> &nodes);
     void slotColorLabelChanged(int index);
     void slotUpdateIcons();
@@ -125,6 +125,7 @@ private Q_SLOTS:
     void updateLayerFiltering();
 
     void slotUpdateThumbnailIconSize();
+    void slotUpdateTreeIndentation();
 
     void slotImageTimeChanged(int time);
     void slotForgetAboutSavedNodeBeforeEditSelectionMode();
@@ -164,9 +165,11 @@ private:
     KisSignalCompressor m_thumbnailCompressor;
     KisSignalCompressor m_colorLabelCompressor;
     KisSignalCompressor m_thumbnailSizeCompressor;
+    KisSignalCompressor m_treeIndentationCompressor;
 
     KisLayerFilterWidget* layerFilterWidget;
-    QSlider* thumbnailSizeSlider;
+    QSlider *thumbnailSizeSlider;
+    QSlider *indentationSlider;
 
     KisNodeSP m_activeNode;
     KisNodeWSP m_savedNodeBeforeEditSelectionMode;
