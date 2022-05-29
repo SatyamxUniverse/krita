@@ -8,6 +8,8 @@
 #include "kis_config.h"
 #include "kis_signal_compressor.h"
 
+#include <iostream>
+
 struct KisSmoothingOptions::Private {
 
     Private()
@@ -56,6 +58,7 @@ struct KisSmoothingOptions::Private_line : public KisSmoothingOptions::Private {
     }
     void saveConfig() 
     {
+        std::cout<<"Save line smoothing options\n";
         KisConfig cfg(false);
         cfg.setLineSmoothingType(smoothingType);
         cfg.setLineSmoothingDistance(smoothnessDistance);
@@ -92,6 +95,7 @@ struct KisSmoothingOptions::Private_eraser : public KisSmoothingOptions::Private
     }
     void saveConfig() 
     {
+        std::cout<<"Save eraser smoothing options\n";
         KisConfig cfg(false);
         cfg.setEraserSmoothingType(smoothingType);
         cfg.setEraserSmoothingDistance(smoothnessDistance);

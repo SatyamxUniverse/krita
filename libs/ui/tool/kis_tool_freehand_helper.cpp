@@ -120,7 +120,7 @@ KisToolFreehandHelper::KisToolFreehandHelper(KisPaintingInformationBuilder *info
     m_d->lineSmoothingOptions = KisSmoothingOptionsSP(
                 lineSmoothingOptions ? lineSmoothingOptions : new KisSmoothingOptions(false, true));
     m_d->eraserSmoothingOptions = KisSmoothingOptionsSP(
-                eraserSmoothingOptions ? eraserSmoothingOptions : new KisSmoothingOptions(true, false));
+                eraserSmoothingOptions ? eraserSmoothingOptions : new KisSmoothingOptions(true, true));
     m_d->eraserSmoothingAllowed = true;
 
     toggleEraserSmoothing(resourceManager->resource(KoCanvasResource::EraserMode).value<bool>());
