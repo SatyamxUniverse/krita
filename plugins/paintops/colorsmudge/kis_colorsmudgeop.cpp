@@ -210,7 +210,7 @@ KisSpacingInformation KisColorSmudgeOp::paintAt(const KisPaintInformation& info)
 
     const qreal smudgeRadiusPortion = m_smudgeRadiusOption.isChecked()
         ? m_smudgeRadiusOption.computeSizeLikeValue(info)
-        : m_smudgeRateOption.getMode() == KisSmudgeOption::BLURRING_MODE ? 1.0 : 0.0;
+        : (m_smudgeRateOption.getMode() == KisSmudgeOption::BLURRING_MODE ? 1.0 : 0.0);
 
     KisSpacingInformation spacingInfo =
             effectiveSpacing(scale, rotation,
