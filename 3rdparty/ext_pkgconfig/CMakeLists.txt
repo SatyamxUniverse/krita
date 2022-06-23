@@ -1,5 +1,7 @@
 SET(PREFIX_pkgconfig "${EXTPREFIX}" )
 
+if (NOT WIN32)
+set(PKG_CONFIG_EXECUTABLE "${PREFIX_pkgconfig}/bin/pkg-config")
 ExternalProject_Add( ext_pkgconfig
     DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
     URL http://pkgconfig.freedesktop.org/releases/pkg-config-0.29.2.tar.gz
@@ -10,3 +12,32 @@ ExternalProject_Add( ext_pkgconfig
     CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=${PREFIX_pkgconfig} ${GLOBAL_AUTOMAKE_PROFILE} --with-internal-glib
 
 )
+else()
+set(PKG_CONFIG_EXECUTABLE "${PREFIX_pkgconfig}/bin/pkgconf.exe")
+ExternalProject_Add( ext_pkgconfig
+    DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
+    GIT_REPOSITORY https://github.com/pkgconf/pkgconf.git
+    GIT_TAG pkgconf-1.8.0
+
+    CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env
+        CC="${CMAKE_C_COMPILER}"
+        CXX="${CMAKE_CXX_COMPILER}"
+        PYTHONPATH="${_krita_pythonpath}"
+        meson setup <BINARY_DIR> <SOURCE_DIR>
+            --prefix=${PREFIX_pkgconfig}
+            --libdir=lib
+            -Dbuildtype=$<IF:$<CONFIG:Debug>,debug,debugoptimized>
+            -Dtests=false
+            -Dc_args=${_security_c_flags}
+            -Dcpp_args=${_security_cxx_flags}
+            -Dc_link_args=${_security_exe_linker_flags}
+            -Dcpp_link_args=${_security_exe_linker_flags}
+            -Dpkg_config_path=${EXTPREFIX}lib/pkgconfig
+
+    BUILD_COMMAND meson compile -C <BINARY_DIR> -j${SUBMAKE_JOBS}
+
+    INSTALL_COMMAND meson install -C <BINARY_DIR>
+
+    DEPENDS ${MESON_DEP}
+)
+endif()
