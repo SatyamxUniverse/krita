@@ -6,12 +6,12 @@
 #include "KoFontRegistery.h"
 #include "KoCssTextUtils.h"
 
+#include <QApplication>
+#include <QDebug>
 #include <QGlobalStatic>
 #include <QMutex>
-#include <QDebug>
-#include <QThreadStorage>
 #include <QThread>
-#include <QApplication>
+#include <QThreadStorage>
 
 #include "KoFontLibraryResourceUtils.h"
 
@@ -20,14 +20,16 @@ Q_GLOBAL_STATIC(KoFontRegistery, s_instance)
 class KoFontRegistery::Private
 {
 private:
-    QThreadStorage<FT_LibraryUP*> m_library;
+    QThreadStorage<FT_LibraryUP> m_library;
+    QHash<FcChar32, FcPatternUP> m_patterns;
+    QHash<FcChar32, FcFontSetUP> m_fontSets;
 
 public:
-    FT_LibraryUP& library() {
+    FT_LibraryUP library()
+    {
         if (!m_library.hasLocalData()) {
-            FT_Error error;
-            FT_LibraryUP *lib = new FT_LibraryUP();
-            error = FT_Init_FreeType(lib->externalInitialization());
+            FT_Library lib = nullptr;
+            FT_Error error = FT_Init_FreeType(&lib);
             if (error) {
                 qWarning() << "Error with initializing FreeType library:" << error
                            << "Current thread:" << QThread::currentThread()
@@ -36,9 +38,20 @@ public:
                 m_library.setLocalData(lib);
             }
         }
-        return *m_library.localData();
+        return m_library.localData();
     }
 
+    ~Private() = default;
+
+    QHash<FcChar32, FcPatternUP> &patterns()
+    {
+        return m_patterns;
+    }
+
+    QHash<FcChar32, FcFontSetUP> &sets()
+    {
+        return m_fontSets;
+    }
 };
 
 KoFontRegistery::KoFontRegistery() : d(new Private())
@@ -63,15 +76,13 @@ std::vector<FT_FaceUP> KoFontRegistery::facesForCSSValues(QStringList families,
     Q_UNUSED(size)
     Q_UNUSED(language)
     //FcObjectSet *objectSet = FcObjectSetBuild(FC_FAMILY, FC_FILE, FC_WIDTH, FC_WEIGHT, FC_SLANT, nullptr);
-    FcPatternUP p = toLibraryResource(FcPatternCreate());
-    for (QString family: families) {
+    FcPatternUP p(FcPatternCreate());
+    for (const QString &family : families) {
         QByteArray utfData = family.toUtf8();
-        const FcChar8 *vals = reinterpret_cast<FcChar8*>(utfData.data());
+        const FcChar8 *vals = reinterpret_cast<FcChar8 *>(utfData.data());
         FcPatternAddString(p.data(), FC_FAMILY, vals);
     }
-    if (italic == true) {
-        FcPatternAddInteger(p.data(), FC_SLANT, FC_SLANT_ITALIC);
-    } else if(slant != 0) {
+    if (italic || slant != 0) {
         FcPatternAddInteger(p.data(), FC_SLANT, FC_SLANT_ITALIC);
     } else {
         FcPatternAddInteger(p.data(), FC_SLANT, FC_SLANT_ROMAN);
@@ -80,10 +91,39 @@ std::vector<FT_FaceUP> KoFontRegistery::facesForCSSValues(QStringList families,
     FcPatternAddInteger(p.data(), FC_WIDTH, width);
     FcPatternAddBool(p.data(), FC_OUTLINE, true);
 
-    FcResult result;
-    FcChar8 *fileValue = 0;
+    p = [&]() {
+        const FcChar32 hash = FcPatternHash(p.data());
+        auto oldPattern = d->patterns().find(hash);
+        if (oldPattern != d->patterns().end()) {
+            return oldPattern.value();
+        } else {
+            d->patterns().insert(hash, p);
+            return p;
+        }
+    }();
+
+    FcResult result = FcResultNoMatch;
+    FcChar8 *fileValue = nullptr;
     FcCharSetUP charSet;
-    FcFontSetUP fontSet = toLibraryResource(FcFontSort(FcConfigGetCurrent(), p.data(), FcTrue, charSet.externalInitialization(), &result));
+    FcFontSetUP fontSet = [&]() -> FcFontSetUP {
+        const FcChar32 hash = FcPatternHash(p.data());
+        auto set = d->sets().find(hash);
+
+        if (set != d->sets().end()) {
+            return set.value();
+        } else {
+            FcCharSet *cs = nullptr;
+            KisLibraryResourcePointer<FcFontSet, FcFontSetDestroy> avalue(
+                FcFontSort(FcConfigGetCurrent(),
+                           p.data(),
+                           FcTrue,
+                           &cs,
+                           &result));
+            charSet.reset(cs);
+            d->sets().insert(hash, avalue);
+            return avalue;
+        }
+    }();
 
     QStringList fontFileNames;
     lengths.clear();
@@ -187,10 +227,10 @@ std::vector<FT_FaceUP> KoFontRegistery::facesForCSSValues(QStringList families,
     std::vector<FT_FaceUP> faces;
 
     for (int i = 0; i < lengths.size(); i++) {
-        FT_FaceUP face;
+        FT_Face face = nullptr;
         QByteArray utfData = fontFileNames.at(i).toUtf8();
-        if (FT_New_Face(d->library().data(), utfData.data(), 0, face.externalInitialization()) == 0) {
-            faces.emplace_back(std::move(face));
+        if (FT_New_Face(d->library().data(), utfData.data(), 0, &face) == 0) {
+            faces.emplace_back(face);
         }
     }
 
@@ -236,7 +276,7 @@ bool KoFontRegistery::configureFaces(std::vector<FT_FaceUP> &faces,
             }
         } else {
             errorCode = FT_Set_Char_Size(face.data(), size * ftFontUnit, 0, xRes, yRes);
-            hb_font_t_up font = toLibraryResource(hb_ft_font_create_referenced(face.data()));
+            hb_font_t_up font(hb_ft_font_create_referenced(face.data()));
             hb_position_t xHeight = 0;
             hb_ot_metrics_get_position(font.data(), HB_OT_METRICS_TAG_X_HEIGHT, &xHeight);
             if (xHeight > 0 && fontSizeAdjust > 0 && fontSizeAdjust < 1.0) {
