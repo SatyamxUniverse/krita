@@ -9,20 +9,18 @@
 #include "kis_signal_compressor.h"
 
 struct KisSmoothingOptions::Private {
-    Private(bool useSavedSmoothing)
+
+    Private()
         : writeCompressor(500, KisSignalCompressor::FIRST_ACTIVE)
     {
-        KisConfig cfg(true);
-        smoothingType = (SmoothingType)cfg.lineSmoothingType(!useSavedSmoothing);
-        smoothnessDistance = cfg.lineSmoothingDistance(!useSavedSmoothing);
-        tailAggressiveness = cfg.lineSmoothingTailAggressiveness(!useSavedSmoothing);
-        smoothPressure = cfg.lineSmoothingSmoothPressure(!useSavedSmoothing);
-        useScalableDistance = cfg.lineSmoothingScalableDistance(!useSavedSmoothing);
-        delayDistance = cfg.lineSmoothingDelayDistance(!useSavedSmoothing);
-        useDelayDistance = cfg.lineSmoothingUseDelayDistance(!useSavedSmoothing);
-        finishStabilizedCurve = cfg.lineSmoothingFinishStabilizedCurve(!useSavedSmoothing);
-        stabilizeSensors = cfg.lineSmoothingStabilizeSensors(!useSavedSmoothing);
+
     }
+    ~Private()
+    {
+        
+    }
+
+    virtual void saveConfig() {}
 
     KisSignalCompressor writeCompressor;
 
@@ -37,10 +35,83 @@ struct KisSmoothingOptions::Private {
     bool stabilizeSensors;
 };
 
-KisSmoothingOptions::KisSmoothingOptions(bool useSavedSmoothing)
-    : m_d(new Private(useSavedSmoothing))
-{
+struct KisSmoothingOptions::Private_line : public KisSmoothingOptions::Private {
+    Private_line(bool useSavedSmoothing)
+        : Private()
+    {
+        loadFromConfig(useSavedSmoothing);
+    }
+    void loadFromConfig(bool useSavedSmoothing)
+    {
+        KisConfig cfg(true);
+        smoothingType = (SmoothingType)cfg.lineSmoothingType(!useSavedSmoothing);
+        smoothnessDistance = cfg.lineSmoothingDistance(!useSavedSmoothing);
+        tailAggressiveness = cfg.lineSmoothingTailAggressiveness(!useSavedSmoothing);
+        smoothPressure = cfg.lineSmoothingSmoothPressure(!useSavedSmoothing);
+        useScalableDistance = cfg.lineSmoothingScalableDistance(!useSavedSmoothing);
+        delayDistance = cfg.lineSmoothingDelayDistance(!useSavedSmoothing);
+        useDelayDistance = cfg.lineSmoothingUseDelayDistance(!useSavedSmoothing);
+        finishStabilizedCurve = cfg.lineSmoothingFinishStabilizedCurve(!useSavedSmoothing);
+        stabilizeSensors = cfg.lineSmoothingStabilizeSensors(!useSavedSmoothing);
+    }
+    void saveConfig() 
+    {
+        KisConfig cfg(false);
+        cfg.setLineSmoothingType(smoothingType);
+        cfg.setLineSmoothingDistance(smoothnessDistance);
+        cfg.setLineSmoothingTailAggressiveness(tailAggressiveness);
+        cfg.setLineSmoothingSmoothPressure(smoothPressure);
+        cfg.setLineSmoothingScalableDistance(useScalableDistance);
+        cfg.setLineSmoothingDelayDistance(delayDistance);
+        cfg.setLineSmoothingUseDelayDistance(useDelayDistance);
+        cfg.setLineSmoothingFinishStabilizedCurve(finishStabilizedCurve);
+        cfg.setLineSmoothingStabilizeSensors(stabilizeSensors);
+    }
 
+};
+
+struct KisSmoothingOptions::Private_eraser : public KisSmoothingOptions::Private {
+    Private_eraser(bool useSavedSmoothing)
+        : Private()
+    {
+        loadFromConfig(useSavedSmoothing);
+    }
+
+    void loadFromConfig(bool useSavedSmoothing)
+    {
+        KisConfig cfg(true);
+        smoothingType = (SmoothingType)cfg.eraserSmoothingType(!useSavedSmoothing);
+        smoothnessDistance = cfg.eraserSmoothingDistance(!useSavedSmoothing);
+        tailAggressiveness = cfg.eraserSmoothingTailAggressiveness(!useSavedSmoothing);
+        smoothPressure = cfg.eraserSmoothingSmoothPressure(!useSavedSmoothing);
+        useScalableDistance = cfg.eraserSmoothingScalableDistance(!useSavedSmoothing);
+        delayDistance = cfg.eraserSmoothingDelayDistance(!useSavedSmoothing);
+        useDelayDistance = cfg.eraserSmoothingUseDelayDistance(!useSavedSmoothing);
+        finishStabilizedCurve = cfg.eraserSmoothingFinishStabilizedCurve(!useSavedSmoothing);
+        stabilizeSensors = cfg.eraserSmoothingStabilizeSensors(!useSavedSmoothing);
+    }
+    void saveConfig() 
+    {
+        KisConfig cfg(false);
+        cfg.setEraserSmoothingType(smoothingType);
+        cfg.setEraserSmoothingDistance(smoothnessDistance);
+        cfg.setEraserSmoothingTailAggressiveness(tailAggressiveness);
+        cfg.setEraserSmoothingSmoothPressure(smoothPressure);
+        cfg.setEraserSmoothingScalableDistance(useScalableDistance);
+        cfg.setEraserSmoothingDelayDistance(delayDistance);
+        cfg.setEraserSmoothingUseDelayDistance(useDelayDistance);
+        cfg.setEraserSmoothingFinishStabilizedCurve(finishStabilizedCurve);
+        cfg.setEraserSmoothingStabilizeSensors(stabilizeSensors);
+    }
+};
+
+KisSmoothingOptions::KisSmoothingOptions(bool forEraser, bool useSavedSmoothing)
+{
+    if(forEraser) {
+        m_d.reset(new Private_eraser(useSavedSmoothing));
+    } else {
+        m_d.reset(new Private_line(useSavedSmoothing));
+    }
     connect(&m_d->writeCompressor, SIGNAL(timeout()), this, SLOT(slotWriteConfig()));
 }
 
@@ -154,14 +225,5 @@ bool KisSmoothingOptions::stabilizeSensors() const
 
 void KisSmoothingOptions::slotWriteConfig()
 {
-    KisConfig cfg(false);
-    cfg.setLineSmoothingType(m_d->smoothingType);
-    cfg.setLineSmoothingDistance(m_d->smoothnessDistance);
-    cfg.setLineSmoothingTailAggressiveness(m_d->tailAggressiveness);
-    cfg.setLineSmoothingSmoothPressure(m_d->smoothPressure);
-    cfg.setLineSmoothingScalableDistance(m_d->useScalableDistance);
-    cfg.setLineSmoothingDelayDistance(m_d->delayDistance);
-    cfg.setLineSmoothingUseDelayDistance(m_d->useDelayDistance);
-    cfg.setLineSmoothingFinishStabilizedCurve(m_d->finishStabilizedCurve);
-    cfg.setLineSmoothingStabilizeSensors(m_d->stabilizeSensors);
+    m_d->saveConfig();
 }

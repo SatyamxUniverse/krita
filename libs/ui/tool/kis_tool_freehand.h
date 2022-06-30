@@ -74,6 +74,8 @@ protected Q_SLOTS:
 
     void explicitUpdateOutline();
     void resetCursorStyle() override;
+    void toggleEraserSmoothing(bool eraserOn);
+    void setEraserSmoothingAllowed(bool allowed);
     void setAssistant(bool assistant);
     void setOnlyOneAssistantSnap(bool assistant);
     void setSnapEraser(bool assistant);
@@ -97,7 +99,12 @@ private:
 protected:
     friend class KisViewManager;
     friend class KisView;
+
+    /*
+        Currently used smoothing options
+    */
     KisSmoothingOptionsSP smoothingOptions() const;
+    
     bool m_assistant {false};
     double m_magnetism {1.0};
     bool m_only_one_assistant {true};

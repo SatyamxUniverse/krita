@@ -1898,6 +1898,96 @@ void KisConfig::setLineSmoothingStabilizeSensors(bool value)
     m_cfg.writeEntry("LineSmoothingStabilizeSensors", value);
 }
 
+int KisConfig::eraserSmoothingType(bool defaultValue) const
+{
+    return (defaultValue ? 1 : m_cfg.readEntry("EraserSmoothingType", 1));
+}
+
+void KisConfig::setEraserSmoothingType(int value)
+{
+    m_cfg.writeEntry("EraserSmoothingType", value);
+}
+
+qreal KisConfig::eraserSmoothingDistance(bool defaultValue) const
+{
+    return (defaultValue ? 50.0 : m_cfg.readEntry("EraserSmoothingDistance", 50.0));
+}
+
+void KisConfig::setEraserSmoothingDistance(qreal value)
+{
+    m_cfg.writeEntry("EraserSmoothingDistance", value);
+}
+
+qreal KisConfig::eraserSmoothingTailAggressiveness(bool defaultValue) const
+{
+    return (defaultValue ? 0.15 : m_cfg.readEntry("EraserSmoothingTailAggressiveness", 0.15));
+}
+
+void KisConfig::setEraserSmoothingTailAggressiveness(qreal value)
+{
+    m_cfg.writeEntry("EraserSmoothingTailAggressiveness", value);
+}
+
+bool KisConfig::eraserSmoothingSmoothPressure(bool defaultValue) const
+{
+    return (defaultValue ? false : m_cfg.readEntry("EraserSmoothingSmoothPressure", false));
+}
+
+void KisConfig::setEraserSmoothingSmoothPressure(bool value)
+{
+    m_cfg.writeEntry("EraserSmoothingSmoothPressure", value);
+}
+
+bool KisConfig::eraserSmoothingScalableDistance(bool defaultValue) const
+{
+    return (defaultValue ? true : m_cfg.readEntry("EraserSmoothingScalableDistance", true));
+}
+
+void KisConfig::setEraserSmoothingScalableDistance(bool value)
+{
+    m_cfg.writeEntry("EraserSmoothingScalableDistance", value);
+}
+
+qreal KisConfig::eraserSmoothingDelayDistance(bool defaultValue) const
+{
+    return (defaultValue ? 50.0 : m_cfg.readEntry("EraserSmoothingDelayDistance", 50.0));
+}
+
+void KisConfig::setEraserSmoothingDelayDistance(qreal value)
+{
+    m_cfg.writeEntry("EraserSmoothingDelayDistance", value);
+}
+
+bool KisConfig::eraserSmoothingUseDelayDistance(bool defaultValue) const
+{
+    return (defaultValue ? true : m_cfg.readEntry("EraserSmoothingUseDelayDistance", true));
+}
+
+void KisConfig::setEraserSmoothingUseDelayDistance(bool value)
+{
+    m_cfg.writeEntry("EraserSmoothingUseDelayDistance", value);
+}
+
+bool KisConfig::eraserSmoothingFinishStabilizedCurve(bool defaultValue) const
+{
+    return (defaultValue ? true : m_cfg.readEntry("EraserSmoothingFinishStabilizedCurve", true));
+}
+
+void KisConfig::setEraserSmoothingFinishStabilizedCurve(bool value)
+{
+    m_cfg.writeEntry("EraserSmoothingFinishStabilizedCurve", value);
+}
+
+bool KisConfig::eraserSmoothingStabilizeSensors(bool defaultValue) const
+{
+    return (defaultValue ? true : m_cfg.readEntry("EraserSmoothingStabilizeSensors", true));
+}
+
+void KisConfig::setEraserSmoothingStabilizeSensors(bool value)
+{
+    m_cfg.writeEntry("EraserSmoothingStabilizeSensors", value);
+}
+
 int KisConfig::tabletEventsDelay(bool defaultValue) const
 {
     return (defaultValue ? 10 : m_cfg.readEntry("tabletEventsDelay", 10));

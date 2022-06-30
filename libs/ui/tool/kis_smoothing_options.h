@@ -26,7 +26,7 @@ public:
 
 public:
 
-    KisSmoothingOptions(bool useSavedSmoothing = true);
+    KisSmoothingOptions(bool forEraser, bool useSavedSmoothing = true);
     ~KisSmoothingOptions() override;
 
     SmoothingType smoothingType() const;
@@ -64,7 +64,9 @@ private Q_SLOTS:
 
 private:
     struct Private;
-    const QScopedPointer<Private> m_d;
+    struct Private_line;
+    struct Private_eraser;
+    QScopedPointer<Private> m_d;
 };
 
 typedef QSharedPointer<KisSmoothingOptions> KisSmoothingOptionsSP;

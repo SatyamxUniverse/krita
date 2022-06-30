@@ -435,6 +435,10 @@ QWidget * KisToolBrush::createOptionWidget()
     connect(m_chkUseScalableDistance, SIGNAL(toggled(bool)), this, SLOT(setUseScalableDistance(bool)));
     addOptionWidgetOption(m_chkUseScalableDistance, new QLabel(QString("%1:").arg(i18n("Scalable Distance"))));
 
+    m_chkEraserSmoothing = new QCheckBox(optionsWidget);
+    addOptionWidgetOption(m_chkEraserSmoothing, new QLabel(QString("%1:").arg(i18n("Eraser smoothing"))));
+    connect(m_chkEraserSmoothing, SIGNAL(toggled(bool)), this, SLOT(setEraserSmoothingAllowed(bool)));
+    m_chkEraserSmoothing->setChecked(true);
 
     // add a line spacer so we know that the next set of options are for different settings
     QFrame* line = new QFrame(optionsWidget);

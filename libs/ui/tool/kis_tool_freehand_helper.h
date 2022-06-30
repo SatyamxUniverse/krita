@@ -37,11 +37,14 @@ public:
     KisToolFreehandHelper(KisPaintingInformationBuilder *infoBuilder,
                           KoCanvasResourceProvider *resourceManager,
                           const KUndo2MagicString &transactionText = KUndo2MagicString(),
-                          KisSmoothingOptions *smoothingOptions = 0);
+                          KisSmoothingOptions *lineSmoothingOptions = 0, 
+                          KisSmoothingOptions *eraserSmoothingOptions = 0);
     ~KisToolFreehandHelper() override;
 
     void setSmoothness(KisSmoothingOptionsSP smoothingOptions);
     KisSmoothingOptionsSP smoothingOptions() const;
+    bool toggleEraserSmoothing(bool eraserOn);
+    void setEraserSmoothingAllowed(bool allowed);
 
     bool isRunning() const;
 

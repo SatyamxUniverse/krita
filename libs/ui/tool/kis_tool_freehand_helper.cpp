@@ -77,7 +77,8 @@ struct KisToolFreehandHelper::Private
     KisPaintInformation previousPaintInformation;
     KisPaintInformation olderPaintInformation;
 
-    KisSmoothingOptionsSP smoothingOptions;
+    bool eraserSmoothingAllowed;
+    KisSmoothingOptionsSP smoothingOptions, lineSmoothingOptions, eraserSmoothingOptions;
 
     // fake random sources for hovering outline *only*
     KisRandomSourceSP fakeDabRandomSource;
@@ -109,14 +110,20 @@ struct KisToolFreehandHelper::Private
 KisToolFreehandHelper::KisToolFreehandHelper(KisPaintingInformationBuilder *infoBuilder,
                                              KoCanvasResourceProvider *resourceManager,
                                              const KUndo2MagicString &transactionText,
-                                             KisSmoothingOptions *smoothingOptions)
+                                             KisSmoothingOptions *lineSmoothingOptions,
+                                             KisSmoothingOptions *eraserSmoothingOptions)
     : m_d(new Private())
 {
     m_d->resourceManager = resourceManager;
     m_d->infoBuilder = infoBuilder;
     m_d->transactionText = transactionText;
-    m_d->smoothingOptions = KisSmoothingOptionsSP(
-                smoothingOptions ? smoothingOptions : new KisSmoothingOptions());
+    m_d->lineSmoothingOptions = KisSmoothingOptionsSP(
+                lineSmoothingOptions ? lineSmoothingOptions : new KisSmoothingOptions(false, true));
+    m_d->eraserSmoothingOptions = KisSmoothingOptionsSP(
+                eraserSmoothingOptions ? eraserSmoothingOptions : new KisSmoothingOptions(true, true));
+    m_d->eraserSmoothingAllowed = true;
+
+    toggleEraserSmoothing(resourceManager->resource(KoCanvasResource::EraserMode).value<bool>());
 
     m_d->fakeDabRandomSource = new KisRandomSource();
     m_d->fakeStrokeRandomSource = new KisPerStrokeRandomSource();
@@ -150,6 +157,23 @@ void KisToolFreehandHelper::setSmoothness(KisSmoothingOptionsSP smoothingOptions
 KisSmoothingOptionsSP KisToolFreehandHelper::smoothingOptions() const
 {
     return m_d->smoothingOptions;
+}
+
+bool KisToolFreehandHelper::toggleEraserSmoothing(bool eraserOn)
+{
+    KisSmoothingOptionsSP oldSmoothing = m_d->smoothingOptions;
+
+    if(eraserOn && m_d->eraserSmoothingAllowed) {
+        m_d->smoothingOptions = m_d->eraserSmoothingOptions;
+    } else {
+        m_d->smoothingOptions = m_d->lineSmoothingOptions;
+    }
+
+    return m_d->smoothingOptions != oldSmoothing;
+}
+void KisToolFreehandHelper::setEraserSmoothingAllowed(bool allowed)
+{
+    m_d->eraserSmoothingAllowed = allowed;
 }
 
 QPainterPath KisToolFreehandHelper::paintOpOutline(const QPointF &savedCursorPos,
