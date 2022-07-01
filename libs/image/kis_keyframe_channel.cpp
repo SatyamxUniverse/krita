@@ -108,7 +108,7 @@ void KisKeyframeChannel::insertKeyframe(int time, KisKeyframeSP keyframe, KUndo2
     }
 
     m_d->keys.insert(time, keyframe);
-    emit sigAddedKeyframe(this, time);
+    emit sigAddedKeyframe(this, time, parentUndoCmd);
 }
 
 void KisKeyframeChannel::removeKeyframe(int time, KUndo2Command *parentUndoCmd)
@@ -118,13 +118,14 @@ void KisKeyframeChannel::removeKeyframe(int time, KUndo2Command *parentUndoCmd)
         Q_UNUSED(cmd);
     }
 
-    emit sigRemovingKeyframe(this, time);
+    emit sigRemovingKeyframe(this, time, parentUndoCmd);
     m_d->keys.remove(time);
 }
 
 void KisKeyframeChannel::moveKeyframe(KisKeyframeChannel *sourceChannel, int sourceTime, KisKeyframeChannel *targetChannel, int targetTime, KUndo2Command *parentUndoCmd)
 {
     KIS_ASSERT(sourceChannel && targetChannel);
+    emit sourceChannel->sigMovingKeyframe(sourceChannel, sourceTime, targetChannel, targetTime, parentUndoCmd);
 
     KisKeyframeSP sourceKeyframe = sourceChannel->keyframeAt(sourceTime);
     sourceChannel->removeKeyframe(sourceTime, parentUndoCmd);
@@ -151,6 +152,11 @@ void KisKeyframeChannel::copyKeyframe(const KisKeyframeChannel *sourceChannel, i
 void KisKeyframeChannel::swapKeyframes(KisKeyframeChannel *channelA, int timeA, KisKeyframeChannel *channelB, int timeB, KUndo2Command *parentUndoCmd)
 {
     KIS_ASSERT(channelA && channelB);
+
+    //Emit two movement signals -- one for each direction a movement was made.
+    ENTER_FUNCTION();
+    emit channelA->sigMovingKeyframe(channelA, timeA, channelB, timeB, parentUndoCmd);
+    emit channelB->sigMovingKeyframe(channelB, timeB, channelA, timeB, parentUndoCmd);
 
     // Store B.
     KisKeyframeSP keyframeB = channelB->keyframeAt(timeB);
