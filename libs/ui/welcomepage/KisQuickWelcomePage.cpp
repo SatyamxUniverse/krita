@@ -37,11 +37,10 @@ KisQuickWelcomePage::KisQuickWelcomePage(QWidget *parent)
     setSource(QUrl("qrc:/welcomepage/main.qml"));
 }
 
-void KisQuickWelcomePage::openProjectsUrl(int row)
+void KisQuickWelcomePage::openProjectsUrl(QUrl url)
 {
-    const QModelIndex index = KisRecentDocumentsModelWrapper::instance()->model().index(row, 0);
     KisMainWindow *mainWindow = KisPart::instance()->currentMainwindow();
     if (mainWindow) {
-        mainWindow->openDocument(index.data(Qt::ToolTipRole).toString(), KisMainWindow::None);
+        mainWindow->openDocument(url.toLocalFile(), KisMainWindow::None);
     }
 }

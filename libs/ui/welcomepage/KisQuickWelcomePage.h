@@ -1,6 +1,7 @@
 #ifndef __KISQUICKWELCOMEPAGE_H_
 #define __KISQUICKWELCOMEPAGE_H_
 
+#include <QUrl>
 #include <QtQuickWidgets/QQuickWidget>
 
 class KisQuickWelcomePage : public QQuickWidget
@@ -10,7 +11,7 @@ class KisQuickWelcomePage : public QQuickWidget
 public:
     KisQuickWelcomePage(QWidget *parent);
 
-    Q_INVOKABLE void openProjectsUrl(int path);
+    Q_INVOKABLE void openProjectsUrl(QUrl url);
 
 private:
     class KisAtomFeedModel *m_tutorialsModel {0};
