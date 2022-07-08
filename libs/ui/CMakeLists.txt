@@ -458,6 +458,7 @@ set(kritaui_LIB_SRCS
 
     KisNodeActivationActionCreatorVisitor.cpp
 )
+add_subdirectory(welcomepage)
 
 if (KSeExpr_FOUND)
     set(kritaui_LIB_SRCS ${kritaui_LIB_SRCS}
@@ -663,6 +664,8 @@ generate_export_header(kritaui BASE_NAME kritaui)
 
 target_link_libraries(kritaui KF5::CoreAddons KF5::Completion KF5::I18n KF5::ItemViews Qt5::Network
                       kritaversion kritaimpex kritacolor kritaimage kritalibbrush kritawidgets kritawidgetutils kritaresources ${PNG_LIBRARIES}
+                      Qt5::Quick Qt5::QuickControls2 Qt5::QuickWidgets Qt5::Qml
+                      KF5::Kirigami2
 )
 
 if (ANDROID)
@@ -707,6 +710,7 @@ target_include_directories(kritaui
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/widgets>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/widgets/gradient>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/input/wintab>
+    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/welcomepage>
 )
 
 set_target_properties(kritaui

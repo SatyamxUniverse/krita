@@ -366,6 +366,7 @@ find_package(KF5 ${MIN_FRAMEWORKS_VERSION} REQUIRED COMPONENTS
         ItemModels
         ItemViews
         WindowSystem
+        Kirigami2
 )
 
 find_package(Qt5 ${MIN_QT_VERSION}
@@ -490,6 +491,10 @@ set_package_properties(Qt5QuickWidgets PROPERTIES
         TYPE OPTIONAL
         PURPOSE "Optionally used for the touch gui for Krita")
 endif()
+
+
+find_package(Qt5QuickControls2 ${MIN_QT_VERSION})
+
 if (Qt5QuickWidgets_FOUND)
     # This is needed because Qt dependencies aren't added by ECM but by androideployqt,
     # so it doesn't benefit from our patch in ECM.

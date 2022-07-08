@@ -14,6 +14,7 @@
 #include "kis_icon_utils.h"
 #include "KisRecentFileIconCache.h"
 #include "KisRecentFilesManager.h"
+#include <KisQuickImageProvider.h>
 
 
 /**
@@ -36,6 +37,11 @@ public:
 
     QVariant data(int role = Qt::UserRole + 1) const override;
     void setData(const QVariant &value, int role = Qt::UserRole + 1) override;
+};
+
+enum CustomRoles {
+    UrlRole = Qt::UserRole + 1, ///< role to get the Uri of the file
+    QmlThumbnailRole,           ///< role to get path which is resolved by our KisQuickImageProvider
 };
 
 static QString urlToTooltip(const QUrl &url)
@@ -81,8 +87,10 @@ QVariant KisRecentDocumentsModelItem::data(int role) const
         }
     case Qt::ToolTipRole:
         return m_tooltip;
-    case Qt::UserRole + 1:
+    case UrlRole:
         return m_url;
+    case QmlThumbnailRole:
+        return KisQuickImageProvider::toProviderUrl(m_url.toLocalFile());
     }
     return QStandardItem::data(role);
 }
@@ -112,6 +120,12 @@ void KisRecentDocumentsModelItem::setData(const QVariant &value, int role)
 
 KisRecentDocumentsModelWrapper::KisRecentDocumentsModelWrapper()
 {
+    QHash<int, QByteArray> roles = m_filesAndThumbnailsModel.roleNames();
+    roles[Qt::DisplayRole] = "title";
+    roles[UrlRole] = "url";
+    roles[QmlThumbnailRole] = "thumbnail";
+    m_filesAndThumbnailsModel.setItemRoleNames(roles);
+
     connect(KisRecentFileIconCache::instance(),
             SIGNAL(fileIconChanged(const QUrl &, const QIcon &)),
             SLOT(slotFileIconChanged(const QUrl &, const QIcon &)));
