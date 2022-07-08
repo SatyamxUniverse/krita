@@ -42,6 +42,7 @@ struct RssItem {
     QString category;
     QString blogName;
     QString blogIcon;
+    QString thumbnailLink;
     QDateTime pubDate;
 
 };
@@ -62,7 +63,8 @@ public:
         PubDateRole,
         CategoryRole,
         BlogNameRole,
-        BlogIconRole
+        BlogIconRole,
+        ThumbnailLinkRole,
     };
 
     RssItem parseItem();

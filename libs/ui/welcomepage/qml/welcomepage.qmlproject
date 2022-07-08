@@ -1,0 +1,8 @@
+
+import QmlProject 1.1
+
+Project {
+    mainFile: "main.qml"
+
+    importPaths: ["../dummydata"]
+}
