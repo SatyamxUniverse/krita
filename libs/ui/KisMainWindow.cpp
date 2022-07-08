@@ -150,6 +150,7 @@
 #include "KisUiFont.h"
 #include <KisResourceUserOperations.h>
 #include "KisRecentFilesManager.h"
+#include <KisQuickWelcomePage.h>
 
 
 #include <mutex>
@@ -185,12 +186,14 @@ public:
         , documentMenu(new KActionMenu(i18nc("@action:inmenu", "New &View"), parent))
         , workspaceMenu(new KActionMenu(i18nc("@action:inmenu", "Wor&kspace"), parent))
         , widgetStack(new QStackedWidget(parent))
+        , quickWelcomePage(new KisQuickWelcomePage(parent))
         , mdiArea(new QMdiArea(parent))
         , windowMapper(new KisSignalMapper(parent))
         , documentMapper(new KisSignalMapper(parent))
     {
         if (id.isNull()) this->id = QUuid::createUuid();
 
+        widgetStack->addWidget(quickWelcomePage);
         widgetStack->addWidget(mdiArea);
         mdiArea->setTabsMovable(true);
         mdiArea->setActivationOrder(QMdiArea::ActivationHistoryOrder);
@@ -272,6 +275,7 @@ public:
 
 
     QStackedWidget *widgetStack {nullptr};
+    KisQuickWelcomePage *quickWelcomePage {nullptr};
 
     QMdiArea *mdiArea {nullptr};
     QMdiSubWindow *activeSubWindow  {nullptr};
