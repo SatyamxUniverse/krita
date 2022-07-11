@@ -8,7 +8,9 @@
 #include "KisRecentDocumentsModelWrapper.h"
 
 #include <QApplication>
+#include <QDateTime>
 #include <QDir>
+#include <QLocale>
 #include <QUrl>
 
 #include "kis_icon_utils.h"
@@ -42,6 +44,8 @@ public:
 enum CustomRoles {
     UrlRole = Qt::UserRole + 1, ///< role to get the Uri of the file
     QmlThumbnailRole,           ///< role to get path which is resolved by our KisQuickImageProvider
+    FileSizeRole,               ///< role to get the file size
+    LastModifiedRole,           ///< role to get the last modified time stamp of the file
 };
 
 static QString urlToTooltip(const QUrl &url)
@@ -91,6 +95,10 @@ QVariant KisRecentDocumentsModelItem::data(int role) const
         return m_url;
     case QmlThumbnailRole:
         return KisQuickImageProvider::toProviderUrl(m_url.toLocalFile());
+    case FileSizeRole:
+        return QLocale::system().formattedDataSize(QFileInfo(m_url.toLocalFile()).size());
+    case LastModifiedRole:
+        return QFileInfo(m_url.toLocalFile()).lastModified().toString();
     }
     return QStandardItem::data(role);
 }
@@ -124,6 +132,8 @@ KisRecentDocumentsModelWrapper::KisRecentDocumentsModelWrapper()
     roles[Qt::DisplayRole] = "title";
     roles[UrlRole] = "url";
     roles[QmlThumbnailRole] = "thumbnail";
+    roles[FileSizeRole] = "size";
+    roles[LastModifiedRole] = "modified";
     m_filesAndThumbnailsModel.setItemRoleNames(roles);
 
     connect(KisRecentFileIconCache::instance(),

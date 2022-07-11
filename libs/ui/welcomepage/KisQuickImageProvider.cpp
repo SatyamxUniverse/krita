@@ -14,14 +14,15 @@ KisQuickImageProvider::KisQuickImageProvider()
 
 QImage KisQuickImageProvider::requestImage(const QString &id, QSize *size, const QSize &requestedSize)
 {
-    // TODO(sh_zam): Should we return the requestedSize?
-    Q_UNUSED(requestedSize);
-
     KisFileIconCreator iconCreator;
 
-    // we set it to INT_MAX, so the size doesn't change from the original
+    QSize imageSize = requestedSize;
+    if (requestedSize == QSize(-1, -1)) {
+        // we should get the original image size
+        imageSize = {INT_MAX, INT_MAX};
+    }
     QImage image = iconCreator.createFilePreview(id, QGuiApplication::primaryScreen()->devicePixelRatio(),
-                                                 QSize(INT_MAX, INT_MAX));
+                                                 imageSize);
     *size = image.size();
 
     // FIXME(sh_zam): Temporarily setting it to this.
