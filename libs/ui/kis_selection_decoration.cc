@@ -114,6 +114,15 @@ void KisSelectionDecoration::initializePens()
     }
     KisPaintingTweaks::initAntsPen(&m_antsPen, &m_outlinePen,
                                    ANT_LENGTH * m_screenScale, ANT_SPACE * m_screenScale);
+
+    if (m_screenScale > 1) {
+        m_antsPen.setWidth(m_screenScale);
+        m_outlinePen.setWidth(m_screenScale);
+    }
+    else {
+        m_antsPen.setCosmetic(true);
+        m_outlinePen.setCosmetic(true);
+    }
 }
 
 void KisSelectionDecoration::selectionChanged()
@@ -192,7 +201,6 @@ void KisSelectionDecoration::antsAttackEvent()
     if (selectionIsActive()) {
         m_offset = (m_offset + 1) % (ANT_ADVANCE_WIDTH  * m_screenScale);
         m_antsPen.setDashOffset(m_offset);
-        m_antsPen.setWidth(view()->devicePixelRatio());
         view()->canvasBase()->updateCanvas();
     }
 }
