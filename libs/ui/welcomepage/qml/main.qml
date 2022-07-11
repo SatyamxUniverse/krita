@@ -50,10 +50,43 @@ Kirigami.Page {
                 model: projectsModel
 
                 delegate: Kirigami.Card {
+                    // because the parent doesn't set any constraint for the card size, we need to make
+                    // sure we don't draw out of bounds
+                    implicitHeight: projectsGridView.cellHeight - Kirigami.Units.largeSpacing * 2
                     hoverEnabled: true
                     banner {
                         title: model.title
                         source: model.thumbnail
+                        titleAlignment: Qt.AlignBottom | Qt.AlignHCenter
+                        sourceSize {
+                            width: 300
+                            height: 230
+                        }
+                    }
+
+                    contentItem: Item {
+                        anchors.fill: parent
+                        implicitWidth: projectsInfoPanel.implicitWidth
+                        implicitHeight: projectsInfoPanel.implicitHeight + Kirigami.Units.smallSpacing
+
+                        ColumnLayout {
+                            id: projectsInfoPanel
+                            anchors.fill: parent
+                            Controls.Label {
+                                id: sizeLabel
+                                Layout.fillWidth: true
+                                text: model.size
+                                color: Kirigami.Theme.textColor
+                                font.pointSize: 11
+                            }
+                            Controls.Label {
+                                id: modifiedLabel
+                                Layout.fillWidth: true
+                                text: model.modified
+                                color: Kirigami.Theme.textColor
+                                font.pointSize: 11
+                            }
+                        }
                     }
 
                     Layout.maximumHeight: projectsGridView.maximumCardHeight
