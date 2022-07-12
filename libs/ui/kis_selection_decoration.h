@@ -60,7 +60,6 @@ private:
     QTransform m_thumbnailImageTransform;
     QTimer* m_antsTimer;
     int m_offset;
-    int m_screenScale {1};
 
     QPen m_antsPen;
     QPen m_outlinePen;
