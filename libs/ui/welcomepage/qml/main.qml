@@ -34,146 +34,161 @@ Kirigami.Page {
         anchors.fill: parent
         currentIndex: tabBar.currentIndex
 
-        Kirigami.ScrollablePage {
-            id: homePage
-            Text {
-                text: "Home page"
+        Loader {
+            active: Controls.SwipeView.isCurrentItem
+            sourceComponent: Kirigami.ScrollablePage {
+                id: homePage
+                Text {
+                    text: "Home page"
+                }
             }
         }
 
-        Kirigami.ScrollablePage {
-            id: projectsPage
+        Loader {
+            active: Controls.SwipeView.isCurrentItem
+            sourceComponent: Kirigami.ScrollablePage {
+                id: projectsPage
 
-            KisGridView {
-                id: projectsGridView
-                anchors.fill: parent
-                model: projectsModel
+                KisGridView {
+                    id: projectsGridView
+                    anchors.fill: parent
+                    model: projectsModel
 
-                delegate: Kirigami.Card {
-                    // because the parent doesn't set any constraint for the card size, we need to make
-                    // sure we don't draw out of bounds
-                    implicitHeight: projectsGridView.cellHeight - Kirigami.Units.largeSpacing * 2
-                    hoverEnabled: true
-                    banner {
-                        title: model.title
-                        source: model.thumbnail
-                        titleAlignment: Qt.AlignBottom | Qt.AlignHCenter
-                        sourceSize {
-                            width: 300
-                            height: 230
+                    delegate: Kirigami.Card {
+                        // because the parent doesn't set any constraint for the card size, we need to make
+                        // sure we don't draw out of bounds
+                        implicitHeight: projectsGridView.cellHeight - Kirigami.Units.largeSpacing * 2
+                        hoverEnabled: true
+                        banner {
+                            title: model.title
+                            source: model.thumbnail
+                            titleAlignment: Qt.AlignBottom | Qt.AlignHCenter
+                            sourceSize {
+                                width: 300
+                                height: 230
+                            }
                         }
-                    }
 
-                    contentItem: Item {
-                        anchors.fill: parent
-                        implicitWidth: projectsInfoPanel.implicitWidth
-                        implicitHeight: projectsInfoPanel.implicitHeight + Kirigami.Units.smallSpacing
-
-                        ColumnLayout {
-                            id: projectsInfoPanel
+                        contentItem: Item {
                             anchors.fill: parent
-                            Controls.Label {
-                                id: sizeLabel
-                                Layout.fillWidth: true
-                                text: model.size
-                                color: Kirigami.Theme.textColor
-                                font.pointSize: 11
-                            }
-                            Controls.Label {
-                                id: modifiedLabel
-                                Layout.fillWidth: true
-                                text: model.modified
-                                color: Kirigami.Theme.textColor
-                                font.pointSize: 11
+                            implicitWidth: projectsInfoPanel.implicitWidth
+                            implicitHeight: projectsInfoPanel.implicitHeight + Kirigami.Units.smallSpacing
+
+                            ColumnLayout {
+                                id: projectsInfoPanel
+                                anchors.fill: parent
+                                Controls.Label {
+                                    id: sizeLabel
+                                    Layout.fillWidth: true
+                                    text: model.size
+                                    color: Kirigami.Theme.textColor
+                                    font.pointSize: 11
+                                }
+                                Controls.Label {
+                                    id: modifiedLabel
+                                    Layout.fillWidth: true
+                                    text: model.modified
+                                    color: Kirigami.Theme.textColor
+                                    font.pointSize: 11
+                                }
                             }
                         }
-                    }
 
-                    Layout.maximumHeight: projectsGridView.maximumCardHeight
-                    onClicked: projectsGridView.itemSelected(model.url)
-                }
-                onItemSelected: function(url) {
-                    welcomePage.openProjectsUrl(url)
+                        Layout.maximumHeight: projectsGridView.maximumCardHeight
+                        onClicked: projectsGridView.itemSelected(model.url)
+                    }
+                    onItemSelected: function(url) {
+                        welcomePage.openProjectsUrl(url)
+                    }
                 }
             }
         }
 
-        Kirigami.ScrollablePage {
-            id: featuredPage
-            Text {
-                text: "Featured Page"
+        Loader {
+            active: Controls.SwipeView.isCurrentItem
+            sourceComponent: Kirigami.ScrollablePage {
+                id: featuredPage
+                Text {
+                    text: "Featured Page"
+                }
             }
         }
 
-        Kirigami.ScrollablePage {
-            id: referencesPage
+        Loader {
+            active: Controls.SwipeView.isCurrentItem
+            sourceComponent: Kirigami.ScrollablePage {
+                id: referencesPage
 
-            KisGridView {
-                id: referencesGridView
-                anchors.fill: parent
-                maximumCardHeight: 250
+                KisGridView {
+                    id: referencesGridView
+                    anchors.fill: parent
+                    maximumCardHeight: 250
 
-                model: ReferencesModel {}
-                delegate: Kirigami.Card {
-                    hoverEnabled: true
-                    banner {
-                        source: model.thumbnail
-                        title: model.title
-                        titleAlignment: Qt.AlignBottom | Qt.AlignLeft
+                    model: ReferencesModel {}
+                    delegate: Kirigami.Card {
+                        hoverEnabled: true
+                        banner {
+                            source: model.thumbnail
+                            title: model.title
+                            titleAlignment: Qt.AlignBottom | Qt.AlignLeft
+                        }
+
+                        contentItem: Kirigami.Heading {
+                            text: model.description
+                            wrapMode: Text.WordWrap
+                            color: Kirigami.Theme.textColor
+                            level: 3
+
+                            Controls.ToolTip.visible: hovered
+                            Controls.ToolTip.text: "Open In Browser"
+                            Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
+                        }
+
+                        Layout.maximumHeight: referencesGridView.maximumCardHeight
+                        onClicked: referencesGridView.itemSelected(model.url)
                     }
 
-                    contentItem: Kirigami.Heading {
-                        text: model.description
-                        wrapMode: Text.WordWrap
-                        color: Kirigami.Theme.textColor
-                        level: 3
+                    onItemSelected: function(url) {
+                        Qt.openUrlExternally(url)
+                    }
+                }
+            }
+        }
 
-                        Controls.ToolTip.visible: hovered
+        Loader {
+            active: Controls.SwipeView.isCurrentItem
+            sourceComponent: Kirigami.ScrollablePage {
+                id: tutorialsPage
+
+                KisGridView {
+                    id: tutorialsGridView
+                    anchors.fill: parent
+                    maximumCardHeight: 300
+                    maximumColumnWidth: 420
+
+                    model: tutorialsModel
+
+                    delegate: Kirigami.Card {
+                        hoverEnabled: true
+                        banner {
+                            source: model.thumbnail
+                            // sourceClipRect: Qt.rect(0, 45, 480, 270)
+                            title: model.title
+                            titleAlignment: Qt.AlignBottom | Qt.AlignLeft
+                            titleWrapMode: Text.WordWrap
+                        }
+
                         Controls.ToolTip.text: "Open In Browser"
+                        Controls.ToolTip.visible: hovered
                         Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
+
+                        Layout.maximumHeight: tutorialsGridView.maximumCardHeight
+                        onClicked: tutorialsGridView.itemSelected(model.url)
                     }
 
-                    Layout.maximumHeight: referencesGridView.maximumCardHeight
-                    onClicked: referencesGridView.itemSelected(model.url)
-                }
-
-                onItemSelected: function(url) {
-                    Qt.openUrlExternally(url)
-                }
-            }
-        }
-
-        Kirigami.ScrollablePage {
-            id: tutorialsPage
-
-            KisGridView {
-                id: tutorialsGridView
-                anchors.fill: parent
-                maximumCardHeight: 300
-                maximumColumnWidth: 420
-
-                model: tutorialsModel
-
-                delegate: Kirigami.Card {
-                    hoverEnabled: true
-                    banner {
-                        source: model.thumbnail
-                        // sourceClipRect: Qt.rect(0, 45, 480, 270)
-                        title: model.title
-                        titleAlignment: Qt.AlignBottom | Qt.AlignLeft
-                        titleWrapMode: Text.WordWrap
+                    onItemSelected: function(url) {
+                        Qt.openUrlExternally(url)
                     }
-
-                    Controls.ToolTip.text: "Open In Browser"
-                    Controls.ToolTip.visible: hovered
-                    Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
-
-                    Layout.maximumHeight: tutorialsGridView.maximumCardHeight
-                    onClicked: tutorialsGridView.itemSelected(model.url)
-                }
-
-                onItemSelected: function(url) {
-                    Qt.openUrlExternally(url)
                 }
             }
         }
