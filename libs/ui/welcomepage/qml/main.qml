@@ -36,10 +36,20 @@ Kirigami.Page {
 
         Loader {
             active: Controls.SwipeView.isCurrentItem
-            sourceComponent: Kirigami.ScrollablePage {
+            sourceComponent: Kirigami.Page {
                 id: homePage
-                Text {
-                    text: "Home page"
+                RowLayout {
+                    anchors.horizontalCenter: parent.horizontalCenter
+                    y: 50
+
+                    Controls.Button {
+                        text: "New File"
+                        onClicked: welcomePage.newFile()
+                    }
+                    Controls.Button {
+                        text: "Open File"
+                        onClicked: welcomePage.openFile()
+                    }
                 }
             }
         }

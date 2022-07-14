@@ -13,6 +13,9 @@ public:
 
     Q_INVOKABLE void openProjectsUrl(QUrl url);
 
+    Q_INVOKABLE void newFile();
+    Q_INVOKABLE void openFile();
+
 private:
     class KisAtomFeedModel *m_tutorialsModel {0};
 };

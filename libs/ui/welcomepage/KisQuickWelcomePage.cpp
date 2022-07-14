@@ -44,3 +44,20 @@ void KisQuickWelcomePage::openProjectsUrl(QUrl url)
         mainWindow->openDocument(url.toLocalFile(), KisMainWindow::None);
     }
 }
+
+
+void KisQuickWelcomePage::newFile()
+{
+    KisMainWindow *mainWindow = KisPart::instance()->currentMainwindow();
+    if (mainWindow) {
+        mainWindow->slotFileNew();
+    }
+}
+
+void KisQuickWelcomePage::openFile()
+{
+    KisMainWindow *mainWindow = KisPart::instance()->currentMainwindow();
+    if (mainWindow) {
+        mainWindow->slotFileOpen();
+    }
+}
