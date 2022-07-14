@@ -105,7 +105,6 @@ Kirigami.Page {
                             }
                         }
 
-                        Layout.maximumHeight: projectsGridView.maximumCardHeight
                         onClicked: projectsGridView.itemSelected(model.url)
                     }
                     onItemSelected: function(url) {
@@ -157,7 +156,6 @@ Kirigami.Page {
                             Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
                         }
 
-                        Layout.maximumHeight: referencesGridView.maximumCardHeight
                         onClicked: referencesGridView.itemSelected(model.url)
                     }
 
@@ -199,7 +197,6 @@ Kirigami.Page {
                         Controls.ToolTip.visible: hovered
                         Controls.ToolTip.delay: Kirigami.Units.toolTipDelay
 
-                        Layout.maximumHeight: tutorialsGridView.maximumCardHeight
                         onClicked: tutorialsGridView.itemSelected(model.url)
                     }
 
