@@ -56,7 +56,8 @@ Kirigami.Page {
 
                     delegate: Kirigami.Card {
                         // because the parent doesn't set any constraint for the card size, we need to make
-                        // sure we don't draw out of bounds
+                        // sure we don't draw out of bounds. This is only mandatory if the card size is
+                        // variable.
                         implicitHeight: projectsGridView.cellHeight - Kirigami.Units.largeSpacing * 2
                         hoverEnabled: true
                         banner {
@@ -122,7 +123,9 @@ Kirigami.Page {
                 KisGridView {
                     id: referencesGridView
                     anchors.fill: parent
-                    maximumCardHeight: 250
+
+                    cardSizeRatio: 2
+                    minimumCardHeight: 250
 
                     model: ReferencesModel {}
                     delegate: Kirigami.Card {
@@ -163,12 +166,16 @@ Kirigami.Page {
                 KisGridView {
                     id: tutorialsGridView
                     anchors.fill: parent
-                    maximumCardHeight: 300
-                    maximumColumnWidth: 420
+
+                    cardSizeRatio: 1.333
+                    minimumCardHeight: 210
+                    maximumCardHeight: 360
+                    maximumColumnWidth: 480
 
                     model: tutorialsModel
 
                     delegate: Kirigami.Card {
+                        implicitHeight: tutorialsGridView.cellHeight - Kirigami.Units.largeSpacing * 2
                         hoverEnabled: true
                         banner {
                             source: model.thumbnail
