@@ -33,9 +33,13 @@ Kirigami.Page {
         id: swipeView
         anchors.fill: parent
         currentIndex: tabBar.currentIndex
+        clip: true
 
         Loader {
-            active: Controls.SwipeView.isCurrentItem
+            property bool activated: false
+            onLoaded: activated = true
+            active: Controls.SwipeView.isCurrentItem || activated
+
             sourceComponent: Kirigami.Page {
                 id: homePage
                 RowLayout {
@@ -55,7 +59,10 @@ Kirigami.Page {
         }
 
         Loader {
-            active: Controls.SwipeView.isCurrentItem
+            property bool activated: false
+            onLoaded: activated = true
+            active: Controls.SwipeView.isCurrentItem || activated
+
             sourceComponent: Kirigami.ScrollablePage {
                 id: projectsPage
 
@@ -115,7 +122,10 @@ Kirigami.Page {
         }
 
         Loader {
-            active: Controls.SwipeView.isCurrentItem
+            property bool activated: false
+            onLoaded: activated = true
+            active: Controls.SwipeView.isCurrentItem || activated
+
             sourceComponent: Kirigami.ScrollablePage {
                 id: featuredPage
                 Text {
@@ -125,7 +135,10 @@ Kirigami.Page {
         }
 
         Loader {
-            active: Controls.SwipeView.isCurrentItem
+            property bool activated: false
+            onLoaded: activated = true
+            active: Controls.SwipeView.isCurrentItem || activated
+
             sourceComponent: Kirigami.ScrollablePage {
                 id: referencesPage
 
@@ -167,7 +180,10 @@ Kirigami.Page {
         }
 
         Loader {
-            active: Controls.SwipeView.isCurrentItem
+            property bool activated: false
+            onLoaded: activated = true
+            active: Controls.SwipeView.isCurrentItem || activated
+
             sourceComponent: Kirigami.ScrollablePage {
                 id: tutorialsPage
 
