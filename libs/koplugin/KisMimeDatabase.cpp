@@ -345,6 +345,12 @@ void KisMimeDatabase::fillMimeData()
         mimeType.suffixes = QStringList() << "jxl";
         s_mimeDatabase << mimeType;
 
+        //TODO: I think also add for image/svg as well";
+        mimeType.mimeType = "image/svg+xml";
+        mimeType.description = i18nc("description of a file type", "SVG Image");
+        mimeType.suffixes = QStringList() << "svg";
+        s_mimeDatabase << mimeType;
+
         dbgPlugins << "Filled mimedatabase with" << s_mimeDatabase.count() << "special mimetypes";
     }
 }
