@@ -394,6 +394,7 @@ set(kritaui_LIB_SRCS
 
     kcanvaspreview.cc
     kis_abstract_perspective_grid.cpp
+    
 
     KisApplication.cpp
     KisAutoSaveRecoveryDialog.cpp
