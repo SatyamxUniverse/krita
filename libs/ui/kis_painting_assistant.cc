@@ -23,6 +23,7 @@
 #include <QPixmapCache>
 #include <QDomElement>
 #include <QDomDocument>
+#include <QPainterPath>
 
 Q_GLOBAL_STATIC(KisPaintingAssistantFactoryRegistry, s_instance)
 
@@ -131,6 +132,8 @@ struct KisPaintingAssistant::Private {
 
         KisCanvas2* m_canvas {nullptr};
 
+        QPointF editorWidgetOffset {QPointF(0, 0)};
+
         QPixmapCache::Key cached;
         QRect cachedRect; // relative to boundingRect().topLeft()
 
@@ -154,6 +157,14 @@ struct KisPaintingAssistant::Private {
     };
 
     QSharedPointer<SharedData> s;
+
+
+    const int previewLineWidth {1};
+    const int mainLineWidth {2}; // for "drawPath" etc.
+    const int errorLineWidth {2};
+
+
+
 };
 
 KisPaintingAssistant::Private::Private()
@@ -227,6 +238,10 @@ KisPaintingAssistant::KisPaintingAssistant(const QString& id, const QString& nam
 
 KisPaintingAssistant::KisPaintingAssistant(const KisPaintingAssistant &rhs, QMap<KisPaintingAssistantHandleSP, KisPaintingAssistantHandleSP> &handleMap)
     : d(new Private(*(rhs.d)))
+    , m_followBrushPosition(rhs.m_followBrushPosition)
+    , m_adjustedPositionValid(rhs.m_adjustedPositionValid)
+    , m_adjustedBrushPosition(rhs.m_adjustedBrushPosition)
+    , m_hasBeenInsideLocalRect(rhs.m_hasBeenInsideLocalRect)
 {
     dbgUI << "creating handles...";
     Q_FOREACH (const KisPaintingAssistantHandleSP origHandle, rhs.d->handles) {
@@ -258,6 +273,29 @@ void KisPaintingAssistant::setSnappingActive(bool set)
     d->s->isSnappingActive = set;
 }
 
+void KisPaintingAssistant::endStroke()
+{
+    m_adjustedPositionValid = false;
+    m_followBrushPosition = false;
+    m_hasBeenInsideLocalRect = false;
+}
+
+void KisPaintingAssistant::setAdjustedBrushPosition(const QPointF position)
+{
+    m_adjustedBrushPosition = position;
+    m_adjustedPositionValid = true;
+}
+
+void KisPaintingAssistant::setFollowBrushPosition(bool follow)
+{
+    m_followBrushPosition = follow;
+}
+
+QPointF KisPaintingAssistant::getEditorPosition() const
+{
+    return getDefaultEditorPosition() + d->s->editorWidgetOffset;
+}
+
 bool KisPaintingAssistant::canBeLocal() const
 {
     return false;
@@ -273,6 +311,16 @@ void KisPaintingAssistant::setLocal(bool value)
     d->s->isLocal = value;
 }
 
+QPointF KisPaintingAssistant::editorWidgetOffset()
+{
+    return d->s->editorWidgetOffset;
+}
+
+void KisPaintingAssistant::setEditorWidgetOffset(QPointF offset)
+{
+    d->s->editorWidgetOffset = offset;
+}
+
 
 void KisPaintingAssistant::drawPath(QPainter& painter, const QPainterPath &path, bool isSnappingOn)
 {
@@ -284,7 +332,7 @@ void KisPaintingAssistant::drawPath(QPainter& painter, const QPainterPath &path,
     }
 
     painter.save();
-    QPen pen_a(paintingColor, 2);
+    QPen pen_a(paintingColor, d->mainLineWidth);
     pen_a.setCosmetic(true);
     painter.setPen(pen_a);
     painter.drawPath(path);
@@ -294,12 +342,31 @@ void KisPaintingAssistant::drawPath(QPainter& painter, const QPainterPath &path,
 void KisPaintingAssistant::drawPreview(QPainter& painter, const QPainterPath &path)
 {
     painter.save();
-    QPen pen_a(effectiveAssistantColor(), 1);
+    QPen pen_a(effectiveAssistantColor(), d->previewLineWidth);
     pen_a.setStyle(Qt::SolidLine);
     pen_a.setCosmetic(true);
     painter.setPen(pen_a);
     painter.drawPath(path);
     painter.restore();
+}
+
+void KisPaintingAssistant::drawError(QPainter &painter, const QPainterPath &path)
+{
+    painter.save();
+    qreal size = painter.device() ? d->errorLineWidth*painter.device()->devicePixelRatioF() : d->errorLineWidth;
+    QPen pen_a(QColor(255, 0, 0, 125), size);
+    pen_a.setCosmetic(true);
+    painter.setPen(pen_a);
+    painter.drawPath(path);
+    painter.restore();
+}
+
+void KisPaintingAssistant::drawX(QPainter &painter, const QPointF &pt)
+{
+    QPainterPath path;
+    path.moveTo(QPointF(pt.x() - 5.0, pt.y() - 5.0)); path.lineTo(QPointF(pt.x() + 5.0, pt.y() + 5.0));
+    path.moveTo(QPointF(pt.x() - 5.0, pt.y() + 5.0)); path.lineTo(QPointF(pt.x() + 5.0, pt.y() - 5.0));
+    drawPath(painter, path);
 }
 
 void KisPaintingAssistant::initHandles(QList<KisPaintingAssistantHandleSP> _handles)

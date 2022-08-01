@@ -25,8 +25,6 @@
 
 VanishingPointAssistant::VanishingPointAssistant()
     : KisPaintingAssistant("vanishing point", i18n("Vanishing Point assistant"))
-    , m_followBrushPosition(false)
-    , m_adjustedPositionValid(false)
 {
 }
 
@@ -34,34 +32,12 @@ VanishingPointAssistant::VanishingPointAssistant(const VanishingPointAssistant &
     : KisPaintingAssistant(rhs, handleMap)
     , m_canvas(rhs.m_canvas)
     , m_referenceLineDensity(rhs.m_referenceLineDensity)
-    , m_followBrushPosition(rhs.m_followBrushPosition)
-    , m_adjustedPositionValid(rhs.m_adjustedPositionValid)
-    , m_adjustedBrushPosition(rhs.m_adjustedBrushPosition)
 {
 }
 
 KisPaintingAssistantSP VanishingPointAssistant::clone(QMap<KisPaintingAssistantHandleSP, KisPaintingAssistantHandleSP> &handleMap) const
 {
     return KisPaintingAssistantSP(new VanishingPointAssistant(*this, handleMap));
-}
-
-void VanishingPointAssistant::setAdjustedBrushPosition(const QPointF position)
-{
-    m_adjustedBrushPosition = position;
-    m_adjustedPositionValid = true;
-}
-
-void VanishingPointAssistant::endStroke()
-{
-    // Brush stroke ended, guides should follow the brush position again.
-    m_followBrushPosition = false;
-    m_adjustedPositionValid = false;
-    m_hasBeenInsideLocalRect = false;
-}
-
-void VanishingPointAssistant::setFollowBrushPosition(bool follow)
-{
-    m_followBrushPosition = follow;
 }
 
 QPointF VanishingPointAssistant::project(const QPointF& pt, const QPointF& strokeBegin)
@@ -105,6 +81,11 @@ QPointF VanishingPointAssistant::project(const QPointF& pt, const QPointF& strok
 QPointF VanishingPointAssistant::adjustPosition(const QPointF& pt, const QPointF& strokeBegin, const bool /*snapToAny*/)
 {
     return project(pt, strokeBegin);
+}
+
+void VanishingPointAssistant::adjustLine(QPointF &point, QPointF &strokeBegin)
+{
+    point = project(point, strokeBegin);
 }
 
 void VanishingPointAssistant::drawAssistant(QPainter& gc, const QRectF& updateRect, const KisCoordinatesConverter* converter, bool cached, KisCanvas2* canvas, bool assistantVisible, bool previewVisible)
@@ -231,8 +212,7 @@ void VanishingPointAssistant::drawAssistant(QPainter& gc, const QRectF& updateRe
 
 
     // draw references guide for vanishing points at specified density
-    // this is shown as part of the preview, so don't show if preview is off
-    if ( (assistantVisible && canvas->paintingAssistantsDecoration()->outlineVisibility()) && this->isSnappingActive() ) {
+    if (assistantVisible && this->isSnappingActive() ) {
 
         // cycle through degrees from 0 to 180. We are doing an infinite line, so we don't need to go 360
         QPointF p0 = initialTransform.map(*handles()[0]); // main vanishing point
@@ -307,7 +287,7 @@ KisPaintingAssistantHandleSP VanishingPointAssistant::secondLocalHandle() const
     }
 }
 
-QPointF VanishingPointAssistant::getEditorPosition() const
+QPointF VanishingPointAssistant::getDefaultEditorPosition() const
 {
     int pointHandle = 0;
     if (handles().size() > pointHandle) {

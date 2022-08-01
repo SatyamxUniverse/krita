@@ -237,7 +237,7 @@ void KisOpenGLCanvas2::paintEvent(QPaintEvent *e)
     d->updateRect = boost::none;
 }
 
-void KisOpenGLCanvas2::paintToolOutline(const QPainterPath &path)
+void KisOpenGLCanvas2::paintToolOutline(const KisOptimizedBrushOutline &path)
 {
     d->renderer->paintToolOutline(path);
 }
@@ -286,6 +286,18 @@ QVariant KisOpenGLCanvas2::inputMethodQuery(Qt::InputMethodQuery query) const
 void KisOpenGLCanvas2::inputMethodEvent(QInputMethodEvent *event)
 {
     processInputMethodEvent(event);
+}
+
+void KisOpenGLCanvas2::hideEvent(QHideEvent *e)
+{
+    QOpenGLWidget::hideEvent(e);
+    notifyDecorationsWindowMinimized(true);
+}
+
+void KisOpenGLCanvas2::showEvent(QShowEvent *e)
+{
+    QOpenGLWidget::showEvent(e);
+    notifyDecorationsWindowMinimized(false);
 }
 
 void KisOpenGLCanvas2::setDisplayColorConverter(KisDisplayColorConverter *colorConverter)
@@ -354,7 +366,6 @@ void KisOpenGLCanvas2::updateCanvasDecorations(const QRect &decoUpdateRect)
 {
     update(decoUpdateRect);
 }
-
 bool KisOpenGLCanvas2::callFocusNextPrevChild(bool next)
 {
     return focusNextPrevChild(next);

@@ -531,6 +531,21 @@ QVariant KisNodeModel::data(const QModelIndex &index, int role) const
     case KisNodeModel::IsAnimatedRole: {
         return node->isAnimated();
     }
+    case KisNodeModel::SubtitleRole: {
+        const int opacity = round(node->opacity() * 100.0 / 255);
+        const QString opacityString = QString::number(opacity);
+        const QString compositeOpId = node->compositeOpId();
+        QString compositeOpDesc = "null";
+        // make sure the compositeOp exists to avoid crashing on specific layer undo
+        if (node->compositeOp()) {
+            compositeOpDesc = node->compositeOp()->description();
+        }
+        QString subtitle = "";
+        if (!(opacity == 100 && compositeOpId == "normal")) {
+            subtitle = QString("%1%2 %3").arg(opacityString).arg(i18n("%")).arg(compositeOpDesc);
+        }
+        return subtitle;
+    }
     default:
 
         /**
@@ -687,7 +702,7 @@ bool KisNodeModel::hasDummiesFacade()
 QStringList KisNodeModel::mimeTypes() const
 {
     QStringList types;
-    types << QLatin1String("application/x-krita-node");
+    types << QLatin1String("application/x-krita-node-internal-pointer");
     types << QLatin1String("application/x-qt-image");
     types << QLatin1String("application/x-color");
     types << QLatin1String("krita/x-colorsetentry");

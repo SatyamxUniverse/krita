@@ -29,6 +29,7 @@ struct KisAllResourcesModel::Private {
     QString resourceType;
     int columnCount {StorageActive};
     int cachedRowCount {-1};
+    int externalResourcesRemovedCount {0};
 };
 
 KisAllResourcesModel::KisAllResourcesModel(const QString &resourceType, QObject *parent)
@@ -576,7 +577,9 @@ QVector<KisTagSP> KisAllResourcesModel::tagsForResource(int resourceId) const
     QVector<KisTagSP> tags;
     while (q.next()) {
         KisTagSP tag = KisResourceLocator::instance()->tagForUrl(q.value(0).toString(), d->resourceType);
-        tags << tag;
+        if (tag && tag->valid()) {
+            tags << tag;
+        }
     }
     return tags;
 }
@@ -649,7 +652,14 @@ void KisAllResourcesModel::beginExternalResourceRemove(const QString &resourceTy
 
     Q_FOREACH (int resourceId, resourceIds) {
         const QModelIndex index = indexForResourceId(resourceId);
-        beginRemoveRows(QModelIndex(), index.row(), index.row());
+        if (index.isValid()) {
+            beginRemoveRows(QModelIndex(), index.row(), index.row());
+            d->externalResourcesRemovedCount++;
+        } else {
+            // it's fine if the index is invalid; it probably means it's one of the duplicates (another resource with the same type and content was already in the database)
+            dbgResources << "KisAllResourcesModel::beginExternalResourceRemove got invalid index" << index << "for resourceId" << resourceId
+                         << "of type" << resourceType << "(possibly the resource was deduplicated via sql query and that's why it doesn't appear in the model)";
+        }
     }
 }
 
@@ -657,8 +667,14 @@ void KisAllResourcesModel::endExternalResourceRemove(const QString &resourceType
 {
     if (resourceType != d->resourceType) return;
 
-    resetQuery();
-    endRemoveRows();
+    if (d->externalResourcesRemovedCount > 0) {
+        resetQuery();
+    }
+    for (int i = 0; i < d->externalResourcesRemovedCount; i++) {
+        endRemoveRows();
+    }
+
+    d->externalResourcesRemovedCount = 0;
 }
 
 void KisAllResourcesModel::slotResourceActiveStateChanged(const QString &resourceType, int resourceId)

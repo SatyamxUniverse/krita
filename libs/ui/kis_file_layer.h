@@ -35,15 +35,13 @@ public:
      * @param name the name of the layer
      * @param opacity the opacity of the layer
      */
-    KisFileLayer(KisImageWSP image, const QString& basePath, const QString &filename, ScalingMethod scalingMethod, const QString &name, quint8 opacity);
+    KisFileLayer(KisImageWSP image, const QString& basePath, const QString &filename, ScalingMethod scalingMethod, const QString &name, quint8 opacity, const KoColorSpace *fallbackColorSpace = 0);
     ~KisFileLayer() override;
     KisFileLayer(const KisFileLayer& rhs);
 
     QIcon icon() const override;
 
     void resetCache() override;
-
-    const KoColorSpace *colorSpace() const override;
 
     KisPaintDeviceSP original() const override;
     KisPaintDeviceSP paintDevice() const override;

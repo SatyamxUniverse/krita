@@ -1,17 +1,17 @@
 buildscript {
     repositories {
         google()
-        jcenter()
+        mavenCentral()
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:4.1.0'
+        classpath 'com.android.tools.build:gradle:7.2.1'
     }
 }
 
 repositories {
     google()
-    jcenter()
+    mavenCentral()
 }
 
 apply plugin: 'com.android.application'
@@ -36,7 +36,7 @@ task configure() {
 
         def libs = new File(installPrefix, 'lib')
         if (!libs.exists()) {
-            throw new GradleException('Krita libraries not found, please check if -p=krita-bin finished without errors')
+            throw new FileNotFoundException('Krita libraries not found, please check if -p=krita-bin finished without errors')
         }
     }
 }
@@ -95,6 +95,12 @@ android {
 
     ndkPath ndkpath
 
+    packagingOptions {
+        jniLibs {
+            useLegacyPackaging = true
+        }
+    }
+
     sourceSets {
         main {
             manifest.srcFile 'AndroidManifest.xml'
@@ -152,7 +158,7 @@ android {
     def versionRelease  = 0
 
     defaultConfig {
-        targetSdkVersion 30
+        targetSdkVersion 31
         minSdkVersion 23
         versionCode project.ext.constant * 1000000 + versionMajor * 10000 + versionMinor * 100 + versionRelease
         versionName "5.1.0-prealpha"
@@ -169,5 +175,6 @@ android {
 }
 
 dependencies {
-    implementation 'com.android.billingclient:billing:3.0.3'
+    implementation 'com.android.billingclient:billing:5.0.0'
+    implementation 'androidx.annotation:annotation:1.4.0'
 }

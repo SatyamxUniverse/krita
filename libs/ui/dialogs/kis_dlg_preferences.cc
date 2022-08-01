@@ -349,6 +349,9 @@ GeneralTab::GeneralTab(QWidget *_parent, const char *_name)
     m_chkAutoPin->setChecked(cfg.autoPinLayersToTimeline());
     m_chkAdaptivePlaybackRange->setChecked(cfg.adaptivePlaybackRange());
 
+    chkRenameMergedLayers->setChecked(KisImageConfig(true).renameMergedLayers());
+    chkRenamePastedLayers->setChecked(cfg.renamePastedLayers());
+
     KConfigGroup group = KSharedConfig::openConfig()->group("File Dialogs");
     bool dontUseNative = true;
 #ifdef Q_OS_ANDROID
@@ -547,6 +550,9 @@ void GeneralTab::setDefault()
     intForcedFontDPI->setValue(qt_defaultDpi());
     intForcedFontDPI->setEnabled(false);
 
+    chkRenameMergedLayers->setChecked(KisImageConfig(true).renameMergedLayers(true));
+    chkRenamePastedLayers->setChecked(cfg.renamePastedLayers(true));
+
     QAbstractButton *button = m_pasteFormatGroup.button(cfg.pasteFormat(true));
     Q_ASSERT(button);
 
@@ -699,6 +705,16 @@ bool GeneralTab::adaptivePlaybackRange()
 int GeneralTab::forcedFontDpi()
 {
     return chkForcedFontDPI->isChecked() ? intForcedFontDPI->value() : -1;
+}
+
+bool GeneralTab::renameMergedLayers()
+{
+    return chkRenameMergedLayers->isChecked();
+}
+
+bool GeneralTab::renamePastedLayers()
+{
+    return chkRenamePastedLayers->isChecked();
 }
 
 void GeneralTab::getBackgroundImage()
@@ -1607,19 +1623,22 @@ DisplaySettingsTab::DisplaySettingsTab(QWidget *parent, const char *name)
 
     const QStringList openglWarnings = KisOpenGL::getOpenGLWarnings();
     if (openglWarnings.isEmpty()) {
-        lblOpenGLWarnings->setVisible(false);
+        grpOpenGLWarnings->setVisible(false);
     } else {
-        QString text("<span style=\"color: yellow;\">&#x26A0;</span> ");
-        text.append(i18n("Warning(s):"));
+        QString text = QString("<p><b>%1</b>").arg(i18n("Warning(s):"));
         text.append("<ul>");
         Q_FOREACH (const QString &warning, openglWarnings) {
             text.append("<li>");
             text.append(warning.toHtmlEscaped());
             text.append("</li>");
         }
-        text.append("</ul>");
+        text.append("</ul></p>");
         lblOpenGLWarnings->setText(text);
-        lblOpenGLWarnings->setVisible(true);
+        lblOpenGLWarningsIcon->setPixmap(
+            lblOpenGLWarningsIcon->style()
+                ->standardIcon(QStyle::SP_MessageBoxWarning)
+                .pixmap(QSize(32, 32)));
+        grpOpenGLWarnings->setVisible(true);
     }
 
     if (qApp->applicationName() == "kritasketch" || qApp->applicationName() == "kritagemini") {
@@ -2125,6 +2144,9 @@ bool KisDlgPreferences::editPreferences()
 
         cfg.writeEntry(KisResourceCacheDb::dbLocationKey, m_general->m_urlCacheDbLocation->fileName());
         cfg.writeEntry(KisResourceLocator::resourceLocationKey, m_general->m_urlResourceFolder->fileName());
+
+        KisImageConfig(true).setRenameMergedLayers(m_general->renameMergedLayers());
+        cfg.setRenamePastedLayers(m_general->renamePastedLayers());
 
         // Color settings
         cfg.setUseSystemMonitorProfile(m_colorSettings->m_page->chkUseSystemMonitorProfile->isChecked());

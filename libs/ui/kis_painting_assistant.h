@@ -109,10 +109,12 @@ public:
      *         is in the decoration, so those two options are enough.
      */
     virtual QPointF adjustPosition(const QPointF& point, const QPointF& strokeBegin, bool snapToAny) = 0;
-    virtual void endStroke() {}
-    virtual void setAdjustedBrushPosition(const QPointF position) { Q_UNUSED(position) }
-    virtual void setFollowBrushPosition(bool follow) { Q_UNUSED(follow) }
-    virtual QPointF getEditorPosition() const = 0; // Returns editor widget position in document-space coordinates.
+    virtual void adjustLine(QPointF& point, QPointF& strokeBegin) = 0;
+    virtual void endStroke();
+    virtual void setAdjustedBrushPosition(const QPointF position);
+    virtual void setFollowBrushPosition(bool follow);
+    virtual QPointF getDefaultEditorPosition() const = 0; // Returns standard editor widget position for this assistant
+    virtual QPointF getEditorPosition() const; // Returns editor widget position in document-space coordinates.
     virtual int numHandles() const = 0;
 
     /**
@@ -130,6 +132,9 @@ public:
      * @param value set the indication if the assistant is limited to a rectangular area or not
      */
     void setLocal(bool value);
+
+    QPointF editorWidgetOffset();
+    void setEditorWidgetOffset(QPointF offset);
 
     void replaceHandle(KisPaintingAssistantHandleSP _handle, KisPaintingAssistantHandleSP _with);
     void addHandle(KisPaintingAssistantHandleSP handle, HandleType type);
@@ -207,6 +212,10 @@ public:
      */
     void drawPath(QPainter& painter, const QPainterPath& path, bool drawActive=true);
     void drawPreview(QPainter& painter, const QPainterPath& path);
+    // draw a path in a red color, signalizing incorrect state
+    void drawError(QPainter& painter, const QPainterPath& path);
+    // draw a vanishing point marker
+    void drawX(QPainter& painter, const QPointF& pt);
     static double norm2(const QPointF& p);
 
 protected:
@@ -257,6 +266,14 @@ public:
     /// the originally shared handles will still be shared
     /// the cloned assistants do not share any handle with the original assistants
     static QList<KisPaintingAssistantSP> cloneAssistantList(const QList<KisPaintingAssistantSP> &list);
+
+protected:
+
+    bool m_followBrushPosition {false};
+    bool m_adjustedPositionValid {false};
+    QPointF m_adjustedBrushPosition;
+
+    bool m_hasBeenInsideLocalRect {false};
 
 private:
     struct Private;

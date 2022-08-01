@@ -28,10 +28,12 @@ struct AssistantEditorData {
     const int moveIconSize = 32;
     const int deleteIconSize = 24;
     const int snapIconSize = 20;
+    const int dragEditorWidgetIconSize = 24;
     const QPointF moveIconPosition = QPointF(15, 15);
     const QPointF snapIconPosition = QPointF(54, 20);
     const QPointF deleteIconPosition = QPointF(83, 18);
-    const QSize boundingSize = QSize(110, 40);
+    const QPointF dragEditorWidgetIconPosition = QPointF(112, 18);
+    const QSize boundingSize = QSize(130, 40);
 };
 
 /**
@@ -55,6 +57,7 @@ public:
     void removeAll();
     void setAssistants(const QList<KisPaintingAssistantSP> &assistants);
     QPointF adjustPosition(const QPointF& point, const QPointF& strokeBegin);
+    void adjustLine(QPointF &point, QPointF& strokeBegin);
     void setAdjustedBrushPosition(const QPointF position);
     void endStroke();
     QList<KisPaintingAssistantHandleSP> handles();

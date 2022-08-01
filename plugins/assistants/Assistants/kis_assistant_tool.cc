@@ -115,7 +115,7 @@ void KisAssistantTool::beginActionImpl(KoPointerEvent *event)
         return;
     }
     m_handleDrag = 0;
-    double minDist = 81.0;
+    double minDist = m_handleMaxDist;
 
 
     QPointF mousePos = m_canvas->viewConverter()->documentToView(canvasDecoration->snapToGuide(event, QPointF(), false));//m_canvas->viewConverter()->documentToView(event->point);
@@ -379,9 +379,18 @@ void KisAssistantTool::beginActionImpl(KoPointerEvent *event)
 
             assistantSelected(assistant); // whatever handle is the closest contains the selected assistant
         }
+        if (QRectF(actionsPosition + QPointF(10, 10), editorShared.boundingSize).adjusted(-2, -2, 2, 2).contains(uiMousePosition)) {
+            newAssistantAllowed = false;
+            m_internalMode = MODE_DRAGGING_EDITOR_WIDGET;
+            assistantSelected(assistant);
+            m_dragStart = event->point;
+            m_dragEnd = event->point;
+        }
     }
     if (newAssistantAllowed==true){//don't make a new assistant when I'm just toggling visibility//
         QString key = m_options.availableAssistantsComboBox->model()->index( m_options.availableAssistantsComboBox->currentIndex(), 0 ).data(Qt::UserRole).toString();
+        KConfigGroup cfg = KSharedConfig::openConfig()->group(toolId());
+        cfg.writeEntry("AssistantType", key);
         m_newAssistant = toQShared(KisPaintingAssistantFactoryRegistry::instance()->get(key)->createPaintingAssistant());
         if (m_newAssistant->canBeLocal()) {
             m_newAssistant->setLocal(m_options.localAssistantCheckbox->isChecked());
@@ -450,6 +459,13 @@ void KisAssistantTool::continueActionImpl(KoPointerEvent *event)
         m_assistantDrag->uncache();
         m_currentAdjustment = newAdjustment;
         m_canvas->updateCanvas();
+
+    } else if (m_internalMode == MODE_DRAGGING_EDITOR_WIDGET) {
+
+        KisPaintingAssistantSP selectedAssistant = m_canvas->paintingAssistantsDecoration()->selectedAssistant();
+        QPointF currentOffset = selectedAssistant->editorWidgetOffset();
+        selectedAssistant->setEditorWidgetOffset(currentOffset + (event->point - m_dragEnd));
+        m_dragEnd = event->point;
 
     } else {
         event->ignore();
@@ -638,6 +654,10 @@ void KisAssistantTool::endActionImpl(KoPointerEvent *event)
     } else if(m_internalMode == MODE_DRAGGING_TRANSLATING_TWONODES) {
         addAssistant();
         m_internalMode = MODE_CREATION;
+    } else if (m_internalMode == MODE_DRAGGING_EDITOR_WIDGET) {
+        KisPaintingAssistantSP selectedAssistant = m_canvas->paintingAssistantsDecoration()->selectedAssistant();
+        QPointF currentOffset = selectedAssistant->editorWidgetOffset();
+        selectedAssistant->setEditorWidgetOffset(currentOffset + (event->point - m_dragEnd));
     }
     else {
         event->ignore();
@@ -649,11 +669,6 @@ void KisAssistantTool::endActionImpl(KoPointerEvent *event)
 void KisAssistantTool::addAssistant()
 {
     m_canvas->paintingAssistantsDecoration()->addAssistant(m_newAssistant);
-
-    KisAbstractPerspectiveGrid* grid = dynamic_cast<KisAbstractPerspectiveGrid*>(m_newAssistant.data());
-    if (grid) {
-        m_canvas->viewManager()->canvasResourceProvider()->addPerspectiveGrid(grid);
-    }
 
     // generate the side handles for the Two Point assistant
     if (m_newAssistant->id() == "two point"){
@@ -717,10 +732,6 @@ void KisAssistantTool::removeAssistant(KisPaintingAssistantSP assistant)
 {
     QList<KisPaintingAssistantSP> assistants = m_canvas->paintingAssistantsDecoration()->assistants();
 
-    KisAbstractPerspectiveGrid* grid = dynamic_cast<KisAbstractPerspectiveGrid*>(assistant.data());
-    if (grid) {
-        m_canvas->viewManager()->canvasResourceProvider()->removePerspectiveGrid(grid);
-    }
     m_canvas->paintingAssistantsDecoration()->removeAssistant(assistant);
 
     KUndo2Command *removeAssistantCmd = new EditAssistantsCommand(m_canvas, m_origAssistantList, KisPaintingAssistant::cloneAssistantList(m_canvas->paintingAssistantsDecoration()->assistants()), EditAssistantsCommand::REMOVE, assistants.indexOf(assistant));
@@ -1052,6 +1063,7 @@ void KisAssistantTool::slotChangeFixedLengthUnit(int index) {
 
 void KisAssistantTool::mouseMoveEvent(KoPointerEvent *event)
 {
+    m_handleHover = 0;
     if (m_newAssistant && m_internalMode == MODE_CREATION) {
 
         KisPaintingAssistantHandleSP new_handle = m_newAssistant->handles().back();
@@ -1065,6 +1077,27 @@ void KisAssistantTool::mouseMoveEvent(KoPointerEvent *event)
         m_dragEnd = event->point;
         m_selectedNode1.data()->operator = (QPointF(m_selectedNode1.data()->x(),m_selectedNode1.data()->y()) + translate);
         m_selectedNode2.data()->operator = (QPointF(m_selectedNode2.data()->x(),m_selectedNode2.data()->y()) + translate);
+    } else if (mode() == KisTool::HOVER_MODE) {
+
+        // find a handle underneath...
+        double minDist = m_handleMaxDist;
+
+        QPointF mousePos = m_canvas->viewConverter()->documentToView(event->point);
+
+        Q_FOREACH (KisPaintingAssistantSP assistant, m_canvas->paintingAssistantsDecoration()->assistants()) {
+            QList<KisPaintingAssistantHandleSP> allAssistantHandles;
+            allAssistantHandles.append(assistant->handles());
+            allAssistantHandles.append(assistant->sideHandles());
+
+            Q_FOREACH (const KisPaintingAssistantHandleSP handle, allAssistantHandles) {
+
+                double dist = KisPaintingAssistant::norm2(mousePos - m_canvas->viewConverter()->documentToView(*handle));
+                if (dist < minDist) {
+                    minDist = dist;
+                    m_handleHover = handle;
+                }
+            }
+        }
     }
 
     m_canvas->updateCanvasDecorations();
@@ -1120,7 +1153,7 @@ void KisAssistantTool::paint(QPainter& _gc, const KoViewConverter &_converter)
                            QSizeF(m_handleSize, m_handleSize));
 
             // render handles differently if it is the one being dragged.
-            if (handle == m_handleDrag || handle == m_handleCombine) {
+            if (handle == m_handleDrag || handle == m_handleCombine || handle == m_handleHover) {
                 QPen stroke(assistantColor, 4);
                 _gc.save();
                 _gc.setPen(stroke);
@@ -1137,7 +1170,6 @@ void KisAssistantTool::removeAllAssistants()
 {
     m_origAssistantList = m_canvas->paintingAssistantsDecoration()->assistants();
 
-    m_canvas->viewManager()->canvasResourceProvider()->clearPerspectiveGrids();
     m_canvas->paintingAssistantsDecoration()->removeAll();
 
     KUndo2Command *removeAssistantCmd = new EditAssistantsCommand(m_canvas, m_origAssistantList, KisPaintingAssistant::cloneAssistantList(m_canvas->paintingAssistantsDecoration()->assistants()));
@@ -1169,6 +1201,10 @@ void KisAssistantTool::loadAssistants()
     QMap<int, KisPaintingAssistantHandleSP> sideHandleMap;
     KisPaintingAssistantSP assistant;
     bool errors = false;
+
+    m_origAssistantList = KisPaintingAssistant::cloneAssistantList(m_canvas->paintingAssistantsDecoration()->assistants());
+
+
     while (!xml.atEnd()) {
         switch (xml.readNext()) {
         case QXmlStreamReader::StartElement:
@@ -1276,10 +1312,6 @@ void KisAssistantTool::loadAssistants()
                             assistant->addHandle(new KisPaintingAssistantHandle(pos+QPointF(140,0)), HandleType::SIDE);
                         }
                         m_canvas->paintingAssistantsDecoration()->addAssistant(assistant);
-                        KisAbstractPerspectiveGrid* grid = dynamic_cast<KisAbstractPerspectiveGrid*>(assistant.data());
-                        if (grid) {
-                            m_canvas->viewManager()->canvasResourceProvider()->addPerspectiveGrid(grid);
-                        }
                     } else {
                         errors = true;
                     }
@@ -1303,9 +1335,12 @@ void KisAssistantTool::loadAssistants()
     if (errors) {
         QMessageBox::warning(qApp->activeWindow(), i18nc("@title:window", "Krita"), i18n("Errors were encountered. Not all assistants were successfully loaded."));
     }
+
+    KUndo2Command *command = new EditAssistantsCommand(m_canvas, m_origAssistantList, KisPaintingAssistant::cloneAssistantList(m_canvas->paintingAssistantsDecoration()->assistants()));
+    m_canvas->viewManager()->undoAdapter()->addCommand(command);
+
     m_handles = m_canvas->paintingAssistantsDecoration()->handles();
     m_canvas->updateCanvas();
-
 }
 
 void KisAssistantTool::saveAssistants()
@@ -1403,6 +1438,8 @@ QWidget *KisAssistantTool::createOptionWidget()
         m_optionsWidget = new QWidget;
         m_options.setupUi(m_optionsWidget);
 
+        KConfigGroup cfg = KSharedConfig::openConfig()->group(toolId());
+
         // See https://bugs.kde.org/show_bug.cgi?id=316896
         QWidget *specialSpacer = new QWidget(m_optionsWidget);
         specialSpacer->setObjectName("SpecialSpacer");
@@ -1422,9 +1459,18 @@ QWidget *KisAssistantTool::createOptionWidget()
             assistants << KoID(key, name);
         }
         std::sort(assistants.begin(), assistants.end(), KoID::compareNames);
+
+        QString currentAssistantType = cfg.readEntry("AssistantType", "two point");
+        int i = 0;
+        int currentAssistantIndex = 0;
         Q_FOREACH(const KoID &id, assistants) {
             m_options.availableAssistantsComboBox->addItem(id.name(), id.id());
+            if (id.id() == currentAssistantType) {
+                currentAssistantIndex = i;
+            }
+            i++;
         }
+        m_options.availableAssistantsComboBox->setCurrentIndex(currentAssistantIndex);
 
         connect(m_options.availableAssistantsComboBox, SIGNAL(currentIndexChanged(int)), SLOT(slotSelectedAssistantTypeChanged()));
 
@@ -1507,7 +1553,7 @@ QWidget *KisAssistantTool::createOptionWidget()
         m_options.fixedLengthSpinbox->setVisible(false);
         m_options.fixedLengthUnit->setVisible(false);
         
-        KConfigGroup cfg = KSharedConfig::openConfig()->group(toolId());
+
         m_options.localAssistantCheckbox->setChecked(cfg.readEntry("LimitAssistantToArea", false));
 
         connect(m_options.localAssistantCheckbox, SIGNAL(stateChanged(int)), SLOT(slotLocalAssistantCheckboxChanged()));

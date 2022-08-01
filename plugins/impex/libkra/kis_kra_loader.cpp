@@ -226,7 +226,7 @@ KisImageSP KisKraLoader::loadXML(const QDomElement& imageElement)
         if (!(attr = imageElement.attribute(X_RESOLUTION)).isNull()) {
             qreal value = KisDomUtils::toDouble(attr);
 
-            if (value > 1.0) {
+            if (value > 0) {
                 xres = value / 72.0;
             }
         }
@@ -234,7 +234,7 @@ KisImageSP KisKraLoader::loadXML(const QDomElement& imageElement)
         yres = 100.0 / 72.0;
         if (!(attr = imageElement.attribute(Y_RESOLUTION)).isNull()) {
             qreal value = KisDomUtils::toDouble(attr);
-            if (value > 1.0) {
+            if (value > 0) {
                 yres = value / 72.0;
             }
         }
@@ -577,11 +577,10 @@ void KisKraLoader::loadResources(KoStore *store, KisDocument *doc)
 
             /// don't try to load the resource if its file is empty
             /// (which is a sign of a failed save operation)
-            if (!store->device()->atEnd()) {
+            if (!store->device()->atEnd() && !doc->linkedResourcesStorageId().isEmpty()) {
                 bool result = model.importResource(resourceItem.filename, store->device(), false, doc->linkedResourcesStorageId());
                 if (!result) {
                     m_d->warningMessages.append(i18nc("Warning message on loading a .kra file", "Embedded resource cannot be imported. The filename of the resource: %1", resourceItem.filename));
-                    continue;
                 }
             }
 
@@ -884,7 +883,7 @@ KisNodeSP KisKraLoader::loadNode(const QDomElement& element, KisImageSP image)
     else if (nodeType == COLORIZE_MASK)
         node = loadColorizeMask(image, element, colorSpace);
     else if (nodeType == FILE_LAYER)
-        node = loadFileLayer(element, image, name, opacity);
+        node = loadFileLayer(element, image, name, opacity, colorSpace);
     else if (nodeType == REFERENCE_IMAGES_LAYER)
         node = loadReferenceImagesLayer(element, image);
     else {
@@ -985,7 +984,7 @@ KisNodeSP KisKraLoader::loadPaintLayer(const QDomElement& element, KisImageSP im
 
 }
 
-KisNodeSP KisKraLoader::loadFileLayer(const QDomElement& element, KisImageSP image, const QString& name, quint32 opacity)
+KisNodeSP KisKraLoader::loadFileLayer(const QDomElement& element, KisImageSP image, const QString& name, quint32 opacity, const KoColorSpace *fallbackColorSpace)
 {
     QString filename = element.attribute("source", QString());
     if (filename.isNull()) return 0;
@@ -1042,7 +1041,7 @@ KisNodeSP KisKraLoader::loadFileLayer(const QDomElement& element, KisImageSP ima
         qApp->restoreOverrideCursor();
     }
 
-    KisLayer *layer = new KisFileLayer(image, basePath, filename, (KisFileLayer::ScalingMethod)scalingMethod, name, opacity);
+    KisLayer *layer = new KisFileLayer(image, basePath, filename, (KisFileLayer::ScalingMethod)scalingMethod, name, opacity, fallbackColorSpace);
     Q_CHECK_PTR(layer);
 
     return layer;

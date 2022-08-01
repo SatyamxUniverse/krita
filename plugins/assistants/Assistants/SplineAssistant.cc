@@ -91,6 +91,12 @@ QPointF SplineAssistant::adjustPosition(const QPointF& pt, const QPointF& /*stro
     return project(pt);
 }
 
+void SplineAssistant::adjustLine(QPointF &point, QPointF &strokeBegin)
+{
+    point = QPointF();
+    strokeBegin = QPointF();
+}
+
 void SplineAssistant::drawAssistant(QPainter& gc, const QRectF& updateRect, const KisCoordinatesConverter* converter, bool cached, KisCanvas2* canvas, bool assistantVisible, bool previewVisible)
 {
     gc.save();
@@ -195,7 +201,7 @@ void SplineAssistant::drawCache(QPainter& gc, const KisCoordinatesConverter *con
 
 }
 
-QPointF SplineAssistant::getEditorPosition() const
+QPointF SplineAssistant::getDefaultEditorPosition() const
 {
     return B(0.5, *handles()[0], *handles()[2], *handles()[3], *handles()[1]);
 }

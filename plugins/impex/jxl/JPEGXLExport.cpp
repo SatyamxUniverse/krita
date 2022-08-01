@@ -161,8 +161,10 @@ KisImportExportErrorCode JPEGXLExport::convert(KisDocument *document, QIODevice 
             info->have_animation = JXL_TRUE;
             info->animation.have_timecodes = JXL_FALSE;
             info->animation.num_loops = 0;
-            info->animation.tps_numerator = 1;
-            info->animation.tps_denominator = static_cast<uint32_t>(image->animationInterface()->framerate());
+            // Unlike WebP, JXL does allow for setting proper framerates.
+            info->animation.tps_numerator =
+                static_cast<uint32_t>(image->animationInterface()->framerate());
+            info->animation.tps_denominator = 1;
         }
         return info;
     }();
@@ -319,7 +321,11 @@ KisImportExportErrorCode JPEGXLExport::convert(KisDocument *document, QIODevice 
             KisLayerUtils::flattenImage(image, nullptr);
             image->waitForDone();
 
-            const auto *frames = image->projection()->keyframeChannel();
+            const KisNodeSP projection = image->rootLayer()->firstChild();
+            KIS_ASSERT(projection->isAnimated());
+            KIS_ASSERT(projection->hasEditablePaintDevice());
+
+            const auto *frames = projection->paintDevice()->keyframeChannel();
             const auto times = [&]() {
                 auto t = frames->allKeyframeTimes().toList();
                 std::sort(t.begin(), t.end());
@@ -336,11 +342,14 @@ KisImportExportErrorCode JPEGXLExport::convert(KisDocument *document, QIODevice 
                 frameHeader->duration = [&]() {
                     const auto nextKeyframe = frames->nextKeyframeTime(i);
                     if (nextKeyframe == -1) {
-                        return static_cast<uint32_t>(image->animationInterface()->fullClipRange().end() - i);
+                        return static_cast<uint32_t>(
+                            image->animationInterface()->fullClipRange().end()
+                            - i + 1);
                     } else {
                         return static_cast<uint32_t>(frames->nextKeyframeTime(i) - i);
                     }
                 }();
+                frameHeader->is_last = 0;
 
                 if (JxlEncoderSetFrameHeader(frameSettings, frameHeader.get()) != JXL_ENC_SUCCESS) {
                     errFile << "JxlEncoderSetFrameHeader failed";

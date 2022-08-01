@@ -508,6 +508,10 @@ KisProofingConfigurationSP KisImageConfig::defaultProofingconfiguration()
 
 void KisImageConfig::setDefaultProofingConfig(const KoColorSpace *proofingSpace, int proofingIntent, bool blackPointCompensation, KoColor warningColor, double adaptationState)
 {
+    if (!proofingSpace || !proofingSpace->profile()) {
+        return;
+    }
+
     m_config.writeEntry("defaultProofingProfileName", proofingSpace->profile()->name());
     m_config.writeEntry("defaultProofingProfileModel", proofingSpace->colorModelId().id());
     m_config.writeEntry("defaultProofingProfileDepth", proofingSpace->colorDepthId().id());
@@ -661,6 +665,16 @@ void KisImageConfig::setMaxBrushSize(int value)
 int KisImageConfig::maxMaskingBrushSize() const
 {
     return qMin(15000, 3 * maxBrushSize());
+}
+
+bool KisImageConfig::renameMergedLayers(bool defaultValue) const
+{
+    return defaultValue ? true : m_config.readEntry("renameMergedLayers", true);
+}
+
+void KisImageConfig::setRenameMergedLayers(bool value)
+{
+    m_config.writeEntry("renameMergedLayers", value);
 }
 
 QString KisImageConfig::exportConfigurationXML(const QString &exportConfigId, bool defaultValue) const

@@ -1,3 +1,7 @@
+if(NOT MSVC AND NOT APPLE)
+add_subdirectory(tests)
+endif()
+
 set(kritaassistanttool_SOURCES
     assistant_tool.cc
     ConcentricEllipseAssistant.cc
@@ -7,6 +11,7 @@ set(kritaassistanttool_SOURCES
     InfiniteRulerAssistant.cc
     kis_assistant_tool.cc
     ParallelRulerAssistant.cc
+    PerspectiveBasedAssistantHelper.cpp
     PerspectiveAssistant.cc
     Ruler.cc
     RulerAssistant.cc
@@ -20,6 +25,8 @@ set(kritaassistanttool_SOURCES
 ki18n_wrap_ui(kritaassistanttool_SOURCES AssistantsToolOptions.ui )
 
 kis_add_library(kritaassistanttool MODULE ${kritaassistanttool_SOURCES})
+
+generate_export_header(kritaassistanttool BASE_NAME kritaassistanttool EXPORT_MACRO_NAME KRITAASSISTANTTOOL_EXPORT)
 
 target_link_libraries(kritaassistanttool kritaui kritaflake   )
 

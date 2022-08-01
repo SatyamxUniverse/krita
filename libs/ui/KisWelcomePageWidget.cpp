@@ -192,17 +192,14 @@ KisWelcomePageWidget::KisWelcomePageWidget(QWidget *parent)
 
     verticalLayout->addWidget(donationBannerImage);
 
-    jboolean bannerPurchased = QAndroidJniObject::callStaticMethod<jboolean>("org/krita/android/DonationHelper", "isBadgePurchased", "()Z");
-    if (bannerPurchased) {
-        donationLink->hide();
-        donationBannerImage->show();
-        QAndroidJniObject::callStaticMethod<void>("org/krita/android/DonationHelper", "endConnection", "()V");
-    } else {
-        donationLink->show();
-        donationBannerImage->hide();
-    }
-#endif
+    donationLink->show();
+    donationBannerImage->hide();
 
+    // this will asynchronously lead to donationSuccessful (i.e if it *is* successful) which will hide the
+    // link and enable the donation banner.
+    QAndroidJniObject::callStaticMethod<void>("org/krita/android/DonationHelper", "checkBadgePurchased",
+                                              "()V");
+#endif
 
     // configure the News area
     KisConfig cfg(true);
@@ -432,7 +429,7 @@ void KisWelcomePageWidget::dragEnterEvent(QDragEnterEvent *event)
 {
     showDropAreaIndicator(true);
     if (event->mimeData()->hasUrls() ||
-        event->mimeData()->hasFormat("application/x-krita-node") ||
+        event->mimeData()->hasFormat("application/x-krita-node-internal-pointer") ||
         event->mimeData()->hasFormat("application/x-qt-image")) {
         return event->accept();
     }
@@ -476,7 +473,7 @@ void KisWelcomePageWidget::dragMoveEvent(QDragMoveEvent *event)
     m_mainWindow->dragMoveEvent(event);
 
     if (event->mimeData()->hasUrls() ||
-        event->mimeData()->hasFormat("application/x-krita-node") ||
+        event->mimeData()->hasFormat("application/x-krita-node-internal-pointer") ||
         event->mimeData()->hasFormat("application/x-qt-image")) {
         return event->accept();
     }

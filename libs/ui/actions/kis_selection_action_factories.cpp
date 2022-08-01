@@ -126,6 +126,7 @@ namespace ActionHelper {
         KisImageWSP image = view->image();
 
         KisImageSP clipImage = new KisImage(0, image->width(), image->height(), image->colorSpace(), "ClipImage");
+        clipImage->setResolution(image->xRes(), image->yRes());
         Q_FOREACH (KisNodeSP node, nodes) {
             clipImage->addNode(node, clipImage->root());
         }
@@ -269,17 +270,16 @@ void KisCutCopyActionFactory::run(bool willCut, bool makeSharpClip, KisViewManag
 
     // Reference layers is a fake node, so it isn't added to the layer stack, this results in KisSelectedShapesProxy not
     // being aware of the active shapeManager and its selected shapes.
-    const auto hasReferenceImageSelected = [&]() {
-        KisReferenceImagesLayerSP refLayer = view->document()->referenceImagesLayer();
-        return refLayer && refLayer->shapeManager()->selection()->count();
-    };
+    const auto currentToolHasSelection =
+        view->canvasBase()->toolProxy()->hasSelection();
 
-    const bool haveShapesSelected = view->selectionManager()->haveShapesSelected() || hasReferenceImageSelected();
+    const bool haveShapesSelected =
+        view->selectionManager()->haveShapesSelected();
 
     KisNodeSP node = view->activeNode();
     KisSelectionSP selection = view->selection();
 
-    if (!makeSharpClip && haveShapesSelected) {
+    if (!makeSharpClip && (haveShapesSelected || currentToolHasSelection)) {
         // XXX: "Add saving of XML data for Cut/Copy of shapes"
 
         KisImageBarrierLocker locker(image);

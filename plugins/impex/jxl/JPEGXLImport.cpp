@@ -42,6 +42,7 @@ public:
     JxlFrameHeader m_header{};
     KisPaintDeviceSP m_currentFrame{nullptr};
     int m_nextFrameTime{0};
+    int m_durationFrameInTicks{0};
     KoID m_colorID;
     KoID m_depthID;
     bool m_forcedConversion;
@@ -161,7 +162,8 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
 
     KisImageSP image{nullptr};
     KisLayerSP layer{nullptr};
-    std::array<char, 5> boxType{};
+    QHash<QByteArray, QByteArray> metadataBoxes;
+    QByteArray boxType(5, 0x0);
     QByteArray box(16384, 0x0);
     auto boxSize = box.size();
 
@@ -264,15 +266,6 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
                                  "JPEG-XL image");
 
             layer = new KisPaintLayer(image, image->nextLayerName(), UCHAR_MAX);
-            if (d.m_info.have_animation) {
-                dbgFile << "Animation detected, framerate:" << d.m_info.animation.tps_numerator
-                        << d.m_info.animation.tps_denominator;
-                const int framerate = static_cast<int>(static_cast<double>(d.m_info.animation.tps_denominator)
-                                                       / static_cast<double>(d.m_info.animation.tps_numerator));
-                layer->enableAnimation();
-                image->animationInterface()->setFullClipRangeStartTime(0);
-                image->animationInterface()->setFramerate(framerate);
-            }
         } else if (status == JXL_DEC_NEED_IMAGE_OUT_BUFFER) {
             d.m = this;
             d.m_currentFrame = new KisPaintDevice(image->colorSpace());
@@ -303,42 +296,105 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
             }
         } else if (status == JXL_DEC_FULL_IMAGE) {
             if (d.m_info.have_animation) {
-                dbgFile << "Importing frame @" << d.m_nextFrameTime;
+                dbgFile << "Importing frame @" << d.m_nextFrameTime
+                        << d.m_header.duration;
+
+                if (d.m_nextFrameTime == 0) {
+                    dbgFile << "Animation detected, ticks per second:"
+                            << d.m_info.animation.tps_numerator
+                            << d.m_info.animation.tps_denominator;
+                    // XXX: How many ticks per second (FPS)?
+                    // If > 240, block the derivation-- it's a stock JXL and
+                    // Krita only supports up to 240 FPS.
+                    // We'll try to derive the framerate from the first frame
+                    // instead.
+                    int framerate =
+                        std::lround(d.m_info.animation.tps_numerator
+                                    / static_cast<double>(
+                                        d.m_info.animation.tps_denominator));
+                    if (framerate > 240) {
+                        warnFile << "JXL ticks per second value exceeds 240, "
+                                    "approximating FPS from the duration of "
+                                    "the first frame";
+                        document->setWarningMessage(
+                            i18nc("JPEG-XL errors",
+                                  "The animation declares a frame rate of more "
+                                  "than 240 FPS."));
+                        const int approximatedFramerate = std::lround(
+                            1000.0 / static_cast<double>(d.m_header.duration));
+                        d.m_durationFrameInTicks =
+                            static_cast<int>(d.m_header.duration);
+                        framerate = std::max(approximatedFramerate, 1);
+                    } else {
+                        d.m_durationFrameInTicks = 1;
+                    }
+                    dbgFile << "Framerate:" << framerate;
+                    layer->enableAnimation();
+                    image->animationInterface()->setFullClipRangeStartTime(0);
+                    image->animationInterface()->setFramerate(framerate);
+                }
+
+                const int currentFrameTime = std::lround(
+                    static_cast<double>(d.m_nextFrameTime)
+                    / static_cast<double>(d.m_durationFrameInTicks));
+
                 auto *channel = layer->getKeyframeChannel(KisKeyframeChannel::Raster.id(), true);
                 auto *frame = dynamic_cast<KisRasterKeyframeChannel *>(channel);
                 image->animationInterface()->setFullClipRangeEndTime(
-                    d.m_nextFrameTime);
-                frame->importFrame(d.m_nextFrameTime, d.m_currentFrame, nullptr);
+                    std::lround(static_cast<double>(d.m_nextFrameTime
+                                                    + d.m_header.duration)
+                                / static_cast<double>(d.m_durationFrameInTicks))
+                    - 1);
+                frame->importFrame(currentFrameTime, d.m_currentFrame, nullptr);
                 d.m_nextFrameTime += static_cast<int>(d.m_header.duration);
             } else {
                 layer->paintDevice()->makeCloneFrom(d.m_currentFrame, image->bounds());
             }
         } else if (status == JXL_DEC_SUCCESS || status == JXL_DEC_BOX) {
-            if (!boxType.empty()) {
+            if (std::strlen(boxType.data()) != 0) {
                 // Release buffer and get its final size.
                 const auto availOut = JxlDecoderReleaseBoxBuffer(dec.get());
                 box.resize(box.size() - static_cast<int>(availOut));
 
-                QBuffer buf(&box);
-                if (boxType == exifTag) {
-                    dbgFile << "Loading EXIF data. Size: " << box.size();
-
-                    const auto *backend = KisMetadataBackendRegistry::instance()->value("exif");
-
-                    backend->loadFrom(layer->metaData(), &buf);
-                } else if (boxType == xmpTag) {
-                    dbgFile << "Loading XMP or IPTC data. Size: " << box.size();
-
-                    const auto *xmpBackend = KisMetadataBackendRegistry::instance()->value("xmp");
-                    const auto *iptcBackend = KisMetadataBackendRegistry::instance()->value("iptc");
-
-                    if (!xmpBackend->loadFrom(layer->metaData(), &buf)) {
-                        iptcBackend->loadFrom(layer->metaData(), &buf);
-                    }
-                }
+                metadataBoxes[boxType] = box;
             }
             if (status == JXL_DEC_SUCCESS) {
                 // All decoding successfully finished.
+
+                // Insert layer metadata if available (delayed
+                // in case the boxes came before the BASIC_INFO event)
+                for (const QByteArray &boxType : metadataBoxes.keys()) {
+                    QByteArray &box = metadataBoxes[boxType];
+                    QBuffer buf(&box);
+                    if (std::equal(boxType.cbegin(),
+                                   boxType.cend(),
+                                   exifTag.cbegin())) {
+                        dbgFile << "Loading EXIF data. Size: " << box.size();
+
+                        const auto *backend =
+                            KisMetadataBackendRegistry::instance()->value(
+                                "exif");
+
+                        backend->loadFrom(layer->metaData(), &buf);
+                    } else if (std::equal(boxType.cbegin(),
+                                          boxType.cend(),
+                                          xmpTag.cbegin())) {
+                        dbgFile << "Loading XMP or IPTC data. Size: "
+                                << box.size();
+
+                        const auto *xmpBackend =
+                            KisMetadataBackendRegistry::instance()->value(
+                                "xmp");
+
+                        if (!xmpBackend->loadFrom(layer->metaData(), &buf)) {
+                            const KisMetaData::IOBackend *iptcBackend =
+                                KisMetadataBackendRegistry::instance()->value(
+                                    "iptc");
+                            iptcBackend->loadFrom(layer->metaData(), &buf);
+                        }
+                    }
+                }
+
                 // It's not required to call JxlDecoderReleaseInput(dec.get()) here since
                 // the decoder will be destroyed.
                 image->addNode(layer, image->rootLayer().data());
@@ -349,10 +405,16 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
                     errFile << "JxlDecoderGetBoxType failed";
                     return ImportExportCodes::ErrorWhileReading;
                 }
-                if (boxType == exifTag || boxType == xmpTag) {
-                    if (JxlDecoderSetBoxBuffer(dec.get(),
-                                               reinterpret_cast<uint8_t *>(boxType.data()),
-                                               static_cast<size_t>(box.size()))
+                if ((std::equal(exifTag.cbegin(),
+                                exifTag.cend(),
+                                boxType.cbegin()))
+                    || (std::equal(xmpTag.cbegin(),
+                                   xmpTag.cend(),
+                                   boxType.cbegin()))) {
+                    if (JxlDecoderSetBoxBuffer(
+                            dec.get(),
+                            reinterpret_cast<uint8_t *>(box.data()),
+                            static_cast<size_t>(box.size()))
                         != JXL_DEC_SUCCESS) {
                         errFile << "JxlDecoderSetBoxBuffer failed";
                         return ImportExportCodes::InternalError;
@@ -362,10 +424,13 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
                 }
             }
         } else if (status == JXL_DEC_BOX_NEED_MORE_OUTPUT) {
+            // Update the box size if it was truncated in a previous buffering.
+            boxSize = box.size();
             box.resize(boxSize * 2);
-            if (JxlDecoderSetBoxBuffer(dec.get(),
-                                       reinterpret_cast<uint8_t *>(boxType.data() + boxSize),
-                                       static_cast<size_t>(box.size() - boxSize))
+            if (JxlDecoderSetBoxBuffer(
+                    dec.get(),
+                    reinterpret_cast<uint8_t *>(box.data() + boxSize),
+                    static_cast<size_t>(box.size() - boxSize))
                 != JXL_DEC_SUCCESS) {
                 errFile << "JxlDecoderGetBoxType failed";
                 return ImportExportCodes::ErrorWhileReading;

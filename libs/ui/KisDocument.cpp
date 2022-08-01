@@ -405,11 +405,11 @@ public:
 
 
     // Resources saved in the .kra document
-    QString linkedResourcesStorageID {QUuid::createUuid().toString()};
+    QString linkedResourcesStorageID;
     KisResourceStorageSP linkedResourceStorage;
 
     // Resources saved into other components of the kra file
-    QString embeddedResourcesStorageID {QUuid::createUuid().toString()};
+    QString embeddedResourcesStorageID;
     KisResourceStorageSP embeddedResourceStorage;
 
     void syncDecorationsWrapperLayerState();
@@ -590,9 +590,11 @@ KisDocument::KisDocument(bool addStorage)
 
 
     if (addStorage) {
+        d->linkedResourcesStorageID = QUuid::createUuid().toString();
         d->linkedResourceStorage.reset(new KisResourceStorage(d->linkedResourcesStorageID));
         KisResourceLocator::instance()->addStorage(d->linkedResourcesStorageID, d->linkedResourceStorage);
 
+        d->embeddedResourcesStorageID = QUuid::createUuid().toString();
         d->embeddedResourceStorage.reset(new KisResourceStorage(d->embeddedResourcesStorageID));
         KisResourceLocator::instance()->addStorage(d->embeddedResourcesStorageID, d->embeddedResourceStorage);
 
@@ -870,37 +872,41 @@ QByteArray KisDocument::serializeToNativeByteArray()
     return buffer.data();
 }
 
-class DlgLoadMessages : public KoDialog {
+class DlgLoadMessages : public KoDialog
+{
 public:
-    DlgLoadMessages(const QString &title, const QString &message, const QStringList &warnings) {
+    DlgLoadMessages(const QString &title,
+                    const QString &message,
+                    const QStringList &warnings)
+        : KoDialog(qApp->activeWindow())
+    {
         setWindowTitle(title);
-        setWindowIcon(KisIconUtils::loadIcon("warning"));
-        QWidget *page = new QWidget(this);
+        QWidget *page = new QWidget();
         QVBoxLayout *layout = new QVBoxLayout(page);
         QHBoxLayout *hlayout = new QHBoxLayout();
         QLabel *labelWarning= new QLabel();
         labelWarning->setPixmap(KisIconUtils::loadIcon("warning").pixmap(32, 32));
+        labelWarning->setAlignment(Qt::AlignTop);
         hlayout->addWidget(labelWarning);
-        hlayout->addWidget(new QLabel(message));
+        hlayout->addWidget(new QLabel(message), 1);
         layout->addLayout(hlayout);
-        QTextBrowser *browser = new QTextBrowser();
-        QString warning = "<html><body><ul>";
-        Q_FOREACH(const QString &w, warnings) {
-            warning += "\n<li>" + w + "</li>";
-        }
-        warning += "</ul>";
-        browser->setHtml(warning);
-        browser->setMinimumHeight(200);
-        browser->setMinimumWidth(400);
-        if (!warnings.join("").isEmpty()) {
+        if (!warnings.isEmpty()) {
+            QTextBrowser *browser = new QTextBrowser();
+            QString warning = "<html><body><ul>";
+            Q_FOREACH (const QString &w, warnings) {
+                warning += "\n<li>" + w + "</li>";
+            }
+            warning += "</ul>";
+            browser->setHtml(warning);
+            browser->setMinimumHeight(200);
+            browser->setMinimumWidth(400);
             layout->addWidget(browser);
         }
         setMainWidget(page);
+        page->setParent(this);
         setButtons(KoDialog::Ok);
-        resize(minimumSize());
     }
 };
-
 
 void KisDocument::slotCompleteSavingDocument(const KritaUtils::ExportFileJob &job, KisImportExportErrorCode status, const QString &errorMessage, const QString &warningMessage)
 {

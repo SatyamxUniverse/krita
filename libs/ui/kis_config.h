@@ -657,6 +657,18 @@ public:
     bool convertLayerColorSpaceInProperties(bool defaultValue = false) const;
     void setConvertLayerColorSpaceInProperties(bool value);
 
+    bool renamePastedLayers(bool defaultValue = false) const;
+    void setRenamePastedLayers(bool value);
+
+    bool displayLayerSubtitles(bool defaultValue = false) const;
+    void setDisplayLayerSubtitles(bool value);
+
+    int layerSubtitleOpacity(bool defaultValue = false) const;
+    void setLayerSubtitleOpacity(int value);
+
+    bool useInlineLayerSubtitles(bool defaultValue = false) const;
+    void setUseInlineLayerSubtitles(bool value);
+
     template<class T>
     void writeEntry(const QString& name, const T& value) {
         m_cfg.writeEntry(name, value);

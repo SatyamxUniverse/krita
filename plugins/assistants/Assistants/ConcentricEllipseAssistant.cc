@@ -22,8 +22,6 @@
 
 ConcentricEllipseAssistant::ConcentricEllipseAssistant()
     : KisPaintingAssistant("concentric ellipse", i18n("Concentric Ellipse assistant"))
-    , m_followBrushPosition(false)
-    , m_adjustedPositionValid(false)
 {
 }
 
@@ -36,38 +34,17 @@ ConcentricEllipseAssistant::ConcentricEllipseAssistant(const ConcentricEllipseAs
     : KisPaintingAssistant(rhs, handleMap)
     , m_ellipse(rhs.m_ellipse)
     , m_extraEllipse(rhs.m_extraEllipse)
-    , m_followBrushPosition(rhs.m_followBrushPosition)
-    , m_adjustedPositionValid(rhs.m_adjustedPositionValid)
-    , m_adjustedBrushPosition(rhs.m_adjustedBrushPosition)
 {
 }
 
-void ConcentricEllipseAssistant::setAdjustedBrushPosition(const QPointF position)
-{
-    m_adjustedPositionValid = true;
-    m_adjustedBrushPosition = position;
-}
-
-void ConcentricEllipseAssistant::endStroke()
-{
-    // Brush stroke ended, guides should follow the brush position again.
-    m_followBrushPosition = false;
-    m_adjustedPositionValid = false;
-}
-
-void ConcentricEllipseAssistant::setFollowBrushPosition(bool follow)
-{
-    m_followBrushPosition = follow;
-}
-
-QPointF ConcentricEllipseAssistant::project(const QPointF& pt, const QPointF& strokeBegin) const
+QPointF ConcentricEllipseAssistant::project(const QPointF& pt, const QPointF& strokeBegin, const bool checkForInitialMovement) const
 {
     Q_ASSERT(isAssistantComplete());
     m_ellipse.set(*handles()[0], *handles()[1], *handles()[2]);
 
     qreal dx = pt.x() - strokeBegin.x();
     qreal dy = pt.y() - strokeBegin.y();
-    if (dx * dx + dy * dy < 4.0) {
+    if (checkForInitialMovement && dx * dx + dy * dy < 4.0) {
         // allow some movement before snapping
         return strokeBegin;
     }
@@ -94,7 +71,11 @@ QPointF ConcentricEllipseAssistant::project(const QPointF& pt, const QPointF& st
 QPointF ConcentricEllipseAssistant::adjustPosition(const QPointF& pt, const QPointF& strokeBegin, const bool /*snapToAny*/)
 {
     return project(pt, strokeBegin);
+}
 
+void ConcentricEllipseAssistant::adjustLine(QPointF &point, QPointF &strokeBegin)
+{
+    point = project(point, strokeBegin, false);
 }
 
 void ConcentricEllipseAssistant::drawAssistant(QPainter& gc, const QRectF& updateRect, const KisCoordinatesConverter* converter, bool cached, KisCanvas2* canvas, bool assistantVisible, bool previewVisible)
@@ -192,7 +173,7 @@ QRect ConcentricEllipseAssistant::boundingRect() const
     }
 }
 
-QPointF ConcentricEllipseAssistant::getEditorPosition() const
+QPointF ConcentricEllipseAssistant::getDefaultEditorPosition() const
 {
     return (*handles()[0] + *handles()[1]) * 0.5;
 }

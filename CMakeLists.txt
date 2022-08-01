@@ -586,37 +586,38 @@ if(WIN32)
         # libs\ui\dialogs\kis_about_application.cpp : fatal error C1128: number of sections exceeded object file format limit: compile with /bigobj
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /bigobj")
 
-        # Force enable a good many optimizations
-
-        # Aggresive inlining (Release)
-        string(REPLACE "Ob2" "Ob3" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
-        # Aggresive inlining (RelWithDebInfo)
-        string(REPLACE "Ob1" "Ob3" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
         # Enable intrinsics
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Oi")
         # Favor fast code
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Ot")
         # -ffast-math (fused multiply-add if the arch allows)
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /fp:fast")
-        # Whole program optimization
-        set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GL")
         # Function-level linking
         set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /Gy")
-
-        # For all objects:
-        # - strip unused functions
-        # - fold identical functions
-        # - link-time code generation
-        string(REPLACE "INCREMENTAL" "INCREMENTAL:NO" CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO}")
-        string(REPLACE "INCREMENTAL" "INCREMENTAL:NO" CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO}")
-        string(REPLACE "INCREMENTAL" "INCREMENTAL:NO" CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO}")
-        set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /OPT:ICF,REF /LTCG")
-        set(CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO} /OPT:ICF,REF /LTCG")
-        set(CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO} /OPT:ICF,REF /LTCG")
 
         # Our code is UTF-8 encoded.
         add_compile_options(/utf-8)
     endif()
+endif()
+
+# Force enable a good many optimizations
+if (MSVC AND NOT BUILD_TESTING)
+    # Aggresive inlining (Release)
+    string(REPLACE "Ob2" "Ob3" CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE}")
+    # Aggresive inlining (RelWithDebInfo)
+    string(REPLACE "Ob1" "Ob3" CMAKE_CXX_FLAGS_RELWITHDEBINFO "${CMAKE_CXX_FLAGS_RELWITHDEBINFO}")
+    # Whole program optimization
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /GL")
+    # For all objects:
+    # - strip unused functions
+    # - fold identical functions
+    # - link-time code generation
+    string(REPLACE "INCREMENTAL" "INCREMENTAL:NO" CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO}")
+    string(REPLACE "INCREMENTAL" "INCREMENTAL:NO" CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO}")
+    string(REPLACE "INCREMENTAL" "INCREMENTAL:NO" CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO}")
+    set(CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_EXE_LINKER_FLAGS_RELWITHDEBINFO} /OPT:ICF,REF /LTCG")
+    set(CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO} /OPT:ICF,REF /LTCG")
+    set(CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_MODULE_LINKER_FLAGS_RELWITHDEBINFO} /OPT:ICF,REF /LTCG")
 endif()
 
 # KDECompilerSettings adds the `--export-all-symbols` linker flag.
@@ -854,6 +855,20 @@ if (JPEG_FOUND)
     list (APPEND ANDROID_EXTRA_LIBS ${JPEG_LIBRARY})
     macro_bool_to_01(JPEG_FOUND HAVE_JPEG)
 endif()
+
+find_package(libjpeg-turbo 2.1.3 COMPONENTS turbojpeg)
+set_package_properties(libjpeg-turbo PROPERTIES
+    DESCRIPTION "libjpeg-turbo is a JPEG image codec that uses SIMD instructions (MMX, SSE2, AVX2, Neon, AltiVec) to accelerate baseline JPEG compression and decompression on x86, x86-64, Arm, and PowerPC systems, as well as progressive JPEG compression on x86 and x86-64 systems."
+    URL "https://www.libjpeg-turbo.org"
+    TYPE OPTIONAL
+    PURPOSE "Required by the Krita JPEG and TIFF filters")
+if(libjpeg-turbo_FOUND)
+    get_target_property(JPEG_TURBO_LIBRARY libjpeg-turbo::turbojpeg "LOCATION")
+    set(JPEG_TURBO_LIBRARIES libjpeg-turbo::turbojpeg)
+    list(APPEND ANDROID_EXTRA_LIBS ${JPEG_TURBO_LIBRARY})
+endif()
+macro_bool_to_01(libjpeg-turbo_FOUND HAVE_JPEG_TURBO)
+configure_file(config-jpeg.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config-jpeg.h )
 
 find_package(GIF)
 set_package_properties(GIF PROPERTIES

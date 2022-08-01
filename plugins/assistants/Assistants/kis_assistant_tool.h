@@ -38,7 +38,8 @@ class KisAssistantTool : public KisTool
         MODE_CREATION, // This is the mode when there is not yet a perspective grid
         MODE_EDITING, // This is the mode when the grid has been created, and we are waiting for the user to click on a control box
         MODE_DRAGGING_NODE, // In this mode one node is translated
-        MODE_DRAGGING_TRANSLATING_TWONODES // This mode is used when creating a new sub perspective grid
+        MODE_DRAGGING_TRANSLATING_TWONODES, // This mode is used when creating a new sub perspective grid
+        MODE_DRAGGING_EDITOR_WIDGET // This mode is used when dragging/moving the little editor widget
     };
 public:
     KisAssistantTool(KoCanvasBase * canvas);
@@ -137,6 +138,7 @@ protected:
     QList<KisPaintingAssistantHandleSP> m_sideHandles;
     KisPaintingAssistantHandleSP m_handleDrag;
     KisPaintingAssistantHandleSP m_handleCombine;
+    KisPaintingAssistantHandleSP m_handleHover;
     KisPaintingAssistantSP m_assistantDrag;
 
     /// Used while a new assistant is being created. Most assistants need multiple points to exist
@@ -153,6 +155,7 @@ protected:
     bool m_snapIsRadial {false};
     QPointF m_dragEnd;
     int m_handleSize {17}; // how large the editor handles will appear
+    int m_handleMaxDist {81}; // how far away the user can click and still select a handle
 
 
 private:

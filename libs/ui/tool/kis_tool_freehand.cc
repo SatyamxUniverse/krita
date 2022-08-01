@@ -34,6 +34,7 @@
 #include <brushengine/kis_paintop.h>
 #include <kis_selection.h>
 #include <brushengine/kis_paintop_preset.h>
+#include <brushengine/KisOptimizedBrushOutline.h>
 
 
 // Krita/ui
@@ -268,13 +269,7 @@ bool KisToolFreehand::trySampleByPaintOp(KoPointerEvent *event, AlternateAction 
      * for a paintop level. This method is used in DuplicateOp only!
      */
     QPointF pos = adjustPosition(event->point, event->point);
-    qreal perspective = 1.0;
-    Q_FOREACH (const QPointer<KisAbstractPerspectiveGrid> grid, static_cast<KisCanvas2*>(canvas())->viewManager()->canvasResourceProvider()->perspectiveGrids()) {
-        if (grid && grid->contains(pos)) {
-            perspective = grid->distance(pos);
-            break;
-        }
-    }
+    qreal perspective = calculatePerspective(pos);
     if (!currentPaintOpPreset()) {
         return false;
     }
@@ -452,8 +447,9 @@ QPointF KisToolFreehand::adjustPosition(const QPointF& point, const QPointF& str
 qreal KisToolFreehand::calculatePerspective(const QPointF &documentPoint)
 {
     qreal perspective = 1.0;
-    Q_FOREACH (const QPointer<KisAbstractPerspectiveGrid> grid, static_cast<KisCanvas2*>(canvas())->viewManager()->canvasResourceProvider()->perspectiveGrids()) {
-        if (grid && grid->contains(documentPoint)) {
+    Q_FOREACH (const KisPaintingAssistantSP assistant, static_cast<KisCanvas2*>(canvas())->paintingAssistantsDecoration()->assistants()) {
+        QPointer<KisAbstractPerspectiveGrid> grid = dynamic_cast<KisAbstractPerspectiveGrid*>(assistant.data());
+        if (grid && grid->isActive() && grid->contains(documentPoint)) {
             perspective = grid->distance(documentPoint);
             break;
         }
@@ -466,7 +462,7 @@ void KisToolFreehand::explicitUpdateOutline()
     requestUpdateOutline(m_outlineDocPoint, 0);
 }
 
-QPainterPath KisToolFreehand::getOutlinePath(const QPointF &documentPos,
+KisOptimizedBrushOutline KisToolFreehand::getOutlinePath(const QPointF &documentPos,
                                              const KoPointerEvent *event,
                                              KisPaintOpSettings::OutlineMode outlineMode)
 {
@@ -476,7 +472,7 @@ QPainterPath KisToolFreehand::getOutlinePath(const QPointF &documentPos,
                                         currentPaintOpPreset()->settings(),
                                         outlineMode);
     else
-        return QPainterPath();
+        return KisOptimizedBrushOutline();
 }
 
 

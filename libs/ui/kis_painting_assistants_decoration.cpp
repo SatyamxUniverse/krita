@@ -57,6 +57,8 @@ struct KisPaintingAssistantsDecoration::Private {
     QPixmap m_iconSnapOn = KisIconUtils::loadIcon("visible").pixmap(toolData.snapIconSize, toolData.snapIconSize);
     QPixmap m_iconSnapOff = KisIconUtils::loadIcon("novisible").pixmap(toolData.snapIconSize, toolData.snapIconSize);
     QPixmap m_iconMove = KisIconUtils::loadIcon("transform-move").pixmap(toolData.moveIconSize, toolData.moveIconSize);
+    QPixmap m_iconDragEditorWidget = KisIconUtils::loadIcon("gridbrush").pixmap(toolData.dragEditorWidgetIconSize, toolData.dragEditorWidgetIconSize);
+
 
     KisCanvas2 * m_canvas = 0;
 };
@@ -255,6 +257,56 @@ QPointF KisPaintingAssistantsDecoration::adjustPosition(const QPointF& point, co
     }
 
     return best;
+}
+
+void KisPaintingAssistantsDecoration::adjustLine(QPointF &point, QPointF &strokeBegin)
+{
+    if (assistants().empty()) {
+        // No assisants, so no adjustment
+        return;
+    }
+
+    // TODO: figure it out
+    if  (!d->snapEraser
+        && (d->m_canvas->resourceManager()->resource(KoCanvasResource::CurrentEffectiveCompositeOp).toString() == COMPOSITE_ERASE)) {
+        // No snapping if eraser snapping is disabled and brush is an eraser
+        return;
+    }
+
+    QPointF originalPoint = point;
+    QPointF originalStrokeBegin = strokeBegin;
+
+    qreal minDistance = 10000.0;
+    bool minDistValid = false;
+    QPointF finalPoint = originalPoint;
+    QPointF finalStrokeBegin = originalStrokeBegin;
+    int id = 0;
+    KisPaintingAssistantSP bestAssistant;
+    Q_FOREACH (KisPaintingAssistantSP assistant, assistants()) {
+        if(assistant->isSnappingActive() == true){//this checks if the assistant in question has it's snapping boolean turned on//
+            //QPointF pt = assistant->adjustPosition(point, strokeBegin, true);
+            QPointF p1 = originalPoint;
+            QPointF p2 = originalStrokeBegin;
+            assistant->adjustLine(p1, p2);
+            if (p1.isNull() || p2.isNull()) {
+                // possibly lines cannot snap to this assistant, or this line cannot, at least
+                continue;
+            }
+            qreal distance = kisSquareDistance(p1, originalPoint) + kisSquareDistance(p2, originalStrokeBegin);
+            if (distance < minDistance || !minDistValid) {
+                finalPoint = p1;
+                finalStrokeBegin = p2;
+                minDistValid = true;
+                bestAssistant = assistant;
+            }
+        }
+        id ++;
+    }
+    if (bestAssistant) {
+        bestAssistant->setFollowBrushPosition(true);
+    }
+    point = finalPoint;
+    strokeBegin = finalStrokeBegin;
 }
 
 void KisPaintingAssistantsDecoration::endStroke()
@@ -533,6 +585,7 @@ void KisPaintingAssistantsDecoration::drawEditorWidget(KisPaintingAssistantSP as
     QPointF iconMovePosition(actionsPosition + toolData.moveIconPosition);
     QPointF iconSnapPosition(actionsPosition + toolData.snapIconPosition);
     QPointF iconDeletePosition(actionsPosition + toolData.deleteIconPosition);
+    QPointF iconDragEditorWidgetPosiition(actionsPosition + toolData.dragEditorWidgetIconPosition);
 
     // Background container for helpers
     QBrush backgroundColor = d->m_canvas->viewManager()->mainWindowAsQWidget()->palette().window();
@@ -571,6 +624,7 @@ void KisPaintingAssistantsDecoration::drawEditorWidget(KisPaintingAssistantSP as
     }
 
     gc.drawPixmap(iconDeletePosition, d->m_iconDelete);
+    gc.drawPixmap(iconDragEditorWidgetPosiition, d->m_iconDragEditorWidget);
 
 
 }

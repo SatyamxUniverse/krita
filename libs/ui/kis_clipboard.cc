@@ -311,16 +311,40 @@ KisClipboard::clipFromKritaSelection(const QMimeData *cbData, const QRect &image
     return clip;
 }
 
-KisPaintDeviceSP KisClipboard::clipFromBoardContents(const QMimeData *cbData,
-                                                     const QRect &imageBounds,
-                                                     bool showPopup,
-                                                     int pasteBehaviourOverride,
-                                                     bool useClipboardFallback) const
+KisPaintDeviceSP KisClipboard::clipFromKritaLayers(const QRect &imageBounds,
+                                                   const KoColorSpace *cs) const
 {
-    KisPaintDeviceSP clip;
+    const QMimeData *data = KisClipboard::instance()->layersMimeData();
 
-    if (!cbData) {
+    if (!data) {
         return nullptr;
+    }
+
+    const auto *mimedata = qobject_cast<const KisMimeData *>(data);
+    KIS_ASSERT_RECOVER_RETURN_VALUE(mimedata, nullptr);
+
+    KisNodeList nodes = mimedata->nodes();
+
+    KisImageSP tempImage = new KisImage(nullptr,
+                                        imageBounds.width(),
+                                        imageBounds.height(),
+                                        cs,
+                                        "ClipImage");
+    for (KisNodeSP node : nodes) {
+        tempImage->addNode(node, tempImage->root());
+    }
+    tempImage->refreshGraphAsync();
+    tempImage->waitForDone();
+
+    return tempImage->projection();
+}
+
+QPair<bool, KisClipboard::PasteFormatBehaviour>
+KisClipboard::askUserForSource(const QMimeData *cbData,
+                               bool useClipboardFallback) const
+{
+    if (!cbData) {
+        return {false, PASTE_FORMAT_ASK};
     }
 
     KisConfig cfg(true);
@@ -374,7 +398,7 @@ KisPaintDeviceSP KisClipboard::clipFromBoardContents(const QMimeData *cbData,
             dlg.setSourceAvailable(PASTE_FORMAT_CLIP, !qimage.isNull());
 
             if (dlg.exec() != KoDialog::Accepted) {
-                return nullptr;
+                return {false, PASTE_FORMAT_ASK};
             };
 
             choice = dlg.source();
@@ -385,10 +409,10 @@ KisPaintDeviceSP KisClipboard::clipFromBoardContents(const QMimeData *cbData,
                 choice = PASTE_FORMAT_DOWNLOAD;
             } else if (local) {
                 choice = PASTE_FORMAT_LOCAL;
-            } else if (cbData->hasImage()) {
+            } else if (!qimage.isNull()) {
                 choice = PASTE_FORMAT_CLIP;
             } else {
-                return nullptr;
+                return {false, PASTE_FORMAT_ASK};
             }
         }
     }
@@ -399,11 +423,48 @@ KisPaintDeviceSP KisClipboard::clipFromBoardContents(const QMimeData *cbData,
 
     dbgUI << "Selected source for the paste:" << choice;
 
+    return {true, choice};
+}
+
+KisPaintDeviceSP KisClipboard::clipFromBoardContents(
+    const QMimeData *cbData,
+    const QRect &imageBounds,
+    bool showPopup,
+    int pasteBehaviourOverride,
+    bool useClipboardFallback,
+    QPair<bool, PasteFormatBehaviour> source) const
+{
+    if (!cbData) {
+        return nullptr;
+    }
+
+    KisPaintDeviceSP clip;
+
+    PasteFormatBehaviour choice = PASTE_FORMAT_ASK;
+
+    if (!source.first) {
+        choice = askUserForSource(cbData).second;
+    } else {
+        choice = source.second;
+    }
+
     if (choice == PASTE_FORMAT_CLIP) {
+        const QImage qimage = [&]() {
+            QImage qimage = getImageFromMimeData(cbData);
+
+            if (qimage.isNull() && useClipboardFallback) {
+                qimage = d->clipboard->image();
+            }
+
+            return qimage;
+        }();
+
         KIS_ASSERT(!qimage.isNull());
 
         int behaviour = pasteBehaviourOverride;
         bool saveColorSetting = false;
+
+        KisConfig cfg(true);
 
         if (pasteBehaviourOverride == -1) {
             behaviour = cfg.pasteBehaviour();
@@ -567,7 +628,8 @@ void KisClipboard::setLayers(KisNodeList nodes, KisImageSP image, bool forceCopy
 
 bool KisClipboard::hasLayers() const
 {
-    return d->clipboard->mimeData()->hasFormat("application/x-krita-node");
+    const QByteArray mimeType = QByteArrayLiteral("application/x-krita-node-internal-pointer");
+    return d->clipboard->mimeData()->hasFormat(mimeType);
 }
 
 bool KisClipboard::hasLayerStyles() const
@@ -582,7 +644,7 @@ bool KisClipboard::hasLayerStyles() const
 const QMimeData *KisClipboard::layersMimeData() const
 {
     const QMimeData *cbData = d->clipboard->mimeData();
-    return cbData->hasFormat("application/x-krita-node") ? cbData : 0;
+    return cbData->hasFormat("application/x-krita-node-internal-pointer") ? cbData : 0;
 }
 
 QImage KisClipboard::getPreview() const
