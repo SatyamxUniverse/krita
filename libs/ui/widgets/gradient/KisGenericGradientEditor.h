@@ -230,6 +230,7 @@ private Q_SLOTS:
     void on_buttonAddGradient_clicked();
     void on_widgetGradientPresetChooser_resourceClicked(KoResourceSP resource);
     void on_widgetGradientEditor_sigGradientChanged();
+    void on_canvasResourceChanged(int key, const QVariant &value);
 };
 
 #endif

@@ -8,6 +8,7 @@
 
 #include "kritaresources_export.h"
 #include <QSharedPointer>
+#include <QObject>
 
 class QVariant;
 
@@ -20,12 +21,23 @@ class QVariant;
  * Specific implementations may forward the requests either to
  * KoCanvasResourceProvider or to a local storage.
  */
-class KRITARESOURCES_EXPORT KoCanvasResourcesInterface
+class KRITARESOURCES_EXPORT KoCanvasResourcesInterface : public QObject
 {
+    Q_OBJECT
 public:
     virtual ~KoCanvasResourcesInterface();
 
     virtual QVariant resource(int key) const = 0;
+
+Q_SIGNALS:
+    /**
+     * This signal is emitted every time a resource is set that is either
+     * new or different from the previous set value.
+     * @param key the identifying key for the resource
+     * @param value the variants new value.
+     * @see KoCanvasResource::CanvasResourceId
+     */
+    void canvasResourceChanged(int key, const QVariant &value);
 };
 
 using KoCanvasResourcesInterfaceSP = QSharedPointer<KoCanvasResourcesInterface>;

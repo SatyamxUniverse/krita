@@ -23,6 +23,7 @@ struct Q_DECL_HIDDEN CanvasResourceProviderInterfaceWrapper : public KoCanvasRes
     CanvasResourceProviderInterfaceWrapper(KoCanvasResourceProvider *provider)
         : m_provider(provider)
     {
+        connect(provider, SIGNAL(canvasResourceChanged(int, const QVariant&)), SIGNAL(canvasResourceChanged(int, const QVariant&)));
     }
 
     QVariant resource(int key) const override {

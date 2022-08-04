@@ -25,6 +25,7 @@
 #include <KoResourceServerProvider.h>
 #include <KisResourceItemChooser.h>
 #include <KisResourceUserOperations.h>
+#include <KoCanvasResourcesIds.h>
 
 #include <ksharedconfig.h>
 #include <kconfiggroup.h>
@@ -421,6 +422,10 @@ void KisGenericGradientEditor::setGradient(KoAbstractGradientSP newGradient)
 
 void KisGenericGradientEditor::setCanvasResourcesInterface(KoCanvasResourcesInterfaceSP newCanvasResourcesInterface)
 {
+    if (m_d->canvasResourcesInterface) {
+        m_d->canvasResourcesInterface->disconnect(this);
+    }
+
     m_d->canvasResourcesInterface = newCanvasResourcesInterface;
 
     if (dynamic_cast<KisStopGradientEditor*>(m_d->widgetGradientEditor)) {
@@ -430,6 +435,10 @@ void KisGenericGradientEditor::setCanvasResourcesInterface(KoCanvasResourcesInte
     }
 
     m_d->widgetGradientPresetChooser->setCanvasResourcesInterface(newCanvasResourcesInterface);
+
+    if (m_d->canvasResourcesInterface) {
+        connect(m_d->canvasResourcesInterface.data(), SIGNAL(canvasResourceChanged(int, const QVariant&)), SLOT(on_canvasResourceChanged(int, const QVariant&)));
+    }
 }
 
 void KisGenericGradientEditor::setCompactMode(bool compact)
@@ -655,5 +664,16 @@ void KisGenericGradientEditor::on_widgetGradientEditor_sigGradientChanged()
 {
     updateUpdateGradientButton();
     updateAddGradientButton();
+    emit sigGradientChanged();
+}
+
+void KisGenericGradientEditor::on_canvasResourceChanged(int key, const QVariant &value)
+{
+    Q_UNUSED(value);
+    if (key != KoCanvasResource::ForegroundColor && key != KoCanvasResource::BackgroundColor) {
+        return;
+    }
+    m_d->gradient->updateVariableColors(m_d->canvasResourcesInterface);
+    m_d->widgetGradientEditor->update();
     emit sigGradientChanged();
 }
