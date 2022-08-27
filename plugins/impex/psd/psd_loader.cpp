@@ -234,7 +234,7 @@ KisImportExportErrorCode PSDLoader::decode(QIODevice &io)
         if (clipStore){
             clipStore=false;
             dbgFile << "clip grouping";
-            KisGroupLayerSP clipGroup = new KisGroupLayer(m_image, "Clipping Group", OPACITY_OPAQUE_U8);
+            KisGroupLayerSP clipGroup = new KisGroupLayer(m_image, i18n("Clipping Group"), OPACITY_OPAQUE_U8);
             m_image->addNode(clipGroup, groupStack.top());
             groupStack.push(clipGroup);
         }
@@ -285,13 +285,13 @@ KisImportExportErrorCode PSDLoader::decode(QIODevice &io)
                                 if (layerRecordScan->clipping == 1){
                                     if(layerRecord->clipping == 0){
                                         dbgFile << "clip grouping";
-                                        KisGroupLayerSP clipGroup = new KisGroupLayer(m_image, "Clipping Group", OPACITY_OPAQUE_U8);
+                                        KisGroupLayerSP clipGroup = new KisGroupLayer(m_image, i18n("Clipping Group"), OPACITY_OPAQUE_U8);
                                         m_image->addNode(clipGroup, groupStack.top());
                                         groupStack.push(clipGroup);
                                     }
                                 }
                                 else if (layerRecord->clipping == 1){
-                                    dbgFile << "pop";
+                                    //close group after this layer
                                     popStore = true;
                                 }
                                 if(j+1<=layerSection.nLayers-1){
@@ -320,7 +320,7 @@ KisImportExportErrorCode PSDLoader::decode(QIODevice &io)
                                                         //folder belonging to divider found
                                                         if (layerRecordScan->clipping == 1){
                                                             dbgFile << "clip grouping";
-                                                            KisGroupLayerSP clipGroup = new KisGroupLayer(m_image, "Clipping Group", OPACITY_OPAQUE_U8);
+                                                            KisGroupLayerSP clipGroup = new KisGroupLayer(m_image, i18n("Clipping Group"), OPACITY_OPAQUE_U8);
                                                             m_image->addNode(clipGroup, groupStack.top());
                                                             groupStack.push(clipGroup);
                                                         }
@@ -346,7 +346,7 @@ KisImportExportErrorCode PSDLoader::decode(QIODevice &io)
         if (layerRecord->clipping == 0 && layerNext->clipping == 1){
             if (!groupEnd && !groupEndNext){
                 dbgFile << "clip grouping";
-                KisGroupLayerSP clipGroup = new KisGroupLayer(m_image, "Clipping Group", OPACITY_OPAQUE_U8);
+                KisGroupLayerSP clipGroup = new KisGroupLayer(m_image, i18n("Clipping Group"), OPACITY_OPAQUE_U8);
                 m_image->addNode(clipGroup, groupStack.top());
                 groupStack.push(clipGroup);
             }
