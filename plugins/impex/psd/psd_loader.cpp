@@ -214,6 +214,8 @@ KisImportExportErrorCode PSDLoader::decode(QIODevice &io)
     QVector<LayerStyleMapping> allStylesXml;
     using namespace std::placeholders;
 
+    bool popStore = false;
+    bool clipStore = false;
     // read the channels for the various layers
     bool popStore = false;
     bool clipStore = false;
