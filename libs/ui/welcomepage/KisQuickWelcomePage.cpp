@@ -22,9 +22,10 @@ KisQuickWelcomePage::KisQuickWelcomePage(QWidget *parent)
 
     rootCtx->setContextProperty("welcomePage", this);
 
-    m_tutorialsModel = new KisAtomFeedModel(this);
+    m_tutorialsModel = new KisAbstractSyndicationModel(this);
     // Krita's youtube feed
     m_tutorialsModel->addFeed("https://www.youtube.com/feeds/videos.xml?channel_id=UCkIccKaHDGA8lYVmUerLhag");
+    // m_tutorialsModel->addFeed("https://krita.org/en/feed/");
 
     // models
     rootCtx->setContextProperty("projectsModel", &KisRecentDocumentsModelWrapper::instance()->model());

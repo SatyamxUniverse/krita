@@ -2,13 +2,12 @@
 #define __KISATOMFEEDREADER_H_
 
 #include <KisRssReader.h>
-#include <QNetworkReply>
 #include <QXmlStreamReader>
 
 class KisAtomFeedReader
 {
 public:
-    RssItemList parse(QNetworkReply *reply);
+    RssItemList parse(QXmlStreamReader &streamReader);
 
 private:
     RssItem parseEntry(QXmlStreamReader &streamReader);

@@ -17,7 +17,7 @@ public:
     Q_INVOKABLE void openFile();
 
 private:
-    class KisAtomFeedModel *m_tutorialsModel {0};
+    class KisAbstractSyndicationModel *m_tutorialsModel {0};
 };
 
 #endif // __KISQUICKWELCOMEPAGE_H_

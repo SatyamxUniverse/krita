@@ -59,27 +59,6 @@ MultiFeedRssModel::~MultiFeedRssModel()
 RssItemList MultiFeedRssModel::parse(QNetworkReply *reply)
 {
     KisRssReader reader;
-    return reader.parse(reply);
-}
-
-
-
-KisAtomFeedModel::KisAtomFeedModel(QObject *parent)
-    : KisAbstractSyndicationModel(parent)
-{
-}
-
-KisAtomFeedModel::KisAtomFeedModel(KisNetworkAccessManager *nam, QObject *parent)
-    : KisAbstractSyndicationModel(nam, parent)
-{
-}
-
-KisAtomFeedModel::~KisAtomFeedModel()
-{
-}
-
-RssItemList KisAtomFeedModel::parse(QNetworkReply *reply)
-{
-    KisAtomFeedReader reader;
-    return reader.parse(reply);
+    QXmlStreamReader streamReader(reply);
+    return reader.parse(streamReader, reply->request().url().toString());
 }

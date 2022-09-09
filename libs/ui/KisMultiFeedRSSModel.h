@@ -47,24 +47,8 @@ public:
     explicit MultiFeedRssModel(KisNetworkAccessManager* nam, QObject *parent = 0);
     ~MultiFeedRssModel() override;
 
-    RssItemList parse(QNetworkReply *reply) override;
+    RssItemList parse(QNetworkReply *reply);
 
-
-private:
-
-    friend class MockMultiFeedRssModel;
-};
-
-
-class KRITAUI_EXPORT KisAtomFeedModel : public KisAbstractSyndicationModel
-{
-    Q_OBJECT
-public:
-    explicit KisAtomFeedModel(QObject *parent = 0);
-    explicit KisAtomFeedModel(KisNetworkAccessManager* nam, QObject *parent = 0);
-    ~KisAtomFeedModel() override;
-
-    RssItemList parse(QNetworkReply *reply) override;
 
 private:
 

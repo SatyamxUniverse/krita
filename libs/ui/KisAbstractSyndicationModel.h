@@ -25,11 +25,14 @@ public:
     int rowCount(const QModelIndex &parent = QModelIndex()) const override;
     QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
 
-    virtual RssItemList parse(QNetworkReply *reply) = 0;
+    RssItemList parse(QNetworkReply *reply);
 
     int articleCount() const {
         return m_articleCount;
     }
+
+private:
+    bool isAtom(QXmlStreamReader &streamReader);
 
 public Q_SLOTS:
     void setArticleCount(int arg) {

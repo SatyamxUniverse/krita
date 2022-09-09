@@ -3,11 +3,9 @@
 #include <QDomElement>
 #include <QString>
 
-RssItemList KisAtomFeedReader::parse(QNetworkReply *reply)
+RssItemList KisAtomFeedReader::parse(QXmlStreamReader &streamReader)
 {
     RssItemList list;
-    QXmlStreamReader streamReader(reply);
-
     while (!streamReader.atEnd()) {
         streamReader.readNext();
         if (streamReader.isStartElement() && streamReader.name() == "entry") {

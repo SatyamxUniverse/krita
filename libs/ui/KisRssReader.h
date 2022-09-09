@@ -67,9 +67,9 @@ public:
         ThumbnailLinkRole,
     };
 
-    RssItem parseItem();
+    RssItem parseItem(QXmlStreamReader& streamReader);
     RssItemList parseStream(QXmlStreamReader& streamReader);
-    RssItemList parse(QNetworkReply *reply);
+    RssItemList parse(QXmlStreamReader& streamReader, QString requestUrl);
     RssItemList parse(QFile& file);
 
 private:

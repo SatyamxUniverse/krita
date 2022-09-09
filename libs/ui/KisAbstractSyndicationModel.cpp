@@ -13,6 +13,7 @@
 #include <QNetworkReply>
 #include <KisNetworkAccessManager.h>
 
+#include <KisAtomFeedReader.h>
 #include <KisRssReader.h>
 
 KisAbstractSyndicationModel::KisAbstractSyndicationModel(QObject *parent) :
@@ -77,6 +78,27 @@ void KisAbstractSyndicationModel::appendFeedData(QNetworkReply *reply)
     endResetModel();
 
     emit feedDataChanged();
+}
+
+RssItemList KisAbstractSyndicationModel::parse(QNetworkReply *reply)
+{
+    QXmlStreamReader streamReader(reply);
+    if (isAtom(streamReader)) {
+        KisAtomFeedReader reader;
+        return reader.parse(streamReader);
+    } else {
+        KisRssReader reader;
+        return reader.parse(streamReader, reply->request().url().toString());
+    }
+}
+
+bool KisAbstractSyndicationModel::isAtom(QXmlStreamReader &streamReader)
+{
+    while (!streamReader.isStartElement() && !streamReader.atEnd()) {
+        streamReader.readNext();
+    }
+    bool atom = streamReader.name() == "feed" && streamReader.namespaceUri() == "http://www.w3.org/2005/Atom";
+    return atom;
 }
 
 void KisAbstractSyndicationModel::sortAggregatedFeed()

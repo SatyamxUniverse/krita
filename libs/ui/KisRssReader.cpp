@@ -48,29 +48,29 @@ KisRssReader::KisRssReader()
 
 }
 
-RssItem KisRssReader::parseItem() {
+RssItem KisRssReader::parseItem(QXmlStreamReader& streamReader) {
     RssItem item;
     item.source = requestUrl;
     item.blogIcon = blogIcon;
     item.blogName = blogName;
-    while (!m_streamReader.atEnd()) {
-        switch (m_streamReader.readNext()) {
+    while (!streamReader.atEnd()) {
+        switch (streamReader.readNext()) {
         case QXmlStreamReader::StartElement:
-            if (m_streamReader.name() == QLatin1String("title"))
-                item.title = m_streamReader.readElementText();
-            else if (m_streamReader.name() == QLatin1String("link"))
-                item.link = m_streamReader.readElementText();
-            else if (m_streamReader.name() == QLatin1String("pubDate")) {
-                QString dateStr = m_streamReader.readElementText();
+            if (streamReader.name() == QLatin1String("title"))
+                item.title = streamReader.readElementText();
+            else if (streamReader.name() == QLatin1String("link"))
+                item.link = streamReader.readElementText();
+            else if (streamReader.name() == QLatin1String("pubDate")) {
+                QString dateStr = streamReader.readElementText();
                 item.pubDate = QDateTime::fromString(dateStr, Qt::RFC2822Date);
             }
-            else if (m_streamReader.name() == QLatin1String("category"))
-                item.category = m_streamReader.readElementText();
-            else if (m_streamReader.name() == QLatin1String("description"))
-                item.description = m_streamReader.readElementText(); //shortenHtml(streamReader.readElementText());
+            else if (streamReader.name() == QLatin1String("category"))
+                item.category = streamReader.readElementText();
+            else if (streamReader.name() == QLatin1String("description"))
+                item.description = streamReader.readElementText(); //shortenHtml(streamReader.readElementText());
             break;
         case QXmlStreamReader::EndElement:
-            if (m_streamReader.name() == QLatin1String("item"))
+            if (streamReader.name() == QLatin1String("item"))
                 return item;
             break;
         default:
@@ -87,7 +87,7 @@ RssItemList KisRssReader::parseStream(QXmlStreamReader &streamReader) {
         switch (streamReader.readNext()) {
         case QXmlStreamReader::StartElement:
             if (streamReader.name() == QLatin1String("item"))
-                list.append(parseItem());
+                list.append(parseItem(streamReader));
             else if (streamReader.name() == QLatin1String("title"))
                 blogName = streamReader.readElementText();
             else if (streamReader.name() == QLatin1String("link")) {
@@ -107,12 +107,9 @@ RssItemList KisRssReader::parseStream(QXmlStreamReader &streamReader) {
     return list;
 }
 
-RssItemList KisRssReader::parse(QNetworkReply *reply) {
-    QUrl source = reply->request().url();
-    requestUrl = source.toString();
-    m_streamReader.setDevice(reply);
-
-    return parseStream(m_streamReader);
+RssItemList KisRssReader::parse(QXmlStreamReader &streamReader, QString requestUrl) {
+    this->requestUrl = requestUrl;
+    return parseStream(streamReader);
 }
 
 RssItemList KisRssReader::parse(QFile &file) {
