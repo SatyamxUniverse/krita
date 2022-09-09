@@ -3,6 +3,7 @@
         <file alias="main.qml">qml/main.qml</file>
         <file alias="KisGridView.qml">qml/KisGridView.qml</file>
         <file alias="ReferencesModel.qml">qml/ReferencesModel.qml</file>
+        <file alias="KisDrawer.qml">qml/KisDrawer.qml</file>
 
         <file alias="data/Hero_faq.jpg">qml/data/Hero_faq.jpg</file>
         <file alias="data/Hero_general.jpg">qml/data/Hero_general.jpg</file>
