@@ -36,6 +36,8 @@ public:
      * @return true if icon was created successfully, false if not (for example the file doesn't exist)
      */
     bool createFileIcon(QString path, QIcon &icon, qreal devicePixelRatioF, QSize iconSize) override;
+
+    QImage createFilePreview(QString path, qreal devicePixelRatioF, QSize size);
 };
 
 #endif // KIS_FILE_ICON_CREATOR_H

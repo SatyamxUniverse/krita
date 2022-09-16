@@ -1,0 +1,18 @@
+<RCC>
+    <qresource prefix="/welcomepage">
+        <file alias="main.qml">qml/main.qml</file>
+        <file alias="KisGridView.qml">qml/KisGridView.qml</file>
+        <file alias="ReferencesModel.qml">qml/ReferencesModel.qml</file>
+        <file alias="KisDrawer.qml">qml/KisDrawer.qml</file>
+
+        <file alias="data/Hero_faq.jpg">qml/data/Hero_faq.jpg</file>
+        <file alias="data/Hero_general.jpg">qml/data/Hero_general.jpg</file>
+        <file alias="data/Hero_getting_started.jpg">qml/data/Hero_getting_started.jpg</file>
+        <file alias="data/Hero_index.jpg">qml/data/Hero_index.jpg</file>
+        <file alias="data/Hero_reference.jpg">qml/data/Hero_reference.jpg</file>
+        <file alias="data/Hero_resources.jpg">qml/data/Hero_resources.jpg</file>
+        <file alias="data/Hero_tutorials.jpg">qml/data/Hero_tutorials.jpg</file>
+        <file alias="data/Hero_userManual.jpg">qml/data/Hero_userManual.jpg</file>
+
+    </qresource>
+</RCC>

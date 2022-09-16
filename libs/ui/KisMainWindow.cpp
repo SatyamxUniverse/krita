@@ -47,7 +47,6 @@
 #include <QAction>
 #include <QWindow>
 #include <QTemporaryDir>
-#include <QScrollArea>
 #include <kactioncollection.h>
 #include <kactionmenu.h>
 #include <kis_debug.h>
@@ -142,7 +141,6 @@
 #include <KisImageConfigNotifier.h>
 #include "KisWindowLayoutManager.h"
 #include <KisUndoActionsUpdateManager.h>
-#include "KisWelcomePageWidget.h"
 #include "KisRecentDocumentsModelWrapper.h"
 #include <KritaVersionWrapper.h>
 #include "KisCanvasWindow.h"
@@ -152,6 +150,7 @@
 #include "KisUiFont.h"
 #include <KisResourceUserOperations.h>
 #include "KisRecentFilesManager.h"
+#include <KisQuickWelcomePage.h>
 
 
 #include <mutex>
@@ -186,21 +185,15 @@ public:
         , windowMenu(new KActionMenu(i18nc("@action:inmenu", "&Window"), parent))
         , documentMenu(new KActionMenu(i18nc("@action:inmenu", "New &View"), parent))
         , workspaceMenu(new KActionMenu(i18nc("@action:inmenu", "Wor&kspace"), parent))
-        , welcomePage(new KisWelcomePageWidget(parent))
         , widgetStack(new QStackedWidget(parent))
+        , quickWelcomePage(new KisQuickWelcomePage(parent))
         , mdiArea(new QMdiArea(parent))
         , windowMapper(new KisSignalMapper(parent))
         , documentMapper(new KisSignalMapper(parent))
     {
         if (id.isNull()) this->id = QUuid::createUuid();
 
-        welcomeScroller = new QScrollArea();
-        welcomeScroller->setHorizontalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-        welcomeScroller->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
-        welcomeScroller->setWidget(welcomePage);
-        welcomeScroller->setWidgetResizable(true);
-
-        widgetStack->addWidget(welcomeScroller);
+        widgetStack->addWidget(quickWelcomePage);
         widgetStack->addWidget(mdiArea);
         mdiArea->setTabsMovable(true);
         mdiArea->setActivationOrder(QMdiArea::ActivationHistoryOrder);
@@ -280,11 +273,9 @@ public:
 
     Digikam::ThemeManager *themeManager {nullptr};
 
-    QScrollArea *welcomeScroller {nullptr};
-    KisWelcomePageWidget *welcomePage {nullptr};
-
 
     QStackedWidget *widgetStack {nullptr};
+    KisQuickWelcomePage *quickWelcomePage {nullptr};
 
     QMdiArea *mdiArea {nullptr};
     QMdiSubWindow *activeSubWindow  {nullptr};
@@ -480,6 +471,8 @@ KisMainWindow::KisMainWindow(QUuid uuid)
     setCentralWidget(d->widgetStack);
     d->widgetStack->setCurrentIndex(0);
 
+    connect(d->widgetStack, &QStackedWidget::currentChanged, this, &KisMainWindow::setMainWindowLayoutForMode);
+
     connect(d->mdiArea, SIGNAL(subWindowActivated(QMdiSubWindow*)), this, SLOT(subWindowActivated()));
     connect(d->windowMapper, SIGNAL(mapped(QWidget*)), this, SLOT(setActiveSubWindow(QWidget*)));
     connect(d->documentMapper, SIGNAL(mapped(QObject*)), this, SLOT(newView(QObject*)));
@@ -489,12 +482,9 @@ KisMainWindow::KisMainWindow(QUuid uuid)
 
     createActions();
 
-    // the welcome screen needs to grab actions...so make sure this line goes after the createAction() so they exist
-    d->welcomePage->setMainWindow(this);
-
     d->recentFiles->setRecentFilesModel(&KisRecentDocumentsModelWrapper::instance()->model());
 
-    setAutoSaveSettings(d->windowStateConfig, false);
+    applyMainWindowSettings(d->windowStateConfig);
 
     subWindowActivated();
     updateWindowMenu();
@@ -1017,7 +1007,6 @@ KisView *KisMainWindow::activeView() const
 
 bool KisMainWindow::openDocument(const QString &path, OpenFlags flags)
 {
-    ScopedWidgetDisabler disabler(d->welcomePage->dropFrameBorder);
     QApplication::processEvents(); // make UI more responsive
 
     if (!QFile(path).exists()) {
@@ -1543,6 +1532,44 @@ void KisMainWindow::dragLeaveEvent(QDragLeaveEvent *event)
 }
 
 
+void KisMainWindow::showEvent(QShowEvent *event)
+{
+    // we're here because, we need to make sure everything (dockers, toolbars etc) is loaded and ready before
+    // we can hide it.
+    setMainWindowLayoutForMode(0);
+    return KXmlGuiWindow::showEvent(event);
+}
+
+void KisMainWindow::setMainWindowLayoutForMode(int mode)
+{
+    if (mode == 0) {
+        // save the state of the window which existed up-to now (this is before we stop auto-saving).
+        saveMainWindowSettings(d->windowStateConfig);
+        // This makes sure we don't save window state when we're in welcome page mode, because all the dockers
+        // etc are hidden while the user is here.
+        resetAutoSaveSettings();
+
+        toggleDockersVisibility(false);
+        if (statusBar()) {
+            statusBar()->hide();
+        }
+        QList<QToolBar *> toolbars = findChildren<QToolBar *>();
+        for (auto *toolbar : toolbars) {
+            toolbar->hide();
+        }
+    } else {
+        setAutoSaveSettings(d->windowStateConfig, false);
+    }
+
+    QList<QAction *> actions = d->dockWidgetMenu->menu()->actions();
+    actions.append(toolBarMenuAction()->menu()->actions());
+    for (QAction *action : actions) {
+        if (action) {
+            action->setEnabled(mode);
+        }
+    }
+}
+
 void KisMainWindow::setActiveView(KisView* view)
 {
     d->activeView = view;
@@ -1735,6 +1762,12 @@ const KConfigGroup &KisMainWindow::windowStateConfig() const
 
 void KisMainWindow::saveWindowState(bool restoreNormalState)
 {
+    // We don't need to save welcome page's layout
+    if (d->widgetStack->currentIndex() == 0) {
+        // TODO(sh_zam): We should still save position/geometry, right?
+        return;
+    }
+
     if (restoreNormalState) {
         QAction *showCanvasOnly = d->viewManager->actionCollection()->action("view_show_canvas_only");
 
@@ -1745,7 +1778,8 @@ void KisMainWindow::saveWindowState(bool restoreNormalState)
         d->windowStateConfig.writeEntry("ko_geometry", saveGeometry().toBase64());
         d->windowStateConfig.writeEntry("State", saveState().toBase64());
 
-        if (!d->dockerStateBeforeHiding.isEmpty()) {
+        // if the dockers are hidden at this time, save their state.
+        if (!d->toggleDockers->isChecked()) {
             restoreState(d->dockerStateBeforeHiding);
         }
 
@@ -2837,7 +2871,6 @@ void KisMainWindow::createActions()
     d->themeManager->setThemeMenuAction(new KActionMenu(i18nc("@action:inmenu", "&Themes"), this));
     d->themeManager->registerThemeActions(actionCollection());
     connect(d->themeManager, SIGNAL(signalThemeChanged()), this, SLOT(slotThemeChanged()), Qt::QueuedConnection);
-    connect(d->themeManager, SIGNAL(signalThemeChanged()), d->welcomePage, SLOT(slotUpdateThemeColors()), Qt::UniqueConnection);
     d->toggleDockers = actionManager->createAction("view_toggledockers");
 
 
