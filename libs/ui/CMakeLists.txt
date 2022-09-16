@@ -437,6 +437,8 @@ set(kritaui_LIB_SRCS
     KisRssReader.cpp
     KisMultiFeedRSSModel.cpp
     KisRemoteFileFetcher.cpp
+    KisAbstractSyndicationModel.cpp
+    KisAtomFeedReader.cpp
 
     KisSaveGroupVisitor.cpp
     KisWindowLayoutResource.cpp

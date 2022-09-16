@@ -30,6 +30,7 @@
 #include <QStringList>
 #include <QDateTime>
 
+#include <KisAbstractSyndicationModel.h>
 #include <KisRssReader.h>
 
 #include <kritaui_export.h>
@@ -38,49 +39,34 @@
 class QNetworkReply;
 class KisNetworkAccessManager;
 
-class KRITAUI_EXPORT MultiFeedRssModel : public QAbstractListModel
+class KRITAUI_EXPORT MultiFeedRssModel : public KisAbstractSyndicationModel
 {
     Q_OBJECT
-    Q_PROPERTY(int articleCount READ articleCount WRITE setArticleCount NOTIFY articleCountChanged)
 public:
     explicit MultiFeedRssModel(QObject *parent = 0);
     explicit MultiFeedRssModel(KisNetworkAccessManager* nam, QObject *parent = 0);
     ~MultiFeedRssModel() override;
 
-    QHash<int, QByteArray> roleNames() const override;
-    virtual void addFeed(const QString& feed);
-    void removeFeed(const QString& feed);
+    RssItemList parse(QNetworkReply *reply) override;
 
-    int rowCount(const QModelIndex &parent = QModelIndex()) const override;
-    QVariant data(const QModelIndex &index, int role = Qt::DisplayRole) const override;
-
-    int articleCount() const {
-        return m_articleCount;
-    }
-
-public Q_SLOTS:
-    void setArticleCount(int arg) {
-        if (m_articleCount != arg) {
-            m_articleCount = arg;
-            emit articleCountChanged(arg);
-        }
-    }
-
-Q_SIGNALS:
-    void articleCountChanged(int arg);
-    void feedDataChanged();
-
-private Q_SLOTS:
-    void appendFeedData(QNetworkReply *reply);
 
 private:
-    QStringList m_sites;
-    RssItemList m_aggregatedFeed;
-    KisNetworkAccessManager *m_networkAccessManager;
-    int m_articleCount;
 
-    void sortAggregatedFeed();
-    void initialize();
+    friend class MockMultiFeedRssModel;
+};
+
+
+class KRITAUI_EXPORT KisAtomFeedModel : public KisAbstractSyndicationModel
+{
+    Q_OBJECT
+public:
+    explicit KisAtomFeedModel(QObject *parent = 0);
+    explicit KisAtomFeedModel(KisNetworkAccessManager* nam, QObject *parent = 0);
+    ~KisAtomFeedModel() override;
+
+    RssItemList parse(QNetworkReply *reply) override;
+
+private:
 
     friend class MockMultiFeedRssModel;
 };
