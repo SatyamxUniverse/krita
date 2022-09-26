@@ -11,6 +11,7 @@ kis_add_tests(
     KoAnchorSelectionWidgetTest.cpp
     TestKoZoomAction.cpp
     TestKisTagSelectionWidget.cpp
+    TestKisPaletteModel.cpp
     NAME_PREFIX "libs-widgets-"
     LINK_LIBRARIES kritawidgets Qt5::Test
     TARGET_NAMES_VAR OK_TESTS
