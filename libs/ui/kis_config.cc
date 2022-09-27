@@ -1913,6 +1913,16 @@ void KisConfig::setLineSmoothingStabilizeSensors(bool value)
     m_cfg.writeEntry("LineSmoothingStabilizeSensors", value);
 }
 
+bool KisConfig::lineSmoothingStabilizeEraser(bool defaultValue) const
+{
+    return (defaultValue ? true : m_cfg.readEntry("LineSmoothingStabilizeEraser", true));
+}
+
+void KisConfig::setLineSmoothingStabilizeEraser(bool value)
+{
+    m_cfg.writeEntry("LineSmoothingStabilizeEraser", value);
+}
+
 int KisConfig::tabletEventsDelay(bool defaultValue) const
 {
     return (defaultValue ? 10 : m_cfg.readEntry("tabletEventsDelay", 10));

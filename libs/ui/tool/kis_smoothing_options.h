@@ -30,6 +30,7 @@ public:
     ~KisSmoothingOptions() override;
 
     SmoothingType smoothingType() const;
+    SmoothingType effectiveSmoothingType() const;
     void setSmoothingType(SmoothingType value);
 
     qreal smoothnessDistance() const;
@@ -55,6 +56,11 @@ public:
 
     void setStabilizeSensors(bool value);
     bool stabilizeSensors() const;
+
+    void setStabilizeEraser(bool value);
+    bool stabilizeEraser() const;
+
+    void notifyEraserToggled(bool value);
 
 Q_SIGNALS:
     void sigSmoothingTypeChanged();

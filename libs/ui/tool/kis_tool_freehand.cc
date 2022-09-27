@@ -71,6 +71,7 @@ KisToolFreehand::KisToolFreehand(KoCanvasBase * canvas, const QCursor & cursor, 
 
     connect(provider, SIGNAL(sigEraserModeToggled(bool)), SLOT(explicitUpdateOutline()));
     connect(provider, SIGNAL(sigEraserModeToggled(bool)), SLOT(resetCursorStyle()));
+    connect(provider, SIGNAL(sigEraserModeToggled(bool)), SLOT(updateEraserSmoothing()));
     connect(provider, SIGNAL(sigPaintOpPresetChanged(KisPaintOpPresetSP)), SLOT(explicitUpdateOutline()));
     connect(provider, SIGNAL(sigPaintOpPresetChanged(KisPaintOpPresetSP)), SLOT(resetCursorStyle()));
 }
@@ -464,6 +465,10 @@ qreal KisToolFreehand::calculatePerspective(const QPointF &documentPoint)
 void KisToolFreehand::explicitUpdateOutline()
 {
     requestUpdateOutline(m_outlineDocPoint, 0);
+}
+void KisToolFreehand::updateEraserSmoothing()
+{
+    smoothingOptions()->notifyEraserToggled(canvas()->resourceManager()->resource(KoCanvasResource::EraserMode).value<bool>());
 }
 
 QPainterPath KisToolFreehand::getOutlinePath(const QPointF &documentPos,

@@ -22,6 +22,8 @@ struct KisSmoothingOptions::Private {
         useDelayDistance = cfg.lineSmoothingUseDelayDistance(!useSavedSmoothing);
         finishStabilizedCurve = cfg.lineSmoothingFinishStabilizedCurve(!useSavedSmoothing);
         stabilizeSensors = cfg.lineSmoothingStabilizeSensors(!useSavedSmoothing);
+        stabilizeEraser = cfg.lineSmoothingStabilizeEraser(!useSavedSmoothing);
+        eraserStabilizationOverride = false;
     }
 
     KisSignalCompressor writeCompressor;
@@ -35,6 +37,8 @@ struct KisSmoothingOptions::Private {
     bool useDelayDistance;
     bool finishStabilizedCurve;
     bool stabilizeSensors;
+    bool stabilizeEraser;
+    bool eraserStabilizationOverride { false };
 };
 
 KisSmoothingOptions::KisSmoothingOptions(bool useSavedSmoothing)
@@ -52,7 +56,10 @@ KisSmoothingOptions::SmoothingType KisSmoothingOptions::smoothingType() const
 {
     return m_d->smoothingType;
 }
-
+KisSmoothingOptions::SmoothingType KisSmoothingOptions::effectiveSmoothingType() const
+{
+    return m_d->eraserStabilizationOverride ? SmoothingType::NO_SMOOTHING : m_d->smoothingType;
+}
 void KisSmoothingOptions::setSmoothingType(KisSmoothingOptions::SmoothingType value)
 {
     m_d->smoothingType = value;
@@ -152,6 +159,26 @@ bool KisSmoothingOptions::stabilizeSensors() const
     return m_d->stabilizeSensors;
 }
 
+void KisSmoothingOptions::setStabilizeEraser(bool value)
+{
+    m_d->stabilizeEraser = value;
+    m_d->writeCompressor.start();
+}
+
+bool KisSmoothingOptions::stabilizeEraser() const
+{
+    return m_d->stabilizeEraser;
+}
+
+void KisSmoothingOptions::notifyEraserToggled(bool value)
+{
+    if(stabilizeEraser()) {
+        m_d->eraserStabilizationOverride = false;
+    } else {
+        m_d->eraserStabilizationOverride = value;
+    }
+}
+
 void KisSmoothingOptions::slotWriteConfig()
 {
     KisConfig cfg(false);
@@ -164,4 +191,5 @@ void KisSmoothingOptions::slotWriteConfig()
     cfg.setLineSmoothingUseDelayDistance(m_d->useDelayDistance);
     cfg.setLineSmoothingFinishStabilizedCurve(m_d->finishStabilizedCurve);
     cfg.setLineSmoothingStabilizeSensors(m_d->stabilizeSensors);
+    cfg.setLineSmoothingStabilizeEraser(m_d->stabilizeEraser);
 }

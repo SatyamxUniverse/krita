@@ -78,6 +78,7 @@ protected Q_SLOTS:
     void setOnlyOneAssistantSnap(bool assistant);
     void setSnapEraser(bool assistant);
     void slotDoResizeBrush(qreal newSize);
+    void updateEraserSmoothing();
 
 private:
     friend class KisToolFreehandPaintingInformationBuilder;

@@ -45,7 +45,7 @@ class KisToolBrush : public KisToolFreehand
 
     Q_PROPERTY(bool finishStabilizedCurve READ finishStabilizedCurve WRITE setFinishStabilizedCurve NOTIFY finishStabilizedCurveChanged)
     Q_PROPERTY(bool stabilizeSensors READ stabilizeSensors WRITE setStabilizeSensors NOTIFY stabilizeSensorsChanged)
-
+    Q_PROPERTY(bool stabilizeEraser READ stabilizeEraser WRITE slotSetStabilizeEraser NOTIFY stabilizeEraserChanged)
 
 public:
     KisToolBrush(KoCanvasBase * canvas);
@@ -65,6 +65,8 @@ public:
     bool finishStabilizedCurve() const;
     bool stabilizeSensors() const;
 
+    bool stabilizeEraser() const;
+
 protected:
     KConfigGroup m_configGroup; // only used in the multihand tool for now
 
@@ -80,6 +82,7 @@ public Q_SLOTS:
     void slotSetTailAgressiveness(qreal argh_rhhrr);
     void setSmoothPressure(bool value);
     void setUseScalableDistance(bool value);
+    void slotSetStabilizeEraser(bool value);
 
     void setUseDelayDistance(bool value);
     void setDelayDistance(qreal value);
@@ -101,10 +104,14 @@ Q_SIGNALS:
     void delayDistanceChanged();
     void finishStabilizedCurveChanged();
     void stabilizeSensorsChanged();
+    void stabilizeEraserChanged();
 
 private:
     void addSmoothingAction(int enumId, const QString &id);
     void updateSmoothnessDistanceLabel();
+
+    void updateEraserSmoothing();
+
 private:
     QComboBox *m_cmbSmoothingType {0};
 
@@ -117,6 +124,7 @@ private:
     KisDoubleSliderSpinBox *m_sliderTailAggressiveness {0};
     QCheckBox *m_chkSmoothPressure {0};
     QCheckBox *m_chkUseScalableDistance {0};
+    QCheckBox *m_chkStabilizeEraser {0};
 
     QCheckBox *m_chkStabilizeSensors {0};
     QCheckBox *m_chkDelayDistance {0};

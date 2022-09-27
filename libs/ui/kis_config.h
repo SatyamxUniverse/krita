@@ -510,6 +510,9 @@ public:
     bool lineSmoothingStabilizeSensors(bool defaultValue = false) const;
     void setLineSmoothingStabilizeSensors(bool value);
 
+    bool lineSmoothingStabilizeEraser(bool defaultValue = false) const;
+    void setLineSmoothingStabilizeEraser(bool value);
+
     int tabletEventsDelay(bool defaultValue = false) const;
     void setTabletEventsDelay(int value);
 

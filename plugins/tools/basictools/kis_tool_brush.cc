@@ -304,6 +304,16 @@ bool KisToolBrush::stabilizeSensors() const
 {
     return smoothingOptions()->stabilizeSensors();
 }
+void KisToolBrush::slotSetStabilizeEraser(bool value)
+{
+    smoothingOptions()->setStabilizeEraser(value);
+    smoothingOptions()->notifyEraserToggled(canvas()->resourceManager()->resource(KoCanvasResource::EraserMode).value<bool>());
+    emit stabilizeEraserChanged();
+}
+bool KisToolBrush::stabilizeEraser() const
+{
+    return smoothingOptions()->stabilizeEraser();
+}
 
 void KisToolBrush::updateSettingsViews()
 {
@@ -317,6 +327,7 @@ void KisToolBrush::updateSettingsViews()
     m_chkUseScalableDistance->setChecked(smoothingOptions()->useScalableDistance());
     m_cmbSmoothingType->setCurrentIndex((int)smoothingOptions()->smoothingType());
     m_chkStabilizeSensors->setChecked(smoothingOptions()->stabilizeSensors());
+    m_chkStabilizeEraser->setChecked(smoothingOptions()->stabilizeEraser());
 
     emit smoothnessQualityChanged();
     emit smoothnessFactorChanged();
@@ -327,6 +338,7 @@ void KisToolBrush::updateSettingsViews()
     emit delayDistanceChanged();
     emit finishStabilizedCurveChanged();
     emit stabilizeSensorsChanged();
+    emit stabilizeEraserChanged();
 
     KisTool::updateSettingsViews();
 }
@@ -434,6 +446,11 @@ QWidget * KisToolBrush::createOptionWidget()
                                                "level is chosen"));
     connect(m_chkUseScalableDistance, SIGNAL(toggled(bool)), this, SLOT(setUseScalableDistance(bool)));
     addOptionWidgetOption(m_chkUseScalableDistance, new QLabel(QString("%1:").arg(i18n("Scalable Distance"))));
+
+    m_chkStabilizeEraser = new QCheckBox(optionsWidget);
+    m_chkStabilizeEraser->setChecked(smoothingOptions()->stabilizeEraser());
+    connect(m_chkStabilizeEraser, SIGNAL(toggled(bool)), this, SLOT(slotSetStabilizeEraser(bool)));
+    addOptionWidgetOption(m_chkStabilizeEraser, new QLabel(QString("%1:").arg(i18n("Stabilize Eraser"))));
 
 
     // add a line spacer so we know that the next set of options are for different settings

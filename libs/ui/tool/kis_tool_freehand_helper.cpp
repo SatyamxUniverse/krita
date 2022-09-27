@@ -211,7 +211,7 @@ QPainterPath KisToolFreehandHelper::paintOpOutline(const QPointF &savedCursorPos
     QPainterPath outline = settings->brushOutline(info, mode, currentPhysicalZoom());
 
     if (m_d->resources &&
-        m_d->smoothingOptions->smoothingType() == KisSmoothingOptions::STABILIZER &&
+        m_d->smoothingOptions->effectiveSmoothingType() == KisSmoothingOptions::STABILIZER &&
         m_d->smoothingOptions->useDelayDistance()) {
 
         const qreal R = m_d->smoothingOptions->delayDistance() /
@@ -314,7 +314,7 @@ void KisToolFreehandHelper::initPaintImpl(qreal startAngle,
         m_d->asyncUpdateHelper.startUpdateStream(m_d->strokesFacade, m_d->strokeId);
     }
 
-    if (m_d->smoothingOptions->smoothingType() == KisSmoothingOptions::STABILIZER) {
+    if (m_d->smoothingOptions->effectiveSmoothingType() == KisSmoothingOptions::STABILIZER) {
         stabilizerStart(m_d->previousPaintInformation);
     }
 
@@ -428,7 +428,7 @@ qreal KisToolFreehandHelper::Private::effectiveSmoothnessDistance() const
     /// stabilizer has inverted meaning of the "scalable distance", because
     /// it measures "samples", but not "distance"
 
-    if ((smoothingOptions->smoothingType() == KisSmoothingOptions::STABILIZER) ^
+    if ((smoothingOptions->effectiveSmoothingType() == KisSmoothingOptions::STABILIZER) ^
          smoothingOptions->useScalableDistance()) {
 
         zoomingCoeff = 1.0 / resources->effectiveZoom();
@@ -468,7 +468,7 @@ void KisToolFreehandHelper::paint(KisPaintInformation &info)
      * 4) The formila is a little bit different: 'Distance' parameter
      *    stands for $3 \Sigma$
      */
-    if (m_d->smoothingOptions->smoothingType() == KisSmoothingOptions::WEIGHTED_SMOOTHING
+    if (m_d->smoothingOptions->effectiveSmoothingType() == KisSmoothingOptions::WEIGHTED_SMOOTHING
         && m_d->smoothingOptions->smoothnessDistance() > 0.0) {
 
         { // initialize current distance
@@ -560,8 +560,8 @@ void KisToolFreehandHelper::paint(KisPaintInformation &info)
         }
     }
 
-    if (m_d->smoothingOptions->smoothingType() == KisSmoothingOptions::SIMPLE_SMOOTHING
-        || m_d->smoothingOptions->smoothingType() == KisSmoothingOptions::WEIGHTED_SMOOTHING)
+    if (m_d->smoothingOptions->effectiveSmoothingType() == KisSmoothingOptions::SIMPLE_SMOOTHING
+        || m_d->smoothingOptions->effectiveSmoothingType() == KisSmoothingOptions::WEIGHTED_SMOOTHING)
     {
         // Now paint between the coordinates, using the bezier curve interpolation
         if (!m_d->haveTangent) {
@@ -590,11 +590,11 @@ void KisToolFreehandHelper::paint(KisPaintInformation &info)
             m_d->strokeTimeoutTimer.start(100);
         }
     }
-    else if (m_d->smoothingOptions->smoothingType() == KisSmoothingOptions::NO_SMOOTHING){
+    else if (m_d->smoothingOptions->effectiveSmoothingType() == KisSmoothingOptions::NO_SMOOTHING){
         paintLine(m_d->previousPaintInformation, info);
     }
 
-    if (m_d->smoothingOptions->smoothingType() == KisSmoothingOptions::STABILIZER) {
+    if (m_d->smoothingOptions->effectiveSmoothingType() == KisSmoothingOptions::STABILIZER) {
         m_d->stabilizedSampler.addEvent(info);
         if (m_d->stabilizerDelayedPaintHelper.running()) {
             // Paint here so we don't have to rely on the timer
@@ -614,7 +614,7 @@ void KisToolFreehandHelper::endPaint()
 {
     if (!m_d->hasPaintAtLeastOnce) {
         paintAt(m_d->previousPaintInformation);
-    } else if (m_d->smoothingOptions->smoothingType() != KisSmoothingOptions::NO_SMOOTHING) {
+    } else if (m_d->smoothingOptions->effectiveSmoothingType() != KisSmoothingOptions::NO_SMOOTHING) {
         finishStroke();
     }
     m_d->strokeTimeoutTimer.stop();
@@ -623,7 +623,7 @@ void KisToolFreehandHelper::endPaint()
         m_d->airbrushingTimer.stop();
     }
 
-    if (m_d->smoothingOptions->smoothingType() == KisSmoothingOptions::STABILIZER) {
+    if (m_d->smoothingOptions->effectiveSmoothingType() == KisSmoothingOptions::STABILIZER) {
         stabilizerEnd();
     }
 
@@ -845,7 +845,7 @@ void KisToolFreehandHelper::slotSmoothingTypeChanged()
         return;
     }
     KisSmoothingOptions::SmoothingType currentSmoothingType =
-            m_d->smoothingOptions->smoothingType();
+            m_d->smoothingOptions->effectiveSmoothingType();
     if (m_d->usingStabilizer
             && (currentSmoothingType != KisSmoothingOptions::STABILIZER)) {
         stabilizerEnd();
