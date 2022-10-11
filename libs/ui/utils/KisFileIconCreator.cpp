@@ -73,7 +73,17 @@ QIcon createIcon(const QImage &source, const QSize &iconSize)
 }
 
 
-bool KisFileIconCreator::createFileIcon(QString path, QIcon &icon, qreal devicePixelRatioF, QSize iconSize)
+bool KisFileIconCreator::createFileIcon(QString path, QIcon &icon, qreal devicePixelRatioF, QSize size)
+{
+    QImage preview = createFilePreview(path, devicePixelRatioF, size);
+    if (preview.isNull()) {
+        return false;
+    }
+    icon = createIcon(preview, size);
+    return true;
+}
+
+QImage KisFileIconCreator::createFilePreview(QString path, qreal devicePixelRatioF, QSize iconSize)
 {
     iconSize *= devicePixelRatioF;
     QFileInfo fi(path);
@@ -101,16 +111,12 @@ bool KisFileIconCreator::createFileIcon(QString path, QIcon &icon, qreal deviceP
                     QImage img;
                     img.loadFromData(bytes);
 
-                    icon = createIcon(img, iconSize);
-                    return true;
-
-                } else {
-                    return false;
+                    return img;
                 }
-            } else {
-                return false;
             }
+            return QImage();
         } else if (mimeType == "image/tiff" || mimeType == "image/x-tiff") {
+
             // Workaround for a bug in Qt tiff QImageIO plugin
             QScopedPointer<KisDocument> doc(KisPart::instance()->createTemporaryDocument());
             doc->setFileBatchMode(true);
@@ -122,23 +128,21 @@ bool KisFileIconCreator::createFileIcon(QString path, QIcon &icon, qreal deviceP
                 if (imageSize.width() > iconSize.width() || imageSize.height() > iconSize.height()) {
                     imageSize.scale(iconSize, Qt::KeepAspectRatio);
                 }
-                const QImage &thumbnail = projection->createThumbnail(imageSize.width(), imageSize.height(), bounds);
-                icon = createIcon(thumbnail, iconSize);
-                return true;
-            } else {
-                return false;
+                const QImage &thumbnail =
+                    projection->createThumbnail(imageSize.width(), imageSize.height(), bounds);
+                return thumbnail;
             }
+            return QImage();
         } else {
             QImage img;
             img.load(path);
             if (!img.isNull()) {
-                icon = createIcon(img, iconSize);
-                return true;
+                return img;
             } else {
-                return false;
+                return QImage();
             }
         }
     } else {
-        return false;
+        return QImage();
     }
 }
