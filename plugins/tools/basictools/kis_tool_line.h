@@ -23,6 +23,7 @@
 #include <kis_signal_compressor.h>
 #include <kis_icon.h>
 #include <KoIcon.h>
+#include <KisPanActionWatcher.h>
 
 class QPoint;
 class KoCanvasBase;
@@ -87,6 +88,7 @@ private:
 
     bool m_strokeIsRunning {false};
 
+    KisPanActionWatcher m_panActionWatcher;
 
     QCheckBox *m_chkUseSensors {nullptr};
     QCheckBox *m_chkShowPreview {nullptr};

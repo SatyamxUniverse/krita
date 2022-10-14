@@ -85,6 +85,20 @@ public:
     void detachPriorityEventFilter(QObject *filter);
 
     /**
+     * @brief attach an event filter that is called even if a shortcut is running
+     * @param filter the object which will act as event filter
+     * @param priority number representing an ordering in which this filter will
+     *                 be called
+     */
+    void attachLowLevelPriorityEventFilter(QObject *filter, int priority = 0);
+
+    /**
+     * @brief detach a low level event filter
+     * @param filter the object which will act as event filter
+     */
+    void detachLowLevelPriorityEventFilter(QObject *filter);
+
+    /**
      * Return the canvas this input manager is associated with.
      */
     KisCanvas2 *canvas() const;

@@ -65,7 +65,9 @@ public:
     typedef QPair<int, QPointer<QObject> > PriorityPair;
     typedef QList<PriorityPair> PriorityList;
     PriorityList priorityEventFilter;
+    PriorityList lowLevelPriorityEventFilter;
     int priorityEventFilterSeqNo;
+    int lowLevelPriorityEventFilterSeqNo;
 
     bool touchStrokeStarted = false;
     bool popupWasActive = false;

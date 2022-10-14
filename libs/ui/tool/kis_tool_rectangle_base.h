@@ -9,6 +9,7 @@
 
 #include <kis_tool_shape.h>
 #include <kis_cursor.h>
+#include <KisPanActionWatcher.h>
 
 class KRITAUI_EXPORT KisToolRectangleBase : public KisToolShape
 {
@@ -63,6 +64,7 @@ protected:
     qreal m_angle;
     qreal m_angleBuffer;
     Qt::KeyboardModifiers m_currentModifiers;
+    KisPanActionWatcher m_panActionWatcher;
 
     bool isFixedSize();
     qreal getRotationAngle();

@@ -63,6 +63,22 @@ QList< KisShortcutConfiguration * > KisInputProfile::shortcutsForAction(KisAbstr
     return QList<KisShortcutConfiguration *>();
 }
 
+QList< KisShortcutConfiguration * > KisInputProfile::shortcutsForAction(const QString &actionId) const
+{
+    QList<KisShortcutConfiguration*> shortcutList;
+
+    QMultiHash<KisAbstractInputAction*, KisShortcutConfiguration*>
+        ::const_iterator i = d->shortcuts.constBegin();
+    while (i != d->shortcuts.constEnd()) {
+        if (i.key() && i.key()->id() == actionId) {
+            shortcutList << i.value();
+        }
+        ++i;
+    }
+
+    return shortcutList;
+}
+
 void KisInputProfile::addShortcut(KisShortcutConfiguration *shortcut)
 {
     Q_ASSERT(shortcut);

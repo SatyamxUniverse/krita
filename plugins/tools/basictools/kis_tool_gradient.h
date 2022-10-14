@@ -25,6 +25,7 @@
 #include <kis_icon.h>
 #include <kconfig.h>
 #include <kconfiggroup.h>
+#include <KisPanActionWatcher.h>
 
 
 class QLabel;
@@ -53,6 +54,8 @@ public:
 
 public Q_SLOTS:
     void activate(const QSet<KoShape*> &shapes) override;
+    void deactivate() override;
+
 private Q_SLOTS:
     void slotSetShape(int);
     void slotSetRepeat(int);
@@ -95,6 +98,8 @@ private:
     QLabel *m_lbAntiAliasThreshold {nullptr};
     KisDoubleSliderSpinBox *m_slAntiAliasThreshold {nullptr};
     KConfigGroup m_configGroup;
+
+    KisPanActionWatcher m_panActionWatcher;
 };
 
 class KisToolGradientFactory : public KisToolPaintFactoryBase

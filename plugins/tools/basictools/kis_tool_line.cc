@@ -74,12 +74,14 @@ void KisToolLine::resetCursorStyle()
 
 void KisToolLine::activate(const QSet<KoShape*> &shapes)
 {
-   KisToolPaint::activate(shapes);
-   configGroup =  KSharedConfig::openConfig()->group(toolId());
+    KisToolPaint::activate(shapes);
+    configGroup =  KSharedConfig::openConfig()->group(toolId());
+    m_panActionWatcher.activate(dynamic_cast<KisCanvas2*>(canvas()));
 }
 
 void KisToolLine::deactivate()
 {
+    m_panActionWatcher.deactivate();
     KisToolPaint::deactivate();
     cancelStroke();
 }
@@ -224,6 +226,8 @@ void KisToolLine::beginPrimaryAction(KoPointerEvent *event)
     m_strokeIsRunning = true;
 
     showSize();
+
+    m_panActionWatcher.setPanActionEnabled(true);
 }
 
 void KisToolLine::updateStroke()
@@ -237,6 +241,10 @@ void KisToolLine::updateStroke()
 
 void KisToolLine::continuePrimaryAction(KoPointerEvent *event)
 {
+    if (m_panActionWatcher.isPanning()) {
+        return;
+    }
+
     CHECK_MODE_SANITY_OR_RETURN(KisTool::PAINT_MODE);
     if (!m_strokeIsRunning) return;
 
@@ -296,6 +304,8 @@ void KisToolLine::endPrimaryAction(KoPointerEvent *event)
     Q_UNUSED(event);
     CHECK_MODE_SANITY_OR_RETURN(KisTool::PAINT_MODE);
     setMode(KisTool::HOVER_MODE);
+
+    m_panActionWatcher.setPanActionEnabled(false);
 
     updateGuideline();
     endStroke();

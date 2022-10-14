@@ -198,6 +198,7 @@ KisInputManager::Private::Private(KisInputManager *qq)
                           KisSignalCompressor::FIRST_ACTIVE,
                           KisSignalCompressor::ADDITIVE_INTERVAL)
     , priorityEventFilterSeqNo(0)
+    , lowLevelPriorityEventFilterSeqNo(0)
     , popupWidget(nullptr)
     , canvasSwitcher(this, qq)
 {

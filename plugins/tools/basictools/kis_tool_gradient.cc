@@ -81,16 +81,21 @@ void KisToolGradient::activate(const QSet<KoShape*> &shapes)
 {
     KisToolPaint::activate(shapes);
     m_configGroup =  KSharedConfig::openConfig()->group(toolId());
+    m_panActionWatcher.activate(dynamic_cast<KisCanvas2*>(canvas()));
+}
+
+void KisToolGradient::deactivate()
+{
+    m_panActionWatcher.deactivate();
+    KisToolPaint::deactivate();
 }
 
 void KisToolGradient::paint(QPainter &painter, const KoViewConverter &converter)
 {
     if (mode() == KisTool::PAINT_MODE && m_startPos != m_endPos) {
-            qreal sx, sy;
-            converter.zoom(&sx, &sy);
-            painter.scale(sx / currentImage()->xRes(), sy / currentImage()->yRes());
-            paintLine(painter);
+        paintLine(painter);
     }
+    KisToolPaint::paint(painter, converter);
 }
 
 void KisToolGradient::beginPrimaryAction(KoPointerEvent *event)
@@ -104,10 +109,16 @@ void KisToolGradient::beginPrimaryAction(KoPointerEvent *event)
 
     m_startPos = convertToPixelCoordAndSnap(event, QPointF(), false);
     m_endPos = m_startPos;
+
+    m_panActionWatcher.setPanActionEnabled(true);
 }
 
 void KisToolGradient::continuePrimaryAction(KoPointerEvent *event)
 {
+    if (m_panActionWatcher.isPanning()) {
+        return;
+    }
+
     /**
      * TODO: The gradient tool is still not in strokes, so the end of
      *       its action can call processEvent(), which would result in
@@ -137,6 +148,8 @@ void KisToolGradient::endPrimaryAction(KoPointerEvent *event)
     Q_UNUSED(event);
     CHECK_MODE_SANITY_OR_RETURN(KisTool::PAINT_MODE);
     setMode(KisTool::HOVER_MODE);
+
+    m_panActionWatcher.setPanActionEnabled(false);
 
     if (!currentNode())
         return;
@@ -214,14 +227,9 @@ QPointF KisToolGradient::straightLine(QPointF point)
 
 void KisToolGradient::paintLine(QPainter& gc)
 {
-    if (canvas()) {
-        QPen old = gc.pen();
-        QPen pen(Qt::SolidLine);
-
-        gc.setPen(pen);
-        gc.drawLine(m_startPos, m_endPos);
-        gc.setPen(old);
-    }
+    QPainterPath outline(pixelToView(m_startPos));
+    outline.lineTo(pixelToView(m_endPos));
+    paintToolOutline(&gc, outline);
 }
 
 QWidget* KisToolGradient::createOptionWidget()

@@ -12,6 +12,7 @@
 
 #include <kis_tool_shape.h>
 #include <kis_cursor.h>
+#include <KisPanActionWatcher.h>
 
 class KRITAUI_EXPORT KisToolOutlineBase : public KisToolShape
 {
@@ -59,6 +60,7 @@ private:
     QPointF m_lastCursorPos;
     ToolType m_type;
     int m_numberOfContinuedModePoints;
+    KisPanActionWatcher m_panActionWatcher;
 
     void finishOutlineAction();
     void updateFeedback();

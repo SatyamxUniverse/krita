@@ -110,11 +110,14 @@ void KisToolRectangleBase::activate(const QSet<KoShape *> &shapes)
 {
     KisToolShape::activate(shapes);
 
+    m_panActionWatcher.activate(dynamic_cast<KisCanvas2*>(canvas()));
+
     emit sigRequestReloadConfig();
 }
 
 void KisToolRectangleBase::deactivate()
 {
+    m_panActionWatcher.deactivate();
     updateArea();
     KisToolShape::deactivate();
     endShape();
@@ -188,6 +191,9 @@ void KisToolRectangleBase::beginPrimaryAction(KoPointerEvent *event)
     m_dragCenter = QPointF((m_dragStart.x() + m_dragEnd.x()) / 2,
                            (m_dragStart.y() + m_dragEnd.y()) / 2);
     showSize();
+
+    m_panActionWatcher.setPanActionEnabled(true);
+
     event->accept();
 }
 
@@ -306,6 +312,8 @@ void KisToolRectangleBase::endPrimaryAction(KoPointerEvent *event)
 {
     CHECK_MODE_SANITY_OR_RETURN(KisTool::PAINT_MODE);
     setMode(KisTool::HOVER_MODE);
+    
+    m_panActionWatcher.setPanActionEnabled(false);
 
     updateArea();
 
