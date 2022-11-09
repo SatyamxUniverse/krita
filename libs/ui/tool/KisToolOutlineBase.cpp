@@ -54,6 +54,10 @@ void KisToolOutlineBase::keyReleaseEvent(QKeyEvent *event)
 
 void KisToolOutlineBase::mouseMoveEvent(KoPointerEvent *event)
 {
+    if (m_panActionWatcher.isPanning()) {
+        return;
+    }
+
     if (m_continuedMode && mode() != PAINT_MODE) {
         updateContinuedMode();
         m_lastCursorPos = convertToPixelCoordAndSnap(event);
@@ -70,12 +74,15 @@ void KisToolOutlineBase::mouseMoveEvent(KoPointerEvent *event)
 void KisToolOutlineBase::activate(const QSet<KoShape *> &shapes)
 {
     KisToolShape::activate(shapes);
+    
     connect(action("undo_polygon_selection"), SIGNAL(triggered()), SLOT(undoLastPoint()), Qt::UniqueConnection);
 
     KisInputManager *inputManager = (static_cast<KisCanvas2*>(canvas()))->globalInputManager();
     if (inputManager) {
         inputManager->attachPriorityEventFilter(this);
     }
+
+    m_panActionWatcher.activate(dynamic_cast<KisCanvas2*>(canvas()));
 }
 
 void KisToolOutlineBase::deactivate()
@@ -93,6 +100,8 @@ void KisToolOutlineBase::deactivate()
         inputManager->detachPriorityEventFilter(this);
     }
 
+    m_panActionWatcher.deactivate();
+    
     KisToolShape::deactivate();
 }
 
@@ -179,10 +188,16 @@ void KisToolOutlineBase::beginPrimaryAction(KoPointerEvent *event)
         m_numberOfContinuedModePoints = 0;
         m_points.append(convertToPixelCoord(event));
     }
+    
+    m_panActionWatcher.setPanActionEnabled(true);
 }
 
 void KisToolOutlineBase::continuePrimaryAction(KoPointerEvent *event)
 {
+    if (m_panActionWatcher.isPanning()) {
+        return;
+    }
+
     CHECK_MODE_SANITY_OR_RETURN(KisTool::PAINT_MODE);
 
     QPointF point = convertToPixelCoord(event);
@@ -191,12 +206,13 @@ void KisToolOutlineBase::continuePrimaryAction(KoPointerEvent *event)
 }
 
 void KisToolOutlineBase::endPrimaryAction(KoPointerEvent *event)
-{
+{    
     Q_UNUSED(event);
 
     CHECK_MODE_SANITY_OR_RETURN(KisTool::PAINT_MODE);
     setMode(KisTool::HOVER_MODE);
 
+    m_panActionWatcher.setPanActionEnabled(false);
     if (!m_continuedMode) {
         finishOutlineAction();
     }

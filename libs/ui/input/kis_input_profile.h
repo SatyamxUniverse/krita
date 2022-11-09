@@ -47,6 +47,12 @@ public:
      * \param action The action for which to list the shortcuts.
      */
     QList<KisShortcutConfiguration *> shortcutsForAction(KisAbstractInputAction *action) const;
+    /**
+     * \return A list of shortcuts associated with the given action.
+     *
+     * \param actionId The action id for which to list the shortcuts.
+     */
+    QList<KisShortcutConfiguration *> shortcutsForAction(const QString &actionId) const;
 
     /**
      * Add a shortcut to this profile.

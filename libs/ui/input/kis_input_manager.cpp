@@ -156,6 +156,41 @@ void KisInputManager::detachPriorityEventFilter(QObject *filter)
     }
 }
 
+void KisInputManager::attachLowLevelPriorityEventFilter(QObject *filter, int priority)
+{
+    if (!filter) {
+        return;
+    }
+
+    Private::PriorityList::iterator begin = d->lowLevelPriorityEventFilter.begin();
+    Private::PriorityList::iterator it = begin;
+    Private::PriorityList::iterator end = d->lowLevelPriorityEventFilter.end();
+
+    it = std::find_if(begin, end,
+                      [filter] (const Private::PriorityPair &a) { return a.second == filter; });
+
+    if (it != end) return;
+
+    it = std::find_if(begin, end,
+                      [priority] (const Private::PriorityPair &a) { return a.first > priority; });
+
+    d->lowLevelPriorityEventFilter.insert(it, qMakePair(priority, filter));
+    d->lowLevelPriorityEventFilterSeqNo++;
+}
+
+void KisInputManager::detachLowLevelPriorityEventFilter(QObject *filter)
+{
+    Private::PriorityList::iterator it = d->lowLevelPriorityEventFilter.begin();
+    Private::PriorityList::iterator end = d->lowLevelPriorityEventFilter.end();
+
+    it = std::find_if(it, end,
+                      [filter] (const Private::PriorityPair &a) { return a.second == filter; });
+
+    if (it != end) {
+        d->lowLevelPriorityEventFilter.erase(it);
+    }
+}
+
 void KisInputManager::setupAsEventFilter(QObject *receiver)
 {
     if (d->eventsReceiver) {
@@ -178,6 +213,27 @@ bool KisInputManager::eventFilter(QObject* object, QEvent* event)
     if (object != d->eventsReceiver) return false;
 
     if (d->eventEater.eventFilter(object, event)) return false;
+
+    // Low level filtering
+    {
+        int savedLowLevelPriorityEventFilterSeqNo = d->lowLevelPriorityEventFilterSeqNo;
+
+        for (auto it = d->lowLevelPriorityEventFilter.begin(); it != d->lowLevelPriorityEventFilter.end(); /*noop*/) {
+            const QPointer<QObject> &filter = it->second;
+
+            if (filter->eventFilter(object, event)) return true;
+
+            /**
+             * If the filter removed itself from the filters list or
+             * added something there, just exit the loop
+             */
+            if (d->lowLevelPriorityEventFilterSeqNo != savedLowLevelPriorityEventFilterSeqNo) {
+                return true;
+            }
+
+            ++it;
+        }
+    }
 
     if (!d->matcher.hasRunningShortcut()) {
 
