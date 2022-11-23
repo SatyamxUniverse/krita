@@ -90,12 +90,13 @@ export QMAKE_MACOSX_DEPLOYMENT_TARGET=10.13
 export PATH=${KIS_INSTALL_DIR}/bin:$PATH
 export PKG_CONFIG_PATH=${KIS_INSTALL_DIR}/share/pkgconfig:${KIS_INSTALL_DIR}/lib/pkgconfig
 export CMAKE_PREFIX_PATH=${KIS_INSTALL_DIR}
-export C_INCLUDE_PATH=${KIS_INSTALL_DIR}/include:/usr/include:${C_INCLUDE_PATH}
-export CPLUS_INCLUDE_PATH=${KIS_INSTALL_DIR}/include:/usr/include:${CPLUS_INCLUDE_PATH}
 export LIBRARY_PATH=${KIS_INSTALL_DIR}/lib:/usr/lib:${LIBRARY_PATH}
-# export CPPFLAGS=-I${KIS_INSTALL_DIR}/include
-# export LDFLAGS=-L${KIS_INSTALL_DIR}/lib
 export FRAMEWORK_PATH=${KIS_INSTALL_DIR}/lib/
+
+export LIBRARY_PATH=${KIS_INSTALL_DIR}/lib
+export C_INCLUDE_PATH=${KIS_INSTALL_DIR}/include
+export CPLUS_INCLUDE_PATH=${KIS_INSTALL_DIR}/include
+
 
 # export PYTHONHOME=${KIS_INSTALL_DIR}
 # export PYTHONPATH=${PYTHONPATH}:${KIS_INSTALL_DIR}/lib/Python.framework/Versions/Current/lib/python3.9/site-packages
@@ -110,10 +111,18 @@ printf "" > "${OUPUT_LOG}"
 # configure max core for make compile
 ((MAKE_THREADS=1))
 if [[ "${OSTYPE}" == "darwin"* ]]; then
-    ((MAKE_THREADS = $(sysctl -n hw.logicalcpu)))
+    ((MAKE_THREADS = $(sysctl -n hw.logicalcpu) - 1))
+    export MAKEFLAGS="-j${MAKE_THREADS}"
 fi
 
 OSXBUILD_X86_64_BUILD=$(sysctl -n hw.optional.x86_64)
+
+if [[ $(arch) = "arm64" ]]; then
+    OSX_ARCHITECTURES="arm64"
+else
+    OSX_ARCHITECTURES="x86_64"
+fi
+
 if [[ ${OSXBUILD_UNIVERSAL} ]]; then
     OSX_ARCHITECTURES="x86_64\;arm64"
 fi
@@ -316,6 +325,7 @@ build_3rdparty () {
     cd ${KIS_TBUILD_DIR}
 
     log_cmd cmake ${KIS_SRC_DIR}/3rdparty/ \
+        -G "${OSXBUILD_GENERATOR}" \
         -DCMAKE_OSX_DEPLOYMENT_TARGET=10.13 \
         -DCMAKE_INSTALL_PREFIX=${KIS_INSTALL_DIR} \
         -DCMAKE_PREFIX_PATH:PATH=${KIS_INSTALL_DIR} \
@@ -465,7 +475,6 @@ build_krita () {
         -DDEFINE_NO_DEPRECATED=1
         -DBUILD_TESTING="${OSXBUILD_TESTING}"
         -DHIDE_SAFE_ASSERTS"=${OSXBUILD_HIDE_SAFEASSERTS}"
-        -DFETCH_TRANSLATIONS=ON
         -DKRITA_ENABLE_PCH=off
         -DKDE_INSTALL_BUNDLEDIR="${KIS_INSTALL_DIR}/bin"
         -DPYQT_SIP_DIR_OVERRIDE="${KIS_INSTALL_DIR}/share/sip/"
@@ -578,38 +587,6 @@ build_plugins () {
         ext_gmic \
 
     print_msg "Build Finished!"
-}
-
-# Runs all fixes for path and packages.
-# Historically only fixed boost @rpath
-fix_boost_rpath () {
-    # helpers to define function only once
-    fixboost_find () {
-        for FILE in "${@}"; do
-            if [[ -n "$(otool -L $FILE | grep boost)" ]]; then
-                log "Fixing -- $FILE"
-                log_cmd install_name_tool -change libboost_system.dylib @rpath/libboost_system.dylib $FILE
-            fi
-        done
-    }
-
-    batch_fixboost() {
-        xargs -P4 -I FILE bash -c 'fixboost_find "FILE"'
-    }
-
-    export -f fixboost_find
-    export -f log
-    export -f log_cmd
-
-    print_msg "Fixing boost in... ${KIS_INSTALL_DIR}"
-    # log_cmd install_name_tool -add_rpath ${KIS_INSTALL_DIR}/lib ${KIS_INSTALL_DIR}/bin/krita.app/Contents/MacOS/krita
-    # echo "Added rpath ${KIS_INSTALL_DIR}/lib to krita bin"
-    # install_name_tool -add_rpath ${BUILDROOT}/deps/lib ${KIS_INSTALL_DIR}/bin/krita.app/Contents/MacOS/krita
-    log_cmd install_name_tool -change libboost_system.dylib @rpath/libboost_system.dylib ${KIS_INSTALL_DIR}/bin/krita.app/Contents/MacOS/krita
-
-    find -L "${KIS_INSTALL_DIR}" -name '*so' -o -name '*dylib' | batch_fixboost
-
-    log "Fixing boost done!"
 }
 
 get_directory_fromargs() {
@@ -791,12 +768,6 @@ script_run() {
 
         fi
 
-    elif [[ ${1} = "fixboost" ]]; then
-        if [[ -d ${1} ]]; then
-            KIS_BUILD_DIR="${1}"
-        fi
-        fix_boost_rpath
-
     elif [[ ${1} = "build" ]]; then
         OSXBUILD_DIR=$(get_directory_fromargs "${@:2}")
 
@@ -853,8 +824,6 @@ osxbuild.sh install ${KIS_BUILD_DIR}"
             build_plugins "${OSXBUILD_DIR}"
         fi
 
-        fix_boost_rpath
-
     elif [[ ${1} = "buildinstall" ]]; then
         OSXBUILD_DIR=$(get_directory_fromargs "${@:2}")
 
@@ -866,8 +835,6 @@ osxbuild.sh install ${KIS_BUILD_DIR}"
         else
             build_plugins "${OSXBUILD_DIR}"
         fi
-
-        fix_boost_rpath "${OSXBUILD_DIR}"
 
     elif [[ ${1} = "test" ]]; then
         ${KIS_INSTALL_DIR}/bin/krita.app/Contents/MacOS/krita

@@ -388,7 +388,7 @@ bool KisInputManager::eventFilterImpl(QEvent * event)
                 guessedKeys.removeOne(key);
             }
 
-            d->matcher.recoveryModifiersWithoutFocus(guessedKeys);
+            d->fixShortcutMatcherModifiersState(guessedKeys, modifiers);
             d->shouldSynchronizeOnNextKeyPress = false;
         }
 
@@ -558,18 +558,8 @@ bool KisInputManager::eventFilterImpl(QEvent * event)
         d->debugEvent<QEvent, false>(event);
         KisAbstractInputAction::setInputManager(this);
 
-        //Clear all state so we don't have half-matched shortcuts dangling around.
-        d->matcher.reinitialize();
-
-    { // Emulate pressing of the key that are already pressed
-        KisExtendedModifiersMapper mapper;
-
-        Qt::KeyboardModifiers modifiers = mapper.queryStandardModifiers();
-        Q_FOREACH (Qt::Key key, mapper.queryExtendedModifiers()) {
-            QKeyEvent kevent(QEvent::ShortcutOverride, key, modifiers);
-            eventFilterImpl(&kevent);
-        }
-    }
+        d->fixShortcutMatcherModifiersState();
+        d->matcher.reinitializeButtons();
 
         d->allowMouseEvents();
         break;
@@ -761,6 +751,7 @@ bool KisInputManager::eventFilterImpl(QEvent * event)
         }
         d->debugEvent<QTouchEvent, false>(event);
         endTouch();
+        d->allowMouseEvents();
         QTouchEvent *touchEvent = static_cast<QTouchEvent*>(event);
         retval = d->matcher.touchEndEvent(touchEvent);
         if (d->touchStrokeStarted) {
@@ -786,6 +777,7 @@ bool KisInputManager::eventFilterImpl(QEvent * event)
         }
         d->debugEvent<QTouchEvent, false>(event);
         endTouch();
+        d->allowMouseEvents();
         QTouchEvent *touchEvent = static_cast<QTouchEvent*>(event);
         d->matcher.touchCancelEvent(touchEvent, d->previousPos);
         // reset state

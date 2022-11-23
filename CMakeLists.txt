@@ -64,6 +64,7 @@ if (POLICY CMP0071)
 endif()
 
 if (APPLE)
+    set(MACOSX_RPATH TRUE)
     set(APPLE_SUPPRESS_X11_WARNING TRUE)
     set(KDE_SKIP_RPATH_SETTINGS TRUE)
     set(CMAKE_FIND_FRAMEWORK LAST)
@@ -161,6 +162,8 @@ endif()
 enable_testing()
 # collect list of broken tests, empty here to start fresh with each cmake run
 set(KRITA_BROKEN_TESTS "" CACHE INTERNAL "KRITA_BROKEN_TESTS")
+# Keep track of all test target (need special attention on macos)
+set(KRITA_TESTS_TARGET "" CACHE INTERNAL "KRITA_TESTS_TARGET")
 
  ############
 #############
@@ -180,14 +183,12 @@ add_feature_info("Dr. Mingw" USE_DRMINGW "Enable the Dr. Mingw crash handler")
             set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--dynamicbase -Wl,--nxcompat -Wl,--disable-auto-image-base")
             set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--dynamicbase -Wl,--nxcompat -Wl,--disable-auto-image-base")
             set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -Wl,--dynamicbase -Wl,--nxcompat -Wl,--disable-auto-image-base")
-            if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
-                # Enable high-entropy ASLR for 64-bit
-                # The image base has to be >4GB for HEASLR to be enabled.
-                # The values used here are kind of arbitrary.
-                set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--high-entropy-va -Wl,--image-base,0x140000000")
-                set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--high-entropy-va -Wl,--image-base,0x180000000")
-                set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -Wl,--high-entropy-va -Wl,--image-base,0x180000000")
-            endif ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
+            # Enable high-entropy ASLR for 64-bit
+            # The image base has to be >4GB for HEASLR to be enabled.
+            # The values used here are kind of arbitrary.
+            set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -Wl,--high-entropy-va -Wl,--image-base,0x140000000")
+            set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} -Wl,--high-entropy-va -Wl,--image-base,0x180000000")
+            set(CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} -Wl,--high-entropy-va -Wl,--image-base,0x180000000")
         else (USE_MINGW_HARDENING_LINKER)
             message(WARNING "Linker Security Flags not enabled!")
         endif (USE_MINGW_HARDENING_LINKER)
@@ -246,8 +247,6 @@ option(LIMIT_LONG_TESTS "Run long running unittests in a limited quick mode" ON)
 configure_file(config-limit-long-tests.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config-limit-long-tests.h)
 add_feature_info("Limit long tests" LIMIT_LONG_TESTS "Run long running unittests in a limited quick mode")
 
-option(ENABLE_PYTHON_2 "Enables the compiler to look for Python 2.7 instead of Python 3. Some packaged scripts are not compatible with Python 2 and this should only be used if you really have to use 2.7." OFF)
-
 option(BUILD_KRITA_QT_DESIGNER_PLUGINS "Build Qt Designer plugins for Krita widgets" OFF)
 add_feature_info("Build Qt Designer plugins" BUILD_KRITA_QT_DESIGNER_PLUGINS "Builds Qt Designer plugins for Krita widgets (use -DBUILD_KRITA_QT_DESIGNER_PLUGINS=ON to enable).")
 
@@ -297,24 +296,23 @@ function(TestCompileLinkPythonLibs OUTPUT_VARNAME)
     endif (MINGW)
     unset(${OUTPUT_VARNAME} CACHE)
     CHECK_CXX_SOURCE_COMPILES("
+// https://bugs.python.org/issue22411
+#if defined(_MSC_VER)
+#  ifdef _DEBUG
+#    undef _DEBUG
+#  endif /* _DEBUG */
+#endif /* _MSC_VER */
 #include <Python.h>
 int main(int argc, char *argv[]) {
     Py_InitializeEx(0);
 }" ${OUTPUT_VARNAME})
 endfunction()
 
-if(MINGW)
-    if(ENABLE_PYTHON_2)
-        message(FATAL_ERROR "Python 2.7 is not supported on Windows at the moment.")
-    else(ENABLE_PYTHON_2)
-        find_package(Python 3.8 EXACT COMPONENTS Development Interpreter)
-    endif(ENABLE_PYTHON_2)
+if(WIN32)
+    set(Python_FIND_STRATEGY LOCATION)
+    find_package(Python 3.8 COMPONENTS Development Interpreter)
     if (Python_FOUND)
-        if(ENABLE_PYTHON_2)
-            find_package(PythonLibrary 2.7)
-        else(ENABLE_PYTHON_2)
-            find_package(PythonLibrary 3.8)
-        endif(ENABLE_PYTHON_2)
+        find_package(PythonLibrary 3.8)
         TestCompileLinkPythonLibs(CAN_USE_PYTHON_LIBS)
         if (NOT CAN_USE_PYTHON_LIBS)
             file(READ ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeError.log ERROR_LOG)
@@ -322,13 +320,9 @@ if(MINGW)
             message(FATAL_ERROR "Compiling with Python library failed, please check whether the architecture is correct!\nCMakeError.log:\n  ${ERROR_LOG}\n\n")
         endif (NOT CAN_USE_PYTHON_LIBS)
     endif (Python_FOUND)
-else(MINGW)
-    if(ENABLE_PYTHON_2)
-        find_package(PythonLibrary 2.7)
-    else(ENABLE_PYTHON_2)
-        find_package(PythonLibrary 3.0)
-    endif(ENABLE_PYTHON_2)
-endif(MINGW)
+else(WIN32)
+    find_package(PythonLibrary 3.8)
+endif(WIN32)
 
  ########################
 #########################
@@ -747,7 +741,7 @@ endif()
 
 # FIXME: Still hardcoded
 if (ANDROID)
-    set (Boost_INCLUDE_DIR          ${CMAKE_CURRENT_BINARY_DIR}/i/${ANDROID_ABI}/include/boost-1_71)
+    set (Boost_INCLUDE_DIR          ${CMAKE_CURRENT_BINARY_DIR}/i/${ANDROID_ABI}/include/boost-1_80)
     set (Boost_LIBRARY_DIR          ${CMAKE_CURRENT_BINARY_DIR}/i/${ANDROID_ABI}/lib)
     set (KF5_LIBRARIES              ${CMAKE_CURRENT_BINARY_DIR}/i/lib)
 
@@ -1059,6 +1053,9 @@ list (APPEND ANDROID_EXTRA_LIBS ${LCMS2_LIBRARIES})
 ## Test for xsimd
 ##
 find_package(xsimd 8.1.0)
+if(NOT xsimd_FOUND)
+    find_package(xsimd 9)
+endif()
 set_package_properties(xsimd PROPERTIES
     DESCRIPTION "C++ wrappers for SIMD intrinsics"
     URL "https://github.com/xtensor-stack/xsimd"
@@ -1134,49 +1131,6 @@ list (APPEND ANDROID_EXTRA_LIBS ${QUAZIP_LIBRARIES}
 
 
 
-# Source translations
-option(FETCH_TRANSLATIONS "Retrieve translations before building Krita" OFF)
-add_feature_info("Retrieve translations before building" FETCH_TRANSLATIONS "Retrieve the translations from KDE before building Krita")
-
-if(NOT EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/po AND FETCH_TRANSLATIONS)
-    find_package(Python3 COMPONENTS Interpreter REQUIRED)
-    set_package_properties(Python3 PROPERTIES
-        DESCRIPTION "Python is an interpreted, high-level and general-purpose programming language."
-        URL "https://python.org/"
-        TYPE OPTIONAL
-        PURPOSE "Required to manually parse and fetch available translations.")
-    find_package(Subversion 1.4)
-    set_package_properties(Subversion PROPERTIES
-        DESCRIPTION "Subversion is an open source version control system"
-        URL "https://subversion.apache.org/"
-        TYPE OPTIONAL
-        PURPOSE "Required to access the KDE i18n repository.")
-
-    if (Subversion_FOUND AND Python3_FOUND) 
-       set(TRANSLATIONS ${CMAKE_CURRENT_BINARY_DIR}/po)
-
-        if (DEFINED KRITA_STABLE_BRANCH)
-            set(tr_EXTRA_FLAGS "")
-        else()
-            set(tr_EXTRA_FLAGS "--unstable")
-        endif()
-
-        get_filename_component(absolute_podir ${TRANSLATIONS} ABSOLUTE)
-        string(MD5 pathmd5 ${absolute_podir})
-
-        find_file (KRITA_PO_SCRIPT copy_po.py PATHS ${CMAKE_CURRENT_SOURCE_DIR}/build-tools REQUIRED CMAKE_FIND_ROOT_PATH_BOTH)
-        if (NOT TARGET fetch-${pathmd5})
-            file(MAKE_DIRECTORY ${TRANSLATIONS})
-
-            add_custom_target(fetch-${pathmd5}
-                COMMENT "Retrieving translations..."
-                COMMAND ${Python3_EXECUTABLE} ${KRITA_PO_SCRIPT} ${tr_EXTRA_FLAGS}
-                BYPRODUCTS ${TRANSLATIONS}
-                WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR}
-            )
-        endif()
-    endif()
-endif()
 
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/po OR EXISTS ${CMAKE_CURRENT_BINARY_DIR}/po )
     find_package(KF5I18n CONFIG REQUIRED)
@@ -1234,6 +1188,11 @@ message("\nBroken tests:")
 foreach(tst ${KRITA_BROKEN_TESTS})
     message("    * ${tst}")
 endforeach()
+
+if(APPLE)
+    # fix macos test rpath
+    macos_test_fixrpath(${KRITA_TESTS_TARGET})
+endif()
 
 feature_summary(WHAT ALL FATAL_ON_MISSING_REQUIRED_PACKAGES)
 

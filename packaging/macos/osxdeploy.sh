@@ -322,15 +322,23 @@ find_needed_libs () {
             continue
         fi
 
-        oToolResult=$(otool -L ${libFile} | awk '{print $1}')
-        resultArray=(${oToolResult}) # convert to array
+        resultArray=($(otool -L ${libFile} | awk '{print $1","substr($2,2)}'))
 
-        for lib in ${resultArray[@]:1}; do
+        printf "Fixing %s\n" "${libFile#${KRITA_DMG}/}" >&2
+        for entry in ${resultArray[@]:1}; do
+            # skip fat-bin file markers
+            if [[ "${entry##*,}" = "architecture" ]]; then
+                continue
+            fi
+
+            lib="${entry%%,*}"
+
             if [[ "${lib:0:1}" = "@" ]]; then
                 local libs_used=$(add_lib_to_list "${lib}" "${libs_used}")
             fi
+
             if [[ "${lib:0:${#BUILDROOT}}" = "${BUILDROOT}" ]]; then
-                printf "Fixing %s: %s\n" "${libFile#${KRITA_DMG}/}" "${lib##*/}" >&2
+                printf "\t%s\n" "${lib}" >&2
                 if [[ "${lib##*/}" = "${libFile##*/}" ]]; then
                     install_name_tool -id ${lib##*/} "${libFile}"
                 else
@@ -415,11 +423,11 @@ strip_python_dmginstall() {
 # Remove any missing rpath poiting to BUILDROOT
 libs_clean_rpath () {
     for libFile in ${@}; do
-        rpath=$(otool -l "${libFile}" | grep "path ${BUILDROOT}" | awk '{$1=$1;print $2}')
-        if [[ -n "${rpath}" ]]; then
-            echo "removed rpath _${rpath}_ from ${libFile}"
-            install_name_tool -delete_rpath "${rpath}" "${libFile}"
-        fi
+        rpath=($(otool -l "${libFile}" | grep "path ${BUILDROOT}" | awk '{$1=$1;print $2}'))
+        for lpath in "${rpath[@]}"; do
+            echo "removed rpath _${lpath}_ from ${libFile}"
+            install_name_tool -delete_rpath "${lpath}" "${libFile}" 2> /dev/null
+        done
     done
 }
 
@@ -511,6 +519,8 @@ krita_deploy () {
     mkdir "${KRITA_DMG}"
 
     rsync -prul ${KIS_INSTALL_DIR}/bin/krita.app ${KRITA_DMG}
+    cp ${KIS_INSTALL_DIR}/bin/kritarunner ${KRITA_DMG}/krita.app/Contents/MacOS
+    cp ${KIS_INSTALL_DIR}/bin/krita_version ${KRITA_DMG}/krita.app/Contents/MacOS
 
     mkdir -p ${KRITA_DMG}/krita.app/Contents/PlugIns
     mkdir -p ${KRITA_DMG}/krita.app/Contents/Frameworks
@@ -560,7 +570,7 @@ krita_deploy () {
     echo "Copying Spotlight plugin..."
     mkdir -p ${KRITA_DMG}/krita.app/Contents/Library/Spotlight
     rsync -prul ${KIS_INSTALL_DIR}/plugins/kritaspotlight.mdimporter ${KRITA_DMG}/krita.app/Contents/Library/Spotlight
-    # TODO fix and reenable - https://bugs.kde.org/show_bug.cgi?id=430553
+    # TODO fix and reenable - https://bugs.kde.org/show_bug.cgi?id=430553
     # echo "Copying QuickLook Thumbnailing extension..."
     # rsync -prul ${KIS_INSTALL_DIR}/plugins/kritaquicklookng.appex ${KRITA_DMG}/krita.app/Contents/PlugIns
 
@@ -595,7 +605,8 @@ krita_deploy () {
         -verbose=0 \
         -executable=${KRITA_DMG}/krita.app/Contents/MacOS/krita \
         -libpath=${KIS_INSTALL_DIR}/lib \
-        -qmldir=${KIS_INSTALL_DIR}/qml \
+        -qmldir=${KIS_INSTALL_DIR}/qml
+        # -appstore-compliant
         # -extra-plugins=${KIS_INSTALL_DIR}/lib/kritaplugins \
         # -extra-plugins=${KIS_INSTALL_DIR}/lib/plugins \
         # -extra-plugins=${KIS_INSTALL_DIR}/plugins
@@ -621,6 +632,9 @@ krita_deploy () {
     cd ${KRITA_DMG}/krita.app
     ${KIS_INSTALL_DIR}/bin/python -m compileall . &> /dev/null
 
+    # remove unnecessary rpaths
+    install_name_tool -delete_rpath @executable_path/../lib ${KRITA_DMG}/krita.app/Contents/MacOS/krita_version
+    install_name_tool -delete_rpath @executable_path/../lib ${KRITA_DMG}/krita.app/Contents/MacOS/kritarunner
     install_name_tool -delete_rpath @loader_path/../../../../lib ${KRITA_DMG}/krita.app/Contents/MacOS/krita
     rm -rf ${KRITA_DMG}/krita.app/Contents/PlugIns/kf5/org.kde.kwindowsystem.platforms
 
@@ -633,7 +647,7 @@ krita_deploy () {
     krita_findmissinglibs $(find ${KRITA_DMG}/krita.app/Contents -type f -perm 755 -or -name "*.dylib" -or -name "*.so")
 
     # Fix rpath for plugins
-    # Uncomment if the Finder plugins (kritaquicklook, kritaspotlight) lack the rpath below
+    # Uncomment if the Finder plugins (kritaquicklook, kritaspotlight) lack the rpath below
     # printf "Repairing rpath for Finder plugins\n"
     # find "${KRITA_DMG}/krita.app/Contents/Library" -type f -path "*/Contents/MacOS/*" -perm 755 | xargs -I FILE install_name_tool -add_rpath @loader_path/../../../../../Frameworks FILE
 
@@ -645,7 +659,6 @@ krita_deploy () {
 #    libs_clean_rpath $(find "${KRITA_DMG}/krita.app/Contents/" -type f -name "lib*")
 
     echo "Done!"
-
 }
 
 
@@ -685,6 +698,9 @@ signBundle() {
     cd ${KRITA_DMG}/krita.app/Contents/Resources
     find . -perm +111 -type f | batch_codesign
 
+    printf "${KRITA_DMG}/krita.app/Contents/MacOS/kritarunner" | batch_codesign
+    printf "${KRITA_DMG}/krita.app/Contents/MacOS/krita_version" | batch_codesign
+
     #Finally sign krita and krita.app
     printf "${KRITA_DMG}/krita.app/Contents/MacOS/krita" | batch_codesign
     printf "${KRITA_DMG}/krita.app" | batch_codesign
@@ -712,6 +728,8 @@ sign_hasError() {
 notarize_build() {
     local NOT_SRC_DIR=${1}
     local NOT_SRC_FILE=${2}
+
+    local notarization_complete="true"
 
     if [[ ${NOTARIZE} = "true" ]]; then
         printf "performing notarization of %s\n" "${2}"
@@ -749,18 +767,22 @@ notarize_build() {
                 notarize_status=`echo "${fullstatus}" | grep 'Status\:' | awk '{ print $2 }'`
                 echo "${fullstatus}"
                 if [[ "${notarize_status}" = "success" ]]; then
-                    xcrun stapler staple "${NOT_SRC_FILE}"   #staple the ticket
-                    xcrun stapler validate -v "${NOT_SRC_FILE}"
                     print_msg "Notarization success!"
                     break
                 elif [[ "${notarize_status}" = "in" ]]; then
                     waiting_fixed "Notarization still in progress, wait before checking again" 60
                 else
+                    notarization_complete="false"
                     echo "Notarization failed! full status below"
                     echo "${fullstatus}"
                     exit 1
                 fi
             done
+        fi
+
+        if [[ "${notarization_complete}" = "true" ]]; then
+            xcrun stapler staple "${NOT_SRC_FILE}"   #staple the ticket
+            xcrun stapler validate -v "${NOT_SRC_FILE}"
         fi
     fi
 }

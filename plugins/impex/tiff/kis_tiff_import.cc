@@ -6,7 +6,10 @@
  */
 
 #include "kis_tiff_import.h"
+#include "KisImportExportErrorCode.h"
+#include "kis_assert.h"
 
+#include <QBuffer>
 #include <QFileInfo>
 #include <QPair>
 #include <QSharedPointer>
@@ -24,6 +27,7 @@
 #include <KoColorProfile.h>
 #include <KoDocumentInfo.h>
 #include <KoUnit.h>
+#include <KisExiv2IODevice.h>
 #include <kis_group_layer.h>
 #include <kis_image.h>
 #include <kis_meta_data_backend_registry.h>
@@ -51,6 +55,8 @@
 struct KisTiffBasicInfo {
     uint32_t width{};
     uint32_t height{};
+    float x{};
+    float y{};
     float xres{};
     float yres{};
     uint16_t depth{};
@@ -424,6 +430,11 @@ KisImportExportErrorCode KisTIFFImport::readImageFromPsd(
 
     const std::shared_ptr<PSDLayerMaskSection> &layerSection =
         photoshopLayerRecord.record();
+
+    KIS_SAFE_ASSERT_RECOVER(layerSection->nLayers != 0)
+    {
+        return ImportExportCodes::FileFormatIncorrect;
+    }
 
     for (int i = 0; i != layerSection->nLayers; i++) {
         PSDLayerRecord *layerRecord = layerSection->layers.at(i);
@@ -1405,6 +1416,9 @@ KisTIFFImport::readImageFromTiff(KisDocument *m_doc,
 
     m_image->addNode(KisNodeSP(layer), m_image->rootLayer().data());
 
+    layer->paintDevice()->setX(static_cast<int>(basicInfo.x * basicInfo.xres));
+    layer->paintDevice()->setY(static_cast<int>(basicInfo.y * basicInfo.yres));
+
     // Process rotation before handing image over
     // https://developer.apple.com/documentation/imageio/cgimagepropertyorientation
     switch (orientation) {
@@ -1499,6 +1513,16 @@ KisImportExportErrorCode KisTIFFImport::readTIFFDirectory(KisDocument *m_doc,
         dbgFile << "Image does not define y resolution";
         // but we don't stop
         basicInfo.yres = 100;
+    }
+
+    if (TIFFGetField(image, TIFFTAG_XPOSITION, &basicInfo.x) == 0) {
+        dbgFile << "Image does not define a horizontal offset";
+        basicInfo.x = 0;
+    }
+
+    if (TIFFGetField(image, TIFFTAG_YPOSITION, &basicInfo.y) == 0) {
+        dbgFile << "Image does not define a vertical offset";
+        basicInfo.y = 0;
     }
 
     if ((TIFFGetField(image, TIFFTAG_BITSPERSAMPLE, &basicInfo.depth) == 0)) {
@@ -1748,11 +1772,15 @@ KisTIFFImport::convert(KisDocument *document,
         return ImportExportCodes::NoAccessToRead;
     }
 
+    QFile file(filename());
+    if (!file.open(QFile::ReadOnly)) {
+        return KisImportExportErrorCode(KisImportExportErrorCannotRead(file.error()));
+    }
+
     // Open the TIFF file
     const QByteArray encodedFilename = QFile::encodeName(filename());
-    std::unique_ptr<TIFF, decltype(&TIFFClose)> image(
-        TIFFOpen(encodedFilename.data(), "r"),
-        &TIFFClose);
+    std::unique_ptr<TIFF, decltype(&TIFFCleanup)> image(TIFFFdOpen(file.handle(), encodedFilename.data(), "r"),
+                                                        &TIFFCleanup);
 
     if (!image) {
         dbgFile << "Could not open the file, either it does not exist, either "
@@ -1779,16 +1807,15 @@ KisTIFFImport::convert(KisDocument *document,
     }
     // Freeing memory
     image.reset();
+    file.close();
 
     {
         // HACK!! Externally parse the Exif metadata
         // libtiff has no way to access the fields wholesale
         try {
-            const std::string encodedFilename =
-                QFile::encodeName(filename()).toStdString();
+            KisExiv2IODevice::ptr_type basicIoDevice(new KisExiv2IODevice(filename()));
 
-            const std::unique_ptr<Exiv2::Image> readImg(
-                Exiv2::ImageFactory::open(encodedFilename).release());
+            const std::unique_ptr<Exiv2::Image> readImg(Exiv2::ImageFactory::open(basicIoDevice).release());
 
             readImg->readMetadata();
 
@@ -1848,7 +1875,11 @@ KisTIFFImport::convert(KisDocument *document,
 
             // Get layer
             KisLayer *layer = qobject_cast<KisLayer *>(node.data());
-            Q_ASSERT(layer);
+            KIS_ASSERT_RECOVER(layer)
+            {
+                errFile << "Attempted to import metadata on an empty document";
+                return ImportExportCodes::InternalError;
+            }
 
             // Inject the data as any other IOBackend
             io->loadFrom(layer->metaData(), &ioDevice);

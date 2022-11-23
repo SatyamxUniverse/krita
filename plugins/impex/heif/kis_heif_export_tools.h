@@ -17,12 +17,6 @@
 #include <KoColorTransferFunctions.h>
 #include <kis_iterator_ng.h>
 
-enum ConversionPolicy { KeepTheSame, ApplyPQ, ApplyHLG, ApplySMPTE428 };
-
-constexpr uint16_t max12bit = 4095;
-constexpr uint16_t max16bit = 65535;
-constexpr float multiplier16bit = (1.0f / float(max16bit));
-
 namespace Gray
 {
 template<int endValue0, int endValue1, int luma>
@@ -241,11 +235,11 @@ namespace HDRFloat
 template<ConversionPolicy policy>
 inline float applyCurveAsNeeded(float value)
 {
-    if (policy == ApplyPQ) {
+    if (policy == ConversionPolicy::ApplyPQ) {
         return applySmpte2048Curve(value);
-    } else if (policy == ApplyHLG) {
+    } else if (policy == ConversionPolicy::ApplyHLG) {
         return applyHLGCurve(value);
-    } else if (policy == ApplySMPTE428) {
+    } else if (policy == ConversionPolicy::ApplySMPTE428) {
         return applySMPTE_ST_428Curve(value);
     }
     return value;
@@ -289,17 +283,28 @@ inline void writeFloatLayerImpl(const int width,
                 }
             }
 
-            if (conversionPolicy == ApplyHLG && removeOOTF) {
+            if (conversionPolicy == ConversionPolicy::ApplyHLG && removeOOTF) {
                 removeHLGOOTF(dst, lCoef.constData(), hlgGamma, hlgNominalPeak);
             }
 
             for (int ch = 0; ch < channels; ch++) {
-                uint16_t v = qBound<uint16_t>(
-                    0,
-                    static_cast<uint16_t>(
-                        applyCurveAsNeeded<conversionPolicy>(dst[ch])
-                        * max12bit),
-                    max12bit);
+                uint16_t v = 0;
+                if (ch == CSTrait::alpha_pos) {
+                    v = qBound<uint16_t>(
+                        0,
+                        static_cast<uint16_t>(
+                            applyCurveAsNeeded<ConversionPolicy::KeepTheSame>(
+                                dst[ch])
+                            * max12bit),
+                        max12bit);
+                } else {
+                    v = qBound<uint16_t>(
+                        0,
+                        static_cast<uint16_t>(
+                            applyCurveAsNeeded<conversionPolicy>(dst[ch])
+                            * max12bit),
+                        max12bit);
+                }
                 ptr[2 * (x * channels) + y * stride + endValue0 + (ch * 2)] =
                     (uint8_t)(v >> 8);
                 ptr[2 * (x * channels) + y * stride + endValue1 + (ch * 2)] =
@@ -349,37 +354,34 @@ template<typename CSTrait,
 inline auto writeInterleavedWithLinear(ConversionPolicy linearizePolicy,
                                        Args &&...args)
 {
-    if (linearizePolicy == ApplyHLG) {
+    if (linearizePolicy == ConversionPolicy::ApplyHLG) {
         return writeInterleavedWithPolicy<CSTrait,
                                           endianness,
                                           channels,
                                           convertToRec2020,
                                           isLinear,
-                                          ApplyHLG>(
-            std::forward<Args>(args)...);
-    } else if (linearizePolicy == ApplyPQ) {
+                                          ConversionPolicy::ApplyHLG>(std::forward<Args>(args)...);
+    } else if (linearizePolicy == ConversionPolicy::ApplyPQ) {
         return writeInterleavedWithPolicy<CSTrait,
                                           endianness,
                                           channels,
                                           convertToRec2020,
                                           isLinear,
-                                          ApplyPQ>(std::forward<Args>(args)...);
-    } else if (linearizePolicy == ApplySMPTE428) {
+                                          ConversionPolicy::ApplyPQ>(std::forward<Args>(args)...);
+    } else if (linearizePolicy == ConversionPolicy::ApplySMPTE428) {
         return writeInterleavedWithPolicy<CSTrait,
                                           endianness,
                                           channels,
                                           convertToRec2020,
                                           isLinear,
-                                          ApplySMPTE428>(
-            std::forward<Args>(args)...);
+                                          ConversionPolicy::ApplySMPTE428>(std::forward<Args>(args)...);
     } else {
         return writeInterleavedWithPolicy<CSTrait,
                                           endianness,
                                           channels,
                                           convertToRec2020,
                                           isLinear,
-                                          KeepTheSame>(
-            std::forward<Args>(args)...);
+                                          ConversionPolicy::KeepTheSame>(std::forward<Args>(args)...);
     }
 }
 

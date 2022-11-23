@@ -855,7 +855,6 @@ set CMDLINE_CMAKE_KRITA="%CMAKE_EXE%" "%KRITA_SRC_DIR%\." ^
     -DFOUNDATION_BUILD=ON ^
     -DUSE_QT_TABLET_WINDOWS=ON ^
     -DHIDE_SAFE_ASSERTS=ON ^
-    -DFETCH_TRANSLATIONS=ON ^
     -DBRANDING=%KRITA_BRANDING% ^
     -Wno-dev ^
     -G "%KRITA_GENERATOR%" ^
@@ -925,10 +924,11 @@ echo.
 
 set EXT_TARGETS=patch zlib gettext openssl boost exiv2 fftw3 eigen3 jpeg lcms2
 set EXT_TARGETS=%EXT_TARGETS% ocio openexr png icoutils tiff gsl libraw
-set EXT_TARGETS=%EXT_TARGETS% giflib qt kwindowsystem drmingw freetype poppler 
+set EXT_TARGETS=%EXT_TARGETS% giflib qt kwindowsystem drmingw
 set EXT_TARGETS=%EXT_TARGETS% python sip pyqt
 set EXT_TARGETS=%EXT_TARGETS% lzma quazip openjpeg libde265 libx265 libheif
 set EXT_TARGETS=%EXT_TARGETS% seexpr mypaint webp jpegxl xsimd
+set EXT_TARGETS=%EXT_TARGETS% freetype poppler
 
 for %%a in (%EXT_TARGETS%) do (
     set TEST_HAS_TARGET=
@@ -941,7 +941,7 @@ for %%a in (%EXT_TARGETS%) do (
 
     if defined TEST_HAS_TARGET (
         echo Building ext_%%a...
-        "%CMAKE_EXE%" --build . --config %CMAKE_BUILD_TYPE% --target ext_%%a --parallel %PARALLEL_JOBS%
+        "%CMAKE_EXE%" --build . --config %CMAKE_BUILD_TYPE% --target ext_%%a --parallel %PARALLEL_JOBS% -- /p:CL_MPCount=2
         if errorlevel 1 (
             echo ERROR: Building of ext_%%a failed! 1>&2
             exit /b 105

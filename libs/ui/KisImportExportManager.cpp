@@ -28,34 +28,36 @@
 #include <ksqueezedtextlabel.h>
 #include <kpluginfactory.h>
 
-#include <KisUsageLogger.h>
-#include <KoFileDialog.h>
-#include <kis_icon_utils.h>
-#include <KoDialog.h>
-#include <KoProgressUpdater.h>
-#include <KoJsonTrader.h>
 #include <KisMimeDatabase.h>
+#include <KisPart.h>
+#include <KisPopupButton.h>
+#include <KisPreExportChecker.h>
+#include <KisUsageLogger.h>
+#include <KoColorProfile.h>
+#include <KoColorProfileConstants.h>
+#include <KoDialog.h>
+#include <KoFileDialog.h>
+#include <KoJsonTrader.h>
+#include <KoProgressUpdater.h>
+#include <kis_assert.h>
 #include <kis_config_widget.h>
 #include <kis_debug.h>
-#include <KisPreExportChecker.h>
-#include <KisPart.h>
-#include "kis_assert.h"
-#include "kis_config.h"
-#include "KisImportExportFilter.h"
-#include "KisDocument.h"
+#include <kis_icon_utils.h>
 #include <kis_image.h>
-#include <kis_paint_layer.h>
-#include "kis_painter.h"
-#include "kis_guides_config.h"
-#include "kis_grid_config.h"
-#include "KisPopupButton.h"
 #include <kis_iterator_ng.h>
-#include "kis_async_action_feedback.h"
+#include <kis_layer_utils.h>
+#include <kis_paint_layer.h>
+#include <kis_painter.h>
+
+#include "KisDocument.h"
+#include "KisImportExportFilter.h"
+#include "KisMainWindow.h"
 #include "KisReferenceImagesLayer.h"
 #include "imagesize/dlg_imagesize.h"
-#include "kis_layer_utils.h"
-#include <KoColorProfile.h>
-#include "KisMainWindow.h"
+#include "kis_async_action_feedback.h"
+#include "kis_config.h"
+#include "kis_grid_config.h"
+#include "kis_guides_config.h"
 
 // static cache for import and export mimetypes
 QStringList KisImportExportManager::m_importMimeTypes;
@@ -360,13 +362,8 @@ KisImportExportManager::ConversionResult KisImportExportManager::convert(KisImpo
     if (direction == Import) {
 
         KisUsageLogger::log(QString("Importing %1 to %2. Location: %3. Real location: %4. Batchmode: %5")
-                            .arg(QString::fromLatin1(from))
-                            .arg(QString::fromLatin1(to))
-                            .arg(location)
-                            .arg(realLocation)
-                            .arg(batchMode()));
-
-
+                                .arg(QString::fromLatin1(from), QString::fromLatin1(to), location,
+                                     realLocation, QString::number(batchMode())));
 
         // async importing is not yet supported!
         KIS_SAFE_ASSERT_RECOVER_NOOP(!isAsync);
@@ -381,17 +378,15 @@ KisImportExportManager::ConversionResult KisImportExportManager::convert(KisImpo
         if (result.status().isOk()) {
             KisImageSP image = m_document->image().toStrongRef();
             if (image) {
-                KisUsageLogger::log(QString("Loaded image from %1. Size: %2 * %3 pixels, %4 dpi. Color model: %6 %5 (%7). Layers: %8")
-                                    .arg(QString::fromLatin1(from))
-                                    .arg(image->width())
-                                    .arg(image->height())
-                                    .arg(image->xRes())
-                                    .arg(image->colorSpace()->colorModelId().name())
-                                    .arg(image->colorSpace()->colorDepthId().name())
-                                    .arg(image->colorSpace()->profile()->name())
-                                    .arg(image->nlayers()));
-            }
-            else {
+                KisUsageLogger::log(QString("Loaded image from %1. Size: %2 * %3 pixels, %4 dpi. Color "
+                                            "model: %6 %5 (%7). Layers: %8")
+                                        .arg(QString::fromLatin1(from), QString::number(image->width()),
+                                             QString::number(image->height()), QString::number(image->xRes()),
+                                             image->colorSpace()->colorModelId().name(),
+                                             image->colorSpace()->colorDepthId().name(),
+                                             image->colorSpace()->profile()->name(),
+                                             QString::number(image->nlayers())));
+            } else {
                 qWarning() << "The filter returned OK, but there is no image";
             }
 
@@ -421,27 +416,27 @@ KisImportExportManager::ConversionResult KisImportExportManager::convert(KisImpo
             return KisImportExportErrorCode(ImportExportCodes::Cancelled);
         }
 
-        KisUsageLogger::log(QString("Converting from %1 to %2. Location: %3. Real location: %4. Batchmode: %5. Configuration: %6")
-                            .arg(QString::fromLatin1(from))
-                            .arg(QString::fromLatin1(to))
-                            .arg(location)
-                            .arg(realLocation)
-                            .arg(batchMode())
-                            .arg(exportConfiguration ? exportConfiguration->toXML() : "none"));
+        KisUsageLogger::log(
+            QString(
+                "Converting from %1 to %2. Location: %3. Real location: %4. Batchmode: %5. Configuration: %6")
+                .arg(QString::fromLatin1(from), QString::fromLatin1(to), location, realLocation,
+                     QString::number(batchMode()),
+                     (exportConfiguration ? exportConfiguration->toXML() : "none")));
 
-
-
+        const QString alsoAsKraLocation = alsoAsKra ? getAlsoAsKraLocation(location) : QString();
         if (isAsync) {
-            result = QtConcurrent::run(std::bind(&KisImportExportManager::doExport, this, location, filter, exportConfiguration, alsoAsKra));
+            result = QtConcurrent::run(std::bind(&KisImportExportManager::doExport, this, location, filter,
+                                                 exportConfiguration, alsoAsKraLocation));
 
             // we should explicitly report that the exporting has been initiated
             result.setStatus(ImportExportCodes::OK);
 
         } else if (!batchMode()) {
             KisAsyncActionFeedback f(i18n("Saving document..."), 0);
-            result = f.runAction(std::bind(&KisImportExportManager::doExport, this, location, filter, exportConfiguration, alsoAsKra));
+            result = f.runAction(std::bind(&KisImportExportManager::doExport, this, location, filter,
+                                           exportConfiguration, alsoAsKraLocation));
         } else {
-            result = doExport(location, filter, exportConfiguration, alsoAsKra);
+            result = doExport(location, filter, exportConfiguration, alsoAsKraLocation);
         }
 
         if (exportConfiguration && !batchMode()) {
@@ -466,17 +461,21 @@ void KisImportExportManager::fillStaticExportConfigurationProperties(KisProperti
             (cs->profile()->name().contains(QLatin1String("srgb"), Qt::CaseInsensitive) &&
              !cs->profile()->name().contains(QLatin1String("g10")));
     exportConfiguration->setProperty(KisImportExportFilter::sRGBTag, sRGB);
-    
-    int primaries = cs->profile()->getColorPrimaries();
-    if (primaries >= 256) {
+
+    ColorPrimaries primaries = cs->profile()->getColorPrimaries();
+    if (primaries >= PRIMARIES_ADOBE_RGB_1998) {
         primaries = PRIMARIES_UNSPECIFIED;
     }
-    int transferFunction = cs->profile()->getTransferCharacteristics();
-    if (transferFunction >= 256) {
+    TransferCharacteristics transferFunction =
+        cs->profile()->getTransferCharacteristics();
+    if (transferFunction >= TRC_GAMMA_1_8) {
         transferFunction = TRC_UNSPECIFIED;
     }
-    exportConfiguration->setProperty(KisImportExportFilter::CICPPrimariesTag, primaries);
-    exportConfiguration->setProperty(KisImportExportFilter::CICPTransferCharacteristicsTag, transferFunction);
+    exportConfiguration->setProperty(KisImportExportFilter::CICPPrimariesTag,
+                                     static_cast<int>(primaries));
+    exportConfiguration->setProperty(
+        KisImportExportFilter::CICPTransferCharacteristicsTag,
+        static_cast<int>(transferFunction));
     exportConfiguration->setProperty(KisImportExportFilter::HDRTag, cs->hasHighDynamicRange());
 }
 
@@ -674,17 +673,15 @@ KisImportExportErrorCode KisImportExportManager::doImport(const QString &locatio
     return status;
 }
 
-KisImportExportErrorCode KisImportExportManager::doExport(const QString &location, QSharedPointer<KisImportExportFilter> filter, KisPropertiesConfigurationSP exportConfiguration, bool alsoAsKra)
+KisImportExportErrorCode KisImportExportManager::doExport(const QString &location,
+                                                          QSharedPointer<KisImportExportFilter> filter,
+                                                          KisPropertiesConfigurationSP exportConfiguration,
+                                                          const QString alsoAsKraLocation)
 {
     KisImportExportErrorCode status =
             doExportImpl(location, filter, exportConfiguration);
 
-    if (alsoAsKra && status.isOk()) {
-#ifdef Q_OS_ANDROID
-        QString kraLocation = getUriForAdditionalFile(location, nullptr);
-#else
-        QString kraLocation = location + ".kra";
-#endif
+    if (!alsoAsKraLocation.isNull() && status.isOk()) {
         QByteArray mime = m_document->nativeFormatMimeType();
         QSharedPointer<KisImportExportFilter> filter(
                     filterForMimeType(QString::fromLatin1(mime), Export));
@@ -692,12 +689,12 @@ KisImportExportErrorCode KisImportExportManager::doExport(const QString &locatio
         KIS_SAFE_ASSERT_RECOVER_NOOP(filter);
 
         if (filter) {
-            filter->setFilename(kraLocation);
+            filter->setFilename(alsoAsKraLocation);
 
             KisPropertiesConfigurationSP kraExportConfiguration =
                     filter->lastSavedConfiguration(mime, mime);
 
-            status = doExportImpl(kraLocation, filter, kraExportConfiguration);
+            status = doExportImpl(alsoAsKraLocation, filter, kraExportConfiguration);
         } else {
             status = ImportExportCodes::FileFormatIncorrect;
         }
@@ -773,6 +770,15 @@ KisImportExportErrorCode KisImportExportManager::doExportImpl(const QString &loc
 
     return status;
 
+}
+
+QString KisImportExportManager::getAlsoAsKraLocation(const QString location) const
+{
+#ifdef Q_OS_ANDROID
+    return getUriForAdditionalFile(location, nullptr);
+#else
+    return location + ".kra";
+#endif
 }
 
 #include <KisMimeDatabase.h>

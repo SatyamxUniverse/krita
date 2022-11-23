@@ -154,19 +154,17 @@ if (MINGW)
 		set(SECURITY_EXE_LINKER_FLAGS "-Wl,--dynamicbase -Wl,--nxcompat -Wl,--disable-auto-image-base")
 		set(SECURITY_SHARED_LINKER_FLAGS "-Wl,--dynamicbase -Wl,--nxcompat -Wl,--disable-auto-image-base")
 		set(SECURITY_MODULE_LINKER_FLAGS "-Wl,--dynamicbase -Wl,--nxcompat -Wl,--disable-auto-image-base")
-		if ("${CMAKE_SIZEOF_VOID_P}" EQUAL "8")
-			# Enable high-entropy ASLR for 64-bit
-			# The image base has to be >4GB for HEASLR to be enabled.
-			# The values used here are kind of arbitrary.
-			set(SECURITY_EXE_LINKER_FLAGS "${SECURITY_EXE_LINKER_FLAGS} -Wl,--high-entropy-va -Wl,--image-base,0x140000000")
-			set(SECURITY_SHARED_LINKER_FLAGS "${SECURITY_SHARED_LINKER_FLAGS} -Wl,--high-entropy-va -Wl,--image-base,0x180000000")
-			set(SECURITY_MODULE_LINKER_FLAGS "${SECURITY_MODULE_LINKER_FLAGS} -Wl,--high-entropy-va -Wl,--image-base,0x180000000")
-			set(GLOBAL_PROFILE ${GLOBAL_PROFILE}
-				-DCMAKE_EXE_LINKER_FLAGS=${SECURITY_EXE_LINKER_FLAGS}
-				-DCMAKE_SHARED_LINKER_FLAGS=${SECURITY_SHARED_LINKER_FLAGS}
-				-DCMAKE_MODULE_LINKER_FLAGS=${SECURITY_MODULE_LINKER_FLAGS}
-			)
-		endif ()
+        # Enable high-entropy ASLR for 64-bit
+        # The image base has to be >4GB for HEASLR to be enabled.
+        # The values used here are kind of arbitrary.
+        set(SECURITY_EXE_LINKER_FLAGS "${SECURITY_EXE_LINKER_FLAGS} -Wl,--high-entropy-va -Wl,--image-base,0x140000000")
+        set(SECURITY_SHARED_LINKER_FLAGS "${SECURITY_SHARED_LINKER_FLAGS} -Wl,--high-entropy-va -Wl,--image-base,0x180000000")
+        set(SECURITY_MODULE_LINKER_FLAGS "${SECURITY_MODULE_LINKER_FLAGS} -Wl,--high-entropy-va -Wl,--image-base,0x180000000")
+        set(GLOBAL_PROFILE ${GLOBAL_PROFILE}
+            -DCMAKE_EXE_LINKER_FLAGS=${SECURITY_EXE_LINKER_FLAGS}
+            -DCMAKE_SHARED_LINKER_FLAGS=${SECURITY_SHARED_LINKER_FLAGS}
+            -DCMAKE_MODULE_LINKER_FLAGS=${SECURITY_MODULE_LINKER_FLAGS}
+        )
 	else ()
 		message(WARNING "Linker Security Flags not enabled!")
 	endif ()
@@ -194,19 +192,19 @@ if (MINGW)
         -DCMAKE_CXX_FLAGS_RELWITHDEBINFO=${CMAKE_CXX_FLAGS_RELWITHDEBINFO}
     )
 elseif (MSVC)
-	set(SECURITY_C_FLAGS ${CMAKE_C_FLAGS})
-	set(SECURITY_CXX_FLAGS ${CMAKE_CXX_FLAGS})
+    set(SECURITY_C_FLAGS "")
+    set(SECURITY_CXX_FLAGS "")
 	# Increase the stack size to match MinGW's. Prevents crashes with GMic.
-	set(SECURITY_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /STACK:4194304")
-	set(SECURITY_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /STACK:4194304")
-	set(SECURITY_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} /STACK:4194304")
+    set(SECURITY_EXE_LINKER_FLAGS "/STACK:4194304")
+    set(SECURITY_SHARED_LINKER_FLAGS "/STACK:4194304")
+    set(SECURITY_MODULE_LINKER_FLAGS "/STACK:4194304")
 	option(USE_CONTROL_FLOW_GUARD "Enable Control Flow Guard hardening (MSVC)" ON)
 	if (USE_CONTROL_FLOW_GUARD)
-		set(SECURITY_C_FLAGS "${SECURITY_C_FLAGS} /guard:cf")
-		set(SECURITY_CXX_FLAGS "${SECURITY_CXX_FLAGS} /guard:cf")
-		set(SECURITY_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} /GUARD:CF")
-		set(SECURITY_SHARED_LINKER_FLAGS "${CMAKE_SHARED_LINKER_FLAGS} /GUARD:CF")
-		set(SECURITY_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} /GUARD:CF")
+        set(SECURITY_C_FLAGS "/guard:cf")
+        set(SECURITY_CXX_FLAGS "/guard:cf")
+        set(SECURITY_EXE_LINKER_FLAGS "/GUARD:CF")
+        set(SECURITY_SHARED_LINKER_FLAGS "/GUARD:CF")
+        set(SECURITY_MODULE_LINKER_FLAGS "/GUARD:CF")
 	endif (USE_CONTROL_FLOW_GUARD)
 	set(GLOBAL_PROFILE ${GLOBAL_PROFILE}
 		-DCMAKE_C_FLAGS=${SECURITY_C_FLAGS}
@@ -246,7 +244,10 @@ if (APPLE)
                         -DCMAKE_MACOSX_RPATH=ON
                         -DKDE_SKIP_RPATH_SETTINGS=ON
                         -DBUILD_WITH_INSTALL_RPATH=ON
-                        -DAPPLE_SUPPRESS_X11_WARNING=ON)
+                        -DAPPLE_SUPPRESS_X11_WARNING=ON
+                        -DCMAKE_FIND_FRAMEWORK=LAST
+                        -DCMAKE_OSX_ARCHITECTURES=${CMAKE_OSX_ARCHITECTURES}
+         )
     set(PATCH_COMMAND patch)
 endif ()
 
@@ -316,11 +317,8 @@ if (WIN32)
     if (ENABLE_PYTHON_DEPS)
         set(KRITA_PYTHONPATH "${INSTALL_ROOT}/lib/site-packages;$ENV{PYTHONPATH}")
         message(STATUS "Krita's PEP-0250 root: ${KRITA_PYTHONPATH}")
-        if (ENABLE_PYTHON_2)
-            message(FATAL_ERROR "Python 2.7 is not supported on Windows at the moment.")
-        else(ENABLE_PYTHON_2)
-            find_package(Python 3.8 EXACT COMPONENTS Development Interpreter)
-        endif()
+        set(Python_FIND_STRATEGY LOCATION)
+        find_package(Python 3.8 COMPONENTS Development Interpreter)
         if (Python_FOUND)
             message(STATUS "Python requirements met.")
             TestCompileLinkPythonLibs(CAN_USE_PYTHON_LIBS)
@@ -391,14 +389,12 @@ add_subdirectory( ext_fftw3 )
 add_subdirectory( ext_ocio )
 add_subdirectory( ext_openjpeg )
 add_subdirectory( ext_fontconfig)
-add_subdirectory( ext_freetype)
 
 if(USE_EXTERNAL_ANGLE AND QT_ENABLE_DYNAMIC_OPENGL)
     add_subdirectory(ext_googleangle)
 endif()
 
 add_subdirectory( ext_qt )
-add_subdirectory( ext_poppler )
 add_subdirectory( ext_libraw )
 if (ANDROID)
   # gettext replacement
@@ -433,3 +429,6 @@ endif()
 add_subdirectory(ext_webp)
 add_subdirectory(ext_jpegxl)
 add_subdirectory(ext_xsimd)
+
+add_subdirectory(ext_freetype)
+add_subdirectory(ext_poppler)

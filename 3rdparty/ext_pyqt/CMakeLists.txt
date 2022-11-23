@@ -45,8 +45,8 @@ elseif(UNIX)
 
     ExternalProject_Add(ext_pyqtbuilder
         DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-        URL https://pypi.io/packages/source/P/PyQt-builder/PyQt-builder-1.10.0.tar.gz
-        URL_HASH SHA256=86bd19fde83d92beaefacdeac1e26c6e1918c300ff78d7ec2a19973bf2cf21b5
+        URL https://pypi.io/packages/source/P/PyQt-builder/PyQt-builder-1.13.0.tar.gz
+        URL_HASH SHA256=4877580c38ceb5320e129b381d083b0a8601c68166d8b99707f08fa0a1689eef
 
         CONFIGURE_COMMAND ""
 
@@ -65,8 +65,8 @@ elseif(UNIX)
 
     ExternalProject_Add( ext_pyqt5
         DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-        URL https://pypi.python.org/packages/source/P/PyQt5/PyQt5-5.15.4.tar.gz
-        URL_HASH SHA256=2a69597e0dd11caabe75fae133feca66387819fc9bc050f547e5551bce97e5be
+        URL https://pypi.python.org/packages/source/P/PyQt5/PyQt5-5.15.7.tar.gz
+        URL_HASH SHA256=755121a52b3a08cb07275c10ebb96576d36e320e572591db16cfdbc558101594
 
         CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env 
             "PYTHONPATH=${KRITA_PYTHONPATH}"
@@ -93,8 +93,8 @@ elseif(UNIX)
 
     ExternalProject_Add( ext_pyqt5_sip
         DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-        URL https://pypi.python.org/packages/source/P/PyQt5-sip/PyQt5_sip-12.9.0.tar.gz
-        URL_HASH SHA256=d3e4489d7c2b0ece9d203ae66e573939f7f60d4d29e089c9f11daa17cfeaae32
+        URL https://pypi.python.org/packages/source/P/PyQt5-sip/PyQt5_sip-12.11.0.tar.gz
+        URL_HASH SHA256=b4710fd85b57edef716cc55fae45bfd5bfac6fc7ba91036f1dcc3f331ca0eb39
 
         CONFIGURE_COMMAND ""
 
@@ -139,8 +139,8 @@ elseif(WIN32)
 
     ExternalProject_Add(ext_pyqtbuilder
         DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-        URL https://pypi.io/packages/source/P/PyQt-builder/PyQt-builder-1.10.0.tar.gz
-        URL_HASH SHA256=86bd19fde83d92beaefacdeac1e26c6e1918c300ff78d7ec2a19973bf2cf21b5
+        URL https://pypi.io/packages/source/P/PyQt-builder/PyQt-builder-1.13.0.tar.gz
+        URL_HASH SHA256=4877580c38ceb5320e129b381d083b0a8601c68166d8b99707f08fa0a1689eef
 
         PATCH_COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/0001-Fix-linking-to-Python3.8-on-Windows.patch
             COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/0002-Add-additional-flavor-of-MinGW.patch
@@ -167,8 +167,8 @@ elseif(WIN32)
 
     ExternalProject_Add( ext_pyqt5
         DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-        URL https://pypi.python.org/packages/source/P/PyQt5/PyQt5-5.15.4.tar.gz
-        URL_HASH SHA256=2a69597e0dd11caabe75fae133feca66387819fc9bc050f547e5551bce97e5be
+        URL https://pypi.python.org/packages/source/P/PyQt5/PyQt5-5.15.7.tar.gz
+        URL_HASH SHA256=755121a52b3a08cb07275c10ebb96576d36e320e572591db16cfdbc558101594
 
         CONFIGURE_COMMAND ${CMAKE_COMMAND} -E env 
             PYTHONPATH=${_krita_pythonpath}
@@ -195,8 +195,8 @@ elseif(WIN32)
 
     ExternalProject_Add( ext_pyqt5_sip
         DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-        URL https://pypi.python.org/packages/source/P/PyQt5-sip/PyQt5_sip-12.9.0.tar.gz
-        URL_HASH SHA256=d3e4489d7c2b0ece9d203ae66e573939f7f60d4d29e089c9f11daa17cfeaae32
+        URL https://pypi.python.org/packages/source/P/PyQt5-sip/PyQt5_sip-12.11.0.tar.gz
+        URL_HASH SHA256=b4710fd85b57edef716cc55fae45bfd5bfac6fc7ba91036f1dcc3f331ca0eb39
 
         PATCH_COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/0001-MinGW-Distutils-support-hack.patch
 

@@ -23,23 +23,23 @@ inline void linearize(float *pixelValues,
                       float displayNits)
 {
     using float_v = typename KoColorTransferFunctions<Arch>::float_v;
-    if (linearizePolicy == LinearFromPQ) {
+    if (linearizePolicy == LinearizePolicy::LinearFromPQ) {
         auto v = float_v::load_unaligned(pixelValues);
         KoColorTransferFunctions<Arch>::removeSmpte2048Curve(v);
         v.store_unaligned(pixelValues);
-    } else if (linearizePolicy == LinearFromHLG) {
+    } else if (linearizePolicy == LinearizePolicy::LinearFromHLG) {
         auto v = float_v::load_unaligned(pixelValues);
         KoColorTransferFunctions<Arch>::removeHLGCurve(v);
         v.store_unaligned(pixelValues);
-    } else if (linearizePolicy == LinearFromSMPTE428) {
+    } else if (linearizePolicy == LinearizePolicy::LinearFromSMPTE428) {
         auto v = float_v::load_unaligned(pixelValues);
         KoColorTransferFunctions<Arch>::removeSMPTE_ST_428Curve(v);
         v.store_unaligned(pixelValues);
     }
 
-    if (linearizePolicy == KeepTheSame) {
+    if (linearizePolicy == LinearizePolicy::KeepTheSame) {
         qSwap(pixelValues[0], pixelValues[2]);
-    } else if (linearizePolicy == LinearFromHLG && applyOOTF) {
+    } else if (linearizePolicy == LinearizePolicy::LinearFromHLG && applyOOTF) {
         applyHLGOOTF(pixelValues, lCoef, displayGamma, displayNits);
     }
 }
@@ -55,9 +55,9 @@ inline void linearize(float *pixelValues,
                       float displayGamma,
                       float displayNits)
 {
-    if (linearizePolicy == KeepTheSame) {
+    if (linearizePolicy == LinearizePolicy::KeepTheSame) {
         qSwap(pixelValues[0], pixelValues[2]);
-    } else if (linearizePolicy == LinearFromHLG && applyOOTF) {
+    } else if (linearizePolicy == LinearizePolicy::LinearFromHLG && applyOOTF) {
         applyHLGOOTF(pixelValues, lCoef, displayGamma, displayNits);
     }
 }
@@ -87,11 +87,11 @@ inline float value(const uint8_t *img, int stride, int x, int y)
 template<LinearizePolicy policy>
 inline float linearizeValueAsNeeded(float value)
 {
-    if (policy == LinearFromPQ) {
+    if (policy == LinearizePolicy::LinearFromPQ) {
         return removeSmpte2048Curve(value);
-    } else if (policy == LinearFromHLG) {
+    } else if (policy == LinearizePolicy::LinearFromHLG) {
         return removeHLGCurve(value);
-    } else if (policy == LinearFromSMPTE428) {
+    } else if (policy == LinearizePolicy::LinearFromSMPTE428) {
         return removeSMPTE_ST_428Curve(value);
     }
     return value;
@@ -175,20 +175,23 @@ inline void readLayer(const int width,
             data[1] = value<Arch, luma, linearizePolicy>(imgG, strideG, x, y);
             data[2] = value<Arch, luma, linearizePolicy>(imgB, strideB, x, y);
 
-            if (hasAlpha) {
-                data[3] =
-                    value<Arch, luma, linearizePolicy>(imgA, strideA, x, y);
-            }
-
             linearize<Arch, linearizePolicy, applyOOTF>(data,
                                                         lCoef.constData(),
                                                         displayGamma,
                                                         displayNits);
 
+            if (hasAlpha) {
+                data[3] =
+                    value<Arch, luma, LinearizePolicy::KeepTheSame>(imgA,
+                                                                    strideA,
+                                                                    x,
+                                                                    y);
+            }
+
             if (luma == 8) {
                 KoBgrU8Traits::fromNormalisedChannelsValue(it->rawData(),
                                                            pixelValues);
-            } else if (luma > 8 && linearizePolicy != KeepTheSame) {
+            } else if (luma > 8 && linearizePolicy != LinearizePolicy::KeepTheSame) {
                 KoBgrF32Traits::fromNormalisedChannelsValue(it->rawData(),
                                                             pixelValues);
             } else {
@@ -238,18 +241,14 @@ template<typename Arch, int luma, typename... Args>
 inline auto readPlanarLayerWithLuma(LinearizePolicy linearizePolicy,
                                     Args &&...args)
 {
-    if (linearizePolicy == LinearFromHLG) {
-        return readPlanarLayerWithPolicy<Arch, luma, LinearFromHLG>(
-            std::forward<Args>(args)...);
-    } else if (linearizePolicy == LinearFromPQ) {
-        return readPlanarLayerWithPolicy<Arch, luma, LinearFromPQ>(
-            std::forward<Args>(args)...);
-    } else if (linearizePolicy == LinearFromSMPTE428) {
-        return readPlanarLayerWithPolicy<Arch, luma, LinearFromSMPTE428>(
-            std::forward<Args>(args)...);
+    if (linearizePolicy == LinearizePolicy::LinearFromHLG) {
+        return readPlanarLayerWithPolicy<Arch, luma, LinearizePolicy::LinearFromHLG>(std::forward<Args>(args)...);
+    } else if (linearizePolicy == LinearizePolicy::LinearFromPQ) {
+        return readPlanarLayerWithPolicy<Arch, luma, LinearizePolicy::LinearFromPQ>(std::forward<Args>(args)...);
+    } else if (linearizePolicy == LinearizePolicy::LinearFromSMPTE428) {
+        return readPlanarLayerWithPolicy<Arch, luma, LinearizePolicy::LinearFromSMPTE428>(std::forward<Args>(args)...);
     } else {
-        return readPlanarLayerWithPolicy<Arch, luma, KeepTheSame>(
-            std::forward<Args>(args)...);
+        return readPlanarLayerWithPolicy<Arch, luma, LinearizePolicy::KeepTheSame>(std::forward<Args>(args)...);
     }
 }
 
@@ -384,23 +383,23 @@ inline void linearize(float *pixelValues,
                       float displayNits)
 {
     using float_v = typename KoColorTransferFunctions<Arch>::float_v;
-    if (linearizePolicy == LinearFromPQ) {
+    if (linearizePolicy == LinearizePolicy::LinearFromPQ) {
         auto v = float_v::load_unaligned(pixelValues);
         KoColorTransferFunctions<Arch>::removeSmpte2048Curve(v);
         v.store_unaligned(pixelValues);
-    } else if (linearizePolicy == LinearFromHLG) {
+    } else if (linearizePolicy == LinearizePolicy::LinearFromHLG) {
         auto v = float_v::load_unaligned(pixelValues);
         KoColorTransferFunctions<Arch>::removeHLGCurve(v);
         v.store_unaligned(pixelValues);
-    } else if (linearizePolicy == LinearFromSMPTE428) {
+    } else if (linearizePolicy == LinearizePolicy::LinearFromSMPTE428) {
         auto v = float_v::load_unaligned(pixelValues);
         KoColorTransferFunctions<Arch>::removeSMPTE_ST_428Curve(v);
         v.store_unaligned(pixelValues);
     }
 
-    if (linearizePolicy == KeepTheSame) {
+    if (linearizePolicy == LinearizePolicy::KeepTheSame) {
         qSwap(pixelValues[0], pixelValues[2]);
-    } else if (linearizePolicy == LinearFromHLG && applyOOTF) {
+    } else if (linearizePolicy == LinearizePolicy::LinearFromHLG && applyOOTF) {
         applyHLGOOTF(pixelValues, lCoef, displayGamma, displayNits);
     }
 }
@@ -416,9 +415,9 @@ inline void linearize(float *pixelValues,
                       float displayGamma,
                       float displayNits)
 {
-    if (linearizePolicy == KeepTheSame) {
+    if (linearizePolicy == LinearizePolicy::KeepTheSame) {
         qSwap(pixelValues[0], pixelValues[2]);
-    } else if (linearizePolicy == LinearFromHLG && applyOOTF) {
+    } else if (linearizePolicy == LinearizePolicy::LinearFromHLG && applyOOTF) {
         applyHLGOOTF(pixelValues, lCoef, displayGamma, displayNits);
     }
 }
@@ -449,11 +448,11 @@ inline float valueInterleaved(const uint8_t *img,
 template<LinearizePolicy policy>
 inline float linearizeValueAsNeeded(float value)
 {
-    if (policy == LinearFromPQ) {
+    if (policy == LinearizePolicy::LinearFromPQ) {
         return removeSmpte2048Curve(value);
-    } else if (policy == LinearFromHLG) {
+    } else if (policy == LinearizePolicy::LinearFromHLG) {
         return removeHLGCurve(value);
-    } else if (policy == LinearFromSMPTE428) {
+    } else if (policy == LinearizePolicy::LinearFromSMPTE428) {
         return removeSMPTE_ST_428Curve(value);
     }
     return value;
@@ -529,14 +528,37 @@ inline void readLayer(const int width,
                 data[i] = 1.0f;
             }
 
+            const int alphaPos = [&]() {
+                if (luma == 8) {
+                    return KoBgrU8Traits::alpha_pos;
+                } else if (luma > 8
+                           && linearizePolicy != LinearizePolicy::KeepTheSame) {
+                    return KoBgrF32Traits::alpha_pos;
+                } else {
+                    return KoBgrU16Traits::alpha_pos;
+                }
+            }();
+
             for (int ch = 0; ch < channels; ch++) {
-                data[ch] =
-                    valueInterleaved<Arch, luma, linearizePolicy>(img,
-                                                                  stride,
-                                                                  x,
-                                                                  y,
-                                                                  channels,
-                                                                  ch);
+                if (ch == alphaPos) {
+                    data[ch] =
+                        valueInterleaved<Arch,
+                                         luma,
+                                         LinearizePolicy::KeepTheSame>(img,
+                                                                       stride,
+                                                                       x,
+                                                                       y,
+                                                                       channels,
+                                                                       ch);
+                } else {
+                    data[ch] =
+                        valueInterleaved<Arch, luma, linearizePolicy>(img,
+                                                                      stride,
+                                                                      x,
+                                                                      y,
+                                                                      channels,
+                                                                      ch);
+                }
             }
 
             linearize<Arch, linearizePolicy, applyOOTF>(data,
@@ -547,7 +569,7 @@ inline void readLayer(const int width,
             if (luma == 8) {
                 KoBgrU8Traits::fromNormalisedChannelsValue(it->rawData(),
                                                            pixelValues);
-            } else if (luma > 8 && linearizePolicy != KeepTheSame) {
+            } else if (luma > 8 && linearizePolicy != LinearizePolicy::KeepTheSame) {
                 KoBgrF32Traits::fromNormalisedChannelsValue(it->rawData(),
                                                             pixelValues);
             } else {
@@ -597,18 +619,14 @@ template<typename Arch, int luma, typename... Args>
 inline auto readInterleavedWithLuma(LinearizePolicy linearizePolicy,
                                     Args &&...args)
 {
-    if (linearizePolicy == LinearFromHLG) {
-        return readInterleavedWithPolicy<Arch, luma, LinearFromHLG>(
-            std::forward<Args>(args)...);
-    } else if (linearizePolicy == LinearFromPQ) {
-        return readInterleavedWithPolicy<Arch, luma, LinearFromPQ>(
-            std::forward<Args>(args)...);
-    } else if (linearizePolicy == LinearFromSMPTE428) {
-        return readInterleavedWithPolicy<Arch, luma, LinearFromSMPTE428>(
-            std::forward<Args>(args)...);
+    if (linearizePolicy == LinearizePolicy::LinearFromHLG) {
+        return readInterleavedWithPolicy<Arch, luma, LinearizePolicy::LinearFromHLG>(std::forward<Args>(args)...);
+    } else if (linearizePolicy == LinearizePolicy::LinearFromPQ) {
+        return readInterleavedWithPolicy<Arch, luma, LinearizePolicy::LinearFromPQ>(std::forward<Args>(args)...);
+    } else if (linearizePolicy == LinearizePolicy::LinearFromSMPTE428) {
+        return readInterleavedWithPolicy<Arch, luma, LinearizePolicy::LinearFromSMPTE428>(std::forward<Args>(args)...);
     } else {
-        return readInterleavedWithPolicy<Arch, luma, KeepTheSame>(
-            std::forward<Args>(args)...);
+        return readInterleavedWithPolicy<Arch, luma, LinearizePolicy::KeepTheSame>(std::forward<Args>(args)...);
     }
 }
 
@@ -694,23 +712,23 @@ inline void linearize(float *pixelValues,
                       float displayNits)
 {
     using float_v = typename KoColorTransferFunctions<Arch>::float_v;
-    if (linearizePolicy == LinearFromPQ) {
+    if (linearizePolicy == LinearizePolicy::LinearFromPQ) {
         auto v = float_v::load_unaligned(pixelValues);
         KoColorTransferFunctions<Arch>::removeSmpte2048Curve(v);
         v.store_unaligned(pixelValues);
-    } else if (linearizePolicy == LinearFromHLG) {
+    } else if (linearizePolicy == LinearizePolicy::LinearFromHLG) {
         auto v = float_v::load_unaligned(pixelValues);
         KoColorTransferFunctions<Arch>::removeHLGCurve(v);
         v.store_unaligned(pixelValues);
-    } else if (linearizePolicy == LinearFromSMPTE428) {
+    } else if (linearizePolicy == LinearizePolicy::LinearFromSMPTE428) {
         auto v = float_v::load_unaligned(pixelValues);
         KoColorTransferFunctions<Arch>::removeSMPTE_ST_428Curve(v);
         v.store_unaligned(pixelValues);
     }
 
-    if (linearizePolicy == KeepTheSame) {
+    if (linearizePolicy == LinearizePolicy::KeepTheSame) {
         qSwap(pixelValues[0], pixelValues[2]);
-    } else if (linearizePolicy == LinearFromHLG && applyOOTF) {
+    } else if (linearizePolicy == LinearizePolicy::LinearFromHLG && applyOOTF) {
         applyHLGOOTF(pixelValues, lCoef, displayGamma, displayNits);
     }
 }
@@ -726,9 +744,9 @@ inline void linearize(float *pixelValues,
                       float displayGamma,
                       float displayNits)
 {
-    if (linearizePolicy == KeepTheSame) {
+    if (linearizePolicy == LinearizePolicy::KeepTheSame) {
         qSwap(pixelValues[0], pixelValues[2]);
-    } else if (linearizePolicy == LinearFromHLG && applyOOTF) {
+    } else if (linearizePolicy == LinearizePolicy::LinearFromHLG && applyOOTF) {
         applyHLGOOTF(pixelValues, lCoef, displayGamma, displayNits);
     }
 }
@@ -747,11 +765,11 @@ inline float value(const uint8_t *img, int stride, int x, int y, int ch)
 template<LinearizePolicy policy>
 inline float linearizeValueAsNeeded(float value)
 {
-    if (policy == LinearFromPQ) {
+    if (policy == LinearizePolicy::LinearFromPQ) {
         return removeSmpte2048Curve(value);
-    } else if (policy == LinearFromHLG) {
+    } else if (policy == LinearizePolicy::LinearFromHLG) {
         return removeHLGCurve(value);
-    } else if (policy == LinearFromSMPTE428) {
+    } else if (policy == LinearizePolicy::LinearFromSMPTE428) {
         return removeSMPTE_ST_428Curve(value);
     }
     return value;
@@ -812,11 +830,21 @@ inline void readLayer(const int width,
             }
 
             for (int ch = 0; ch < channels; ch++) {
-                data[ch] = value<Arch, linearizePolicy, channels>(img,
-                                                                  stride,
-                                                                  x,
-                                                                  y,
-                                                                  ch);
+                if (ch == KoBgrU8Traits::alpha_pos) {
+                    data[ch] =
+                        value<Arch, LinearizePolicy::KeepTheSame, channels>(
+                            img,
+                            stride,
+                            x,
+                            y,
+                            ch);
+                } else {
+                    data[ch] = value<Arch, linearizePolicy, channels>(img,
+                                                                      stride,
+                                                                      x,
+                                                                      y,
+                                                                      ch);
+                }
             }
 
             linearize<Arch, linearizePolicy, applyOOTF>(data,
@@ -874,50 +902,50 @@ void readLayerImpl::create(LinearizePolicy linearizePolicy,
                            float displayNits,
                            const KoColorSpace *colorSpace)
 {
-    if (linearizePolicy == LinearFromHLG) {
-        return readInterleavedWithPolicy<Arch, LinearFromHLG>(applyOOTF,
-                                                              hasAlpha,
-                                                              width,
-                                                              height,
-                                                              img,
-                                                              stride,
-                                                              it,
-                                                              displayGamma,
-                                                              displayNits,
-                                                              colorSpace);
-    } else if (linearizePolicy == LinearFromPQ) {
-        return readInterleavedWithPolicy<Arch, LinearFromPQ>(applyOOTF,
-                                                             hasAlpha,
-                                                             width,
-                                                             height,
-                                                             img,
-                                                             stride,
-                                                             it,
-                                                             displayGamma,
-                                                             displayNits,
-                                                             colorSpace);
-    } else if (linearizePolicy == LinearFromSMPTE428) {
-        return readInterleavedWithPolicy<Arch, LinearFromSMPTE428>(applyOOTF,
-                                                                   hasAlpha,
-                                                                   width,
-                                                                   height,
-                                                                   img,
-                                                                   stride,
-                                                                   it,
-                                                                   displayGamma,
-                                                                   displayNits,
-                                                                   colorSpace);
+    if (linearizePolicy == LinearizePolicy::LinearFromHLG) {
+        return readInterleavedWithPolicy<Arch, LinearizePolicy::LinearFromHLG>(applyOOTF,
+                                                                               hasAlpha,
+                                                                               width,
+                                                                               height,
+                                                                               img,
+                                                                               stride,
+                                                                               it,
+                                                                               displayGamma,
+                                                                               displayNits,
+                                                                               colorSpace);
+    } else if (linearizePolicy == LinearizePolicy::LinearFromPQ) {
+        return readInterleavedWithPolicy<Arch, LinearizePolicy::LinearFromPQ>(applyOOTF,
+                                                                              hasAlpha,
+                                                                              width,
+                                                                              height,
+                                                                              img,
+                                                                              stride,
+                                                                              it,
+                                                                              displayGamma,
+                                                                              displayNits,
+                                                                              colorSpace);
+    } else if (linearizePolicy == LinearizePolicy::LinearFromSMPTE428) {
+        return readInterleavedWithPolicy<Arch, LinearizePolicy::LinearFromSMPTE428>(applyOOTF,
+                                                                                    hasAlpha,
+                                                                                    width,
+                                                                                    height,
+                                                                                    img,
+                                                                                    stride,
+                                                                                    it,
+                                                                                    displayGamma,
+                                                                                    displayNits,
+                                                                                    colorSpace);
     } else {
-        return readInterleavedWithPolicy<Arch, KeepTheSame>(applyOOTF,
-                                                            hasAlpha,
-                                                            width,
-                                                            height,
-                                                            img,
-                                                            stride,
-                                                            it,
-                                                            displayGamma,
-                                                            displayNits,
-                                                            colorSpace);
+        return readInterleavedWithPolicy<Arch, LinearizePolicy::KeepTheSame>(applyOOTF,
+                                                                             hasAlpha,
+                                                                             width,
+                                                                             height,
+                                                                             img,
+                                                                             stride,
+                                                                             it,
+                                                                             displayGamma,
+                                                                             displayNits,
+                                                                             colorSpace);
     }
 }
 

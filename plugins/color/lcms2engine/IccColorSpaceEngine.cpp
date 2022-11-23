@@ -7,9 +7,10 @@
 
 #include "IccColorSpaceEngine.h"
 
-#include "KoColorModelStandardIds.h"
-
 #include <klocalizedstring.h>
+
+#include <KoColorModelStandardIds.h>
+#include <kis_assert.h>
 
 #include "LcmsColorSpace.h"
 
@@ -202,11 +203,19 @@ const KoColorProfile *IccColorSpaceEngine::getProfile(const QVector<double> &col
 {
     KoColorSpaceRegistry *registry = KoColorSpaceRegistry::instance();
 
-    if (colorPrimaries == PRIMARIES_UNSPECIFIED && transferFunction == TRC_UNSPECIFIED
-            && colorants.isEmpty()) {
+    KIS_SAFE_ASSERT_RECOVER(
+        (!colorants.isEmpty() || colorPrimaries != PRIMARIES_UNSPECIFIED)
+        && transferFunction != TRC_UNSPECIFIED)
+    {
+        if (transferFunction == TRC_LINEAR) {
+            colorPrimaries = PRIMARIES_ITU_R_BT_2020_2_AND_2100_0;
+        } else {
+            colorPrimaries = PRIMARIES_ITU_R_BT_709_5;
+        }
 
-        colorPrimaries = PRIMARIES_ITU_R_BT_709_5;
-        transferFunction = TRC_IEC_61966_2_1;
+        if (transferFunction == TRC_UNSPECIFIED) {
+            transferFunction = TRC_IEC_61966_2_1;
+        }
     }
 
     const KoColorProfile *profile = new IccColorProfile(colorants, colorPrimaries, transferFunction);
@@ -288,11 +297,11 @@ quint32 IccColorSpaceEngine::computeColorSpaceType(const KoColorSpace *cs) const
         } else if (depthId == Integer16BitsColorDepthID.id()) {
             depthType = BYTES_SH(2);
         } else if (depthId == Float16BitsColorDepthID.id()) {
-            depthType = BYTES_SH(2);
+            depthType = BYTES_SH(2) | FLOAT_SH(1);
         } else if (depthId == Float32BitsColorDepthID.id()) {
-            depthType = BYTES_SH(4);
+            depthType = BYTES_SH(4) | FLOAT_SH(1);
         } else if (depthId == Float64BitsColorDepthID.id()) {
-            depthType = BYTES_SH(0);
+            depthType = BYTES_SH(0) | FLOAT_SH(1);
         } else {
             qWarning() << "Unknown bit depth";
             return 0;

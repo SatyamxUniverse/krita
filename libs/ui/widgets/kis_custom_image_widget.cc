@@ -91,7 +91,6 @@ KisCustomImageWidget::KisCustomImageWidget(QWidget* parent, qint32 defWidth, qin
     doubleResolution->setValue(72.0 * resolution);
     doubleResolution->setDecimals(2);
 
-    imageGroupSpacer->changeSize(0, 0, QSizePolicy::Fixed, QSizePolicy::Fixed);
     grpClipboard->hide();
 
     sliderOpacity->setRange(0, 100, 0);
@@ -271,6 +270,7 @@ void KisCustomImageWidget::createImage()
         emit m_openPane->documentSelected(doc);
         m_openPane->accept();
     }
+    newDialogConfirmationButtonBox->button(QDialogButtonBox::Ok)->setEnabled(true);
 }
 
 KisDocument* KisCustomImageWidget::createNewImage()

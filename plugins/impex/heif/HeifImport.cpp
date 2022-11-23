@@ -14,6 +14,7 @@
 #include <QFileInfo>
 
 #include <kpluginfactory.h>
+#include <libheif/heif.h>
 #include <libheif/heif_cxx.h>
 
 #include <KisDocument.h>
@@ -22,6 +23,7 @@
 #include <KoColorSpace.h>
 #include <KoColorSpaceEngine.h>
 #include <KoColorSpaceRegistry.h>
+#include <dialogs/kis_dlg_hlg_import.h>
 #include <kis_group_layer.h>
 #include <kis_image.h>
 #include <kis_iterator_ng.h>
@@ -33,8 +35,8 @@
 #include <kis_paint_device.h>
 #include <kis_paint_layer.h>
 #include <kis_transaction.h>
+#include <qmutex.h>
 
-#include "DlgHeifImport.h"
 #include "kis_heif_import_tools.h"
 
 using heif::Error;
@@ -83,6 +85,26 @@ private:
   QIODevice* m_device;
   int64_t m_total_length;
 };
+
+#if LIBHEIF_HAVE_VERSION(1, 13, 0)
+class Q_DECL_HIDDEN HeifLock
+{
+public:
+    HeifLock()
+        : p()
+    {
+        heif_init(&p);
+    }
+
+    ~HeifLock()
+    {
+        heif_deinit();
+    }
+
+private:
+    heif_init_params p;
+};
+#endif
 
 namespace Planar
 {
@@ -188,6 +210,10 @@ inline auto readInterleavedLayer(LinearizePolicy linearizePolicy,
 
 KisImportExportErrorCode HeifImport::convert(KisDocument *document, QIODevice *io,  KisPropertiesConfigurationSP /*configuration*/)
 {
+#if LIBHEIF_HAVE_VERSION(1, 13, 0)
+    HeifLock lock;
+#endif
+
     // Wrap input stream into heif Reader object
     Reader_QIODevice reader(io);
 
@@ -210,7 +236,7 @@ KisImportExportErrorCode HeifImport::convert(KisDocument *document, QIODevice *i
 
         dbgFile << "loading heif" << heifModel << heifChroma << luma;
 
-        LinearizePolicy linearizePolicy = KeepTheSame;
+        LinearizePolicy linearizePolicy = LinearizePolicy::KeepTheSame;
         bool applyOOTF = true;
         float displayGamma = 1.2f;
         float displayNits = 1000.0;
@@ -261,24 +287,24 @@ KisImportExportErrorCode HeifImport::convert(KisDocument *document, QIODevice *i
                 ColorPrimaries primaries = ColorPrimaries(nclx->color_primaries);
                 if (nclx->transfer_characteristics == heif_transfer_characteristic_ITU_R_BT_2100_0_PQ) {
                     dbgFile << "linearizing from PQ";
-                    linearizePolicy = LinearFromPQ;
+                    linearizePolicy = LinearizePolicy::LinearFromPQ;
                     transferCharacteristic = TRC_LINEAR;
                 }
                 if (nclx->transfer_characteristics == heif_transfer_characteristic_ITU_R_BT_2100_0_HLG) {
                     dbgFile << "linearizing from HLG";
                     if (!document->fileBatchMode()) {
-                        DlgHeifImport dlg(applyOOTF, displayGamma, displayNits);
+                        KisDlgHLGImport dlg(applyOOTF, displayGamma, displayNits);
                         dlg.exec();
                         applyOOTF = dlg.applyOOTF();
                         displayGamma = dlg.gamma();
                         displayNits = dlg.nominalPeakBrightness();
                     }
-                    linearizePolicy = LinearFromHLG;
+                    linearizePolicy = LinearizePolicy::LinearFromHLG;
                     transferCharacteristic = TRC_LINEAR;
                 }
                 if (nclx->transfer_characteristics == heif_transfer_characteristic_SMPTE_ST_428_1) {
                     dbgFile << "linearizing from SMPTE 428";
-                    linearizePolicy = LinearFromSMPTE428;
+                    linearizePolicy = LinearizePolicy::LinearFromSMPTE428;
                     transferCharacteristic = TRC_LINEAR;
                 }
 
@@ -307,11 +333,9 @@ KisImportExportErrorCode HeifImport::convert(KisDocument *document, QIODevice *i
                                                                        primaries,
                                                                        transferCharacteristic);
 
-                if (linearizePolicy != KeepTheSame) {
+                if (linearizePolicy != LinearizePolicy::KeepTheSame) {
                     colorDepth = Float32BitsColorDepthID;
                 }
-
-
 
                 heif_nclx_color_profile_free(nclx);
                 dbgFile << "nclx profile found" << profile->name();

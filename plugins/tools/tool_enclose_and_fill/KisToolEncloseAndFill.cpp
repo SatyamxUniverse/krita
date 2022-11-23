@@ -439,28 +439,26 @@ QWidget* KisToolEncloseAndFill::createOptionWidget()
     m_buttonEnclosingMethodLasso->setToolTip(i18n("Lasso"));
     m_buttonEnclosingMethodBrush->setToolTip(i18n("Brush"));
     m_comboBoxRegionSelectionMethod->setToolTip(regionSelectionMethodToUserString(m_regionSelectionMethod));
-    m_checkBoxRegionSelectionInvert->setToolTip(i18n("Check this option to fill all the regions except the selected ones"));
-    m_checkBoxRegionSelectionIncludeContourRegions->setToolTip(i18n("Check this option to also fill the shapes that touch the contour of the enclosing region"));
+    m_checkBoxRegionSelectionInvert->setToolTip(i18n("Enable to fill opposite regions instead"));
+    m_checkBoxRegionSelectionIncludeContourRegions->setToolTip(i18n("Enable to also fill shapes that touch the contour of the enclosing region"));
     m_buttonFillWithFG->setToolTip(i18n("Foreground color"));
     m_buttonFillWithBG->setToolTip(i18n("Background color"));
     m_buttonFillWithPattern->setToolTip(i18n("Pattern"));
     m_sliderPatternScale->setToolTip(i18n("Set the scale of the pattern"));
     m_angleSelectorPatternRotation->setToolTip(i18n("Set the rotation of the pattern"));
 
-    m_sliderFillThreshold->setToolTip(i18n("Set how far the region should extend from the selected pixel in terms of color similarity"));
-    m_sliderFillOpacitySpread->setToolTip(i18n("Set how far the fully opaque portion of the region should extend."
-                                               "\n0% will make opaque only the pixels that are exactly equal to the selected pixel."
-                                               "\n100% will make opaque all the pixels in the region up to its boundary."));
-    m_checkBoxSelectionAsBoundary->setToolTip(i18n("Set if the contour of the current selection should be treated as a boundary when obtaining the region"));
+    m_sliderFillThreshold->setToolTip(i18n("Set the color similarity tolerance of the fill. Increasing threshold increases the range of similar colors to be filled."));
+    m_sliderFillOpacitySpread->setToolTip(i18n("Set the extent of the opaque portion of the fill. Decreasing spread decreases opacity of fill areas depending on color similarity."));
+    m_checkBoxSelectionAsBoundary->setToolTip(i18n("Set if the contour of the active selection should be treated as a boundary when filling the region"));
 
-    m_checkBoxAntiAlias->setToolTip(i18n("Smooth the jagged edges"));
-    m_sliderExpand->setToolTip(i18n("Grow (positive values) or shrink (negative values) the region by the set amount"));
+    m_checkBoxAntiAlias->setToolTip(i18n("Smooths the edges of the fill"));
+    m_sliderExpand->setToolTip(i18n("Grow or shrink the fill by the set amount"));
     m_buttonStopGrowingAtDarkestPixel->setToolTip(i18n("Stop growing at the darkest and/or most opaque pixels"));
-    m_sliderFeather->setToolTip(i18n("Blur the region by the set amount"));
+    m_sliderFeather->setToolTip(i18n("Blur the fill by the set amount"));
 
-    m_buttonReferenceCurrent->setToolTip(i18n("Obtain the region using the active layer"));
-    m_buttonReferenceAll->setToolTip(i18n("Obtain the region using a merged copy of all layers"));
-    m_buttonReferenceLabeled->setToolTip(i18n("Obtain the region using a merged copy of the selected color-labeled layers"));
+    m_buttonReferenceCurrent->setToolTip(i18n("Fill regions found from the active layer"));
+    m_buttonReferenceAll->setToolTip(i18n("Fill regions found from the merging of all layers"));
+    m_buttonReferenceLabeled->setToolTip(i18n("Fill regions found from the merging of layers with specific color labels"));
 
     buttonReset->setToolTip(i18n("Reset the options to their default values"));
 
@@ -478,7 +476,7 @@ QWidget* KisToolEncloseAndFill::createOptionWidget()
 
     KisOptionCollectionWidgetWithHeader *sectionWhatToFill =
         new KisOptionCollectionWidgetWithHeader(
-            i18nc("The 'what to fill' section label in enclose and fill tool options", "What to fill")
+            i18nc("The 'target regions' section label in enclose and fill tool options", "Target regions")
         );
     sectionWhatToFill->setPrimaryWidget(m_comboBoxRegionSelectionMethod);
     sectionWhatToFill->appendWidget("buttonRegionSelectionColor", m_buttonRegionSelectionColor);
@@ -488,7 +486,7 @@ QWidget* KisToolEncloseAndFill::createOptionWidget()
 
     KisOptionCollectionWidgetWithHeader *sectionFillWith =
         new KisOptionCollectionWidgetWithHeader(
-            i18nc("The 'fill with' section label in enclose and fill tool options", "Fill with")
+            i18nc("The 'fill source' section label in enclose and fill tool options", "Fill source")
         );
     sectionFillWith->setPrimaryWidget(optionButtonStripFillWith);
     sectionFillWith->appendWidget("sliderPatternScale", m_sliderPatternScale);
@@ -499,7 +497,7 @@ QWidget* KisToolEncloseAndFill::createOptionWidget()
 
     KisOptionCollectionWidgetWithHeader *sectionRegionExtent =
         new KisOptionCollectionWidgetWithHeader(
-            i18nc("The 'region extent' section label in enclose and fill tool options", "Region extent")
+            i18nc("The 'fill extent' section label in enclose and fill tool options", "Fill extent")
         );
     sectionRegionExtent->appendWidget("sliderThreshold", m_sliderFillThreshold);
     sectionRegionExtent->appendWidget("sliderSpread", m_sliderFillOpacitySpread);
@@ -713,34 +711,34 @@ QString KisToolEncloseAndFill::regionSelectionMethodToUserString(RegionSelection
 {
     if (regionSelectionMethod == RegionSelectionMethod::SelectAllRegions) {
         return i18nc("Region selection method in enclose and fill tool",
-                     "All regions");
+                     "All");
     } else if (regionSelectionMethod == RegionSelectionMethod::SelectRegionsFilledWithSpecificColor) {
         return i18nc("Region selection method in enclose and fill tool",
-                     "Regions of a specific color");
+                     "Specific color");
     } else if (regionSelectionMethod == RegionSelectionMethod::SelectRegionsFilledWithTransparent) {
         return i18nc("Region selection method in enclose and fill tool",
-                     "Transparent regions");
+                     "Transparency");
     } else if (regionSelectionMethod == RegionSelectionMethod::SelectRegionsFilledWithSpecificColorOrTransparent) {
         return i18nc("Region selection method in enclose and fill tool",
-                     "Regions of a specific color or transparent");
+                     "Specific color or transparency");
     } else if (regionSelectionMethod == RegionSelectionMethod::SelectAllRegionsExceptFilledWithSpecificColor) {
         return i18nc("Region selection method in enclose and fill tool",
-                     "All regions except those of a specific color");
+                     "All, excluding a specific color");
     } else if (regionSelectionMethod == RegionSelectionMethod::SelectAllRegionsExceptFilledWithTransparent) {
         return i18nc("Region selection method in enclose and fill tool",
-                     "All regions except the transparent ones");
+                     "All, excluding transparency");
     } else if (regionSelectionMethod == RegionSelectionMethod::SelectAllRegionsExceptFilledWithSpecificColorOrTransparent) {
         return i18nc("Region selection method in enclose and fill tool",
-                     "All regions except those of a specific color or transparent");
+                     "All, excluding a specific color or transparency");
     } else if (regionSelectionMethod == RegionSelectionMethod::SelectRegionsSurroundedBySpecificColor) {
         return i18nc("Region selection method in enclose and fill tool",
-                     "Regions surrounded by a specific color");
+                     "Any surrounded by a specific color");
     } else if (regionSelectionMethod == RegionSelectionMethod::SelectRegionsSurroundedByTransparent) {
         return i18nc("Region selection method in enclose and fill tool",
-                     "Regions surrounded by transparent");
+                     "Any surrounded by transparency");
     } else if (regionSelectionMethod == RegionSelectionMethod::SelectRegionsSurroundedBySpecificColorOrTransparent) {
         return i18nc("Region selection method in enclose and fill tool",
-                     "Regions surrounded by a specific color or transparent");
+                     "Any surrounded by a specific color or transparency");
     }
     return QString();
 }

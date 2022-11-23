@@ -16,7 +16,11 @@
 #include <KoShapeManager.h>
 #include <KisSafeBlockingQueueConnectionProxy.h>
 #include <kis_signal_auto_connection.h>
+#include "kis_image_view_converter.h"
+#include "kis_default_bounds_base.h"
+#include "KoColorConversionTransformation.h"
 
+class KoColorProfile;
 class KoShapeManager;
 class KoToolProxy;
 class KoViewConverter;
@@ -24,18 +28,20 @@ class KUndo2Command;
 class QWidget;
 class KoUnit;
 class KisImageViewConverter;
+class KoColorSpace;
 
 class KisShapeLayerCanvasBase : public KoCanvasBase
 {
     Q_OBJECT
 public:
-    KisShapeLayerCanvasBase(KisShapeLayer *parent, KisImageWSP image);
+    KisShapeLayerCanvasBase(KisShapeLayer *parent);
+    KisShapeLayerCanvasBase(const KisShapeLayerCanvasBase &rhs, KisShapeLayer *parent);
 
     virtual void setImage(KisImageWSP image);
-    void setViewConverter(KoViewConverter *converter);
     void prepareForDestroying();
     virtual void forceRepaint() = 0;
     virtual bool hasPendingUpdates() const = 0;
+    virtual KisPaintDeviceSP projection() const = 0;
 
     virtual void forceRepaintWithHiddenAreas() { forceRepaint(); }
 
@@ -44,7 +50,8 @@ public:
     virtual void resetCache() = 0;
 
     KoShapeManager *shapeManager() const override;
-    KoViewConverter *viewConverter() const override;
+    const KoViewConverter *viewConverter() const override;
+    KoViewConverter *viewConverter() override;
 
     void gridSize(QPointF *offset, QSizeF *spacing) const override;
     bool snapToGrid() const override;
@@ -57,18 +64,13 @@ public:
     void updateInputMethodInfo() override {}
     void setCursor(const QCursor &) override {}
 
-private Q_SLOTS:
-    void slotImageResolutionChanged(qreal xRes, qreal yRes);
 protected:
-    QScopedPointer<KoViewConverter> m_viewConverter;
     QScopedPointer<KoShapeManager> m_shapeManager;
     QScopedPointer<KoSelectedShapesProxy> m_selectedShapesProxy;
     bool m_hasChangedWhileBeingInvisible {false};
     bool m_isDestroying {false};
 
-    KisSignalAutoConnectionsStore m_imageConnections;
-    qreal m_lastKnownXRes {1.0};
-    qreal m_lastKnownYRes {1.0};
+    KisImageViewConverter m_viewConverter;
 };
 
 /**
@@ -83,13 +85,13 @@ class KisShapeLayerCanvas : public KisShapeLayerCanvasBase
     Q_OBJECT
 public:
 
-    KisShapeLayerCanvas(KisShapeLayer *parent, KisImageWSP image);
+    KisShapeLayerCanvas(const KoColorSpace *cs, KisDefaultBoundsBaseSP defaultBounds, KisShapeLayer *parent);
+    KisShapeLayerCanvas(const KisShapeLayerCanvas &rhs, KisShapeLayer *parent);
     ~KisShapeLayerCanvas() override;
 
     /// This canvas won't render onto a widget, but a projection
-    void setProjection(KisPaintDeviceSP projection) {
-        m_projection = projection;
-    }
+    void setProjection(KisPaintDeviceSP projection);
+    KisPaintDeviceSP projection() const override;
 
     void setImage(KisImageWSP image) override;
     void updateCanvas(const QRectF& rc) override;
@@ -101,6 +103,7 @@ public:
 
     void resetCache() override;
     void rerenderAfterBeingInvisible() override;
+
 
 private Q_SLOTS:
     friend class KisRepaintShapeLayerLayerJob;
@@ -124,6 +127,7 @@ private:
     QRect m_cachedImageRect;
 
     KisImageWSP m_image;
+    KisSignalAutoConnectionsStore m_imageConnections;
 };
 
 #endif

@@ -709,14 +709,15 @@ void KisAnimTimelineFramesView::slotLayerContextMenuRequested(const QPoint &glob
 
 void KisAnimTimelineFramesView::slotAddBlankFrame()
 {
-    QModelIndex index = currentIndex();
-    if (!index.isValid() ||
-        !m_d->model->data(index, KisAnimTimelineFramesModel::FrameEditableRole).toBool()) {
-
-        return;
+    QModelIndexList selectedIndices = calculateSelectionSpan(false);
+    Q_FOREACH(const QModelIndex &index, selectedIndices) {
+        if (!index.isValid() ||
+            !m_d->model->data(index, KisAnimTimelineFramesModel::FrameEditableRole).toBool()) {
+            selectedIndices.removeOne(index);
+        }
     }
 
-    m_d->model->createFrame(index);
+    m_d->model->createFrame(selectedIndices);
 }
 
 void KisAnimTimelineFramesView::slotAddDuplicateFrame()
@@ -942,6 +943,11 @@ void KisAnimTimelineFramesView::calculateActiveLayerSelectedTimes(const QModelIn
 
 bool KisAnimTimelineFramesView::viewportEvent(QEvent *event)
 {
+    // Seems to have been copied over from KisResourceItemListView.
+    // These tooltips currently give bogus info (empty thumbnail and resource location), so removed for now.
+    // TODO: Implement meaningful tooltips if there's demand, probably including frame thumbnails.
+
+    /*
     if (event->type() == QEvent::ToolTip && model()) {
         QHelpEvent *he = static_cast<QHelpEvent *>(event);
         QModelIndex index = model()->buddy(indexAt(he->pos()));
@@ -953,6 +959,7 @@ bool KisAnimTimelineFramesView::viewportEvent(QEvent *event)
             return true;
         }
     }
+    */
 
     return QTableView::viewportEvent(event);
 }

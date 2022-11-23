@@ -122,6 +122,7 @@
 #include <KisMainWindow.h>
 #include "kis_signals_blocker.h"
 #include "imagesize/imagesize.h"
+#include <KoToolDocker.h>
 
 #include "kis_filter_configuration.h"
 
@@ -192,7 +193,12 @@ public:
     KisAction *zoomTo100pct {nullptr};
     KisAction *zoomIn {nullptr};
     KisAction *zoomOut {nullptr};
+    KisAction *zoomToFit {nullptr};
+    KisAction *zoomToFitWidth {nullptr};
+    KisAction *zoomToFitHeight {nullptr};
     KisAction *toggleZoomToFit {nullptr};
+    KisAction *resetDisplay {nullptr};
+    KisAction *viewPrintSize {nullptr};
     KisAction *softProof {nullptr};
     KisAction *gamutCheck {nullptr};
     KisAction *toggleFgBg {nullptr};
@@ -488,7 +494,15 @@ void KisViewManager::setCurrentView(KisView *view)
         d->viewConnections.addUniqueConnection(d->zoomTo100pct, SIGNAL(triggered()), imageView->zoomManager(), SLOT(zoomTo100()));
         d->viewConnections.addUniqueConnection(d->zoomIn, SIGNAL(triggered()), imageView->zoomController()->zoomAction(), SLOT(zoomIn()));
         d->viewConnections.addUniqueConnection(d->zoomOut, SIGNAL(triggered()), imageView->zoomController()->zoomAction(), SLOT(zoomOut()));
+        d->viewConnections.addUniqueConnection(d->zoomToFit, SIGNAL(triggered()), imageView->zoomManager(), SLOT(slotZoomToFit()));
+        d->viewConnections.addUniqueConnection(d->zoomToFitWidth, SIGNAL(triggered()), imageView->zoomManager(), SLOT(slotZoomToFitWidth()));
+        d->viewConnections.addUniqueConnection(d->zoomToFitHeight, SIGNAL(triggered()), imageView->zoomManager(), SLOT(slotZoomToFitHeight()));
         d->viewConnections.addUniqueConnection(d->toggleZoomToFit, SIGNAL(triggered()), imageView->zoomManager(), SLOT(slotToggleZoomToFit()));
+
+        d->viewConnections.addUniqueConnection(d->resetDisplay, SIGNAL(triggered()), imageView->viewManager(), SLOT(slotResetDisplay()));
+
+        d->viewConnections.addUniqueConnection(d->viewPrintSize, SIGNAL(toggled(bool)), imageView->zoomManager(), SLOT(changeCanvasMappingMode(bool)));
+        d->viewConnections.addUniqueConnection(d->viewPrintSize, SIGNAL(toggled(bool)), imageView->zoomController()->zoomAction(), SLOT(setCanvasMappingMode(bool)));
 
         d->viewConnections.addUniqueConnection(d->softProof, SIGNAL(toggled(bool)), view, SLOT(slotSoftProofing(bool)) );
         d->viewConnections.addUniqueConnection(d->gamutCheck, SIGNAL(toggled(bool)), view, SLOT(slotGamutCheck(bool)) );
@@ -753,7 +767,14 @@ void KisViewManager::createActions()
     d->zoomIn = actionManager()->createStandardAction(KStandardAction::ZoomIn, 0, "");
     d->zoomOut = actionManager()->createStandardAction(KStandardAction::ZoomOut, 0, "");
 
+    d->zoomToFit = actionManager()->createAction("zoom_to_fit");
+    d->zoomToFitWidth = actionManager()->createAction("zoom_to_fit_width");
+    d->zoomToFitHeight = actionManager()->createAction("zoom_to_fit_height");
     d->toggleZoomToFit = actionManager()->createAction("toggle_zoom_to_fit");
+
+    d->resetDisplay = actionManager()->createAction("reset_display");
+
+    d->viewPrintSize = actionManager()->createAction("view_print_size");
 
     d->actionAuthor  = new KSelectAction(KisIconUtils::loadIcon("im-user"), i18n("Active Author Profile"), this);
     connect(d->actionAuthor, SIGNAL(triggered(QString)), this, SLOT(changeAuthorProfile(QString)));
@@ -1381,6 +1402,10 @@ void KisViewManager::updateIcons()
             if (titlebar) {
                 titlebar->updateIcons();
             }
+            if (qobject_cast<KoToolDocker*>(dock)) {
+                // Tool options widgets icons are updated by KoToolManager
+                continue;
+            }
             QObjectList objects;
             objects.append(dock);
             while (!objects.isEmpty()) {
@@ -1522,6 +1547,11 @@ void KisViewManager::slotUpdatePixelGridAction()
     d->showPixelGrid->setChecked(cfg.pixelGridEnabled() && cfg.useOpenGL());
 }
 
+void KisViewManager::updatePrintSizeAction(bool canvasMappingMode)
+{
+    d->viewPrintSize->setChecked(canvasMappingMode);
+}
+
 void KisViewManager::slotActivateTransformTool()
 {
     if(KoToolManager::instance()->activeToolId() == "KisToolTransform") {
@@ -1582,6 +1612,14 @@ void KisViewManager::slotResetRotation()
 {
     KisCanvasController *canvasController = d->currentImageView->canvasController();
     canvasController->resetCanvasRotation();
+}
+
+void KisViewManager::slotResetDisplay()
+{
+    KisCanvasController *canvasController = d->currentImageView->canvasController();
+    canvasController->resetCanvasRotation();
+    canvasController->mirrorCanvas(false);
+    zoomManager()->slotZoomToFit();
 }
 
 void KisViewManager::slotToggleFullscreen()

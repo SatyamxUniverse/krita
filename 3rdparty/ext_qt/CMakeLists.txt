@@ -1,4 +1,19 @@
 SET(EXTPREFIX_qt  "${EXTPREFIX}")
+
+if (MINGW)
+  set(QT_BUILD_COMMAND   mingw32-make -j${SUBMAKE_JOBS})
+  set(QT_INSTALL_COMMAND mingw32-make -j${SUBMAKE_JOBS} install)
+elseif (MSVC)
+  set(QT_BUILD_COMMAND jom -j${SUBMAKE_JOBS})
+  set(QT_INSTALL_COMMAND jom -j${SUBMAKE_JOBS} install)
+elseif (CMAKE_GENERATOR MATCHES "Makefiles")
+  set (QT_BUILD_COMMAND $(MAKE) -j${SUBMAKE_JOBS})
+  set (QT_INSTALL_COMMAND $(MAKE) install)
+else()
+  set (QT_BUILD_COMMAND make -j${SUBMAKE_JOBS})
+  set (QT_INSTALL_COMMAND make install)
+endif()
+
 if (WIN32)
 
     if(MINGW)
@@ -7,8 +22,6 @@ if (WIN32)
       else()
         set(QT_CONFIG_PLATFORM win32-g++)
       endif()
-      set(QT_BUILD_COMMAND   mingw32-make -j${SUBMAKE_JOBS})
-      set(QT_INSTALL_COMMAND mingw32-make -j${SUBMAKE_JOBS} install)
       set(QT_EXTRA_DEPS "")
     elseif(MSVC)
       ExternalProject_Add(ext_jom
@@ -24,8 +37,6 @@ if (WIN32)
       )
 
       set(QT_CONFIG_PLATFORM win32-msvc)
-      set(QT_BUILD_COMMAND jom -j${SUBMAKE_JOBS})
-      set(QT_INSTALL_COMMAND jom -j${SUBMAKE_JOBS} install)
       set(QT_EXTRA_DEPS ext_jom)
     endif(MINGW)
 
@@ -307,6 +318,7 @@ elseif (ANDROID)
             COMMAND  ${PATCH_COMMAND} -p1 -d qtbase -i ${CMAKE_CURRENT_SOURCE_DIR}/0001-Android-Make-window-manager-a-bit-more-distinguishab.patch
             COMMAND  ${PATCH_COMMAND} -p1 -d qtbase -i ${CMAKE_CURRENT_SOURCE_DIR}/0001-Android-setBackingStore-of-a-window-if-the-platformW.patch
             COMMAND  ${PATCH_COMMAND} -p1 -d qtbase -i ${CMAKE_CURRENT_SOURCE_DIR}/0001-Android-Fix-incorrect-handling-of-window-modality.patch
+            COMMAND  ${PATCH_COMMAND} -p1 -d qtbase -i ${CMAKE_CURRENT_SOURCE_DIR}/0001-Android-Introducing-QtInputEventDispatcher.patch
 
             COMMAND  ${PATCH_COMMAND} -p1 -d qtbase -i ${CMAKE_CURRENT_SOURCE_DIR}/0111-Fix-unbalanced-KeyPress-Release-events-in-children-o.patch
             COMMAND  ${PATCH_COMMAND} -p1 -d qtbase -i ${CMAKE_CURRENT_SOURCE_DIR}/0112-Fix-shortcuts-assigned-to-special-keys-on-non-latin-.patch
@@ -336,6 +348,9 @@ elseif (ANDROID)
 
 
       CONFIGURE_COMMAND <SOURCE_DIR>/configure -prefix ${EXTPREFIX_qt} -opensource -confirm-license -verbose -nomake examples -nomake tests -nomake tools -skip qt3d -skip qtactiveqt -skip qtcanvas3d -skip qtconnectivity -skip qtlocation -skip qtwayland -skip qtwebchannel -skip qtwebengine -skip qtwebsockets -skip qtwebview -skip qtserialport -skip qtdatavis3d -skip qtvirtualkeyboard -skip qtspeech -skip qtsensors -skip qtgamepad -skip qtscxml -skip qtremoteobjects -skip qtxmlpatterns -skip qtnetworkauth  -skip qtcharts -skip qtdatavis3d -skip qtgamepad -skip qtpurchasing -skip qtscxml -skip qtserialbus -skip qtspeech -skip qtvirtualkeyboard -android-sdk ${ANDROID_SDK_ROOT} -android-ndk ${CMAKE_ANDROID_NDK} -android-arch ${ANDROID_ABI} -xplatform android-clang -android-ndk-platform android-23 -make libs -qt-sqlite -openssl-linked OPENSSL_PREFIX=${EXTPREFIX_qt} -system-zlib
+
+      BUILD_COMMAND ${QT_BUILD_COMMAND}
+      INSTALL_COMMAND ${QT_INSTALL_COMMAND}
 
       INSTALL_DIR ${EXTPREFIX_qt}
 
@@ -406,6 +421,9 @@ elseif (NOT APPLE)
 
       CONFIGURE_COMMAND <SOURCE_DIR>/configure -prefix ${EXTPREFIX_qt} -opensource -confirm-license -feature-relocatable -openssl-linked -verbose -nomake examples -skip qt3d -skip qtactiveqt -skip qtcanvas3d -skip qtconnectivity -skip qtlocation -skip qtwayland -skip qtwebchannel -skip qtwebengine -skip qtwebsockets -skip qtwebview -skip qtandroidextras -skip qtserialport -skip qtdatavis3d -skip qtvirtualkeyboard -skip qtspeech -skip qtsensors -skip qtgamepad -skip qtscxml -skip qtremoteobjects -skip qtxmlpatterns -skip qtnetworkauth  -skip qtcharts -skip qtdatavis3d -skip qtgamepad -skip qtpurchasing -skip qtscxml -skip qtserialbus -skip qtspeech -skip qtvirtualkeyboard -qt-sqlite -system-zlib ${QT_DEBUG_OPTIONS}
 
+      BUILD_COMMAND ${QT_BUILD_COMMAND}
+      INSTALL_COMMAND ${QT_INSTALL_COMMAND}
+
       INSTALL_DIR ${EXTPREFIX_qt}
 
 
@@ -422,7 +440,7 @@ else( APPLE )
       ExternalProject_Add(
         ext_qt
         DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-        URL http://download.qt.io/official_releases/qt/5.12/5.12.12/single/qt-everywhere-src-5.12.12.tar.xz
+        URL http://download.qt.io/archive/qt/5.12/5.12.12/single/qt-everywhere-src-5.12.12.tar.xz
         URL_MD5 88e7a1c9952bf5732751c794716c6a55
 
         PATCH_COMMAND ${PATCH_COMMAND} -p1 -d qtbase -i ${CMAKE_CURRENT_SOURCE_DIR}/0012-Synthesize-Enter-LeaveEvent-for-accepted-QTabletEven.patch
@@ -447,14 +465,6 @@ else( APPLE )
                 COMMAND  ${PATCH_COMMAND} -p1 -d qtbase -i ${CMAKE_CURRENT_SOURCE_DIR}/0001-QMenu-make-less-sensitive-to-mouse-jitter.patch
                 COMMAND  ${PATCH_COMMAND} -p1 -d qtbase -i ${CMAKE_CURRENT_SOURCE_DIR}/0128-macOS-Do-not-append-defaultSuffix-in-save-dialog.patch
 
-        LOG_DOWNLOAD        ON
-        LOG_UPDATE          ON
-        LOG_CONFIGURE       ON
-        LOG_BUILD           ON
-        LOG_TEST            ON
-        LOG_INSTALL         ON
-        BUILD_IN_SOURCE     ON
-
         CMAKE_ARGS -DOPENSSL_LIBS='-L${EXTPREFIX_qt}/lib -lssl -lcrypto'
 
         INSTALL_DIR ${EXTPREFIX_qt}
@@ -466,6 +476,9 @@ else( APPLE )
             -no-dbus -no-iconv -no-qml-debug -no-libproxy -no-system-proxies -no-icu -no-mtdev -system-zlib -qt-pcre -qt-sqlite
             -opensource -confirm-license  -openssl-linked -prefix ${EXTPREFIX_qt}
             ${QT_DEVICE_OPTION}
+
+        BUILD_COMMAND ${QT_BUILD_COMMAND}
+        INSTALL_COMMAND ${QT_INSTALL_COMMAND}
 
         UPDATE_COMMAND ""
         BUILD_IN_SOURCE 1

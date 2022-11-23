@@ -32,6 +32,7 @@
 #include <kis_selection_filters.h>
 #include <kis_selection_options.h>
 #include <kis_image_animation_interface.h>
+#include <kis_default_bounds.h>
 
 void selectByColor(KisPaintDeviceSP dev,
                    KisPixelSelectionSP selection,
@@ -462,8 +463,8 @@ QWidget* KisToolSelectSimilar::createOptionWidget()
     sliderThreshold->setRange(1, 200);
     sliderThreshold->setSingleStep(1);
     sliderThreshold->setToolTip(
-        i18n("Set how far the selection should extend in terms of color "
-             "similarity"));
+        i18n("Set the color similarity tolerance of the selection. "
+             "Increasing threshold increases the range of similar colors to be selected."));
 
     KisOptionCollectionWidgetWithHeader *sectionSelectionExtent =
         new KisOptionCollectionWidgetWithHeader(

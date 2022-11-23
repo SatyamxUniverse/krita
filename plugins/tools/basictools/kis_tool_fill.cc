@@ -546,20 +546,20 @@ QWidget* KisToolFill::createOptionWidget()
     m_widgetLabels->setButtonWrapEnabled(true);
     m_widgetLabels->setMouseDragEnabled(true);
 
-    KisOptionButtonStrip *optionButtonStripMultipleFill =
+    KisOptionButtonStrip *optionButtonStripDragFill =
         new KisOptionButtonStrip;
-    m_buttonMultipleFillAny = optionButtonStripMultipleFill->addButton(
+    m_buttonDragFillAny = optionButtonStripDragFill->addButton(
         KisIconUtils::loadIcon("different-regions"));
-    m_buttonMultipleFillSimilar = optionButtonStripMultipleFill->addButton(
+    m_buttonDragFillSimilar = optionButtonStripDragFill->addButton(
         KisIconUtils::loadIcon("similar-regions"));
-    m_buttonMultipleFillAny->setChecked(true);
+    m_buttonDragFillAny->setChecked(true);
 
     QPushButton *buttonReset = new QPushButton(i18nc("The 'reset' button in fill tool options", "Reset"));
 
     // Set the tooltips
-    m_buttonWhatToFillSelection->setToolTip(i18n("Current selection"));
-    m_buttonWhatToFillContiguous->setToolTip(i18n("Contiguous region obtained from the layers"));
-    m_buttonWhatToFillSimilar->setToolTip(i18n("All the regions similar to the pixel you clicked on"));
+    m_buttonWhatToFillSelection->setToolTip(i18n("Fill the active selection, or the entire canvas"));
+    m_buttonWhatToFillContiguous->setToolTip(i18n("Fill a contiguous region"));
+    m_buttonWhatToFillSimilar->setToolTip(i18n("Fill all regions of a similar color"));
 
     m_buttonFillWithFG->setToolTip(i18n("Foreground color"));
     m_buttonFillWithBG->setToolTip(i18n("Background color"));
@@ -567,26 +567,24 @@ QWidget* KisToolFill::createOptionWidget()
     m_sliderPatternScale->setToolTip(i18n("Set the scale of the pattern"));
     m_angleSelectorPatternRotation->setToolTip(i18n("Set the rotation of the pattern"));
 
-    m_buttonContiguousFillModeFloodFill->setToolTip(i18n("Select pixels similar to the one you clicked on"));
-    m_buttonContiguousFillModeBoundaryFill->setToolTip(i18n("Select all pixels until a specific boundary color"));
+    m_buttonContiguousFillModeFloodFill->setToolTip(i18n("Fill regions similar in color to the clicked region"));
+    m_buttonContiguousFillModeBoundaryFill->setToolTip(i18n("Fill all regions until a specific boundary color"));
     m_buttonContiguousFillBoundaryColor->setToolTip(i18n("Boundary color"));
-    m_sliderThreshold->setToolTip(i18n("Set how far the region should extend from the selected pixel in terms of color similarity"));
-    m_sliderSpread->setToolTip(i18n("Set how far the fully opaque portion of the region should extend."
-                                    "\n0% will make opaque only the pixels that are exactly equal to the selected pixel."
-                                    "\n100% will make opaque all the pixels in the region up to its boundary."));
-    m_checkBoxSelectionAsBoundary->setToolTip(i18n("Set if the contour of the current selection should be treated as a boundary when obtaining the region"));
+    m_sliderThreshold->setToolTip(i18n("Set the color similarity tolerance of the fill. Increasing threshold increases the range of similar colors to be filled."));
+    m_sliderSpread->setToolTip(i18n("Set the extent of the opaque portion of the fill. Decreasing spread decreases opacity of fill areas depending on color similarity."));
+    m_checkBoxSelectionAsBoundary->setToolTip(i18n("Set if the contour of the active selection should be treated as a boundary when filling the region"));
 
-    m_checkBoxAntiAlias->setToolTip(i18n("Smooth the jagged edges"));
-    m_sliderGrow->setToolTip(i18n("Grow (positive values) or shrink (negative values) the region by the set amount"));
+    m_checkBoxAntiAlias->setToolTip(i18n("Smooths the edges of the fill"));
+    m_sliderGrow->setToolTip(i18n("Grow or shrink the fill by the set amount"));
     m_buttonStopGrowingAtDarkestPixel->setToolTip(i18n("Stop growing at the darkest and/or most opaque pixels"));
-    m_sliderFeather->setToolTip(i18n("Blur the region by the set amount"));
+    m_sliderFeather->setToolTip(i18n("Blur the fill by the set amount"));
 
-    m_buttonReferenceCurrent->setToolTip(i18n("Obtain the region using the active layer"));
-    m_buttonReferenceAll->setToolTip(i18n("Obtain the region using a merged copy of all layers"));
-    m_buttonReferenceLabeled->setToolTip(i18n("Obtain the region using a merged copy of the selected color-labeled layers"));
+    m_buttonReferenceCurrent->setToolTip(i18n("Fill regions found from the active layer"));
+    m_buttonReferenceAll->setToolTip(i18n("Fill regions found from the merging of all layers"));
+    m_buttonReferenceLabeled->setToolTip(i18n("Fill regions found from the merging of layers with specific color labels"));
 
-    m_buttonMultipleFillAny->setToolTip(i18n("Fill regions of any color"));
-    m_buttonMultipleFillSimilar->setToolTip(i18n("Fill only regions similar in color to the initial region"));
+    m_buttonDragFillAny->setToolTip(i18n("Dragging will fill regions of any color"));
+    m_buttonDragFillSimilar->setToolTip(i18n("Dragging will fill only regions similar in color to the initial region (useful for filling line-art)"));
 
     buttonReset->setToolTip(i18n("Reset the options to their default values"));
 
@@ -597,14 +595,14 @@ QWidget* KisToolFill::createOptionWidget()
 
     KisOptionCollectionWidgetWithHeader *sectionWhatToFill =
         new KisOptionCollectionWidgetWithHeader(
-            i18nc("The 'what to fill' section label in fill tool options", "What to fill")
+            i18nc("The 'fill mode' section label in fill tool options", "Fill mode")
         );
     sectionWhatToFill->setPrimaryWidget(optionButtonStripWhatToFill);
     m_optionWidget->appendWidget("sectionWhatToFill", sectionWhatToFill);
 
     KisOptionCollectionWidgetWithHeader *sectionFillWith =
         new KisOptionCollectionWidgetWithHeader(
-            i18nc("The 'fill with' section label in fill tool options", "Fill with")
+            i18nc("The 'fill source' section label in fill tool options", "Fill source")
         );
     sectionFillWith->setPrimaryWidget(optionButtonStripFillWith);
     sectionFillWith->appendWidget("sliderPatternScale", m_sliderPatternScale);
@@ -615,7 +613,7 @@ QWidget* KisToolFill::createOptionWidget()
 
     KisOptionCollectionWidgetWithHeader *sectionRegionExtent =
         new KisOptionCollectionWidgetWithHeader(
-            i18nc("The 'region extent' section label in fill tool options", "Region extent")
+            i18nc("The 'fill extent' section label in fill tool options", "Fill extent")
         );
     sectionRegionExtent->setPrimaryWidget(optionButtonStripContiguousFillMode);
     sectionRegionExtent->appendWidget("buttonContiguousFillBoundaryColor", m_buttonContiguousFillBoundaryColor);
@@ -643,12 +641,12 @@ QWidget* KisToolFill::createOptionWidget()
     sectionReference->setWidgetVisible("widgetLabels", false);
     m_optionWidget->appendWidget("sectionReference", sectionReference);
 
-    KisOptionCollectionWidgetWithHeader *sectionMultipleFill =
+    KisOptionCollectionWidgetWithHeader *sectionDragFill =
         new KisOptionCollectionWidgetWithHeader(
-            i18nc("The 'multiple fill' section label in fill tool options", "Multiple fill")
+            i18nc("The 'drag-fill mode' section label in fill tool options", "Drag-fill mode")
         );
-    sectionMultipleFill->setPrimaryWidget(optionButtonStripMultipleFill);
-    m_optionWidget->appendWidget("sectionMultipleFill", sectionMultipleFill);
+    sectionDragFill->setPrimaryWidget(optionButtonStripDragFill);
+    m_optionWidget->appendWidget("sectionDragFill", sectionDragFill);
 
     m_optionWidget->appendWidget("buttonReset", buttonReset);
 
@@ -658,10 +656,10 @@ QWidget* KisToolFill::createOptionWidget()
         m_optionWidget->setWidgetVisible("sectionRegionExtent", false);
         m_optionWidget->setWidgetVisible("sectionAdjustments", false);
         m_optionWidget->setWidgetVisible("sectionReference", false);
-        m_optionWidget->setWidgetVisible("sectionMultipleFill", false);
+        m_optionWidget->setWidgetVisible("sectionDragFill", false);
     } else if (m_fillMode == FillMode_FillSimilarRegions) {
         m_buttonWhatToFillSimilar->setChecked(true);
-        m_optionWidget->setWidgetVisible("sectionMultipleFill", false);
+        m_optionWidget->setWidgetVisible("sectionDragFill", false);
         sectionRegionExtent->setWidgetVisible("checkBoxSelectionAsBoundary", false);
     }
     sectionRegionExtent->setPrimaryWidgetVisible(m_fillMode == FillMode_FillContiguousRegion);
@@ -694,7 +692,7 @@ QWidget* KisToolFill::createOptionWidget()
         sectionReference->setWidgetVisible("widgetLabels", true);
     }
     if (m_continuousFillMode == ContinuousFillMode_FillSimilarRegions) {
-        m_buttonMultipleFillSimilar->setChecked(true);
+        m_buttonDragFillSimilar->setChecked(true);
     }
     m_widgetLabels->setSelection(m_selectedColorLabels);
 
@@ -729,9 +727,9 @@ QWidget* KisToolFill::createOptionWidget()
                                                                bool)));
     connect(m_widgetLabels, SIGNAL(selectionChanged()), SLOT(slot_widgetLabels_selectionChanged()));
     connect(
-        optionButtonStripMultipleFill,
+        optionButtonStripDragFill,
         SIGNAL(buttonToggled(KoGroupButton *, bool)),
-        SLOT(slot_optionButtonStripMultipleFill_buttonToggled(KoGroupButton *,
+        SLOT(slot_optionButtonStripDragFill_buttonToggled(KoGroupButton *,
                                                               bool)));
     connect(buttonReset, SIGNAL(clicked()), SLOT(slot_buttonReset_clicked()));
     
@@ -854,14 +852,14 @@ void KisToolFill::slot_optionButtonStripWhatToFill_buttonToggled(
         m_optionWidget->setWidgetVisible("sectionRegionExtent", false);
         m_optionWidget->setWidgetVisible("sectionAdjustments", false);
         m_optionWidget->setWidgetVisible("sectionReference", false);
-        m_optionWidget->setWidgetVisible("sectionMultipleFill", false);
+        m_optionWidget->setWidgetVisible("sectionDragFill", false);
         m_fillMode = FillMode_FillSelection;
         m_configGroup.writeEntry("whatToFill", "fillSelection");
     } else if (button == m_buttonWhatToFillContiguous) {
         m_optionWidget->setWidgetVisible("sectionRegionExtent", true);
         m_optionWidget->setWidgetVisible("sectionAdjustments", true);
         m_optionWidget->setWidgetVisible("sectionReference", true);
-        m_optionWidget->setWidgetVisible("sectionMultipleFill", true);
+        m_optionWidget->setWidgetVisible("sectionDragFill", true);
         m_optionWidget->widgetAs<KisOptionCollectionWidgetWithHeader*>("sectionRegionExtent")
             ->setPrimaryWidgetVisible(true);
         m_optionWidget->widgetAs<KisOptionCollectionWidgetWithHeader*>("sectionRegionExtent")
@@ -874,7 +872,7 @@ void KisToolFill::slot_optionButtonStripWhatToFill_buttonToggled(
         m_optionWidget->setWidgetVisible("sectionRegionExtent", true);
         m_optionWidget->setWidgetVisible("sectionAdjustments", true);
         m_optionWidget->setWidgetVisible("sectionReference", true);
-        m_optionWidget->setWidgetVisible("sectionMultipleFill", false);
+        m_optionWidget->setWidgetVisible("sectionDragFill", false);
         m_optionWidget->widgetAs<KisOptionCollectionWidgetWithHeader*>("sectionRegionExtent")
             ->setPrimaryWidgetVisible(false);
         m_optionWidget->widgetAs<KisOptionCollectionWidgetWithHeader*>("sectionRegionExtent")
@@ -1068,19 +1066,19 @@ void KisToolFill::slot_widgetLabels_selectionChanged()
     m_configGroup.writeEntry("colorLabels", colorLabels);
 }
 
-void KisToolFill::slot_optionButtonStripMultipleFill_buttonToggled(
+void KisToolFill::slot_optionButtonStripDragFill_buttonToggled(
     KoGroupButton *button,
     bool checked)
 {
     if (!checked) {
         return;
     }
-    m_continuousFillMode = button == m_buttonMultipleFillAny
+    m_continuousFillMode = button == m_buttonDragFillAny
                                      ? ContinuousFillMode_FillAnyRegion
                                      : ContinuousFillMode_FillSimilarRegions;
     m_configGroup.writeEntry(
         "continuousFillMode",
-        button == m_buttonMultipleFillAny ? "fillAnyRegion" : "fillSimilarRegions"
+        button == m_buttonDragFillAny ? "fillAnyRegion" : "fillSimilarRegions"
     );
 }
 
@@ -1099,5 +1097,5 @@ void KisToolFill::slot_buttonReset_clicked()
     m_sliderFeather->setValue(0);
     m_buttonReferenceCurrent->setChecked(true);
     m_widgetLabels->setSelection({});
-    m_buttonMultipleFillAny->setChecked(true);
+    m_buttonDragFillAny->setChecked(true);
 }

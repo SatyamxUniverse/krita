@@ -8,6 +8,7 @@
 
 #include "JPEGXLExport.h"
 
+#include <jxl/color_encoding.h>
 #include <jxl/encode_cxx.h>
 #include <jxl/resizable_parallel_runner_cxx.h>
 #include <kpluginfactory.h>
@@ -18,14 +19,17 @@
 #include <KisDocument.h>
 #include <KisExportCheckRegistry.h>
 #include <KisImportExportErrorCode.h>
+#include <KoAlwaysInline.h>
 #include <KoColorModelStandardIds.h>
 #include <KoColorProfile.h>
 #include <KoColorSpace.h>
+#include <KoColorTransferFunctions.h>
 #include <KoConfig.h>
 #include <kis_assert.h>
 #include <kis_debug.h>
 #include <kis_exif_info_visitor.h>
 #include <kis_image_animation_interface.h>
+#include <kis_iterator_ng.h>
 #include <kis_layer.h>
 #include <kis_layer_utils.h>
 #include <kis_meta_data_backend_registry.h>
@@ -36,34 +40,238 @@
 
 K_PLUGIN_FACTORY_WITH_JSON(ExportFactory, "krita_jxl_export.json", registerPlugin<JPEGXLExport>();)
 
-template<class Traits>
-inline void swap(char *dstPtr, size_t numPixels)
+namespace HDR
 {
-    using Pixel = typename Traits::Pixel;
+template<ConversionPolicy policy>
+ALWAYS_INLINE float applyCurveAsNeeded(float value)
+{
+    if (policy == ConversionPolicy::ApplyPQ) {
+        return applySmpte2048Curve(value);
+    } else if (policy == ConversionPolicy::ApplyHLG) {
+        return applyHLGCurve(value);
+    } else if (policy == ConversionPolicy::ApplySMPTE428) {
+        return applySMPTE_ST_428Curve(value);
+    }
+    return value;
+}
 
-    auto *pixelPtr = reinterpret_cast<Pixel *>(dstPtr);
+template<typename CSTrait,
+         bool swap,
+         bool convertToRec2020,
+         bool isLinear,
+         ConversionPolicy conversionPolicy,
+         typename DestTrait,
+         bool removeOOTF>
+inline QByteArray writeLayer(const int width,
+                             const int height,
+                             KisHLineConstIteratorSP it,
+                             float hlgGamma,
+                             float hlgNominalPeak,
+                             const KoColorSpace *cs)
+{
+    const int channels = static_cast<int>(CSTrait::channels_nb);
+    QVector<float> pixelValues(channels);
+    QVector<qreal> pixelValuesLinear(channels);
+    const KoColorProfile *profile = cs->profile();
+    const QVector<qreal> lCoef = cs->lumaCoefficients();
+    double *src = pixelValuesLinear.data();
+    float *dst = pixelValues.data();
 
-    for (size_t i = 0; i < numPixels; i++) {
-        std::swap(pixelPtr->blue, pixelPtr->red);
-        pixelPtr += 1;
+    QByteArray res;
+    res.resize(width * height * static_cast<int>(DestTrait::pixelSize));
+
+    quint8 *ptr = reinterpret_cast<quint8 *>(res.data());
+
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            CSTrait::normalisedChannelsValue(it->rawDataConst(), pixelValues);
+            if (!convertToRec2020 && !isLinear) {
+                for (int i = 0; i < channels; i++) {
+                    src[i] = static_cast<double>(dst[i]);
+                }
+                profile->linearizeFloatValue(pixelValuesLinear);
+                for (int i = 0; i < channels; i++) {
+                    dst[i] = static_cast<float>(src[i]);
+                }
+            }
+
+            if (conversionPolicy == ConversionPolicy::ApplyHLG && removeOOTF) {
+                removeHLGOOTF(dst, lCoef.constData(), hlgGamma, hlgNominalPeak);
+            }
+
+            for (int ch = 0; ch < channels; ch++) {
+                if (ch == CSTrait::alpha_pos) {
+                    dst[ch] = applyCurveAsNeeded<ConversionPolicy::KeepTheSame>(
+                        dst[ch]);
+                } else {
+                    dst[ch] = applyCurveAsNeeded<conversionPolicy>(dst[ch]);
+                }
+            }
+
+            if (swap) {
+                std::swap(dst[0], dst[2]);
+            }
+
+            DestTrait::fromNormalisedChannelsValue(ptr, pixelValues);
+
+            ptr += DestTrait::pixelSize;
+
+            it->nextPixel();
+        }
+
+        it->nextRow();
+    }
+
+    return res;
+}
+
+template<typename CSTrait, bool swap>
+inline QByteArray writeLayerNoConversion(const int width,
+                                         const int height,
+                                         KisHLineConstIteratorSP it,
+                                         float hlgGamma,
+                                         float hlgNominalPeak,
+                                         const KoColorSpace *cs)
+{
+    Q_UNUSED(hlgGamma);
+    Q_UNUSED(hlgNominalPeak);
+    Q_UNUSED(cs);
+
+    const int channels = static_cast<int>(CSTrait::channels_nb);
+    QVector<float> pixelValues(channels);
+    QVector<qreal> pixelValuesLinear(channels);
+
+    QByteArray res;
+    res.resize(width * height * static_cast<int>(CSTrait::pixelSize));
+
+    quint8 *ptr = reinterpret_cast<quint8 *>(res.data());
+
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
+            auto *dst = reinterpret_cast<typename CSTrait::channels_type *>(ptr);
+
+            std::memcpy(dst, it->rawDataConst(), CSTrait::pixelSize);
+
+            if (swap) {
+                std::swap(dst[0], dst[2]);
+            }
+
+            ptr += CSTrait::pixelSize;
+
+            it->nextPixel();
+        }
+
+        it->nextRow();
+    }
+
+    return res;
+}
+
+template<typename CSTrait,
+         bool swap,
+         bool convertToRec2020,
+         bool isLinear,
+         ConversionPolicy linearizePolicy,
+         typename DestTrait,
+         bool removeOOTF,
+         typename... Args>
+ALWAYS_INLINE auto writeLayerSimplify(Args &&...args)
+{
+    if (linearizePolicy != ConversionPolicy::KeepTheSame) {
+        return writeLayer<CSTrait, swap, convertToRec2020, isLinear, linearizePolicy, DestTrait, removeOOTF>(
+            std::forward<Args>(args)...);
+    } else {
+        return writeLayerNoConversion<CSTrait, swap>(std::forward<Args>(args)...);
     }
 }
 
-inline void swapRgb(const KoColorSpace *cs, QByteArray &pixels)
+template<typename CSTrait,
+         bool swap,
+         bool convertToRec2020,
+         bool isLinear,
+         ConversionPolicy linearizePolicy,
+         typename DestTrait,
+         typename... Args>
+ALWAYS_INLINE auto writeLayerWithPolicy(bool removeOOTF, Args &&...args)
 {
-    KIS_ASSERT(cs->colorModelId() == RGBAColorModelID);
-    KIS_ASSERT(cs->colorDepthId() == Integer8BitsColorDepthID || cs->colorDepthId() == Integer16BitsColorDepthID);
-
-    const auto numPixels = static_cast<size_t>(pixels.size()) / cs->pixelSize();
-
-    auto *currentPixel = pixels.data();
-
-    if (cs->colorDepthId() == Integer8BitsColorDepthID) {
-        swap<KoBgrU8Traits>(currentPixel, numPixels);
-    } else if (cs->colorDepthId() == Integer16BitsColorDepthID) {
-        swap<KoBgrU16Traits>(currentPixel, numPixels);
+    if (removeOOTF) {
+        return writeLayerSimplify<CSTrait, swap, convertToRec2020, isLinear, linearizePolicy, DestTrait, true>(
+            std::forward<Args>(args)...);
+    } else {
+        return writeLayerSimplify<CSTrait, swap, convertToRec2020, isLinear, linearizePolicy, DestTrait, false>(
+            std::forward<Args>(args)...);
     }
 }
+
+template<typename CSTrait, bool swap, bool convertToRec2020, bool isLinear, typename... Args>
+ALWAYS_INLINE auto writeLayerWithLinear(ConversionPolicy linearizePolicy, Args &&...args)
+{
+    if (linearizePolicy == ConversionPolicy::ApplyHLG) {
+        return writeLayerWithPolicy<CSTrait,
+                                    swap,
+                                    convertToRec2020,
+                                    isLinear,
+                                    ConversionPolicy::ApplyHLG,
+                                    KoBgrU16Traits>(std::forward<Args>(args)...);
+    } else if (linearizePolicy == ConversionPolicy::ApplyPQ) {
+        return writeLayerWithPolicy<CSTrait,
+                                    swap,
+                                    convertToRec2020,
+                                    isLinear,
+                                    ConversionPolicy::ApplyPQ,
+                                    KoBgrU16Traits>(std::forward<Args>(args)...);
+    } else if (linearizePolicy == ConversionPolicy::ApplySMPTE428) {
+        return writeLayerWithPolicy<CSTrait,
+                                    swap,
+                                    convertToRec2020,
+                                    isLinear,
+                                    ConversionPolicy::ApplySMPTE428,
+                                    KoBgrU16Traits>(std::forward<Args>(args)...);
+    } else {
+        return writeLayerWithPolicy<CSTrait, swap, convertToRec2020, isLinear, ConversionPolicy::KeepTheSame, CSTrait>(
+            std::forward<Args>(args)...);
+    }
+}
+
+template<typename CSTrait, bool swap, bool convertToRec2020, typename... Args>
+ALWAYS_INLINE auto writeLayerWithRec2020(bool isLinear, Args &&...args)
+{
+    if (isLinear) {
+        return writeLayerWithLinear<CSTrait, swap, convertToRec2020, true>(std::forward<Args>(args)...);
+    } else {
+        return writeLayerWithLinear<CSTrait, swap, convertToRec2020, false>(std::forward<Args>(args)...);
+    }
+}
+
+template<typename CSTrait, bool swap, typename... Args>
+ALWAYS_INLINE auto writeLayerWithSwap(bool convertToRec2020, Args &&...args)
+{
+    if (convertToRec2020) {
+        return writeLayerWithRec2020<CSTrait, swap, true>(std::forward<Args>(args)...);
+    } else {
+        return writeLayerWithRec2020<CSTrait, swap, false>(std::forward<Args>(args)...);
+    }
+}
+
+template<typename... Args>
+inline auto writeLayer(const KoID &id, Args &&...args)
+{
+    if (id == Integer8BitsColorDepthID) {
+        return writeLayerWithSwap<KoBgrU8Traits, true>(std::forward<Args>(args)...);
+    } else if (id == Integer16BitsColorDepthID) {
+        return writeLayerWithSwap<KoBgrU16Traits, true>(std::forward<Args>(args)...);
+#ifdef HAVE_OPENEXR
+    } else if (id == Float16BitsColorDepthID) {
+        return writeLayerWithSwap<KoBgrF16Traits, false>(std::forward<Args>(args)...);
+#endif
+    } else if (id == Float32BitsColorDepthID) {
+        return writeLayerWithSwap<KoBgrF32Traits, false>(std::forward<Args>(args)...);
+    } else {
+        KIS_ASSERT_X(false, "JPEGXLExport::writeLayer", "unsupported bit depth!");
+        return QByteArray();
+    }
+}
+} // namespace HDR
 
 JPEGXLExport::JPEGXLExport(QObject *parent, const QVariantList &)
     : KisImportExportFilter(parent)
@@ -75,8 +283,7 @@ KisImportExportErrorCode JPEGXLExport::convert(KisDocument *document, QIODevice 
     KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(io->isWritable(), ImportExportCodes::NoAccessToWrite);
 
     KisImageSP image = document->savingImage();
-    const auto bounds = image->bounds();
-    const auto *const cs = image->colorSpace();
+    const QRect bounds = image->bounds();
 
     auto enc = JxlEncoderMake(nullptr);
     auto runner = JxlResizableParallelRunnerMake(nullptr);
@@ -88,11 +295,55 @@ KisImportExportErrorCode JPEGXLExport::convert(KisDocument *document, QIODevice 
     JxlResizableParallelRunnerSetThreads(runner.get(),
                                          JxlResizableParallelRunnerSuggestThreads(static_cast<uint64_t>(bounds.width()), static_cast<uint64_t>(bounds.height())));
 
-    const auto pixelFormat = [&]() {
+    const KoColorSpace *cs = image->colorSpace();
+    ConversionPolicy conversionPolicy = ConversionPolicy::KeepTheSame;
+    bool convertToRec2020 = false;
+
+    if (cs->hasHighDynamicRange() && cs->colorModelId() != GrayAColorModelID) {
+        const QString conversionOption = (cfg->getString("floatingPointConversionOption", "Rec2100PQ"));
+        if (conversionOption == "Rec2100PQ") {
+            convertToRec2020 = true;
+            conversionPolicy = ConversionPolicy::ApplyPQ;
+        } else if (conversionOption == "Rec2100HLG") {
+            convertToRec2020 = true;
+            conversionPolicy = ConversionPolicy::ApplyHLG;
+        } else if (conversionOption == "ApplyPQ") {
+            conversionPolicy = ConversionPolicy::ApplyPQ;
+        } else if (conversionOption == "ApplyHLG") {
+            conversionPolicy = ConversionPolicy::ApplyHLG;
+        } else if (conversionOption == "ApplySMPTE428") {
+            conversionPolicy = ConversionPolicy::ApplySMPTE428;
+        }
+    }
+
+    if (cs->hasHighDynamicRange() && convertToRec2020) {
+        const KoColorProfile *linear =
+            KoColorSpaceRegistry::instance()->profileFor({}, PRIMARIES_ITU_R_BT_2020_2_AND_2100_0, TRC_LINEAR);
+        KIS_ASSERT_RECOVER(linear)
+        {
+            errFile << "Unable to find a working profile for Rec. 2020";
+            return ImportExportCodes::FormatColorSpaceUnsupported;
+        }
+        const KoColorSpace *linearRec2020 =
+            KoColorSpaceRegistry::instance()->colorSpace(RGBAColorModelID.id(), Float32BitsColorDepthID.id(), linear);
+        image->convertImageColorSpace(linearRec2020,
+                                      KoColorConversionTransformation::internalRenderingIntent(),
+                                      KoColorConversionTransformation::internalConversionFlags());
+
+        image->waitForDone();
+        cs = image->colorSpace();
+    }
+
+    const float hlgGamma = cfg->getFloat("HLGgamma", 1.2f);
+    const float hlgNominalPeak = cfg->getFloat("HLGnominalPeak", 1000.0f);
+    const bool removeHGLOOTF = cfg->getBool("removeHGLOOTF", true);
+
+    const JxlPixelFormat pixelFormat = [&]() {
         JxlPixelFormat pixelFormat{};
         if (cs->colorDepthId() == Integer8BitsColorDepthID) {
             pixelFormat.data_type = JXL_TYPE_UINT8;
-        } else if (cs->colorDepthId() == Integer16BitsColorDepthID) {
+        } else if (conversionPolicy != ConversionPolicy::KeepTheSame
+                   || cs->colorDepthId() == Integer16BitsColorDepthID) {
             pixelFormat.data_type = JXL_TYPE_UINT16;
 #ifdef HAVE_OPENEXR
         } else if (cs->colorDepthId() == Float16BitsColorDepthID) {
@@ -120,24 +371,24 @@ KisImportExportErrorCode JPEGXLExport::convert(KisDocument *document, QIODevice 
         info->xsize = static_cast<uint32_t>(bounds.width());
         info->ysize = static_cast<uint32_t>(bounds.height());
         {
-            if (cs->colorDepthId() == Integer8BitsColorDepthID) {
+            if (pixelFormat.data_type == JXL_TYPE_UINT8) {
                 info->bits_per_sample = 8;
                 info->exponent_bits_per_sample = 0;
                 info->alpha_bits = 8;
                 info->alpha_exponent_bits = 0;
-            } else if (cs->colorDepthId() == Integer16BitsColorDepthID) {
+            } else if (pixelFormat.data_type == JXL_TYPE_UINT16) {
                 info->bits_per_sample = 16;
                 info->exponent_bits_per_sample = 0;
                 info->alpha_bits = 16;
                 info->alpha_exponent_bits = 0;
 #ifdef HAVE_OPENEXR
-            } else if (cs->colorDepthId() == Float16BitsColorDepthID) {
+            } else if (pixelFormat.data_type == JXL_TYPE_FLOAT16) {
                 info->bits_per_sample = 16;
                 info->exponent_bits_per_sample = 5;
                 info->alpha_bits = 16;
                 info->alpha_exponent_bits = 5;
 #endif
-            } else if (cs->colorDepthId() == Float32BitsColorDepthID) {
+            } else if (pixelFormat.data_type == JXL_TYPE_FLOAT) {
                 info->bits_per_sample = 32;
                 info->exponent_bits_per_sample = 8;
                 info->alpha_bits = 32;
@@ -170,14 +421,132 @@ KisImportExportErrorCode JPEGXLExport::convert(KisDocument *document, QIODevice 
     }
 
     {
-        const auto profile = image->profile()->rawData();
+        JxlColorEncoding cicpDescription{};
 
-        if (JXL_ENC_SUCCESS
-            != JxlEncoderSetICCProfile(enc.get(),
-                                       reinterpret_cast<const uint8_t *>(profile.constData()),
-                                       static_cast<size_t>(profile.size()))) {
-            errFile << "JxlEncoderSetColorEncoding failed";
-            return ImportExportCodes::InternalError;
+        switch (conversionPolicy) {
+        case ConversionPolicy::ApplyPQ:
+            cicpDescription.transfer_function = JXL_TRANSFER_FUNCTION_PQ;
+            break;
+        case ConversionPolicy::ApplyHLG:
+            cicpDescription.transfer_function = JXL_TRANSFER_FUNCTION_HLG;
+            break;
+        case ConversionPolicy::ApplySMPTE428:
+            cicpDescription.transfer_function = JXL_TRANSFER_FUNCTION_DCI;
+            break;
+        case ConversionPolicy::KeepTheSame:
+        default: {
+            const TransferCharacteristics gamma = cs->profile()->getTransferCharacteristics();
+            switch (gamma) {
+            case TRC_LINEAR:
+                cicpDescription.transfer_function = JXL_TRANSFER_FUNCTION_LINEAR;
+                break;
+            case TRC_ITU_R_BT_709_5:
+            case TRC_ITU_R_BT_601_6:
+            case TRC_ITU_R_BT_2020_2_10bit:
+                cicpDescription.transfer_function = JXL_TRANSFER_FUNCTION_709;
+                break;
+            case TRC_ITU_R_BT_470_6_SYSTEM_M:
+                cicpDescription.transfer_function = JXL_TRANSFER_FUNCTION_GAMMA;
+                cicpDescription.gamma = 2.2;
+                break;
+            case TRC_ITU_R_BT_470_6_SYSTEM_B_G:
+                cicpDescription.transfer_function = JXL_TRANSFER_FUNCTION_GAMMA;
+                cicpDescription.gamma = 2.8;
+                break;
+            case TRC_IEC_61966_2_1:
+                cicpDescription.transfer_function = JXL_TRANSFER_FUNCTION_SRGB;
+                break;
+            case TRC_ITU_R_BT_2100_0_PQ:
+                cicpDescription.transfer_function = JXL_TRANSFER_FUNCTION_PQ;
+                break;
+            case TRC_SMPTE_ST_428_1:
+                cicpDescription.transfer_function = JXL_TRANSFER_FUNCTION_DCI;
+                break;
+            case TRC_ITU_R_BT_2100_0_HLG:
+                cicpDescription.transfer_function = JXL_TRANSFER_FUNCTION_HLG;
+                break;
+            case TRC_GAMMA_1_8:
+                cicpDescription.transfer_function = JXL_TRANSFER_FUNCTION_GAMMA;
+                cicpDescription.gamma = 1.8;
+                break;
+            case TRC_GAMMA_2_4:
+                cicpDescription.transfer_function = JXL_TRANSFER_FUNCTION_GAMMA;
+                cicpDescription.gamma = 2.4;
+                break;
+            case TRC_PROPHOTO:
+                cicpDescription.transfer_function = JXL_TRANSFER_FUNCTION_GAMMA;
+                cicpDescription.gamma = 1.8;
+                break;
+            case TRC_A98:
+                cicpDescription.transfer_function = JXL_TRANSFER_FUNCTION_GAMMA;
+                cicpDescription.gamma = 256.0 / 563.0;
+                break;
+            case TRC_ITU_R_BT_2020_2_12bit:
+            case TRC_ITU_R_BT_1361:
+            case TRC_SMPTE_240M:
+            case TRC_LOGARITHMIC_100:
+            case TRC_LOGARITHMIC_100_sqrt10:
+            case TRC_IEC_61966_2_4:
+            case TRC_UNSPECIFIED:
+                if (cs->profile()->isLinear()) {
+                    cicpDescription.transfer_function = JXL_TRANSFER_FUNCTION_LINEAR;
+                } else {
+                    dbgFile << "JXL CICP cannot describe the current transfer function" << gamma
+                            << ", falling back to ICC";
+                    cicpDescription.transfer_function = JXL_TRANSFER_FUNCTION_UNKNOWN;
+                }
+                break;
+            }
+        } break;
+        }
+
+        const ColorPrimaries primaries = cs->profile()->getColorPrimaries();
+
+        const bool arePrimariesSupported =
+            (primaries == PRIMARIES_ITU_R_BT_709_5 || primaries == PRIMARIES_ITU_R_BT_2020_2_AND_2100_0 || primaries == PRIMARIES_SMPTE_RP_431_2);
+
+        if (cicpDescription.transfer_function == JXL_TRANSFER_FUNCTION_UNKNOWN || !arePrimariesSupported) {
+            const QByteArray profile = cs->profile()->rawData();
+
+            if (JXL_ENC_SUCCESS
+                != JxlEncoderSetICCProfile(enc.get(), reinterpret_cast<const uint8_t *>(profile.constData()), static_cast<size_t>(profile.size()))) {
+                errFile << "JxlEncoderSetICCProfile failed";
+                return ImportExportCodes::InternalError;
+            }
+        } else {
+            switch (primaries) {
+            case PRIMARIES_ITU_R_BT_709_5:
+                cicpDescription.primaries = JXL_PRIMARIES_SRGB;
+                break;
+            case PRIMARIES_ITU_R_BT_2020_2_AND_2100_0:
+                cicpDescription.primaries = JXL_PRIMARIES_2100;
+                break;
+            case PRIMARIES_SMPTE_RP_431_2:
+                cicpDescription.primaries = JXL_PRIMARIES_P3;
+                break;
+            default:
+                KIS_SAFE_ASSERT_RECOVER_NOOP(false && "Writing possibly non-roundtrip primaries!");
+                const QVector<qreal> colorants = cs->profile()->getColorantsxyY();
+                cicpDescription.primaries = JXL_PRIMARIES_CUSTOM;
+                cicpDescription.primaries_red_xy[0] = colorants[0];
+                cicpDescription.primaries_red_xy[1] = colorants[1];
+                cicpDescription.primaries_green_xy[0] = colorants[3];
+                cicpDescription.primaries_green_xy[1] = colorants[4];
+                cicpDescription.primaries_blue_xy[0] = colorants[6];
+                cicpDescription.primaries_blue_xy[1] = colorants[7];
+                break;
+            }
+
+            // Unfortunately, Wolthera never wrote an enum for white points...
+            const QVector<qreal> whitePoint = image->colorSpace()->profile()->getWhitePointxyY();
+            cicpDescription.white_point = JXL_WHITE_POINT_CUSTOM;
+            cicpDescription.white_point_xy[0] = whitePoint[0];
+            cicpDescription.white_point_xy[1] = whitePoint[1];
+
+            if (JXL_ENC_SUCCESS != JxlEncoderSetColorEncoding(enc.get(), &cicpDescription)) {
+                errFile << "JxlEncoderSetColorEncoding failed";
+                return ImportExportCodes::InternalError;
+            }
         }
     }
 
@@ -277,6 +646,15 @@ KisImportExportErrorCode JPEGXLExport::convert(KisDocument *document, QIODevice 
             return true;
         };
 
+        // Hardcoded a map function that translates from arbitrary quality value to JPEG-XL distance
+        const auto setDistance = [&](float v) {
+            // Using a gamma curve to map the quality -> distance a bit better
+            float y = pow(v / 100.0f, 1.0f / 2.2f) * 100.0f;
+            float dist = cfg->getBool("lossless") ? 0.0f : ((y * (1.0f - 25.0f)) / 100.0f) + 25.0f;
+            dbgFile << "libjxl distance equivalent: " << dist;
+            return JxlEncoderSetFrameDistance(frameSettings, dist) == JXL_ENC_SUCCESS;
+        };
+
         if (!setFrameLossless(cfg->getBool("lossless"))
             || !setSetting(JXL_ENC_FRAME_SETTING_EFFORT, cfg->getInt("effort", 7))
             || !setSetting(JXL_ENC_FRAME_SETTING_DECODING_SPEED, cfg->getInt("decodingSpeed", 0))
@@ -297,7 +675,8 @@ KisImportExportErrorCode JPEGXLExport::convert(KisDocument *document, QIODevice 
             || !setSetting(JXL_ENC_FRAME_SETTING_LOSSY_PALETTE, cfg->getInt("lossyPalette", -1))
             || !setSetting(JXL_ENC_FRAME_SETTING_MODULAR_GROUP_SIZE, cfg->getInt("modularGroupSize", -1))
             || !setSetting(JXL_ENC_FRAME_SETTING_MODULAR_PREDICTOR, cfg->getInt("modularPredictor", -1))
-            || !setSetting(JXL_ENC_FRAME_SETTING_JPEG_RECON_CFL, cfg->getInt("jpegReconCFL", -1))) {
+            || !setSetting(JXL_ENC_FRAME_SETTING_JPEG_RECON_CFL, cfg->getInt("jpegReconCFL", -1))
+            || !setDistance(cfg->getInt("lossyQuality", 100))) {
             return ImportExportCodes::InternalError;
         }
     }
@@ -364,22 +743,38 @@ KisImportExportErrorCode JPEGXLExport::convert(KisDocument *document, QIODevice 
                     return ImportExportCodes::InternalError;
                 }
 
-                QByteArray pixels{[&]() {
+                const QByteArray pixels = [&]() {
                     const auto frameData = frames->keyframeAt<KisRasterKeyframe>(i);
                     KisPaintDeviceSP dev =
                         new KisPaintDevice(*image->projection(), KritaUtils::DeviceCopyMode::CopySnapshot);
                     frameData->writeFrameToDevice(dev);
-                    QByteArray p(static_cast<int>(cs->pixelSize()) * bounds.width() * bounds.height(), 0x0);
-                    dev->readBytes(reinterpret_cast<quint8 *>(p.data()), image->bounds());
-                    return p;
-                }()};
 
-                // BGRA -> RGBA
-                if (cs->colorModelId() == RGBAColorModelID
-                    && (cs->colorDepthId() == Integer8BitsColorDepthID
-                        || cs->colorDepthId() == Integer16BitsColorDepthID)) {
-                    swapRgb(cs, pixels);
-                }
+                    const KoID colorModel = cs->colorModelId();
+
+                    if (colorModel != RGBAColorModelID) {
+                        // blast it wholesale
+                        QByteArray p;
+                        p.resize(bounds.width() * bounds.height() * static_cast<int>(cs->pixelSize()));
+                        dev->readBytes(reinterpret_cast<quint8 *>(p.data()), bounds);
+                        return p;
+                    } else {
+                        KisHLineConstIteratorSP it = dev->createHLineConstIteratorNG(0, 0, bounds.width());
+
+                        // detect traits based on depth
+                        // if u8 or u16, also trigger swap
+                        return HDR::writeLayer(cs->colorDepthId(),
+                                               convertToRec2020,
+                                               cs->profile()->isLinear(),
+                                               conversionPolicy,
+                                               removeHGLOOTF,
+                                               bounds.width(),
+                                               bounds.height(),
+                                               it,
+                                               hlgGamma,
+                                               hlgNominalPeak,
+                                               cs);
+                    }
+                }();
 
                 if (JxlEncoderAddImageFrame(frameSettings,
                                             &pixelFormat,
@@ -392,19 +787,38 @@ KisImportExportErrorCode JPEGXLExport::convert(KisDocument *document, QIODevice 
             }
         } else {
             // Insert the projection itself only
-            QByteArray pixels{[&]() {
-                const auto bounds = image->bounds();
-                QByteArray p(static_cast<int>(cs->pixelSize()) * bounds.width() * bounds.height(), 0x0);
-                image->projection()->readBytes(reinterpret_cast<quint8 *>(pixels.data()), image->bounds());
-                return p;
-            }()};
+            const QByteArray pixels = [&]() {
+                const KisPaintDeviceSP dev = image->projection();
 
-            // BGRA -> RGBA
-            if (cs->colorModelId() == RGBAColorModelID
-                && (cs->colorDepthId() == Integer8BitsColorDepthID
-                    || cs->colorDepthId() == Integer16BitsColorDepthID)) {
-                swapRgb(cs, pixels);
-            }
+                const KoID colorModel = cs->colorModelId();
+                const KoID colorDepth = cs->colorDepthId();
+
+                if (colorModel != RGBAColorModelID
+                    || (colorDepth != Integer8BitsColorDepthID && colorDepth != Integer16BitsColorDepthID
+                        && conversionPolicy == ConversionPolicy::KeepTheSame)) {
+                    // blast it wholesale
+                    QByteArray p;
+                    p.resize(bounds.width() * bounds.height() * static_cast<int>(cs->pixelSize()));
+                    dev->readBytes(reinterpret_cast<quint8 *>(p.data()), bounds);
+                    return p;
+                } else {
+                    KisHLineConstIteratorSP it = dev->createHLineConstIteratorNG(0, 0, image->width());
+
+                    // detect traits based on depth
+                    // if u8 or u16, also trigger swap
+                    return HDR::writeLayer(cs->colorDepthId(),
+                                           convertToRec2020,
+                                           cs->profile()->isLinear(),
+                                           conversionPolicy,
+                                           removeHGLOOTF,
+                                           image->width(),
+                                           image->height(),
+                                           it,
+                                           hlgGamma,
+                                           hlgNominalPeak,
+                                           cs);
+                }
+            }();
 
             if (JxlEncoderAddImageFrame(frameSettings, &pixelFormat, pixels.data(), static_cast<size_t>(pixels.size()))
                 != JXL_ENC_SUCCESS) {
@@ -493,6 +907,15 @@ KisPropertiesConfigurationSP JPEGXLExport::defaultConfiguration(const QByteArray
     cfg->setProperty("lossless", true);
     cfg->setProperty("effort", 7);
     cfg->setProperty("decodingSpeed", 0);
+    cfg->setProperty("lossyQuality", 100);
+    cfg->setProperty("forceModular", false);
+    cfg->setProperty("modularSetVal", -1);
+
+    cfg->setProperty("floatingPointConversionOption", "KeepSame");
+    cfg->setProperty("HLGnominalPeak", 1000.0);
+    cfg->setProperty("HLGgamma", 1.2);
+    cfg->setProperty("removeHGLOOTF", true);
+
     cfg->setProperty("resampling", -1);
     cfg->setProperty("extraChannelResampling", -1);
     cfg->setProperty("photonNoise", 0);

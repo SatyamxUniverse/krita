@@ -29,6 +29,7 @@
 #include <KoColorSpaceConstants.h>
 #include <KoColorSpaceRegistry.h>
 #include <KoColorTransferFunctions.h>
+#include <kis_assert.h>
 #include <kis_config.h>
 #include <kis_exif_info_visitor.h>
 #include <kis_group_layer.h>
@@ -110,9 +111,32 @@ private:
     QIODevice* m_io;
 };
 
+#if LIBHEIF_HAVE_VERSION(1, 13, 0)
+class Q_DECL_HIDDEN HeifLock
+{
+public:
+    HeifLock()
+        : p()
+    {
+        heif_init(&p);
+    }
+
+    ~HeifLock()
+    {
+        heif_deinit();
+    }
+
+private:
+    heif_init_params p;
+};
+#endif
 
 KisImportExportErrorCode HeifExport::convert(KisDocument *document, QIODevice *io,  KisPropertiesConfigurationSP configuration)
 {
+#if LIBHEIF_HAVE_VERSION(1, 13, 0)
+    HeifLock lock;
+#endif
+
     KisImageSP image = document->savingImage();
     const KoColorSpace *cs = image->colorSpace();
 
@@ -137,23 +161,25 @@ KisImportExportErrorCode HeifExport::convert(KisDocument *document, QIODevice *i
                                       KoColorConversionTransformation::internalConversionFlags());
     }
 
-    ConversionPolicy conversionPolicy = KeepTheSame;
+    ConversionPolicy conversionPolicy = ConversionPolicy::KeepTheSame;
     bool convertToRec2020 = false;
     
     if (cs->hasHighDynamicRange() && cs->colorModelId() != GrayAColorModelID) {
-        QString conversionOption = (configuration->getString("floatingPointConversionOption", "Rec2100PQ"));
+        QString conversionOption =
+            (configuration->getString("floatingPointConversionOption",
+                                      "KeepSame"));
         if (conversionOption == "Rec2100PQ") {
             convertToRec2020 = true;
-            conversionPolicy = ApplyPQ;
+            conversionPolicy = ConversionPolicy::ApplyPQ;
         } else if (conversionOption == "Rec2100HLG") {
             convertToRec2020 = true;
-            conversionPolicy = ApplyHLG;
+            conversionPolicy = ConversionPolicy::ApplyHLG;
         } else if (conversionOption == "ApplyPQ") {
-            conversionPolicy = ApplyPQ;
+            conversionPolicy = ConversionPolicy::ApplyPQ;
         } else if (conversionOption == "ApplyHLG") {
-            conversionPolicy = ApplyHLG;
+            conversionPolicy = ConversionPolicy::ApplyHLG;
         }  else if (conversionOption == "ApplySMPTE428") {
-            conversionPolicy = ApplySMPTE428;
+            conversionPolicy = ConversionPolicy::ApplySMPTE428;
         }
     }
 
@@ -368,7 +394,7 @@ KisImportExportErrorCode HeifExport::convert(KisDocument *document, QIODevice *i
         }
 
         // --- save the color profile.
-        if (conversionPolicy == KeepTheSame) {
+        if (conversionPolicy == ConversionPolicy::KeepTheSame) {
             QByteArray rawProfileBA = image->colorSpace()->profile()->rawData();
             std::vector<uint8_t> rawProfile(rawProfileBA.begin(), rawProfileBA.end());
             img.set_raw_color_profile(heif_color_profile_type_prof, rawProfile);
@@ -379,18 +405,22 @@ KisImportExportErrorCode HeifExport::convert(KisDocument *document, QIODevice *i
            if (convertToRec2020) {
                nclxDescription.set_color_primaties(heif_color_primaries_ITU_R_BT_2020_2_and_2100_0);
            } else {
-               ColorPrimaries primaries = image->colorSpace()->profile()->getColorPrimaries();
-               if (primaries >= 256) {
-                   primaries = PRIMARIES_UNSPECIFIED;
-               }
+               const ColorPrimaries primaries =
+                   image->colorSpace()->profile()->getColorPrimaries();
+               // PRIMARIES_ADOBE_RGB_1998 and higher are not valid for CICP.
+               // But this should have already been caught by the KeepTheSame
+               // clause...
+               KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(
+                   primaries >= PRIMARIES_ADOBE_RGB_1998,
+                   ImportExportCodes::FormatColorSpaceUnsupported);
                nclxDescription.set_color_primaties(heif_color_primaries(primaries));
            }
 
-           if (conversionPolicy == ApplyPQ) {
+           if (conversionPolicy == ConversionPolicy::ApplyPQ) {
                nclxDescription.set_transfer_characteristics(heif_transfer_characteristic_ITU_R_BT_2100_0_PQ);
-           } else if (conversionPolicy == ApplyHLG) {
+           } else if (conversionPolicy == ConversionPolicy::ApplyHLG) {
                nclxDescription.set_transfer_characteristics(heif_transfer_characteristic_ITU_R_BT_2100_0_HLG);
-           } else if (conversionPolicy == ApplySMPTE428) {
+           } else if (conversionPolicy == ConversionPolicy::ApplySMPTE428) {
                nclxDescription.set_transfer_characteristics(heif_transfer_characteristic_SMPTE_ST_428_1);
            }
 
@@ -404,7 +434,7 @@ KisImportExportErrorCode HeifExport::convert(KisDocument *document, QIODevice *i
 
         // iOS gets confused when a heif file contains an nclx.
         // but we absolutely need it for hdr.
-        if (conversionPolicy != KeepTheSame && cs->hasHighDynamicRange()) {
+        if (conversionPolicy != ConversionPolicy::KeepTheSame && cs->hasHighDynamicRange()) {
             options.macOS_compatibility_workaround_no_nclx_profile = false;
         }
 
@@ -493,8 +523,9 @@ void KisWdgOptionsHeif::setConfiguration(const KisPropertiesConfigurationSP cfg)
     sliderQuality->setValue(qreal(cfg->getInt("quality", 50)));
     cmbChroma->setCurrentIndex(chromaOptions.indexOf(cfg->getString("chroma", "444")));
     m_hasAlpha = cfg->getBool(KisImportExportFilter::ImageContainsTransparencyTag, false);
-    
-    int CicpPrimaries = cfg->getInt(KisImportExportFilter::CICPPrimariesTag, 2);
+
+    int cicpPrimaries = cfg->getInt(KisImportExportFilter::CICPPrimariesTag,
+                                    static_cast<int>(PRIMARIES_UNSPECIFIED));
 
     // Rav1e doesn't support monochrome. To get around this, people may need to convert to sRGB first.
     chkMonochromesRGB->setVisible(cfg->getString(KisImportExportFilter::ColorModelIDTag) == "GRAYA");
@@ -509,7 +540,7 @@ void KisWdgOptionsHeif::setConfiguration(const KisPropertiesConfigurationSP cfg)
     QStringList conversionOptionName = {"Rec2100PQ", "Rec2100HLG"};
     
     if (cfg->getString(KisImportExportFilter::ColorModelIDTag) == "RGBA") {
-        if (CicpPrimaries != PRIMARIES_UNSPECIFIED) {
+        if (cicpPrimaries != PRIMARIES_UNSPECIFIED) {
             conversionOptionsList << i18nc("Color space option plus transfer function name", "Keep colorants, encode PQ");
             toolTipList << i18nc("@tooltip", "The image will be linearized first, and then encoded with a perceptual quantizer curve"
                                             " (also known as the SMPTE 2048 curve). Recommended for images where the absolute brightness is important.");
@@ -525,7 +556,7 @@ void KisWdgOptionsHeif::setConfiguration(const KisPropertiesConfigurationSP cfg)
                                             " Krita always opens images like these as linear floating point, this option is there to reverse that");
             conversionOptionName << "ApplySMPTE428";
         }
-        
+
         conversionOptionsList << i18nc("Color space option", "No changes, clip");
         toolTipList << i18nc("@tooltip", "The image will be converted plainly to 12bit integer, and values that are out of bounds are clipped, the icc profile will be embedded.");
         conversionOptionName << "KeepSame";
@@ -535,8 +566,12 @@ void KisWdgOptionsHeif::setConfiguration(const KisPropertiesConfigurationSP cfg)
         cmbConversionPolicy->setItemData(i, toolTipList.at(i), Qt::ToolTipRole);
         cmbConversionPolicy->setItemData(i, conversionOptionName.at(i), Qt::UserRole+1);
     }
-    QString optionName = cfg->getString("floatingPointConversionOption", "Rec2100PQ");
-    cmbConversionPolicy->setCurrentIndex(conversionOptionName.indexOf(optionName));
+    QString optionName =
+        cfg->getString("floatingPointConversionOption", "KeepSame");
+    if (conversionOptionName.contains(optionName)) {
+        cmbConversionPolicy->setCurrentIndex(
+            conversionOptionName.indexOf(optionName));
+    }
     chkHLGOOTF->setChecked(cfg->getBool("removeHGLOOTF", true));
     spnNits->setValue(cfg->getDouble("HLGnominalPeak", 1000.0));
     spnGamma->setValue(cfg->getDouble("HLGgamma", 1.2));
@@ -552,7 +587,7 @@ KisPropertiesConfigurationSP KisWdgOptionsHeif::configuration() const
     cfg->setProperty("monochromeToSRGB", chkMonochromesRGB->isChecked());
     cfg->setProperty("HLGnominalPeak", spnNits->value());
     cfg->setProperty("HLGgamma", spnGamma->value());
-    cfg->setProperty("removeHGLOOTF", chkLossless->isChecked());
+    cfg->setProperty("removeHGLOOTF", chkHLGOOTF->isChecked());
     cfg->setProperty(KisImportExportFilter::ImageContainsTransparencyTag, m_hasAlpha);
     return cfg;
 }

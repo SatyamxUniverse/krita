@@ -76,6 +76,7 @@ set(kritaui_LIB_SRCS
     dialogs/KisRecoverNamedAutosaveDialog.cpp
     dialogs/KisDlgSavePreset.cpp
     dialogs/kis_dlg_missing_color_profile.cpp
+    dialogs/kis_dlg_hlg_import.cpp
 
     flake/kis_node_dummies_graph.cpp
     flake/kis_dummies_facade_base.cpp
@@ -123,7 +124,6 @@ set(kritaui_LIB_SRCS
     KisImageBarrierLockerWithFeedback.cpp
     kis_image_manager.cc
     kis_image_view_converter.cpp
-    KisDetachedShapesViewConverter.cpp
     kis_import_catcher.cc
     kis_layer_manager.cc
     kis_mask_manager.cc
@@ -607,6 +607,7 @@ ki18n_wrap_ui(kritaui_LIB_SRCS
 
     brushhud/kis_dlg_brush_hud_config.ui
     dialogs/kis_delayed_save_dialog.ui
+    dialogs/kis_dlg_hlg_import.ui
     dialogs/KisRecoverNamedAutosaveDialog.ui
     input/config/kis_input_configuration_page.ui
     input/config/kis_edit_profiles_dialog.ui
