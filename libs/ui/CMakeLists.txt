@@ -674,7 +674,7 @@ if (HAVE_QT_MULTIMEDIA)
     target_link_libraries(kritaui Qt5::Multimedia)
 endif()
 
-if (NOT WIN32 AND NOT APPLE AND NOT ANDROID)
+if(X11_FOUND AND X11_Xinput_FOUND)
   target_link_libraries(kritaui ${X11_X11_LIB}
                                 ${X11_Xinput_LIB})
 endif()
@@ -688,7 +688,7 @@ endif ()
 target_link_libraries(kritaui ${OPENEXR_LIBRARIES})
 
 # Add VSync disable workaround
-if(NOT WIN32 AND NOT APPLE AND NOT ANDROID)
+if(Qt5_X11Extras_FOUND)
     target_link_libraries(kritaui ${CMAKE_DL_LIBS} Qt5::X11Extras)
 endif()
 
