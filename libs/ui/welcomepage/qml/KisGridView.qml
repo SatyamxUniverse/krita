@@ -1,37 +1,29 @@
-import QtQuick 2.3
+import QtQuick 2.15
 import QtQuick.Layouts 1.2
 import QtQuick.Controls 2.3 as Controls
 import org.kde.kirigami 2.12 as Kirigami
 
 
-Kirigami.CardsGridView {
+GridView {
     id: root
 
     signal itemSelected(url url)
 
-    /**
-     * The ratio to use to calculate the height of the card from width. Typically
-     * you can get idea for what this might be from the banner + description size.
-     */
-    property real cardSizeRatio: 1.2
+    property real minimumColumnWidth: 300
+    property real maximumColumnWidth: 300
+    property real preferredColumnWidth: 300
 
-    /**
-     * This allows us to dynamically shrink/increase the gap in between cards.
-     */
-    readonly property real cellHeightFromWidth: Math.min(cellWidth, maximumColumnWidth) / cardSizeRatio
+    property real minimumColumnHeight: 300
+    property real maximumColumnHeight: 300
+    property real preferredColumnHeight: 300
 
-    /**
-     * The property is used to set the maximumHeight in Kirigami.Card, otherwise the card
-     * can exceed the cellHeight set by the gridview.
-     */
-    property real maximumCardHeight: 300
+    property real minimumColumnSpacing: 8
+    property real maximumColumnSpacing: 15
 
-    /**
-     * The card height beyond which we won't let the card shrink
-     */
-    property real minimumCardHeight: 300
+    property real numColumns: Math.max(1, Math.min(Math.floor(width / minimumColumnWidth), Math.ceil(width / maximumColumnWidth)))
 
-    cellHeight: Math.min(Math.max(minimumCardHeight, cellHeightFromWidth),
-                         maximumCardHeight)
-        + Kirigami.Units.gridUnit + 2
+    cellWidth: width / numColumns
+    cellHeight: Math.max(minimumColumnHeight, Math.min(preferredColumnHeight, maximumColumnHeight))
+
+    reuseItems: true
 }
