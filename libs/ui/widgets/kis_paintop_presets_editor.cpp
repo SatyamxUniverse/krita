@@ -675,20 +675,12 @@ void KisPaintOpPresetsEditor::resizeEvent(QResizeEvent* event)
 
 void KisPaintOpPresetsEditor::slotSwitchScratchpad(bool visible)
 {
-    // hide all the internal controls except the toggle button
-    m_d->uiWdgPaintOpPresetSettings.scratchPad->setVisible(visible);
-    m_d->uiWdgPaintOpPresetSettings.paintPresetIcon->setVisible(visible);
-    m_d->uiWdgPaintOpPresetSettings.fillGradient->setVisible(visible);
-    m_d->uiWdgPaintOpPresetSettings.fillLayer->setVisible(visible);
-    m_d->uiWdgPaintOpPresetSettings.fillSolid->setVisible(visible);
-    m_d->uiWdgPaintOpPresetSettings.eraseScratchPad->setVisible(visible);
-    m_d->uiWdgPaintOpPresetSettings.scratchpadSidebarLabel->setVisible(visible);
-
-    QPushButton* showBtn = m_d->uiWdgPaintOpPresetSettings.showScratchpadButton;
-    QGroupBox* container = m_d->uiWdgPaintOpPresetSettings.scratchpadControls;
+    Ui_WdgPaintOpSettings& ui = m_d->uiWdgPaintOpPresetSettings;
+    QPushButton* showBtn = ui.showScratchpadButton;
+    QGroupBox* container = ui.scratchpadControls;
 
     if (visible) {
-        showBtn->setIcon(KisIconUtils::loadIcon("arrow-left"));
+        showBtn->setIcon(KisIconUtils::loadIcon("arrow-right"));
 
         container->setMinimumWidth(scratchPadPanelMinWidth);
         container->setMaximumWidth(0xFF'FFFF);
@@ -697,19 +689,31 @@ void KisPaintOpPresetsEditor::slotSwitchScratchpad(bool visible)
         splitterSizes[2] = m_d->scratchPanelWidth > 0 ? m_d->scratchPanelWidth : scratchPadPanelInitWidth;
         m_d->horzSplitter->setSizes(splitterSizes);
     } else {
-        showBtn->setIcon(KisIconUtils::loadIcon("arrow-right"));
+        showBtn->setIcon(KisIconUtils::loadIcon("arrow-left"));
 
         int newContainerWidth = showBtn->width() + 9 * 2;  // showBtn->width() + layout margins
         container->setMinimumWidth(newContainerWidth);
         container->setMaximumWidth(newContainerWidth);
 
         QList<int> splitterSizes = m_d->horzSplitter->sizes();
-        m_d->scratchPanelWidth = m_d->scratchPanelWidth > 0 ? splitterSizes[2] : scratchPadPanelInitWidth;
+
+        if (ui.scratchPad->isVisible()) {
+            m_d->scratchPanelWidth = splitterSizes[2];
+        }
 
         splitterSizes[1] = 0xFF'FFFF;
         splitterSizes[2] = newContainerWidth;
         m_d->horzSplitter->setSizes(splitterSizes);
     }
+
+    // hide all the internal controls except the toggle button
+    ui.scratchPad->setVisible(visible);
+    ui.paintPresetIcon->setVisible(visible);
+    ui.fillGradient->setVisible(visible);
+    ui.fillLayer->setVisible(visible);
+    ui.fillSolid->setVisible(visible);
+    ui.eraseScratchPad->setVisible(visible);
+    ui.scratchpadSidebarLabel->setVisible(visible);
 
     KisConfig cfg(false);
     cfg.setScratchpadVisible(visible);
@@ -721,18 +725,20 @@ void KisPaintOpPresetsEditor::slotSwitchShowEditor(bool visible) {
 
 void KisPaintOpPresetsEditor::slotSwitchShowPresets(bool visible)
 {
-    m_d->uiWdgPaintOpPresetSettings.presetsSidebarLabel->setVisible(visible);
-    m_d->uiWdgPaintOpPresetSettings.engineFilterLabel->setVisible(visible);
-    m_d->uiWdgPaintOpPresetSettings.brushEgineComboBox->setVisible(visible);
-    m_d->uiWdgPaintOpPresetSettings.presetWidget->setVisible(visible);
-    m_d->uiWdgPaintOpPresetSettings.newPresetEngineButton->setVisible(visible);
-    m_d->uiWdgPaintOpPresetSettings.bnBlacklistPreset->setVisible(visible);
+    // hide all the internal controls except the toggle button
+    Ui_WdgPaintOpSettings& ui = m_d->uiWdgPaintOpPresetSettings;
+    ui.presetsSidebarLabel->setVisible(visible);
+    ui.engineFilterLabel->setVisible(visible);
+    ui.brushEgineComboBox->setVisible(visible);
+    ui.presetWidget->setVisible(visible);
+    ui.newPresetEngineButton->setVisible(visible);
+    ui.bnBlacklistPreset->setVisible(visible);
 
-    QPushButton* showBtn = m_d->uiWdgPaintOpPresetSettings.showPresetsButton;
-    QGroupBox* container = m_d->uiWdgPaintOpPresetSettings.presetsContainer;
+    QPushButton* showBtn = ui.showPresetsButton;
+    QGroupBox* container = ui.presetsContainer;
 
     if (visible) {
-        showBtn->setIcon(KisIconUtils::loadIcon("arrow-right"));
+        showBtn->setIcon(KisIconUtils::loadIcon("arrow-left"));
 
         container->setMinimumWidth(brushPresetsPanelMinWidth);
         container->setMaximumWidth(0xFF'FFFF);
@@ -742,7 +748,7 @@ void KisPaintOpPresetsEditor::slotSwitchShowPresets(bool visible)
         m_d->horzSplitter->setSizes(splitterSizes);
 
     } else {
-        showBtn->setIcon(KisIconUtils::loadIcon("arrow-left"));
+        showBtn->setIcon(KisIconUtils::loadIcon("arrow-right"));
 
         int newContainerWidth = showBtn->width() + 9 * 2;  // showBtn->width() + layout margins
         container->setMinimumWidth(newContainerWidth);
@@ -838,18 +844,18 @@ void KisPaintOpPresetsEditor::updateThemedIcons()
     // maybe this can also be stored in the config like the scratchpad?
     if (m_d->uiWdgPaintOpPresetSettings.presetsSidebarLabel->isVisible()) {
         //m_d->uiWdgPaintOpPresetSettings.presetsSpacer->changeSize(0,0, QSizePolicy::Ignored,QSizePolicy::Ignored);
-        m_d->uiWdgPaintOpPresetSettings.showPresetsButton->setIcon(KisIconUtils::loadIcon("arrow-right"));
+        m_d->uiWdgPaintOpPresetSettings.showPresetsButton->setIcon(KisIconUtils::loadIcon("arrow-left"));
     } else {
         //m_d->uiWdgPaintOpPresetSettings.presetsSpacer->changeSize(0,0, QSizePolicy::MinimumExpanding,QSizePolicy::MinimumExpanding);
-        m_d->uiWdgPaintOpPresetSettings.showPresetsButton->setIcon(KisIconUtils::loadIcon("arrow-left"));
+        m_d->uiWdgPaintOpPresetSettings.showPresetsButton->setIcon(KisIconUtils::loadIcon("arrow-right"));
     }
 
     // we store whether the scratchpad if visible in the config.
     KisConfig cfg(true);
     if (cfg.scratchpadVisible()) {
-        m_d->uiWdgPaintOpPresetSettings.showScratchpadButton->setIcon(KisIconUtils::loadIcon("arrow-left"));
-    } else {
         m_d->uiWdgPaintOpPresetSettings.showScratchpadButton->setIcon(KisIconUtils::loadIcon("arrow-right"));
+    } else {
+        m_d->uiWdgPaintOpPresetSettings.showScratchpadButton->setIcon(KisIconUtils::loadIcon("arrow-left"));
     }
 }
 
