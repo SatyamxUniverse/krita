@@ -482,11 +482,6 @@ set_package_properties(Qt5Quick PROPERTIES
         PURPOSE "Optionally used for the touch gui for Krita")
 
 macro_bool_to_01(Qt5Quick_FOUND HAVE_QT_QUICK)
-if (Qt5Quick_FOUND)
-    list (APPEND ANDROID_EXTRA_LIBS $<TARGET_FILE:Qt5::Quick>)
-    list (APPEND ANDROID_EXTRA_LIBS $<TARGET_FILE:Qt5::Qml>)
-endif()
-
 
 find_package(Qt5QuickWidgets ${MIN_QT_VERSION})
 set_package_properties(Qt5QuickWidgets PROPERTIES
@@ -495,10 +490,12 @@ set_package_properties(Qt5QuickWidgets PROPERTIES
         TYPE OPTIONAL
         PURPOSE "Optionally used for the touch gui for Krita")
 endif()
-
 if (Qt5QuickWidgets_FOUND)
+    # This is needed because Qt dependencies aren't added by ECM but by androideployqt,
+    # so it doesn't benefit from our patch in ECM.
     list (APPEND ANDROID_EXTRA_LIBS $<TARGET_FILE:Qt5::QuickWidgets>)
 endif()
+
 
 if (NOT WIN32 AND NOT APPLE AND NOT ANDROID)
 
@@ -532,13 +529,22 @@ endif()
 
 add_definitions(
   -DQT_USE_QSTRINGBUILDER
-  -DQT_STRICT_ITERATORS
   -DQT_NO_SIGNALS_SLOTS_KEYWORDS
   -DQT_NO_URL_CAST_FROM_STRING
   -DQT_USE_FAST_CONCATENATION 
   -DQT_USE_FAST_OPERATOR_PLUS
 )
 
+# MSVC is unable to disambiguate between definitions of QVector<QPointF> 
+# and QPolygonF. This is a known upstream bug e.g.:
+# - https://phabricator.kde.org/D21314
+# - https://codereview.qt-project.org/c/qt/qtbase/+/180229
+# Starting with Qt 5.13, it is impossible to use strict iterators
+# wholesale because of:
+# https://github.com/qt/qtbase/commit/972f8845a85d6a07140025e4257cb8a1a2699b5d
+if (NOT MSVC OR ${Qt5_VERSION} VERSION_LESS "5.13.0")
+  add_definitions(-DQT_STRICT_ITERATORS)
+endif()
 
 #if (${Qt5_VERSION} VERSION_GREATER "5.14.0" )
 #    add_definitions(-DQT_DISABLE_DEPRECATED_BEFORE=0x50F00)
@@ -728,6 +734,12 @@ if (ANDROID)
     set (ANDROID_SDK_ROOT $ENV{ANDROID_SDK_ROOT})
     set (KRITA_PLUGIN_INSTALL_DIR ${LIB_INSTALL_DIR})
     # set (DATA_INSTALL_DIR ${CMAKE_INSTALL_PREFIX}/assets)
+
+    # From ECM
+    # Because Qt changes library suffix (to include arch), this changes name of
+    # libraries that depend on Qt, but its Find file may not necessarily be
+    # adapted for this.
+    set(CMAKE_FIND_LIBRARY_SUFFIXES "_${CMAKE_ANDROID_ARCH_ABI}.so" ".so" ".a")
 else()
     set (KRITA_PLUGIN_INSTALL_DIR ${LIB_INSTALL_DIR}/kritaplugins)
 endif()
@@ -749,7 +761,6 @@ if (ANDROID)
 endif()
 
 find_package(PNG REQUIRED "1.2.6")
-list (APPEND ANDROID_EXTRA_LIBS ${PNG_LIBRARY})
 
 if (APPLE)
     # this is not added correctly on OSX -- see https://forum.kde.org/viewtopic.php?f=139&t=101867&p=221242#p221242
@@ -777,9 +788,6 @@ set_package_properties(GSL PROPERTIES
     PURPOSE "Required by Krita's Transform tool.")
 macro_bool_to_01(GSL_FOUND HAVE_GSL)
 configure_file(config-gsl.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config-gsl.h )
-if (GSL_FOUND)
-    list (APPEND ANDROID_EXTRA_LIBS ${GSL_LIBRARIES} ${GSL_CBLAS_LIBRARIES})
-endif()
 
  ###########################
 ############################
@@ -806,11 +814,6 @@ set_package_properties(KSeExpr PROPERTIES
 )
 macro_bool_to_01(KSeExpr_FOUND HAVE_SEEXPR)
 configure_file(config-seexpr.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config-seexpr.h )
-if(KSeExpr_FOUND)
-    get_target_property(KSeExpr_LIBRARY KSeExpr::KSeExpr "LOCATION")
-    get_target_property(KSeExprUI_LIBRARY KSeExpr::KSeExprUI "LOCATION") 
-    list (APPEND ANDROID_EXTRA_LIBS ${KSeExpr_LIBRARY} ${KSeExprUI_LIBRARY})
-endif()
 
 find_package(ZLIB REQUIRED)
 set_package_properties(ZLIB PROPERTIES
@@ -842,9 +845,6 @@ set_package_properties(TIFF PROPERTIES
     PURPOSE "Required by the Krita TIFF filter")
 include(CheckLibTIFFPSDSupport)
 configure_file(config-tiff.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config-tiff.h)
-if (TIFF_FOUND)
-    list (APPEND ANDROID_EXTRA_LIBS ${TIFF_LIBRARY})
-endif()
 
 find_package(JPEG)
 set_package_properties(JPEG PROPERTIES
@@ -853,7 +853,6 @@ set_package_properties(JPEG PROPERTIES
     TYPE OPTIONAL
     PURPOSE "Required by the Krita JPEG filter")
 if (JPEG_FOUND)
-    list (APPEND ANDROID_EXTRA_LIBS ${JPEG_LIBRARY})
     macro_bool_to_01(JPEG_FOUND HAVE_JPEG)
 endif()
 
@@ -863,13 +862,12 @@ set_package_properties(libjpeg-turbo PROPERTIES
     URL "https://www.libjpeg-turbo.org"
     TYPE OPTIONAL
     PURPOSE "Required by the Krita JPEG and TIFF filters")
-if(libjpeg-turbo_FOUND)
-    get_target_property(JPEG_TURBO_LIBRARY libjpeg-turbo::turbojpeg "LOCATION")
-    set(JPEG_TURBO_LIBRARIES libjpeg-turbo::turbojpeg)
-    list(APPEND ANDROID_EXTRA_LIBS ${JPEG_TURBO_LIBRARY})
-endif()
 macro_bool_to_01(libjpeg-turbo_FOUND HAVE_JPEG_TURBO)
 configure_file(config-jpeg.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config-jpeg.h )
+
+if(libjpeg-turbo_FOUND)
+    set(JPEG_TURBO_LIBRARIES libjpeg-turbo::turbojpeg)
+endif()
 
 find_package(GIF)
 set_package_properties(GIF PROPERTIES
@@ -877,9 +875,6 @@ set_package_properties(GIF PROPERTIES
     URL "http://giflib.sourceforge.net/"
     TYPE OPTIONAL
     PURPOSE "Required by the Krita GIF filter")
-if (GIF_FOUND)
-    list (APPEND ANDROID_EXTRA_LIBS ${GIF_LIBRARY})
-endif()
 
 find_package(HEIF "1.11.0")
 set_package_properties(HEIF PROPERTIES
@@ -909,15 +904,6 @@ set_package_properties(JPEGXL PROPERTIES
     URL "https://github.com/libjxl/libjxl"
     TYPE OPTIONAL
     PURPOSE "Required by the Krita JPEG-XL filter")
-if (JPEGXL_FOUND)
-    list (APPEND ANDROID_EXTRA_LIBS ${JPEGXL_LIBRARIES})
-    # because libjxl depends on brotli and it is installed in the same folder
-    get_filename_component (_base_dir ${JPEGXL_LIBRARY} DIRECTORY)
-    list (APPEND ANDROID_EXTRA_LIBS 
-                    ${_base_dir}/libbrotlidec.so
-                    ${_base_dir}/libbrotlicommon.so
-                    ${_base_dir}/libbrotlienc.so)
-endif()
 
 find_package(FFTW3)
 set_package_properties(FFTW3 PROPERTIES
@@ -927,13 +913,8 @@ set_package_properties(FFTW3 PROPERTIES
     PURPOSE "Required by the Krita for fast convolution operators and some G'Mic features")
 macro_bool_to_01(FFTW3_FOUND HAVE_FFTW3)
 if (FFTW3_FOUND)
-    list (APPEND ANDROID_EXTRA_LIBS ${FFTW3_LIBRARY})
-
     # GMic uses the Threads library if available.
     find_library(FFTW3_THREADS_LIB fftw3_threads PATHS ${FFTW3_LIBRARY_DIRS})
-    if(FFTW3_THREADS_LIB)
-        list(APPEND ANDROID_EXTRA_LIBS ${FFTW3_THREADS_LIB})
-    endif()
 endif()
 
 find_package(OpenColorIO 1.1.1)
@@ -947,9 +928,6 @@ if (OPENCOLORIO_VERSION VERSION_GREATER_EQUAL "2.0.0")
     set(HAVE_OCIO_V2 TRUE)
 endif()
 configure_file(config-ocio.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config-ocio.h)
-if (OpenColorIO_FOUND)
-    list (APPEND ANDROID_EXTRA_LIBS ${OPENCOLORIO_LIBRARIES})
-endif()
 
 set_package_properties(PythonLibrary PROPERTIES
     DESCRIPTION "Python Library"
@@ -982,10 +960,6 @@ set_package_properties(LibMyPaint PROPERTIES
 if(LibMyPaint_FOUND)
     if(LibMyPaint_VERSION VERSION_LESS "1.4.0")
         message(WARNING "Please update libmypaint to version above 1.4.0 as lower versions are known to crash")
-    else()
-        list (APPEND ANDROID_EXTRA_LIBS ${libmypaint_LIBRARY_DIRS}/libmypaint.so
-            ${libmypaint_LIBRARY_DIRS}/libjson-c.so    # this is a direct dependency of libmypaint
-            )
     endif()
 endif()
 macro_bool_to_01(LibMyPaint_FOUND HAVE_LIBMYPAINT)
@@ -1004,7 +978,7 @@ endif()
 ##
 ## Test for eigen3
 ##
-find_package(Eigen3 3.0 REQUIRED)
+find_package(Eigen3 3.3 REQUIRED NO_MODULE)
 set_package_properties(Eigen3 PROPERTIES
     DESCRIPTION "C++ template library for linear algebra"
     URL "http://eigen.tuxfamily.org"
@@ -1014,12 +988,6 @@ set_package_properties(Eigen3 PROPERTIES
 ## Test for exiv2
 ##
 find_package(LibExiv2 0.16 REQUIRED)
-if (ANDROID)
-    list (APPEND ANDROID_EXTRA_LIBS ${LibExiv2_LIBRARIES})
-    # because libexiv2 depends on libexpat and it is installed in the same folder
-    get_filename_component (_base_dir ${LibExiv2_LIBRARIES} DIRECTORY)
-    list (APPEND ANDROID_EXTRA_LIBS ${_base_dir}/libexpat.so)
-endif()
 
 ##
 ## Test for lcms
@@ -1047,15 +1015,16 @@ if(LCMS2_FOUND)
         set(HAVE_LCMS_FAST_FLOAT_PLUGIN 1)
     endif()
 endif()
-list (APPEND ANDROID_EXTRA_LIBS ${LCMS2_LIBRARIES})
 
 ##
 ## Test for xsimd
 ##
-find_package(xsimd 8.1.0)
-if(NOT xsimd_FOUND)
-    find_package(xsimd 9)
-endif()
+foreach(xsimd_version 8.1.0 9 10)
+    if(NOT xsimd_FOUND)
+        find_package(xsimd ${xsimd_version})
+    endif()
+endforeach()
+
 set_package_properties(xsimd PROPERTIES
     DESCRIPTION "C++ wrappers for SIMD intrinsics"
     URL "https://github.com/xtensor-stack/xsimd"
@@ -1101,7 +1070,6 @@ set_package_properties(Poppler PROPERTIES
     TYPE OPTIONAL
     PURPOSE "Required by the Krita PDF filter.")
 
-
 ##
 ## Test for quazip
 ##
@@ -1113,24 +1081,16 @@ set_package_properties(QUAZIP PROPERTIES
     PURPOSE "Needed for reading and writing KRA and ORA files"
 )
 
-# FIXME: better way to do this?
-list (APPEND ANDROID_EXTRA_LIBS ${QUAZIP_LIBRARIES}
-                                ${EXPAT_LIBRARY}
-                                ${KF5_LIBRARIES}/libssl_1_1.so
-                                ${KF5_LIBRARIES}/libcrypto_1_1.so
-                                ${KF5_LIBRARIES}/libKF5Completion.so
-                                ${KF5_LIBRARIES}/libKF5WindowSystem.so
-                                ${KF5_LIBRARIES}/libKF5WidgetsAddons.so
-                                ${KF5_LIBRARIES}/libKF5ItemViews.so
-                                ${KF5_LIBRARIES}/libKF5ItemModels.so
-                                ${KF5_LIBRARIES}/libKF5GuiAddons.so
-                                ${KF5_LIBRARIES}/libKF5I18n.so
-                                ${KF5_LIBRARIES}/libKF5CoreAddons.so
-                                ${KF5_LIBRARIES}/libKF5ConfigGui.so
-                                ${KF5_LIBRARIES}/libKF5ConfigCore.so)
-
-
-
+##
+## Test for KDcraw
+##
+find_package(KF5KDcraw 5.0.0)
+set_package_properties(KF5KDcraw PROPERTIES
+    DESCRIPTION "A thread-safe wrapper around libraw"
+    URL "https://api.kde.org/libkdcraw/html/index.html"
+    TYPE OPTIONAL
+    PURPOSE "Needed for reading RAW files"
+)
 
 if(EXISTS ${CMAKE_CURRENT_SOURCE_DIR}/po)
     find_package(KF5I18n CONFIG REQUIRED)
@@ -1195,13 +1155,17 @@ feature_summary(WHAT ALL FATAL_ON_MISSING_REQUIRED_PACKAGES)
 if (ANDROID)
   # ECM passes this to Qt, which was already capable of detecting it..
   set (ANDROID_SDK_COMPILE_API "31")
-  if ((${NDK_VERSION} GREATER_EQUAL 20))
-    set (USE_LLVM ON)
-  endif()
+
+  # To assist stdcpp-path in deployment.json file
+  set(ANDROID_SYSROOT_PREFIX "${ANDROID_TOOLCHAIN_ROOT}/sysroot/usr" CACHE STRING "" FORCE)
+
+  # otherwise ECM can't find the libs and throws a big error at us.
+  list (APPEND ECM_ADDITIONAL_FIND_ROOT_PATH ${KRITA_3rdparty_LIB_PREFIX})
+
+  # copied regex from ECM's toolchain
+  string(REGEX REPLACE "-(clang)?([0-9].[0-9])?$" "" ECM_ANDROID_STL_ARCH ${ANDROID_TOOLCHAIN_NAME})
 
   if (NOT (CMAKE_CXX_STANDARD_LIBRARIES MATCHES "[^ ]*c\\+\\+[^ ]*\\.so"))
-    # copied regex from ECM's toolchain
-    string(REGEX REPLACE "-(clang)?([0-9].[0-9])?$" "" ECM_ANDROID_STL_ARCH ${ANDROID_TOOLCHAIN_NAME})
 
     set (KRITA_ANDROID_STL_PATH "${ANDROID_TOOLCHAIN_ROOT}/sysroot/usr/lib/${ECM_ANDROID_STL_ARCH}/lib${ANDROID_STL}.so")
     if (NOT EXISTS ${KRITA_ANDROID_STL_PATH})

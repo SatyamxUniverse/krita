@@ -38,36 +38,23 @@ ExternalProject_Add(
     CONFIGURE_COMMAND <SOURCE_DIR>/configure --prefix=${EXTPREFIX_heif} ${GLOBAL_AUTOMAKE_PROFILE}
 
     UPDATE_COMMAND ""
+    
+    # automake has an issue when tryin gto build outside of the course tree
+    # 'sh: 0: Can't open autogen.sh'
+    BUILD_IN_SOURCE ON
 )
 endif(WIN32)
 
 
 set(EXTRA_AVIF_DEPS "")
 
-find_package(Perl)
-if(NOT PERL_FOUND AND WIN32)
-    ExternalProject_Add(
-        ext_strawberryperl
-        DOWNLOAD_DIR ${EXTERNALS_DOWNLOAD_DIR}
-        # From https://strawberryperl.com/download/5.32.1.1/strawberry-perl-5.32.1.1-32bit-portable.zip
-        URL https://files.kde.org/krita/build/dependencies/strawberry-perl-5.32.1.1-32bit-portable.zip
-        URL_HASH SHA1=28bca91cadd6651c2b2463db8587c170bf17f2fa
-
-        BUILD_COMMAND ${CMAKE_COMMAND} -E echo Deploying Strawberry Perl portable
-        CONFIGURE_COMMAND ""
-        INSTALL_COMMAND ""
-        UPDATE_COMMAND ""
-
-        SOURCE_DIR "${CMAKE_CURRENT_BINARY_DIR}/Strawberry"
-    )
-    set(USE_STRAWBERRYPERL 1)
-    set(LIBAOM_EXTRA_CMAKE_ARGS -DPERL_EXECUTABLE=${CMAKE_CURRENT_BINARY_DIR}/Strawberry/perl/bin/perl.exe)
+if (WIN32 AND NOT PERL_FOUND) # Implies strawberry perl
     set(LIBAOM_STRAWBERRYPERL_DEP ext_strawberryperl)
-elseif(PERL_FOUND AND WIN32)
-    set(LIBAOM_EXTRA_CMAKE_ARGS -DPERL_EXECUTABLE=${PERL_EXECUTABLE})
 endif()
 
-if(NOT WIN32)
+if(WIN32 AND PERL_EXECUTABLE)
+    set(LIBAOM_EXTRA_CMAKE_ARGS -DPERL_EXECUTABLE=${PERL_EXECUTABLE})
+elseif (NOT WIN32)
     set(LIBAOM_EXTRA_CMAKE_ARGS -DCONFIG_PIC=1)
 endif()
 
@@ -150,7 +137,7 @@ ExternalProject_Add(ext_libx265_12bit
     -DHIGH_BIT_DEPTH=TRUE -DMAIN12=TRUE -DEXPORT_C_API=FALSE  -DENABLE_CLI=FALSE -DENABLE_SHARED=FALSE
     INSTALL_COMMAND ${CMAKE_COMMAND} -E copy ${x265_LIBDIR}${x265_LIBRARY} ${EXTPREFIX_heif}/lib/${x265_12bit_LIBRARY}
 
-    DEPENDS ext_nasm
+    DEPENDS ext_nasm ext_libx265_10bit
 )
 ExternalProject_Add(
     ext_libx265
@@ -173,7 +160,7 @@ ExternalProject_Add(
 
     UPDATE_COMMAND ""
 
-    DEPENDS ext_nasm ext_libx265_10bit ext_libx265_12bit
+    DEPENDS ext_nasm ext_libx265_12bit
 )
 
 ExternalProject_Add(
@@ -185,8 +172,8 @@ ExternalProject_Add(
 
     PATCH_COMMAND ${PATCH_COMMAND} -p1 -i ${CMAKE_CURRENT_SOURCE_DIR}/clang-aom-link-pthread.patch
 
-    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTPREFIX_heif} -DCMAKE_BUILD_TYPE=${GLOBAL_BUILD_TYPE} -DBUILD_EXAMPLES=OFF ${GLOBAL_PROFILE}
+    CMAKE_ARGS -DCMAKE_INSTALL_PREFIX=${EXTPREFIX_heif} -DCMAKE_BUILD_TYPE=${GLOBAL_BUILD_TYPE} -DWITH_EXAMPLES=OFF ${GLOBAL_PROFILE}
 
     UPDATE_COMMAND ""
-    DEPENDS ${EXTRA_AVIF_DEPS} ext_libde265 ext_libx265 ext_jpeg ext_png
+    DEPENDS ${EXTRA_AVIF_DEPS} ext_libde265 ext_libx265
 )

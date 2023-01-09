@@ -6,7 +6,7 @@ if(JPEG_FOUND AND HAVE_LCMS2)
 	add_subdirectory(jpeg)
 endif()
 
-if(TIFF_FOUND)
+if(TIFF_FOUND AND JPEG_FOUND)
 	add_subdirectory(tiff)
 endif()
 
@@ -27,7 +27,7 @@ if(OpenJPEG_FOUND AND NOT ${CMAKE_SYSTEM_NAME} STREQUAL "FreeBSD")
     add_subdirectory(jp2)
 endif()
 
-if(LIBRAW_FOUND)
+if(LibRaw_FOUND AND KF5KDcraw_FOUND)
     add_subdirectory(raw)
 endif()
 

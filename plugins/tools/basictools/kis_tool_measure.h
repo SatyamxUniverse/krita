@@ -30,21 +30,22 @@ class KisToolMeasureOptionsWidget : public QWidget
     Q_OBJECT
 
 public:
-    KisToolMeasureOptionsWidget(QWidget* parent, double resolution);
+    KisToolMeasureOptionsWidget(QWidget* parent, KisImageWSP image);
 
 public Q_SLOTS:
     void slotSetDistance(double distance);
     void slotSetAngle(double angle);
     void slotUnitChanged(int index);
+    void slotResolutionChanged(double xRes, double yRes);
 
 private:
     void updateDistance();
 
-    double m_resolution {0.0};
     QLabel* m_angleLabel {nullptr};
     double m_distance {0.0};
 public:
     QLabel* m_distanceLabel {nullptr};
+    double m_resolution;
     KoUnit m_unit;
 };
 

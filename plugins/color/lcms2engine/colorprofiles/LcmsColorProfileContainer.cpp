@@ -11,10 +11,11 @@
 
 #include "LcmsColorProfileContainer.h"
 
+#include <QGenericMatrix>
+#include <QTransform>
+#include <array>
 #include <cfloat>
 #include <cmath>
-#include <QTransform>
-#include <QGenericMatrix>
 
 #include <QDebug>
 
@@ -147,6 +148,8 @@ bool LcmsColorProfileContainer::init()
         //present. This is necessary for profiles following the v4 spec.
         cmsCIEXYZ baseMediaWhitePoint;//dummy to hold copy of mediawhitepoint if this is modified by chromatic adaption.
         cmsCIEXYZ *mediaWhitePointPtr;
+        bool whiteComp[3];
+        bool whiteIsD50;
         // Possible bug in profiles: there are in fact some that says they contain that tag
         //    but in fact the pointer is null.
         //    Let's not crash on it anyway, and assume there is no white point instead.
@@ -156,10 +159,17 @@ bool LcmsColorProfileContainer::init()
 
             d->mediaWhitePoint = *(mediaWhitePointPtr);
             baseMediaWhitePoint = d->mediaWhitePoint;
+
+            whiteComp[0] = std::fabs(baseMediaWhitePoint.X - cmsD50_XYZ()->X) < 0.00001;
+            whiteComp[1] = std::fabs(baseMediaWhitePoint.Y - cmsD50_XYZ()->Y) < 0.00001;
+            whiteComp[2] = std::fabs(baseMediaWhitePoint.Z - cmsD50_XYZ()->Z) < 0.00001;
+            whiteIsD50 = std::all_of(std::begin(whiteComp), std::end(whiteComp), [](bool b) {return b;});
+
             cmsXYZ2xyY(&d->whitePoint, &d->mediaWhitePoint);
             cmsCIEXYZ *CAM1;
             if (cmsIsTag(d->profile, cmsSigChromaticAdaptationTag)
-                    && (CAM1 = (cmsCIEXYZ *)cmsReadTag(d->profile, cmsSigChromaticAdaptationTag))) {
+                    && (CAM1 = (cmsCIEXYZ *)cmsReadTag(d->profile, cmsSigChromaticAdaptationTag))
+                    && whiteIsD50) {
                 //the chromatic adaption tag represent a matrix from the actual white point of the profile to D50.
 
                 //We first put all our data into structures we can manipulate.
@@ -199,9 +209,9 @@ bool LcmsColorProfileContainer::init()
             tempColorants.Green = *tempColorantsGreen;
             tempColorants.Blue = *tempColorantsBlue;
             //convert to d65, this is useless.
-            cmsAdaptToIlluminant(&d->colorants.Red, &baseMediaWhitePoint, &d->mediaWhitePoint, &tempColorants.Red);
-            cmsAdaptToIlluminant(&d->colorants.Green, &baseMediaWhitePoint, &d->mediaWhitePoint, &tempColorants.Green);
-            cmsAdaptToIlluminant(&d->colorants.Blue, &baseMediaWhitePoint, &d->mediaWhitePoint, &tempColorants.Blue);
+            cmsAdaptToIlluminant(&d->colorants.Red, cmsD50_XYZ(), &d->mediaWhitePoint, &tempColorants.Red);
+            cmsAdaptToIlluminant(&d->colorants.Green, cmsD50_XYZ(), &d->mediaWhitePoint, &tempColorants.Green);
+            cmsAdaptToIlluminant(&d->colorants.Blue, cmsD50_XYZ(), &d->mediaWhitePoint, &tempColorants.Blue);
             //d->colorants = tempColorants;
             d->hasColorants = true;
         } else {
@@ -562,6 +572,36 @@ QByteArray LcmsColorProfileContainer::getProfileUniqueId() const
     return d->uniqueId;
 }
 
+bool LcmsColorProfileContainer::compareTRC(TransferCharacteristics characteristics, float error) const
+{
+    if (!d->hasTRC) {
+        return false;
+    }
+
+    std::array<cmsFloat32Number, 2> calcValues{};
+
+    cmsToneCurve *mainCurve = [&]() {
+        if (d->hasColorants) {
+            return d->redTRC;
+        }
+        return d->grayTRC;
+    }();
+
+    cmsToneCurve *compareCurve = transferFunction(characteristics);
+
+    // Number of sweep samples across the curve
+    for (uint32_t i = 0; i < 32; i++) {
+        const float step = float(i) / 31.0f;
+        calcValues[0] = cmsEvalToneCurveFloat(mainCurve, step);
+        calcValues[1] = cmsEvalToneCurveFloat(compareCurve, step);
+        if (std::fabs(calcValues[0] - calcValues[1]) >= error) {
+            return false;
+        }
+    }
+
+    return true;
+}
+
 cmsToneCurve *LcmsColorProfileContainer::transferFunction(TransferCharacteristics transferFunction)
 {
     cmsToneCurve *mainCurve;
@@ -584,6 +624,8 @@ cmsToneCurve *LcmsColorProfileContainer::transferFunction(TransferCharacteristic
 
     cmsFloat64Number log_100[5] = {1.0, 10, 2.0, -2.0, 0.0};
     cmsFloat64Number log_100_sqrt[5] = {1.0, 10, 2.5, -2.5, 0.0};
+
+    cmsFloat64Number labl_parameters[5] = {3.0, 0.862076, 0.137924, 0.110703, 0.080002};
 
     switch (transferFunction) {
     case TRC_IEC_61966_2_4:
@@ -619,8 +661,8 @@ cmsToneCurve *LcmsColorProfileContainer::transferFunction(TransferCharacteristic
         mainCurve = cmsBuildParametricToneCurve(NULL, 8, log_100_sqrt);
         break;
     case TRC_A98:
-        //gamma 256/563
-        mainCurve = cmsBuildGamma(NULL, 256.0/563);
+        // gamma 563/256
+        mainCurve = cmsBuildGamma(NULL, 563.0 / 256.0);
         break;
     case TRC_PROPHOTO:
         mainCurve = cmsBuildParametricToneCurve(NULL, 4, prophoto_parameters);
@@ -630,6 +672,9 @@ cmsToneCurve *LcmsColorProfileContainer::transferFunction(TransferCharacteristic
         break;
     case TRC_GAMMA_2_4:
         mainCurve = cmsBuildGamma(NULL, 2.4);
+        break;
+    case TRC_LAB_L:
+        mainCurve = cmsBuildParametricToneCurve(NULL, 4, labl_parameters);
         break;
     case TRC_SMPTE_ST_428_1:
         // Requires an a*X^y construction, not possible.

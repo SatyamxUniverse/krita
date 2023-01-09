@@ -20,6 +20,10 @@ else(APPLE)
 	cmake_minimum_required(VERSION 3.7.0 FATAL_ERROR)
 endif()
 
+if(POLICY CMP0135)
+  cmake_policy(SET CMP0135 NEW)
+endif()
+
 #
 # If you add a new dependency into 3rdparty folder, do **not** overide
 # BUILD_COMMAND and INSTALL_COMMAND with their '-j${SUBMAKE_JOBS}' equivalents,
@@ -93,22 +97,31 @@ option(QT_ENABLE_DEBUG_INFO "Build Qt with full debug info included" OFF)
 option(QT_ENABLE_ASAN "Build Qt with ASAN" OFF)
 endif()
 
+include(FeatureSummary)
+
 if (WIN32)
-        option(ENABLE_MSYS2_FIXES "Enable patches that are needed for MSYS2+Clang Krita build" OFF)
-	option(QT_ENABLE_DYNAMIC_OPENGL "Build Qt with dynamic ANGLE support '-opengl dynamic -angle' (needs env var 'WindowsSdkDir' set to path of Windows 10 SDK)" ON)
-    option(USE_EXTERNAL_ANGLE "Use a newer custom Google ANGLE build instead of the one bundled in Qt" ON)
+    set(_is_perl_required)
+    set(_perl_type OPTIONAL)
+else()
+    set(_is_perl_required REQUIRED)
+    set(_perl_type REQUIRED)
+endif()
+find_package(Perl ${_is_perl_required})
+set_package_properties(Perl PROPERTIES
+    URL "https://www.perl.org/"
+    DESCRIPTION "Perl is a highly capable, feature-rich programming language with over 30 years of development."
+    TYPE ${_perl_type}
+    PURPOSE "Needed for building Qt from source."
+)
 
-    if (QT_ENABLE_DYNAMIC_OPENGL)
-		if (DEFINED ENV{WindowsSdkDir})
-			message(STATUS "WindowsSdkDir is set to '$ENV{WindowsSdkDir}'")
-		else (DEFINED ENV{WindowsSdkDir})
-			message(FATAL_ERROR "Environment variable 'WindowsSdkDir' not set! Please set it to path of Windows 10 SDK or disable QT_ENABLE_DYNAMIC_OPENGL")
-		endif ()
-    endif ()
+if (WIN32)
+    option(ENABLE_MSYS2_FIXES "Enable patches that are needed for MSYS2+Clang Krita build" OFF)
 
-    if(USE_EXTERNAL_ANGLE AND NOT QT_ENABLE_DYNAMIC_OPENGL)
-        message(WARNING "USE_EXTERNAL_ANGLE does not have any effect when QT_ENABLE_DYNAMIC_OPENGL is disabled.")
-    endif()
+	if (DEFINED ENV{WindowsSdkDir})
+		message(STATUS "WindowsSdkDir is set to '$ENV{WindowsSdkDir}'")
+	else (DEFINED ENV{WindowsSdkDir})
+		message(FATAL_ERROR "Environment variable 'WindowsSdkDir' not set! Please set it to path of Windows 10 SDK")
+	endif ()
 
     if(ENABLE_MSYS2_FIXES)
         find_package(ZLIB)
@@ -140,10 +153,6 @@ if (WIN32)
 elseif (APPLE OR ANDROID)
     set (ZLIB_DEP ext_zlib)
 endif (WIN32)
-
-if (WIN32)
-    option(USE_QT_TABLET_WINDOWS "Do not use Krita's forked Wintab and Windows Ink support on Windows, but leave everything to Qt." ON)
-endif ()
 
 set(SECURITY_EXE_LINKER_FLAGS "")
 set(SECURITY_SHARED_LINKER_FLAGS "")
@@ -390,18 +399,21 @@ add_subdirectory( ext_ocio )
 add_subdirectory( ext_openjpeg )
 add_subdirectory( ext_fontconfig)
 
-if(USE_EXTERNAL_ANGLE AND QT_ENABLE_DYNAMIC_OPENGL)
+if(WIN32)
     add_subdirectory(ext_googleangle)
 endif()
 
+if (WIN32 AND NOT PERL_FOUND)
+    add_subdirectory( ext_perl )
+endif()
 add_subdirectory( ext_qt )
-add_subdirectory( ext_libraw )
 if (ANDROID)
   # gettext replacement
   add_subdirectory(ext_libintl-lite)
   add_subdirectory(ext_libunwindstack-ndk)
 endif()
 add_subdirectory( ext_frameworks )
+add_subdirectory( ext_libraw )
 if (ENABLE_PYTHON_DEPS OR NOT MINGW)
     add_subdirectory( ext_sip )
     add_subdirectory( ext_pyqt )

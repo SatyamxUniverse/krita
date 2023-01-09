@@ -34,22 +34,24 @@ public:
     KisViewManager* view;
     QString path;
     QString layerType;
+    int numLayersImported;
 
-    QString prettyLayerName() const;
-    void importAsPaintLayer(KisPaintDeviceSP device);
+    QString prettyLayerName(QString layerName) const;
+    void importAsPaintLayer(KisPaintDeviceSP device, QString layerName);
     void importAsTransparencyMask(KisPaintDeviceSP device);
 };
 
-QString KisImportCatcher::Private::prettyLayerName() const
+QString KisImportCatcher::Private::prettyLayerName(QString layerName) const
 {
     QString name = QFileInfo(path).fileName();
-    return !name.isEmpty() ? name : path;
+    QString fileName = !name.isEmpty() ? name : path;
+    return layerName=="Background" ? fileName : layerName;
 }
 
-void KisImportCatcher::Private::importAsPaintLayer(KisPaintDeviceSP device)
+void KisImportCatcher::Private::importAsPaintLayer(KisPaintDeviceSP device, QString layerName)
 {
     KisLayerSP newLayer = new KisPaintLayer(view->image(),
-                                            prettyLayerName(),
+                                            layerName,
                                             OPACITY_OPAQUE_U8,
                                             device);
 
@@ -75,6 +77,7 @@ KisImportCatcher::KisImportCatcher(const QString &path, KisViewManager *view, co
     m_d->view = view;
     m_d->path = path;
     m_d->layerType = layerType;
+    m_d->numLayersImported = 0;
 
     connect(m_d->doc, SIGNAL(sigLoadingFinished()), this, SLOT(slotLoadingFinished()));
     bool result = m_d->doc->openPath(path, KisDocument::DontAddToRecent);
@@ -91,11 +94,18 @@ void KisImportCatcher::slotLoadingFinished()
 
     if (importedImage && importedImage->bounds().isValid()) {
         if (m_d->layerType == "KisPaintLayer") {
-            // we need to pass a copied device to make sure it is not reset
-            // on image's destruction
-            KisPaintDeviceSP dev = new KisPaintDevice(*importedImage->projection());
-            adaptClipToImageColorSpace(dev, m_d->view->image());
-            m_d->importAsPaintLayer(dev);
+            QStringList list;
+            list << "KisLayer";
+            KoProperties *props = new KoProperties();
+
+            Q_FOREACH(KisNodeSP node, importedImage->rootLayer()->childNodes(list, *props)) {
+                // we need to pass a copied device to make sure it is not reset
+                // on image's destruction
+                KisPaintDeviceSP dev = new KisPaintDevice(*node->projection());
+                adaptClipToImageColorSpace(dev, m_d->view->image());
+                m_d->importAsPaintLayer(dev, m_d->prettyLayerName(node->name()));
+                m_d->numLayersImported++;
+            }
         }
         else if (m_d->layerType == "KisShapeLayer") {
             KisShapeLayerSP shapeLayer = dynamic_cast<KisShapeLayer*>(m_d->view->nodeManager()->createNode(m_d->layerType, false, importedImage->projection()).data());
@@ -108,14 +118,21 @@ void KisImportCatcher::slotLoadingFinished()
                 clonedShape->setTransformation(shape->absoluteTransformation() * thisInvertedTransform);
                 shapeLayer->addShape(clonedShape);
             }
+            m_d->numLayersImported++;
         }
         else {
             KisPaintDeviceSP dev = new KisPaintDevice(*importedImage->projection());
             m_d->view->nodeManager()->createNode(m_d->layerType, false, dev);
+            m_d->numLayersImported++;
         }
     }
 
     deleteMyself();
+}
+
+int KisImportCatcher::numLayersImported() const
+{
+    return m_d->numLayersImported;
 }
 
 void KisImportCatcher::deleteMyself()

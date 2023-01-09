@@ -846,9 +846,19 @@ set "BUILDDIR_PLUGINS_INSTALL_CMAKE=%KRITA_INSTALL_DIR:\=/%"
 set "BUILDDIR_PLUGINS_INSTALL_CMAKE=%BUILDDIR_KRITA_INSTALL_CMAKE: =\ %"
 
 if not "%PERL_DIR%" == "" (
-    set "PERL_EXECUTABLE=%PERL_DIR%\perl.exe"
-    set "PERL_EXECUTABLE=!PERL_EXECUTABLE:\=/!"
-    set "PERL_EXECUTABLE=!PERL_EXECUTABLE: =\ !"
+    :: Safety measure for Strawberry Perl injecting pkg-config in the PATH
+    if exist "%PERL_DIR%\pkg-config.bat" (
+        echo Found unpatched Strawberry Perl, ignoring due to its pkg-config introducing external binaries.
+        set "PATH=%PATH%;%DEPS_INSTALL_DIR%\Strawberry\perl\bin"
+    ) else (
+        echo Found patched Strawberry Perl, it is safe to use.
+        set "PERL_EXECUTABLE=%PERL_DIR%\perl.exe"
+        set "PERL_EXECUTABLE=!PERL_EXECUTABLE:\=/!"
+        set "PERL_EXECUTABLE=!PERL_EXECUTABLE: =\ !"
+        set "PATH=%PATH%;%PERL_DIR%"
+    )
+) else (
+    set "PATH=%PATH%;%DEPS_INSTALL_DIR%\Strawberry\perl\bin"
 )
 
 set "PATH=%DEPS_INSTALL_DIR%\bin;%PATH%"
@@ -865,7 +875,7 @@ set CMDLINE_CMAKE_DEPS="%CMAKE_EXE%" "%KRITA_SRC_DIR%\3rdparty" ^
     -DPERL_EXECUTABLE=%PERL_EXECUTABLE% ^
     -DEXTERNALS_DOWNLOAD_DIR=%BUILDDIR_DOWNLOAD_CMAKE% ^
     -DINSTALL_ROOT=%BUILDDIR_DEPS_INSTALL_CMAKE% ^
-    -G "MinGW Makefiles" ^
+    -G "%KRITA_GENERATOR%" ^
     -DCMAKE_BUILD_TYPE=%CMAKE_BUILD_TYPE%
     
 set CMDLINE_CMAKE_KRITA="%CMAKE_EXE%" "%KRITA_SRC_DIR%\." ^
@@ -946,8 +956,8 @@ echo Running CMake for deps...
 echo.
 
 set EXT_TARGETS=patch zlib gettext openssl boost exiv2 fftw3 eigen3 jpeg lcms2
-set EXT_TARGETS=%EXT_TARGETS% ocio openexr png icoutils tiff gsl libraw
-set EXT_TARGETS=%EXT_TARGETS% giflib qt kwindowsystem drmingw
+set EXT_TARGETS=%EXT_TARGETS% ocio openexr png icoutils tiff gsl
+set EXT_TARGETS=%EXT_TARGETS% giflib qt libraw kwindowsystem drmingw
 set EXT_TARGETS=%EXT_TARGETS% python sip pyqt
 set EXT_TARGETS=%EXT_TARGETS% lzma quazip openjpeg libde265 libx265 libheif
 set EXT_TARGETS=%EXT_TARGETS% seexpr mypaint webp jpegxl xsimd

@@ -17,10 +17,6 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/sdk/tests
 )
 
-include_directories(SYSTEM
-    ${EIGEN3_INCLUDE_DIR}
-)
-
 if(FFTW3_FOUND)
   include_directories(${FFTW3_INCLUDE_DIR})
 endif()
@@ -378,7 +374,10 @@ target_link_libraries(kritaimage
         kritawidgetutils 
         kritametadata
         kritaresources
+
         Qt5::Concurrent
+
+        Eigen3::Eigen
 )
 
 target_link_libraries(kritaimage PUBLIC ${Boost_SYSTEM_LIBRARY})
@@ -400,7 +399,7 @@ target_link_libraries(kritaimage PUBLIC kritamultiarch)
 if (NOT GSL_FOUND)
   message (WARNING "KRITA WARNING! No GNU Scientific Library was found! Krita's Shaped Gradients might be non-normalized! Please install GSL library.")
 else ()
-  target_link_libraries(kritaimage PRIVATE ${GSL_LIBRARIES} ${GSL_CBLAS_LIBRARIES})
+  target_link_libraries(kritaimage PRIVATE GSL::gsl)
 endif ()
 
 target_include_directories(kritaimage

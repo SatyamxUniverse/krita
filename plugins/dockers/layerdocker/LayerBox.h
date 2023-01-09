@@ -80,10 +80,6 @@ private Q_SLOTS:
 
     void slotContextMenuRequested(const QPoint &pos, const QModelIndex &index);
 
-    void slotMinimalView();
-    void slotDetailedView();
-    void slotThumbnailView();
-
     // From the node manager to the layerbox
     void slotSetCompositeOp(const KoCompositeOp* compositeOp);
     void slotSetOpacity(double opacity);
@@ -132,6 +128,7 @@ private Q_SLOTS:
     void slotUpdateLayerInfoTextStyle();
     void slotUpdateLayerInfoTextOpacity();
     void slotUpdateUseInlineLayerInfoText();
+    void slotUpdateUseLayerSelectionCheckbox();
 
     void slotImageTimeChanged(int time);
     void slotForgetAboutSavedNodeBeforeEditSelectionMode();
@@ -182,6 +179,7 @@ private:
     QComboBox *infoTextCombobox;
     KisSliderSpinBox *infoTextOpacitySlider;
     QCheckBox *infoTextInlineChkbox;
+    QCheckBox *layerSelectionCheckBox {nullptr};
 
     KisNodeSP m_activeNode;
     KisNodeWSP m_savedNodeBeforeEditSelectionMode;

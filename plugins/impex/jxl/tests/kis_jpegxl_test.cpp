@@ -173,6 +173,17 @@ void KisJPEGXLTest::testSaveGreyAColorSpace()
     testSaveColorSpace(GrayAColorModelID.id(), Float32BitsColorDepthID.id(), profile);
 }
 
+void KisJPEGXLTest::testSaveCmykAColorSpace()
+{
+    QString profile = "Chemical proof";
+    testSaveColorSpace(CMYKAColorModelID.id(), Integer8BitsColorDepthID.id(), profile);
+    testSaveColorSpace(CMYKAColorModelID.id(), Integer16BitsColorDepthID.id(), profile);
+#ifdef HAVE_OPENEXR
+    testSaveColorSpace(CMYKAColorModelID.id(), Float16BitsColorDepthID.id(), profile);
+#endif
+    testSaveColorSpace(CMYKAColorModelID.id(), Float32BitsColorDepthID.id(), profile);
+}
+
 #ifndef _WIN32
 void KisJPEGXLTest::testImportFromWriteonly()
 {

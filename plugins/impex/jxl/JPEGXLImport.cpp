@@ -8,6 +8,8 @@
 
 #include "JPEGXLImport.h"
 
+#include <KisGlobalResourcesInterface.h>
+
 #include <jxl/decode_cxx.h>
 #include <jxl/resizable_parallel_runner_cxx.h>
 #include <jxl/types.h>
@@ -24,6 +26,9 @@
 #include <KoColorTransferFunctions.h>
 #include <KoConfig.h>
 #include <dialogs/kis_dlg_hlg_import.h>
+#include <filter/kis_filter.h>
+#include <filter/kis_filter_configuration.h>
+#include <filter/kis_filter_registry.h>
 #include <kis_assert.h>
 #include <kis_debug.h>
 #include <kis_group_layer.h>
@@ -35,25 +40,29 @@
 
 K_PLUGIN_FACTORY_WITH_JSON(ImportFactory, "krita_jxl_import.json", registerPlugin<JPEGXLImport>();)
 
-constexpr static std::array<char, 5> exifTag = {'E', 'x', 'i', 'f', 0x0};
-constexpr static std::array<char, 5> xmpTag = {'x', 'm', 'l', ' ', 0x0};
+const QByteArray exifTag = "exif";
+const QByteArray xmpTag = "xml ";
 
 class Q_DECL_HIDDEN JPEGXLImportData
 {
 public:
     JxlBasicInfo m_info{};
+    JxlExtraChannelInfo m_extra{};
     JxlPixelFormat m_pixelFormat{};
     JxlFrameHeader m_header{};
     KisPaintDeviceSP m_currentFrame{nullptr};
+    uint32_t cmykChannelID = 0;
     int m_nextFrameTime{0};
     int m_durationFrameInTicks{0};
     KoID m_colorID;
     KoID m_depthID;
+    bool isCMYK = false;
     bool applyOOTF = true;
     float displayGamma = 1.2f;
     float displayNits = 1000.0;
     LinearizePolicy linearizePolicy = LinearizePolicy::KeepTheSame;
     const KoColorSpace *cs = nullptr;
+    std::vector<quint8> kPlane;
     QVector<qreal> lCoef;
 };
 
@@ -113,11 +122,11 @@ inline void imageOutCallback(void *that, size_t x, size_t y, size_t numPixels, c
 
             for (size_t ch = 0; ch < channels; ch++) {
                 if (ch == alphaPos) {
-                    tmp[ch] = value<policy, channelsType>(src, ch);
-                } else {
                     tmp[ch] =
                         value<LinearizePolicy::KeepTheSame, channelsType>(src,
                                                                           ch);
+                } else {
+                    tmp[ch] = value<policy, channelsType>(src, ch);
                 }
             }
 
@@ -143,6 +152,9 @@ inline void imageOutCallback(void *that, size_t x, size_t y, size_t numPixels, c
 
             if (swap) {
                 std::swap(dst[0], dst[2]);
+            } else if (data->isCMYK) {
+                // Swap alpha and key channel for CMYK
+                std::swap(dst[3], dst[4]);
             }
 
             src += data->m_pixelFormat.num_channels;
@@ -276,7 +288,7 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
 
     KisImageSP image{nullptr};
     KisLayerSP layer{nullptr};
-    QHash<QByteArray, QByteArray> metadataBoxes;
+    QMultiHash<QByteArray, QByteArray> metadataBoxes;
     QByteArray boxType(5, 0x0);
     QByteArray box(16384, 0x0);
     auto boxSize = box.size();
@@ -295,6 +307,18 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
                 errFile << "JxlDecoderGetBasicInfo failed";
                 return ImportExportCodes::ErrorWhileReading;
             }
+
+            for (uint32_t i = 0; i < d.m_info.num_extra_channels; i++) {
+                if (JXL_DEC_SUCCESS != JxlDecoderGetExtraChannelInfo(dec.get(), i, &d.m_extra)) {
+                    errFile << "JxlDecoderGetExtraChannelInfo failed";
+                    break;
+                }
+                if (d.m_extra.type == JXL_CHANNEL_BLACK) {
+                    d.isCMYK = true;
+                    d.cmykChannelID = i;
+                }
+            }
+
             dbgFile << "Info";
             dbgFile << "Size:" << d.m_info.xsize << "x" << d.m_info.ysize;
             dbgFile << "Depth:" << d.m_info.bits_per_sample << d.m_info.exponent_bits_per_sample;
@@ -335,10 +359,14 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
                 // Grayscale
                 d.m_pixelFormat.num_channels = 2;
                 d.m_colorID = GrayAColorModelID;
-            } else if (d.m_info.num_color_channels == 3) {
+            } else if (d.m_info.num_color_channels == 3 && !d.isCMYK) {
                 // RGBA
                 d.m_pixelFormat.num_channels = 4;
                 d.m_colorID = RGBAColorModelID;
+            } else if (d.m_info.num_color_channels == 3 && d.isCMYK) {
+                // CMYKA
+                d.m_pixelFormat.num_channels = 4;
+                d.m_colorID = CMYKAColorModelID;
             } else {
                 warnFile << "Forcing a RGBA conversion, unknown color space";
                 d.m_pixelFormat.num_channels = 4;
@@ -385,19 +413,27 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
                         return TRC_ITU_R_BT_709_5;
                     case JXL_TRANSFER_FUNCTION_SRGB:
                         return TRC_IEC_61966_2_1;
-                    case JXL_TRANSFER_FUNCTION_GAMMA:
-                        if (colorEncoding.gamma == 1.8) {
+                    case JXL_TRANSFER_FUNCTION_GAMMA: {
+                        // Using roughly the same logic in KoColorProfile.
+                        const double estGamma = 1.0 / colorEncoding.gamma;
+                        const double error = 0.0001;
+                        // ICC v2 u8Fixed8Number calculation
+                        // Or can be prequantized as 1.80078125, courtesy of Elle Stone
+                        if ((std::fabs(estGamma - 1.8) < error) || (std::fabs(estGamma - (461.0 / 256.0)) < error)) {
                             return TRC_GAMMA_1_8;
-                        } else if (colorEncoding.gamma == 2.2) {
+                        } else if (std::fabs(estGamma - 2.2) < error) {
                             return TRC_ITU_R_BT_470_6_SYSTEM_M;
-                        } else if (colorEncoding.gamma == 2.4) {
+                        } else if (std::fabs(estGamma - (563.0 / 256.0)) < error) {
+                            return TRC_A98;
+                        } else if (std::fabs(estGamma - 2.4) < error) {
                             return TRC_GAMMA_2_4;
-                        } else if (colorEncoding.gamma == 2.8) {
+                        } else if (std::fabs(estGamma - 2.8) < error) {
                             return TRC_ITU_R_BT_470_6_SYSTEM_B_G;
                         } else {
-                            warnFile << "Found custom gamma value for JXL color space" << colorEncoding.gamma;
+                            warnFile << "Found custom estimated gamma value for JXL color space" << estGamma;
                             return TRC_UNSPECIFIED;
                         }
+                    }
                     case JXL_TRANSFER_FUNCTION_LINEAR:
                         return TRC_LINEAR;
                     case JXL_TRANSFER_FUNCTION_UNKNOWN:
@@ -421,8 +457,7 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
                 }();
 
                 const QVector<double> colorants = [&]() -> QVector<double> {
-                    if (colorEncoding.primaries != JXL_PRIMARIES_CUSTOM
-                        || colorEncoding.white_point != JXL_WHITE_POINT_CUSTOM) {
+                    if (colorEncoding.primaries != JXL_PRIMARIES_CUSTOM) {
                         return {};
                     } else {
                         return {colorEncoding.white_point_xy[0],
@@ -501,6 +536,28 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
                 errFile << "JxlDecoderSetImageOutBuffer failed";
                 return ImportExportCodes::InternalError;
             }
+
+            if (d.isCMYK) {
+                // Prepare planar buffer for key channel
+                size_t bufferSize = 0;
+                if (JXL_DEC_SUCCESS
+                    != JxlDecoderExtraChannelBufferSize(dec.get(), &d.m_pixelFormat, &bufferSize, d.cmykChannelID)) {
+                    errFile << "JxlDecoderExtraChannelBufferSize failed";
+                    return ImportExportCodes::ErrorWhileReading;
+                    break;
+                }
+                d.kPlane.resize(bufferSize);
+                if (JXL_DEC_SUCCESS
+                    != JxlDecoderSetExtraChannelBuffer(dec.get(),
+                                                       &d.m_pixelFormat,
+                                                       d.kPlane.data(),
+                                                       bufferSize,
+                                                       d.cmykChannelID)) {
+                    errFile << "JxlDecoderSetExtraChannelBuffer failed";
+                    return ImportExportCodes::ErrorWhileReading;
+                    break;
+                }
+            }
         } else if (status == JXL_DEC_FRAME) {
             if (d.m_info.have_animation) {
                 if (JXL_DEC_SUCCESS != JxlDecoderGetFrameHeader(dec.get(), &d.m_header)) {
@@ -562,27 +619,47 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
                 frame->importFrame(currentFrameTime, d.m_currentFrame, nullptr);
                 d.m_nextFrameTime += static_cast<int>(d.m_header.duration);
             } else {
+                if (d.isCMYK) {
+                    QVector<quint8*> planes = d.m_currentFrame->readPlanarBytes(0, 0, d.m_info.xsize, d.m_info.ysize);
+
+                    // Planar buffer insertion for key channel
+                    planes[3] = reinterpret_cast<quint8 *>(d.kPlane.data());
+                    d.m_currentFrame->writePlanarBytes(planes, 0, 0, d.m_info.xsize, d.m_info.ysize);
+
+                    // JPEG-XL decode outputs an inverted CMYK colors
+                    // This one I took from kis_filter_test for inverting the colors..
+                    const KisFilterSP f = KisFilterRegistry::instance()->value("invert");
+                    KIS_ASSERT(f);
+                    const KisFilterConfigurationSP kfc =
+                        f->defaultConfiguration(KisGlobalResourcesInterface::instance());
+                    KIS_ASSERT(kfc);
+                    f->process(d.m_currentFrame, {0, 0, static_cast<int>(d.m_info.xsize), static_cast<int>(d.m_info.ysize)}, kfc->cloneWithResourcesSnapshot());
+                }
                 layer->paintDevice()->makeCloneFrom(d.m_currentFrame, image->bounds());
             }
         } else if (status == JXL_DEC_SUCCESS || status == JXL_DEC_BOX) {
             if (std::strlen(boxType.data()) != 0) {
                 // Release buffer and get its final size.
                 const auto availOut = JxlDecoderReleaseBoxBuffer(dec.get());
-                box.resize(box.size() - static_cast<int>(availOut));
+                const int finalSize = box.size() - static_cast<int>(availOut);
+                // Only resize and write boxes if it's not empty.
+                // And only input metadata boxes while skipping other boxes.
+                if ((boxType.toLower().contains(exifTag) || boxType.toLower().contains(xmpTag)) && finalSize != 0) {
+                    box.resize(finalSize);
 
-                metadataBoxes[boxType] = box;
+                    metadataBoxes.insert(boxType, box);
+                }
             }
             if (status == JXL_DEC_SUCCESS) {
                 // All decoding successfully finished.
 
                 // Insert layer metadata if available (delayed
                 // in case the boxes came before the BASIC_INFO event)
-                for (const QByteArray &boxType : metadataBoxes.keys()) {
-                    QByteArray &box = metadataBoxes[boxType];
+                for (auto metaBox = metadataBoxes.begin(); metaBox != metadataBoxes.end(); metaBox++) {
+                    const QByteArray &boxType = metaBox.key();
+                    QByteArray &box = metaBox.value();
                     QBuffer buf(&box);
-                    if (std::equal(boxType.cbegin(),
-                                   boxType.cend(),
-                                   exifTag.cbegin())) {
+                    if (boxType.toLower().contains(exifTag)) {
                         dbgFile << "Loading EXIF data. Size: " << box.size();
 
                         const auto *backend =
@@ -590,9 +667,7 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
                                 "exif");
 
                         backend->loadFrom(layer->metaData(), &buf);
-                    } else if (std::equal(boxType.cbegin(),
-                                          boxType.cend(),
-                                          xmpTag.cbegin())) {
+                    } else if (boxType.toLower().contains(xmpTag)) {
                         dbgFile << "Loading XMP or IPTC data. Size: "
                                 << box.size();
 
@@ -619,12 +694,7 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
                     errFile << "JxlDecoderGetBoxType failed";
                     return ImportExportCodes::ErrorWhileReading;
                 }
-                if ((std::equal(exifTag.cbegin(),
-                                exifTag.cend(),
-                                boxType.cbegin()))
-                    || (std::equal(xmpTag.cbegin(),
-                                   xmpTag.cend(),
-                                   boxType.cbegin()))) {
+                if (boxType.toLower().contains(exifTag) || boxType.toLower().contains(xmpTag)) {
                     if (JxlDecoderSetBoxBuffer(
                             dec.get(),
                             reinterpret_cast<uint8_t *>(box.data()),
@@ -641,6 +711,8 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
             // Update the box size if it was truncated in a previous buffering.
             boxSize = box.size();
             box.resize(boxSize * 2);
+            // Release buffer before setting it up again
+            JxlDecoderReleaseBoxBuffer(dec.get());
             if (JxlDecoderSetBoxBuffer(
                     dec.get(),
                     reinterpret_cast<uint8_t *>(box.data() + boxSize),

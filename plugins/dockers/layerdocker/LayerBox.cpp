@@ -222,7 +222,7 @@ LayerBox::LayerBox()
     m_wdgLayerBox->bnProperties->setMenu(m_opLayerMenu);
     m_wdgLayerBox->bnProperties->setPopupMode(QToolButton::MenuButtonPopup);
 
-    m_nodeModel = new KisNodeModel(this, 1);
+    m_nodeModel = new KisNodeModel(this, 2);
     m_filteringModel = new KisNodeFilterProxyModel(this);
     m_filteringModel->setNodeModel(m_nodeModel);
 
@@ -419,6 +419,15 @@ LayerBox::LayerBox()
     configureMenu->addAction(chkboxAction);
     connect(infoTextInlineChkbox, SIGNAL(stateChanged(int)), SLOT(slotUpdateUseInlineLayerInfoText()));
 
+    layerSelectionCheckBox = new QCheckBox(
+        i18nc("@item:inmenu Layers Docker settings, checkbox", "Checkbox for Selecting Layers"), this);
+    layerSelectionCheckBox->setToolTip(i18nc("@item:tooltip", "Show checkbox to select/unselect layers."));
+    layerSelectionCheckBox->setChecked(cfg.useLayerSelectionCheckbox());
+
+    QWidgetAction *layerSelectionAction = new QWidgetAction(this);
+    layerSelectionAction->setDefaultWidget(layerSelectionCheckBox);
+    configureMenu->addAction(layerSelectionAction);
+    connect(layerSelectionCheckBox, SIGNAL(stateChanged(int)), SLOT(slotUpdateUseLayerSelectionCheckbox()));
 }
 
 LayerBox::~LayerBox()
@@ -770,21 +779,6 @@ void LayerBox::slotContextMenuRequested(const QPoint &pos, const QModelIndex &in
         updateLayerOpMenu(index, menu);
         menu.exec(pos);
     }
-}
-
-void LayerBox::slotMinimalView()
-{
-    m_wdgLayerBox->listLayers->setDisplayMode(NodeView::MinimalMode);
-}
-
-void LayerBox::slotDetailedView()
-{
-    m_wdgLayerBox->listLayers->setDisplayMode(NodeView::DetailedMode);
-}
-
-void LayerBox::slotThumbnailView()
-{
-    m_wdgLayerBox->listLayers->setDisplayMode(NodeView::ThumbnailMode);
 }
 
 void LayerBox::slotRmClicked()
@@ -1365,5 +1359,16 @@ void LayerBox::slotUpdateUseInlineLayerInfoText()
     m_wdgLayerBox->listLayers->viewport()->update();
 }
 
+
+void LayerBox::slotUpdateUseLayerSelectionCheckbox()
+{
+    KisConfig cfg(false);
+    if (layerSelectionCheckBox->isChecked() == cfg.useLayerSelectionCheckbox()) {
+        return;
+    }
+    cfg.setUseLayerSelectionCheckbox(layerSelectionCheckBox->isChecked());
+    m_wdgLayerBox->listLayers->slotConfigurationChanged();
+    m_wdgLayerBox->listLayers->viewport()->update();
+}
 
 #include "moc_LayerBox.cpp"

@@ -13,6 +13,7 @@
 
 #include <kconfig.h>
 #include <kconfiggroup.h>
+#include <kis_config.h>
 #include <kis_icon.h>
 #include <ksharedconfig.h>
 #include <KisKineticScroller.h>
@@ -51,17 +52,12 @@ class Q_DECL_HIDDEN NodeView::Private
 public:
     Private(NodeView* _q)
         : delegate(_q, _q)
-        , mode(DetailedMode)
 #ifdef DRAG_WHILE_DRAG_WORKAROUND
         , isDragging(false)
 #endif
     {
-        KSharedConfigPtr config =  KSharedConfig::openConfig();
-        KConfigGroup group = config->group("NodeView");
-        mode = (DisplayMode) group.readEntry("NodeViewMode", (int)MinimalMode);
     }
     NodeDelegate delegate;
-    DisplayMode mode;
     QPersistentModelIndex hovered;
     QPoint lastPos;
 
@@ -112,31 +108,22 @@ void NodeView::setModel(QAbstractItemModel *model)
     if (!this->model()->inherits("KisNodeModel") && !this->model()->inherits("KisNodeFilterProxyModel")) {
         qWarning() << "NodeView may not work with" << model->metaObject()->className();
     }
-    if (this->model()->columnCount() != 2) {
+    if (this->model()->columnCount() != 3) {
         qWarning() << "NodeView: expected 2 model columns, got " << this->model()->columnCount();
     }
 
-    if (header()->sectionPosition(1) != 0) {
-        header()->moveSection(1, 0);
+    if (header()->sectionPosition(VISIBILITY_COL) != 0 || header()->sectionPosition(SELECTED_COL) != 1) {
+        header()->moveSection(VISIBILITY_COL, 0);
+        header()->moveSection(SELECTED_COL, 1);
     }
+
+    KisConfig cfg(true);
+    if (!cfg.useLayerSelectionCheckbox()) {
+        header()->hideSection(SELECTED_COL);
+    }
+
     // the default may be too large for our visibility icon
     header()->setMinimumSectionSize(KisNodeViewColorScheme::instance()->visibilityColumnWidth());
-}
-
-void NodeView::setDisplayMode(DisplayMode mode)
-{
-    if (d->mode != mode) {
-        d->mode = mode;
-        KSharedConfigPtr config =  KSharedConfig::openConfig();
-        KConfigGroup group = config->group("NodeView");
-        group.writeEntry("NodeViewMode", (int)mode);
-        scheduleDelayedItemsLayout();
-    }
-}
-
-NodeView::DisplayMode NodeView::displayMode() const
-{
-    return d->mode;
 }
 
 void NodeView::addPropertyActions(QMenu *menu, const QModelIndex &index)
@@ -197,7 +184,9 @@ QItemSelectionModel::SelectionFlags NodeView::selectionCommand(const QModelIndex
         if (event->type() == QEvent::MouseButtonRelease &&
             (mevent->modifiers() & Qt::ControlModifier)) {
 
-            return QItemSelectionModel::Toggle;
+            // Select the entire row, otherwise we only get updates for DEFAULT_COL and then we have to
+            // manually sync its state with SELECTED_COL.
+            return QItemSelectionModel::Toggle | QItemSelectionModel::Rows;
         }
     }
 
@@ -318,6 +307,7 @@ void NodeView::currentChanged(const QModelIndex &current, const QModelIndex &pre
     QTreeView::currentChanged(current, previous);
     if (current != previous) {
         Q_ASSERT(!current.isValid() || current.model() == model());
+        KisSignalsBlocker blocker(this);
         model()->setData(current, true, KisNodeModel::ActiveRole);
     }
 }
@@ -366,24 +356,7 @@ QStyleOptionViewItem NodeView::optionForIndex(const QModelIndex &index) const
 void NodeView::startDrag(Qt::DropActions supportedActions)
 {
     DRAG_WHILE_DRAG_WORKAROUND_START();
-
-    if (displayMode() == NodeView::ThumbnailMode) {
-        const QModelIndexList indexes = selectionModel()->selectedRows();
-        if (!indexes.isEmpty()) {
-            QMimeData *data = model()->mimeData(indexes);
-            if (!data) {
-                return;
-            }
-            QDrag *drag = new QDrag(this);
-            drag->setPixmap(createDragPixmap());
-            drag->setMimeData(data);
-            //m_dragSource = this;
-            drag->exec(supportedActions);
-        }
-    }
-    else {
-        QTreeView::startDrag(supportedActions);
-    }
+    QTreeView::startDrag(supportedActions);
 }
 
 QPixmap NodeView::createDragPixmap() const
@@ -446,8 +419,16 @@ void NodeView::resizeEvent(QResizeEvent * event)
 {
     KisNodeViewColorScheme scm;
     header()->setStretchLastSection(false);
-    header()->resizeSection(0, event->size().width() - scm.visibilityColumnWidth()/* + offset*/);
-    header()->resizeSection(1, scm.visibilityColumnWidth());
+
+    int otherColumnsWidth = scm.visibilityColumnWidth();
+
+    // if layer box is enabled subtract its width from the "Default col".
+    if (KisConfig(false).useLayerSelectionCheckbox()) {
+        otherColumnsWidth += scm.selectedButtonColumnWidth();
+    }
+    header()->resizeSection(DEFAULT_COL, event->size().width() - otherColumnsWidth);
+    header()->resizeSection(SELECTED_COL, scm.selectedButtonColumnWidth());
+    header()->resizeSection(VISIBILITY_COL, scm.visibilityColumnWidth());
 
     setIndentation(scm.indentation());
     QTreeView::resizeEvent(event);
@@ -457,24 +438,6 @@ void NodeView::paintEvent(QPaintEvent *event)
 {
     event->accept();
     QTreeView::paintEvent(event);
-
-    // Paint the line where the slide should go
-    if (isDragging() && (displayMode() == NodeView::ThumbnailMode)) {
-        QSize size(visualRect(model()->index(0, 0, QModelIndex())).width(), visualRect(model()->index(0, 0, QModelIndex())).height());
-        int numberRow = cursorPageIndex();
-        int scrollBarValue = verticalScrollBar()->value();
-
-        QPoint point1(0, numberRow * size.height() - scrollBarValue);
-        QPoint point2(size.width(), numberRow * size.height() - scrollBarValue);
-        QLineF line(point1, point2);
-
-        QPainter painter(this->viewport());
-        QPen pen = QPen(palette().brush(QPalette::Highlight), 8);
-        pen.setCapStyle(Qt::RoundCap);
-        painter.setPen(pen);
-        painter.setOpacity(0.8);
-        painter.drawLine(line);
-    }
 }
 
 void NodeView::drawBranches(QPainter *painter, const QRect &rect,
@@ -488,21 +451,7 @@ void NodeView::drawBranches(QPainter *painter, const QRect &rect,
 
 void NodeView::dropEvent(QDropEvent *ev)
 {
-    if (displayMode() == NodeView::ThumbnailMode) {
-        setDraggingFlag(false);
-        ev->accept();
-        clearSelection();
-
-        if (!model()) {
-            return;
-        }
-
-        int newIndex = cursorPageIndex();
-        model()->dropMimeData(ev->mimeData(), ev->dropAction(), newIndex, -1, QModelIndex());
-        return;
-    }
     QTreeView::dropEvent(ev);
-
     DRAG_WHILE_DRAG_WORKAROUND_STOP();
 }
 
@@ -542,28 +491,12 @@ void NodeView::dragEnterEvent(QDragEnterEvent *ev)
 void NodeView::dragMoveEvent(QDragMoveEvent *ev)
 {
     DRAG_WHILE_DRAG_WORKAROUND_START();
-
-    if (displayMode() == NodeView::ThumbnailMode) {
-        ev->accept();
-        if (!model()) {
-            return;
-        }
-        QTreeView::dragMoveEvent(ev);
-        setDraggingFlag();
-        viewport()->update();
-        return;
-    }
     QTreeView::dragMoveEvent(ev);
 }
 
 void NodeView::dragLeaveEvent(QDragLeaveEvent *e)
 {
-    if (displayMode() == NodeView::ThumbnailMode) {
-        setDraggingFlag(false);
-    } else {
-        QTreeView::dragLeaveEvent(e);
-    }
-
+    QTreeView::dragLeaveEvent(e);
     DRAG_WHILE_DRAG_WORKAROUND_STOP();
 }
 
@@ -589,5 +522,20 @@ void NodeView::slotScrollerStateChanged(QScroller::State state){
 void NodeView::slotConfigurationChanged()
 {
     setIndentation(KisNodeViewColorScheme::instance()->indentation());
+    updateSelectedCheckboxColumn();
     d->delegate.slotConfigChanged();
+}
+
+void NodeView::updateSelectedCheckboxColumn()
+{
+    KisConfig cfg(false);
+    if (cfg.useLayerSelectionCheckbox() == !header()->isSectionHidden(SELECTED_COL)) {
+        return;
+    }
+    header()->setSectionHidden(SELECTED_COL, !cfg.useLayerSelectionCheckbox());
+    // add/subtract width based on SELECTED_COL section's visibility
+    header()->resizeSection(DEFAULT_COL,
+                            size().width()
+                                + (cfg.useLayerSelectionCheckbox() ? header()->sectionSize(SELECTED_COL)
+                                                                   : -header()->sectionSize(SELECTED_COL)));
 }

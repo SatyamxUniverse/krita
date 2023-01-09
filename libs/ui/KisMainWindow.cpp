@@ -239,7 +239,6 @@ public:
     KisAction *exportFileAdvance {nullptr};
     KisAction *undo {nullptr};
     KisAction *redo {nullptr};
-    KisAction *newWindow {nullptr};
     KisAction *close {nullptr};
     KisAction *mdiCascade {nullptr};
     KisAction *mdiTile {nullptr};
@@ -248,7 +247,10 @@ public:
     KisAction *toggleDockers {nullptr};
     KisAction *resetConfigurations {nullptr};
     KisAction *toggleDockerTitleBars {nullptr};
+#ifndef Q_OS_ANDROID
     KisAction *toggleDetachCanvas {nullptr};
+    KisAction *newWindow {nullptr};
+#endif
     KisAction *fullScreenMode {nullptr};
     KisAction *showSessionManager {nullptr};
     KisAction *commandBarAction {nullptr};
@@ -964,6 +966,12 @@ bool KisMainWindow::canvasDetached() const
 
 void KisMainWindow::setCanvasDetached(bool detach)
 {
+#ifdef Q_OS_ANDROID
+    if (detach) {
+        QMessageBox::warning(this, i18nc("@title:window", "Krita"),
+                             "Detach Canvas is unsupported on Android");
+    }
+#else
     if (detach == canvasDetached()) return;
 
     QWidget *outgoingWidget = centralWidget() ? takeCentralWidget() : nullptr;
@@ -979,6 +987,7 @@ void KisMainWindow::setCanvasDetached(bool detach)
         d->canvasWindow->hide();
     }
     d->toggleDetachCanvas->setChecked(detach);
+#endif
 }
 
 QWidget * KisMainWindow::canvasWindow() const
@@ -996,6 +1005,11 @@ void KisMainWindow::setReadWrite(bool readwrite)
 void KisMainWindow::clearRecentFiles()
 {
     KisRecentFilesManager::instance()->clear();
+}
+
+void KisMainWindow::removeRecentFile(QString url)
+{
+    KisRecentFilesManager::instance()->remove(QUrl::fromLocalFile(url));
 }
 
 void KisMainWindow::updateCaption()
@@ -2486,7 +2500,9 @@ void KisMainWindow::updateWindowMenu()
     QMenu *menu = d->windowMenu->menu();
     menu->clear();
 
+#ifndef Q_OS_ANDROID
     menu->addAction(d->newWindow);
+#endif
     menu->addAction(d->documentMenu);
 
     QMenu *docMenu = d->documentMenu->menu();
@@ -2739,6 +2755,14 @@ KisView* KisMainWindow::newView(QObject *document, QMdiSubWindow *subWindow)
 
 void KisMainWindow::newWindow()
 {
+#ifdef Q_OS_ANDROID
+    // Check if current mainwindow exists, just to be sure.
+    if (KisPart::instance()->currentMainwindow()) {
+        QMessageBox::warning(this, i18nc("@title:window", "Krita"),
+                             "Creating a New Main Window is unsupported on Android");
+        return;
+    }
+#endif
     KisMainWindow *mainWindow = KisPart::instance()->createMainWindow();
     mainWindow->initializeGeometry();
     mainWindow->show();
@@ -2896,9 +2920,11 @@ void KisMainWindow::createActions()
     d->resetConfigurations  = actionManager->createAction("reset_configurations");
     connect(d->resetConfigurations, SIGNAL(triggered()), this, SLOT(slotResetConfigurations()));
 
+#ifndef Q_OS_ANDROID
     d->toggleDetachCanvas = actionManager->createAction("view_detached_canvas");
     d->toggleDetachCanvas->setChecked(false);
     connect(d->toggleDetachCanvas, SIGNAL(toggled(bool)), SLOT(setCanvasDetached(bool)));
+#endif
     setCanvasDetached(false);
 
     d->toggleDockerTitleBars = actionManager->createAction("view_toggledockertitlebars");
@@ -2922,8 +2948,10 @@ void KisMainWindow::createActions()
     d->mdiPreviousWindow = actionManager->createAction("windows_previous");
     connect(d->mdiPreviousWindow, SIGNAL(triggered()), d->mdiArea, SLOT(activatePreviousSubWindow()));
 
+#ifndef Q_OS_ANDROID
     d->newWindow = actionManager->createAction("view_newwindow");
     connect(d->newWindow, SIGNAL(triggered(bool)), this, SLOT(newWindow()));
+#endif
 
     d->close = actionManager->createStandardAction(KStandardAction::Close, this, SLOT(closeCurrentWindow()));
 

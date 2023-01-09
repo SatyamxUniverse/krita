@@ -32,9 +32,9 @@
 
 #define INNER_RADIUS 50
 
-KisToolMeasureOptionsWidget::KisToolMeasureOptionsWidget(QWidget* parent, double resolution)
+KisToolMeasureOptionsWidget::KisToolMeasureOptionsWidget(QWidget* parent, KisImageWSP image)
         : QWidget(parent),
-        m_resolution(resolution),
+        m_resolution(image->xRes()),
         m_unit(KoUnit::Pixel)
 {
     m_distance = 0.0;
@@ -61,11 +61,13 @@ KisToolMeasureOptionsWidget::KisToolMeasureOptionsWidget(QWidget* parent, double
 
     optionLayout->addWidget(unitBox, 0, 2);
     optionLayout->addItem(new QSpacerItem(1, 1, QSizePolicy::Fixed, QSizePolicy::Expanding), 2, 0, 1, 2);
+
+    connect(image, SIGNAL(sigResolutionChanged(double, double)), this, SLOT(slotResolutionChanged(double, double)));
 }
 
 void KisToolMeasureOptionsWidget::slotSetDistance(double distance)
 {
-    m_distance = distance / m_resolution;
+    m_distance = distance;
     updateDistance();
 }
 
@@ -80,9 +82,16 @@ void KisToolMeasureOptionsWidget::slotUnitChanged(int index)
     updateDistance();
 }
 
+void KisToolMeasureOptionsWidget::slotResolutionChanged(double xRes, double /*yRes*/)
+{
+    m_resolution = xRes;
+    updateDistance();
+}
+
 void KisToolMeasureOptionsWidget::updateDistance()
 {
-    m_distanceLabel->setText(KritaUtils::prettyFormatReal(m_unit.toUserValue(m_distance)));
+    double distance = m_distance / m_resolution;
+    m_distanceLabel->setText(KritaUtils::prettyFormatReal(m_unit.toUserValue(distance)));
 }
 
 
@@ -193,7 +202,7 @@ QWidget* KisToolMeasure::createOptionWidget()
 {
     if (!currentImage())
         return nullptr;
-    m_optionsWidget = new KisToolMeasureOptionsWidget(nullptr, currentImage()->xRes());
+    m_optionsWidget = new KisToolMeasureOptionsWidget(nullptr, currentImage());
 
     // See https://bugs.kde.org/show_bug.cgi?id=316896
     QWidget *specialSpacer = new QWidget(m_optionsWidget);
