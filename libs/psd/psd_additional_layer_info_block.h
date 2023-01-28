@@ -660,6 +660,31 @@ struct KRITAPSD_EXPORT psd_layer_type_shape {
     }
 };
 
+struct KRITAPSD_EXPORT psd_path_node {
+    QPointF control1;
+    QPointF node;
+    QPointF control2;
+    bool isSmooth;
+};
+
+struct KRITAPSD_EXPORT psd_path_sub_path {
+    QList<psd_path_node> nodes;
+    bool isClosed;
+};
+struct KRITAPSD_EXPORT psd_path {
+    bool initialFillRecord;
+    QRectF clipBoardBounds;
+    double clipBoardResolution;
+    QList<psd_path_sub_path> subPaths;
+};
+
+struct KRITAPSD_EXPORT psd_vector_mask {
+    bool invert;
+    bool notLink;
+    bool disable;
+    psd_path path;
+};
+
 /**
  * @brief The PsdAdditionalLayerInfoBlock class implements the Additional Layer Information block
  *
@@ -703,6 +728,8 @@ public:
 
     QTransform textTransform;
     QDomDocument textData;
+
+    psd_vector_mask vectorMask;
 
     psd_section_type sectionDividerType;
     QString sectionDividerBlendMode;
