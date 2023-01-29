@@ -92,6 +92,14 @@ public:
      */
     KoPathShape *constructPathShape(psd_path path, double shapeWidth, double shapeHeight);
 
+    /**
+     * @brief addPathShapeToPSDPath
+     * add all KoPathShape subpaths to the given psd_path struct.
+     * @param shapeWidth the image width in points
+     * @param shapeHeight the image height in points
+     */
+    void addPathShapeToPSDPath(psd_path &path, KoPathShape *shape, double shapeWidth, double shapeHeight);
+
     void write(QIODevice &io,
                KisPaintDeviceSP layerContentDevice,
                KisNodeSP onlyTransparencyMask,
@@ -127,6 +135,8 @@ public:
 
     psd_fill_type fillType {psd_fill_solid_color};
     QDomDocument fillConfig;
+
+    psd_vector_mask vectorMask;
 
     struct LayerMaskData {
         qint32 top {0};
