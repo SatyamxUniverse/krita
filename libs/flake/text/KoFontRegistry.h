@@ -73,6 +73,14 @@ public:
                         quint32 yRes,
                         const QMap<QString, qreal> &axisSettings);
 
+    // For PSD we only get the postscript name, and we'll need a bit
+    // more information to get a proper css representation.
+    void getCssDataForPostScriptName (const QString postScriptName,
+                                      QString *cssFontFamily,
+                                      int &cssFontWeight,
+                                      int &cssFontWidth,
+                                      bool &cssItalic);
+
 private:
     class Private;
 

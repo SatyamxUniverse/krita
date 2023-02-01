@@ -494,6 +494,38 @@ bool KoFontRegistry::configureFaces(const std::vector<FT_FaceUP> &faces,
     return (errorCode == 0);
 }
 
+void KoFontRegistry::getCssDataForPostScriptName(const QString postScriptName, QString *cssFontFamily, int &cssFontWeight, int &cssFontWidth, bool &cssItalic)
+{
+    FcPatternUP p(FcPatternCreate());
+    QByteArray utfData = postScriptName.toUtf8();
+    const FcChar8 *vals = reinterpret_cast<FcChar8 *>(utfData.data());
+    FcPatternAddString(p.data(), FC_POSTSCRIPT_NAME, vals);
+    FcDefaultSubstitute(p.data());
+
+    FcResult result = FcResultNoMatch;
+    FcPatternUP match(FcFontMatch(FcConfigGetCurrent(), p.data(), &result));
+    if (result != FcResultNoMatch) {
+        FcChar8 *fileValue = nullptr;
+        if (FcPatternGetString(match.data(), FC_FAMILY, 0, &fileValue) == FcResultMatch) {
+            *cssFontFamily = QString(reinterpret_cast<char *>(fileValue));
+        } else {
+            *cssFontFamily = postScriptName;
+        }
+        int value;
+        if (FcPatternGetInteger(match.data(), FC_WEIGHT, 0, &value) == FcResultMatch) {
+            cssFontWeight = FcWeightToOpenType(value);
+        }
+        if (FcPatternGetInteger(match.data(), FC_WIDTH, 0, &value) == FcResultMatch) {
+            cssFontWidth = value;
+        }
+        if (FcPatternGetInteger(match.data(), FC_SLANT, 0, &value) == FcResultMatch) {
+            cssItalic = value != FC_SLANT_ROMAN;
+        }
+    } else {
+        *cssFontFamily = postScriptName;
+    }
+}
+
 bool KoFontRegistry::addFontFilePathToRegistery(const QString &path)
 {
     const QByteArray utfData = path.toUtf8();
