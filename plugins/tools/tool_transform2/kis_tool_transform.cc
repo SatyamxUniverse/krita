@@ -304,30 +304,6 @@ void KisToolTransform::beginActionImpl(KoPointerEvent *event, bool usePrimaryAct
         return;
     }
 
-    // Some nodes can't be transformed directly but can be after assigning Transform Mask.
-    if(currentNode()->inherits("KisCloneLayer") ||
-       currentNode()->inherits("KisFileLayer")){
-
-        KisCanvas2 *kisCanvas = dynamic_cast<KisCanvas2*>(canvas());
-        kisCanvas->viewManager()->
-            showFloatingMessage(
-                i18nc("floating message in transformation tool",
-                      "Layer type cannot use the transform tool. Transform mask added."),
-                koIcon("warning"), 4000, KisFloatingMessage::High);
-
-        KoProperties properties;
-        properties.setProperty("visible", true);
-        QList<KisNodeSP> transform_masks = currentNode()->childNodes(QStringList("KisTransformMask"), properties);
-        if (transform_masks.isEmpty()) {
-            kisCanvas->viewManager()->
-                nodeManager()->createNode("KisTransformMask");
-        }
-        else {
-            kisCanvas->viewManager()->
-                nodeManager()->slotUiActivatedNode(transform_masks.first());
-        }
-    }
-
     if (!m_strokeId) {
         startStroke(m_currentArgs.mode(), action == KisTool::ChangeSize);
     } else if (m_transaction.rootNode()) {
@@ -899,6 +875,19 @@ void KisToolTransform::startStroke(ToolTransformArgs::TransformMode mode, bool f
 
     KisSelectionSP selection = resources->activeSelection();
 
+    // Some nodes can't be transformed directly but can be after assigning Transform Mask.
+    // TODO Check what to do with warning above
+    if(currentNode->inherits("KisCloneLayer") ||
+       currentNode->inherits("KisFileLayer")){
+
+        KisCanvas2 *kisCanvas = dynamic_cast<KisCanvas2*>(canvas());
+        kisCanvas->viewManager()->
+            showFloatingMessage(
+                i18nc("floating message in transformation tool",
+                      "Layer type cannot use the transform tool. Transform mask will be added."),
+                koIcon("warning"), 4000, KisFloatingMessage::High);
+    }
+
     /**
      * When working with transform mask, selections are not
      * taken into account.
@@ -920,7 +909,7 @@ void KisToolTransform::startStroke(ToolTransformArgs::TransformMode mode, bool f
     KisStrokeStrategy *strategy = 0;
 
     if (m_currentlyUsingOverlayPreviewStyle) {
-        TransformStrokeStrategy *transformStrategy = new TransformStrokeStrategy(mode, m_currentArgs.filterId(), forceReset, currentNode, selection, image().data(), image().data());
+        TransformStrokeStrategy *transformStrategy = new TransformStrokeStrategy(mode, m_currentArgs.filterId(), forceReset, image(), canvas(), currentNode, selection, image().data(), image().data());
         connect(transformStrategy, SIGNAL(sigPreviewDeviceReady(KisPaintDeviceSP)), SLOT(slotPreviewDeviceGenerated(KisPaintDeviceSP)));
         connect(transformStrategy, SIGNAL(sigTransactionGenerated(TransformTransactionProperties, ToolTransformArgs, void*)), SLOT(slotTransactionGenerated(TransformTransactionProperties, ToolTransformArgs, void*)));
         strategy = transformStrategy;

@@ -17,6 +17,7 @@
 #include <kritatooltransform_export.h>
 #include <boost/optional.hpp>
 #include "commands_new/KisUpdateCommandEx.h"
+#include "KoCanvasBase.h"
 
 class KisPostExecutionUndoAdapter;
 class TransformTransactionProperties;
@@ -80,6 +81,8 @@ public:
     TransformStrokeStrategy(ToolTransformArgs::TransformMode mode,
                             const QString &filterId,
                             bool forceReset,
+                            KisImageWSP image,
+                            KoCanvasBase *canvas,
                             KisNodeSP rootNode,
                             KisSelectionSP selection,
                             KisStrokeUndoFacade *undoFacade, KisUpdatesFacade *updatesFacade);
@@ -131,6 +134,8 @@ private:
 
     ToolTransformArgs m_initialTransformArgs;
     boost::optional<ToolTransformArgs> m_savedTransformArgs;
+    KisImageWSP m_image;
+    KoCanvasBase* m_canvas;
     KisNodeSP m_rootNode;
     KisNodeList m_processedNodes;
     QList<KisSelectionSP> m_deactivatedSelections;
