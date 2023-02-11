@@ -714,6 +714,16 @@ void KisConfig::setForcePaletteColors(bool forcePaletteColors)
     m_cfg.writeEntry("colorsettings/forcepalettecolors", forcePaletteColors);
 }
 
+bool KisConfig::colorHistoryPerDocument(bool defaultValue) const
+{
+    return (defaultValue ? false : m_cfg.readEntry("colorsettings/colorhistoryperdocument", false));
+}
+
+void KisConfig::setColorHistoryPerDocument(bool perDocument)
+{
+    m_cfg.writeEntry("colorsettings/colorhistoryperdocument", perDocument);
+}
+
 bool KisConfig::showRulers(bool defaultValue) const
 {
     return (defaultValue ? false : m_cfg.readEntry("showrulers", false));
@@ -2484,5 +2494,41 @@ KoColor KisConfig::readKoColor(const QString& name, const KoColor& _color) const
         color =  KoColor::fromXML(e, Integer16BitsColorDepthID.id());
     }
     return color;
+}
 
+void KisConfig::writeKoColors(const QString& name, const QList<KoColor>& colors) const
+{
+    QDomDocument doc = QDomDocument(name);
+    QDomElement colorsElement = doc.createElement("colors");
+    doc.appendChild(colorsElement);
+
+    // Writes like <colors><RGB ../><RGB .. /> ... </colors>
+    Q_FOREACH(const KoColor & color, colors) {
+        color.toXML(doc, colorsElement);
+    }
+    m_cfg.writeEntry(name, doc.toString());
+}
+
+QList<KoColor> KisConfig::readKoColors(const QString& name) const
+{
+    QList<KoColor> colors;
+    QString colorListXML = m_cfg.readEntry(name);
+
+    if (!colorListXML.isNull()) {
+        QDomDocument doc;
+        doc.setContent(colorListXML);
+        QDomElement colorsElement = doc.firstChildElement();
+        if (!colorsElement.isNull()) {
+            QDomNodeList colorNodes = colorsElement.childNodes();
+            colors.reserve(colorNodes.size());
+
+            for (int k = 0; k < colorNodes.size(); k++) {
+                QDomElement colorElement = colorNodes.at(k).toElement();
+                KoColor color = KoColor::fromXML(colorElement, Integer16BitsColorDepthID.id());
+                colors.push_back(color);
+            }
+        }
+    }
+
+    return colors;
 }

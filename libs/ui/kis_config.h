@@ -168,8 +168,14 @@ public:
     bool forcePaletteColors(bool defaultValue = false) const;
     void setForcePaletteColors(bool forcePaletteColors);
 
+    bool colorHistoryPerDocument(bool defaultValue = false) const;
+    void setColorHistoryPerDocument(bool perDocument);
+
     void writeKoColor(const QString& name, const KoColor& color) const;
     KoColor readKoColor(const QString& name, const KoColor& color = KoColor()) const;
+
+    QList<KoColor> readKoColors(const QString &name) const;
+    void writeKoColors(const QString &name, const QList<KoColor> &colors) const;
 
     bool showRulers(bool defaultValue = false) const;
     void setShowRulers(bool rulers) const;
@@ -705,7 +711,6 @@ public:
 private:
     KisConfig(const KisConfig&);
     KisConfig& operator=(const KisConfig&) const;
-
 
 private:
     mutable KConfigGroup m_cfg;
