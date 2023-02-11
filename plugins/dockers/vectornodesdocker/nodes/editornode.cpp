@@ -37,7 +37,7 @@ IOElement *EditorNode::AddOutput() {
 
 void EditorNode::ConnectInput(IOElement *elementIn, IOElement *elementOut) {
     QString key = QString("%1-%2").arg(elementIn->index).arg(elementOut->index);
-    inputNodes.insert(key, elementOut->Node().data());
+    inputNodes.insert(key, elementOut->Node());
 //    qDebug() << QString("Connecting INPUT node at socket %1").arg(key);
 //    qDebug() << QString("from %1").arg(elementOut->Node()->nodeItem->titleText->toPlainText());
 //    qDebug() << QString("new inputNodes size: %1").arg(inputNodes.count());
@@ -45,7 +45,7 @@ void EditorNode::ConnectInput(IOElement *elementIn, IOElement *elementOut) {
 }
 void EditorNode::ConnectOutput(IOElement *elementOut, IOElement *elementIn) {
     QString key = QString("%1-%2").arg(elementOut->index).arg(elementIn->index);
-    outputNodes.insert(key, elementIn->Node().data());
+    outputNodes.insert(key, elementIn->Node());
 //    qDebug() << QString("Connecting OUTPUT node at socket %1").arg(key);
 //    qDebug() << QString("from %1").arg(elementIn->Node()->nodeItem->titleText->toPlainText());
 //    qDebug() << QString("new outputNodes size: %1").arg(outputNodes.count());

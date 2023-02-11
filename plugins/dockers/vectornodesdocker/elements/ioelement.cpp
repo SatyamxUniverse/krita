@@ -13,7 +13,7 @@ IOElement::IOElement(QSharedPointer<QGraphicsItemGroup> parent, EditorNode *node
     isOutput = false;
     isHovering = false;
     connection = nullptr;
-    node = QSharedPointer<EditorNode>(nodeParent);
+    node = nodeParent;
 
     QBrush brush = QBrush(Qt::SolidPattern);
     brush.setColor(NodeStyles::Color::IO_Normie);
@@ -26,7 +26,7 @@ IOElement::IOElement(QSharedPointer<QGraphicsItemGroup> parent, EditorNode *node
 }
 IOElement::~IOElement() {}
 
-QSharedPointer<EditorNode> IOElement::Node() { return node; }
+EditorNode *IOElement::Node() { return node; }
 
 void IOElement::HoverDraw(bool hovering) {
     QPen pen;

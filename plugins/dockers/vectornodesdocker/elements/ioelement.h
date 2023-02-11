@@ -13,7 +13,7 @@ class IOElement : public QGraphicsEllipseItem {
 public:
     IOElement(QSharedPointer<QGraphicsItemGroup> parent = nullptr, EditorNode *nodeParent = nullptr);
     virtual ~IOElement();
-    QSharedPointer<EditorNode> Node();
+    EditorNode *Node();
 
     int index;
 
@@ -36,7 +36,7 @@ protected:
     QVariant itemChange(GraphicsItemChange change, const QVariant &value) override;
 
 private:
-    QSharedPointer<EditorNode> node;
+    EditorNode *node;
     int vSpacing;
     bool isOutput;
     bool isHovering;
