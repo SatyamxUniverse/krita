@@ -15,4 +15,6 @@ Formalities Checklist
 - [ ] I made sure my code conforms to the standards set in the HACKING file.
 - [ ] I can confirm the code is licensed and attributed appropriately, and that unattributed code is mine, as per [KDE Licensing Policy](https://community.kde.org/Policies/Licensing_Policy).
 
+For merging: The reviewer is responsible for also merging the patch, this is to ensure at the least two people can build the patch. In case a patch breaks the build, both the author and the reviewer should be contacted to fix the build. If this is not possible, commits are reverted and a mail is sent to the mailinglist kimageshop@kde.org.
+
 /label ~"Needs Review" 
