@@ -1,0 +1,9 @@
+{
+    "Id": "Vector Nodes Docker",
+    "Type": "Service",
+    "X-KDE-Library": "kritavectornodesdocker",
+    "X-KDE-ServiceTypes": [
+        "Krita/Dock"
+    ],
+    "X-Krita-Version": "28"
+}
