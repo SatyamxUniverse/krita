@@ -21,6 +21,7 @@
 #define _KOCOMPOSITEOPGREATER_H_
 
 #include "KoCompositeOpBase.h"
+#include "KoCompositeOpRegistry.h"
 
 /**
  * Greater-than compositor - uses the greater of two alpha values to determine the color

@@ -25,6 +25,7 @@
 #include "compositeops/KoCompositeOpDestinationIn.h"
 #include "compositeops/KoCompositeOpDestinationAtop.h"
 #include "compositeops/KoCompositeOpGreater.h"
+#include "compositeops/KoCompositeOpWetOver.h"
 #include "compositeops/KoAlphaDarkenParamsWrapper.h"
 #include "KoOptimizedCompositeOpFactory.h"
 
@@ -144,6 +145,7 @@ struct AddGeneralOps<Traits, true>
          cs->addCompositeOp(new KoCompositeOpDestinationIn<Traits>(cs));
          cs->addCompositeOp(new KoCompositeOpDestinationAtop<Traits>(cs));
          cs->addCompositeOp(new KoCompositeOpGreater<Traits>(cs));
+         cs->addCompositeOp(new KoCompositeOpWetOver<Traits>(cs));
 
          add<&cfOverlay<Arg>       >(cs, COMPOSITE_OVERLAY       , KoCompositeOp::categoryMix());
          add<&cfGrainMerge<Arg>    >(cs, COMPOSITE_GRAIN_MERGE   , KoCompositeOp::categoryMix());

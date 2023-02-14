@@ -109,6 +109,7 @@ KoCompositeOpRegistry::KoCompositeOpRegistry()
     m_map.insert(m_categories[6], koidCompositeOverStatic());
     m_map.insert(m_categories[6], KoID(COMPOSITE_BEHIND          ,  i18nc("Blending mode - Behind", "Behind")));
     m_map.insert(m_categories[6], KoID(COMPOSITE_GREATER         ,  i18nc("Blending mode - Greater", "Greater")));
+    m_map.insert(m_categories[6], KoID(COMPOSITE_WET_OVER        ,  i18nc("Blending mode - Wet Normal", "Wet Normal")));
     m_map.insert(m_categories[6], KoID(COMPOSITE_OVERLAY         ,  i18nc("Blending mode - Overlay", "Overlay")));
     m_map.insert(m_categories[6], KoID(COMPOSITE_LAMBERT_LIGHTING, i18nc("Blending mode - Lambert Lighting (Linear)", "Lambert Lighting (Linear)")));
     m_map.insert(m_categories[6], KoID(COMPOSITE_LAMBERT_LIGHTING_GAMMA_2_2, i18nc("Blending mode - Lambert Lighting (Gamma 2.2)", "Lambert Lighting (Gamma 2.2)")));
