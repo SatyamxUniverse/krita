@@ -556,7 +556,6 @@ void KoSvgTextShape::relayout() const
             if (!letterSpacing.isAuto) {
                 raqm_set_letter_spacing_range(layout.data(),
                                               static_cast<int>(letterSpacing.customValue * ftFontUnit * scaleToPixel),
-                                              false,
                                               static_cast<size_t>(start),
                                               static_cast<size_t>(length));
             }
@@ -564,7 +563,6 @@ void KoSvgTextShape::relayout() const
             if (!wordSpacing.isAuto) {
                 raqm_set_word_spacing_range(layout.data(),
                                             static_cast<int>(wordSpacing.customValue * ftFontUnit * scaleToPixel),
-                                            false,
                                             static_cast<size_t>(start),
                                             static_cast<size_t>(length));
             }
