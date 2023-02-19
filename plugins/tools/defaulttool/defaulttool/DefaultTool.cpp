@@ -72,6 +72,8 @@
 
 #include <QVector2D>
 
+#include "KisBooleanOperations.h"
+
 #define HANDLE_DISTANCE 10
 #define HANDLE_DISTANCE_SQ (HANDLE_DISTANCE * HANDLE_DISTANCE)
 
@@ -1387,17 +1389,26 @@ void DefaultTool::selectionBooleanOp(int booleanOp)
                 shape->outline()));
     }
 
+    KisBooleanOperations booleanOpsHandler;
+
     if (booleanOp == BooleanUnion) {
+
         Q_FOREACH (const QPainterPath &path, srcOutlines) {
-            dstOutline |= path;
+//            dstOutline |= path;
+            booleanOpsHandler.uniteAndAdd(dstOutline, path);
+
         }
+
         actionName = kundo2_i18n("Unite Shapes");
+
+
     } else if (booleanOp == BooleanIntersection) {
         for (int i = 0; i < srcOutlines.size(); i++) {
             if (i == 0) {
                 dstOutline = srcOutlines[i];
             } else {
-                dstOutline &= srcOutlines[i];
+//                dstOutline &= srcOutlines[i];
+                booleanOpsHandler.intersectAndAdd(dstOutline, srcOutlines[i]);
             }
         }
 
@@ -1411,7 +1422,8 @@ void DefaultTool::selectionBooleanOp(int booleanOp)
         for (int i = 0; i < srcOutlines.size(); i++) {
             dstOutline = srcOutlines[referenceShapeIndex];
             if (i != referenceShapeIndex) {
-                dstOutline -= srcOutlines[i];
+                booleanOpsHandler.subtractAndAdd(dstOutline, srcOutlines[i]);
+//                dstOutline -= srcOutlines[i];
             }
         }
 
