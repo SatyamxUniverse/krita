@@ -46,11 +46,19 @@
 #include "kis_paint_device_debug_utils.h"
 #include "kis_raster_keyframe_channel.h"
 #include "kis_layer_utils.h"
+#include "commands/kis_image_layer_add_command.h"
+#include "kis_node_manager.h"
+#include "kis_canvas2.h"
+#include "KisViewManager.h"
+#include "kis_types.h"
+#include "KoProperties.h"
 
 
 TransformStrokeStrategy::TransformStrokeStrategy(ToolTransformArgs::TransformMode mode,
                                                  const QString &filterId,
                                                  bool forceReset,
+                                                 KisImageWSP image,
+                                                 KoCanvasBase *canvas,
                                                  KisNodeSP rootNode,
                                                  KisSelectionSP selection,
                                                  KisStrokeUndoFacade *undoFacade,
@@ -60,7 +68,9 @@ TransformStrokeStrategy::TransformStrokeStrategy(ToolTransformArgs::TransformMod
       m_mode(mode),
       m_filterId(filterId),
       m_forceReset(forceReset),
-      m_selection(selection)
+      m_selection(selection),
+      m_image(image),
+      m_canvas(canvas)
 {
     KIS_SAFE_ASSERT_RECOVER_NOOP(!selection || !dynamic_cast<KisTransformMask*>(rootNode.data()));
 
@@ -431,6 +441,36 @@ void TransformStrokeStrategy::initStrokeCallback()
     ToolTransformArgs initialTransformArgs;
     bool isExternalSourcePresent = false;
     m_processedNodes = KisTransformUtils::fetchNodesList(m_mode, m_rootNode, isExternalSourcePresent, m_selection);
+
+    // CodeisHerePigeonz! D:
+    // Some nodes can't be transformed directly but can be after assigning Transform Mask.
+    if(m_rootNode->inherits("KisCloneLayer") ||
+            m_rootNode->inherits("KisFileLayer")){
+
+        KisCanvas2 *kisCanvas = dynamic_cast<KisCanvas2*>(m_canvas);
+        KoProperties properties;
+        QList<KisNodeSP> transformMasksList = m_rootNode->
+                childNodes(QStringList("KisTransformMask"), properties);
+
+        if (transformMasksList.isEmpty()) {
+            KisTransformMaskSP transformMask =
+                    new KisTransformMask(m_image, "Hello");
+
+            KUndo2CommandSP addTransformMaskCommand(
+                        new KisImageLayerAddCommand(m_image,
+                                                    transformMask,
+                                                    m_rootNode,
+                                                    0));
+
+            runAndSaveCommand(addTransformMaskCommand,
+                              KisStrokeJobData::SEQUENTIAL,
+                              KisStrokeJobData::NORMAL);
+        }
+        else {
+            kisCanvas->viewManager()->
+                nodeManager()->slotUiActivatedNode(transformMasksList.first());
+        }
+    }
 
     bool argsAreInitialized = false;
     QVector<KisStrokeJobData *> lastCommandUndoJobs;

@@ -34,10 +34,12 @@
 #include <KoViewConverter.h>
 #include <KoSelection.h>
 #include <KoCompositeOp.h>
+#include <KoProperties.h>
 
 #include <kis_global.h>
 #include <canvas/kis_canvas2.h>
 #include <KisViewManager.h>
+#include <kis_node_manager.h>
 #include <kis_painter.h>
 #include <kis_cursor.h>
 #include <kis_image.h>
@@ -841,26 +843,13 @@ void KisToolTransform::startStroke(ToolTransformArgs::TransformMode mode, bool f
     m_currentArgs = ToolTransformArgs();
 
     // some layer types cannot be transformed. Give a message and return if a user tries it
-    if (currentNode->inherits("KisColorizeMask") ||
-        currentNode->inherits("KisFileLayer") ||
-        currentNode->inherits("KisCloneLayer")) {
-
+    if(currentNode->inherits("KisColorizeMask")){
         KisCanvas2 *kisCanvas = dynamic_cast<KisCanvas2*>(canvas());
-
-        if(currentNode->inherits("KisColorizeMask")){
-            kisCanvas->viewManager()->
-                showFloatingMessage(
-                    i18nc("floating message in transformation tool",
-                          "Layer type cannot use the transform tool"),
-                    koIcon("object-locked"), 4000, KisFloatingMessage::High);
-        }
-        else{
-            kisCanvas->viewManager()->
-                showFloatingMessage(
-                    i18nc("floating message in transformation tool",
-                          "Layer type cannot use the transform tool. Use transform mask instead."),
-                    koIcon("object-locked"), 4000, KisFloatingMessage::High);
-        }
+        kisCanvas->viewManager()->
+            showFloatingMessage(
+                i18nc("floating message in transformation tool",
+                      "Layer type cannot use the transform tool"),
+                koIcon("object-locked"), 4000, KisFloatingMessage::High);
         return;
     }
 
@@ -886,6 +875,19 @@ void KisToolTransform::startStroke(ToolTransformArgs::TransformMode mode, bool f
 
     KisSelectionSP selection = resources->activeSelection();
 
+    // Some nodes can't be transformed directly but can be after assigning Transform Mask.
+    // TODO Check what to do with warning above
+    if(currentNode->inherits("KisCloneLayer") ||
+       currentNode->inherits("KisFileLayer")){
+
+        KisCanvas2 *kisCanvas = dynamic_cast<KisCanvas2*>(canvas());
+        kisCanvas->viewManager()->
+            showFloatingMessage(
+                i18nc("floating message in transformation tool",
+                      "Layer type cannot use the transform tool. Transform mask will be added."),
+                koIcon("warning"), 4000, KisFloatingMessage::High);
+    }
+
     /**
      * When working with transform mask, selections are not
      * taken into account.
@@ -907,7 +909,7 @@ void KisToolTransform::startStroke(ToolTransformArgs::TransformMode mode, bool f
     KisStrokeStrategy *strategy = 0;
 
     if (m_currentlyUsingOverlayPreviewStyle) {
-        TransformStrokeStrategy *transformStrategy = new TransformStrokeStrategy(mode, m_currentArgs.filterId(), forceReset, currentNode, selection, image().data(), image().data());
+        TransformStrokeStrategy *transformStrategy = new TransformStrokeStrategy(mode, m_currentArgs.filterId(), forceReset, image(), canvas(), currentNode, selection, image().data(), image().data());
         connect(transformStrategy, SIGNAL(sigPreviewDeviceReady(KisPaintDeviceSP)), SLOT(slotPreviewDeviceGenerated(KisPaintDeviceSP)));
         connect(transformStrategy, SIGNAL(sigTransactionGenerated(TransformTransactionProperties, ToolTransformArgs, void*)), SLOT(slotTransactionGenerated(TransformTransactionProperties, ToolTransformArgs, void*)));
         strategy = transformStrategy;
