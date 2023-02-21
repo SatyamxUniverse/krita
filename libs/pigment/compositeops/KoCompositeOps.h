@@ -26,6 +26,11 @@
 #include "compositeops/KoCompositeOpDestinationAtop.h"
 #include "compositeops/KoCompositeOpGreater.h"
 #include "compositeops/KoCompositeOpWetOver.h"
+#include "compositeops/KoCompositeOpWetParallel.h"
+#include "compositeops/KoCompositeOpWetMultiply.h"
+#include "compositeops/KoCompositeOpWetScreen.h"
+#include "compositeops/KoCompositeOpWetColorDodge.h"
+#include "compositeops/KoCompositeOpWetColorBurn.h"
 #include "compositeops/KoAlphaDarkenParamsWrapper.h"
 #include "KoOptimizedCompositeOpFactory.h"
 
@@ -146,6 +151,11 @@ struct AddGeneralOps<Traits, true>
          cs->addCompositeOp(new KoCompositeOpDestinationAtop<Traits>(cs));
          cs->addCompositeOp(new KoCompositeOpGreater<Traits>(cs));
          cs->addCompositeOp(new KoCompositeOpWetOver<Traits>(cs));
+         cs->addCompositeOp(new KoCompositeOpWetParallel<Traits>(cs));
+         cs->addCompositeOp(new KoCompositeOpWetMultiply<Traits>(cs));
+         cs->addCompositeOp(new KoCompositeOpWetScreen<Traits>(cs));
+         cs->addCompositeOp(new KoCompositeOpWetColorDodge<Traits>(cs));
+         cs->addCompositeOp(new KoCompositeOpWetColorBurn<Traits>(cs));
 
          add<&cfOverlay<Arg>       >(cs, COMPOSITE_OVERLAY       , KoCompositeOp::categoryMix());
          add<&cfGrainMerge<Arg>    >(cs, COMPOSITE_GRAIN_MERGE   , KoCompositeOp::categoryMix());
