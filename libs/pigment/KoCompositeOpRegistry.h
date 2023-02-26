@@ -71,12 +71,6 @@ const QString COMPOSITE_HARD_MIX_SOFTER_PHOTOSHOP = "hard_mix_softer_photoshop";
 const QString COMPOSITE_OVERLAY       = "overlay";
 const QString COMPOSITE_BEHIND        = "behind";
 const QString COMPOSITE_GREATER       = "greater";
-const QString COMPOSITE_WET_OVER        = "wet_over";
-const QString COMPOSITE_WET_PARALLEL    = "wet_parallel";
-const QString COMPOSITE_WET_MULTIPLY    = "wet_multiply";
-const QString COMPOSITE_WET_SCREEN      = "wet_screen";
-const QString COMPOSITE_WET_COLOR_DODGE = "wet_color_dodge";
-const QString COMPOSITE_WET_COLOR_BURN  = "wet_color_burn";
 const QString COMPOSITE_HARD_OVERLAY  = "hard overlay";
 const QString COMPOSITE_INTERPOLATION = "interpolation";
 const QString COMPOSITE_INTERPOLATIONB = "interpolation 2x";
@@ -183,6 +177,160 @@ const QString COMPOSITE_FHYRD     = "heat_glow_freeze_reflect_hybrid";
 
 const QString COMPOSITE_LAMBERT_LIGHTING   = "lambert_lighting";
 const QString COMPOSITE_LAMBERT_LIGHTING_GAMMA_2_2   = "lambert_lighting_gamma2.2";
+
+// "Wet" Modes
+const QString COMPOSITE_WET_OVER = "wet_normal";
+//const QString COMPOSITE_WET_ERASE = "wet_erase";
+//const QString COMPOSITE_WET_IN = "wet_in";
+//const QString COMPOSITE_WET_OUT = "wet_out";
+//const QString COMPOSITE_WET_ALPHA_DARKEN = "wet_alphadarken";
+//const QString COMPOSITE_WET_DESTINATION_IN = "wet_destination_in";
+//const QString COMPOSITE_WET_DESTINATION_ATOP = "wet_destination_atop";
+
+const QString COMPOSITE_WET_XOR = "wet_xor";
+const QString COMPOSITE_WET_OR = "wet_or";
+const QString COMPOSITE_WET_AND = "wet_and";
+const QString COMPOSITE_WET_NAND = "wet_nand";
+const QString COMPOSITE_WET_NOR = "wet_nor";
+const QString COMPOSITE_WET_XNOR = "wet_xnor";
+const QString COMPOSITE_WET_IMPLICATION = "wet_implication";
+const QString COMPOSITE_WET_NOT_IMPLICATION = "wet_not_implication";
+const QString COMPOSITE_WET_CONVERSE = "wet_converse";
+const QString COMPOSITE_WET_NOT_CONVERSE = "wet_not_converse";
+
+const QString COMPOSITE_WET_PLUS = "wet_plus";
+const QString COMPOSITE_WET_MINUS = "wet_minus";
+const QString COMPOSITE_WET_ADD = "wet_add";
+const QString COMPOSITE_WET_SUBTRACT = "wet_subtract";
+const QString COMPOSITE_WET_INVERSE_SUBTRACT = "wet_inverse_subtract";
+const QString COMPOSITE_WET_DIFF = "wet_diff";
+const QString COMPOSITE_WET_MULT = "wet_multiply";
+const QString COMPOSITE_WET_DIVIDE = "wet_divide";
+const QString COMPOSITE_WET_ARC_TANGENT = "wet_arc_tangent";
+const QString COMPOSITE_WET_GEOMETRIC_MEAN = "wet_geometric_mean";
+const QString COMPOSITE_WET_ADDITIVE_SUBTRACTIVE = "wet_additive_subtractive";
+const QString COMPOSITE_WET_NEGATION = "wet_negation";
+
+const QString COMPOSITE_WET_MOD = "wet_modulo";
+const QString COMPOSITE_WET_MOD_CON = "wet_modulo_continuous";
+const QString COMPOSITE_WET_DIVISIVE_MOD = "wet_divisive_modulo";
+const QString COMPOSITE_WET_DIVISIVE_MOD_CON = "wet_divisive_modulo_continuous";
+const QString COMPOSITE_WET_MODULO_SHIFT = "wet_modulo_shift";
+const QString COMPOSITE_WET_MODULO_SHIFT_CON = "wet_modulo_shift_continuous";
+
+const QString COMPOSITE_WET_EQUIVALENCE = "wet_equivalence";
+const QString COMPOSITE_WET_ALLANON = "wet_allanon";
+const QString COMPOSITE_WET_PARALLEL = "wet_parallel";
+const QString COMPOSITE_WET_GRAIN_MERGE = "wet_grain_merge";
+const QString COMPOSITE_WET_GRAIN_EXTRACT = "wet_grain_extract";
+const QString COMPOSITE_WET_EXCLUSION = "wet_exclusion";
+const QString COMPOSITE_WET_HARD_MIX = "wet_hard_mix";
+const QString COMPOSITE_WET_HARD_MIX_PHOTOSHOP = "wet_hard_mix_photoshop";
+const QString COMPOSITE_WET_HARD_MIX_SOFTER_PHOTOSHOP = "wet_hard_mix_softer_photoshop";
+const QString COMPOSITE_WET_OVERLAY = "wet_overlay";
+const QString COMPOSITE_WET_BEHIND = "wet_behind";
+
+const QString COMPOSITE_WET_HARD_OVERLAY = "wet_hard_overlay";
+const QString COMPOSITE_WET_INTERPOLATION = "wet_interpolation";
+const QString COMPOSITE_WET_INTERPOLATIONB = "wet_interpolation_2x";
+const QString COMPOSITE_WET_PENUMBRAA = "wet_penumbra_a";
+const QString COMPOSITE_WET_PENUMBRAB = "wet_penumbra_b";
+const QString COMPOSITE_WET_PENUMBRAC = "wet_penumbra_c";
+const QString COMPOSITE_WET_PENUMBRAD = "wet_penumbra_d";
+
+const QString COMPOSITE_WET_DARKEN = "wet_darken";
+const QString COMPOSITE_WET_BURN = "wet_burn"; // this is also known as 'color burn'.
+const QString COMPOSITE_WET_LINEAR_BURN = "wet_linear_burn";
+const QString COMPOSITE_WET_GAMMA_DARK = "wet_gamma_dark";
+const QString COMPOSITE_WET_SHADE_IFS_ILLUSIONS = "wet_shade_ifs_illusions";
+const QString COMPOSITE_WET_FOG_DARKEN_IFS_ILLUSIONS = "wet_fog_darken_ifs_illusions";
+const QString COMPOSITE_WET_EASY_BURN = "wet_easy_burn";
+
+const QString COMPOSITE_WET_LIGHTEN = "wet_lighten";
+const QString COMPOSITE_WET_DODGE = "wet_dodge";
+const QString COMPOSITE_WET_LINEAR_DODGE = "wet_linear_dodge";
+const QString COMPOSITE_WET_SCREEN = "wet_screen";
+const QString COMPOSITE_WET_HARD_LIGHT = "wet_hard_light";
+const QString COMPOSITE_WET_SOFT_LIGHT_IFS_ILLUSIONS = "wet_soft_light_ifs_illusions";
+const QString COMPOSITE_WET_SOFT_LIGHT_PEGTOP_DELPHI = "wet_soft_light_pegtop_delphi";
+const QString COMPOSITE_WET_SOFT_LIGHT_PHOTOSHOP = "wet_soft_light";
+const QString COMPOSITE_WET_SOFT_LIGHT_SVG = "wet_soft_light_svg";
+const QString COMPOSITE_WET_GAMMA_LIGHT = "wet_gamma_light";
+const QString COMPOSITE_WET_GAMMA_ILLUMINATION = "wet_gamma_illumination";
+const QString COMPOSITE_WET_VIVID_LIGHT = "wet_vivid_light";
+const QString COMPOSITE_WET_FLAT_LIGHT = "wet_flat_light";
+const QString COMPOSITE_WET_LINEAR_LIGHT = "wet_linear_light";
+const QString COMPOSITE_WET_PIN_LIGHT = "wet_pin_light";
+const QString COMPOSITE_WET_PNORM_A = "wet_pnorm_a";
+const QString COMPOSITE_WET_PNORM_B = "wet_pnorm_b";
+const QString COMPOSITE_WET_SUPER_LIGHT = "wet_super_light";
+const QString COMPOSITE_WET_TINT_IFS_ILLUSIONS = "wet_tint_ifs_illusions";
+const QString COMPOSITE_WET_FOG_LIGHTEN_IFS_ILLUSIONS = "wet_fog_lighten_ifs_illusions";
+const QString COMPOSITE_WET_EASY_DODGE = "wet_easy_dodge";
+const QString COMPOSITE_WET_LUMINOSITY_SAI = "wet_luminosity_sai";
+
+const QString COMPOSITE_WET_HUE            = "wet_hue";
+const QString COMPOSITE_WET_COLOR          = "wet_color";
+const QString COMPOSITE_WET_SATURATION     = "wet_saturation";
+const QString COMPOSITE_WET_INC_SATURATION = "wet_inc_saturation";
+const QString COMPOSITE_WET_DEC_SATURATION = "wet_dec_saturation";
+const QString COMPOSITE_WET_LUMINIZE       = "wet_luminize";
+const QString COMPOSITE_WET_INC_LUMINOSITY = "wet_inc_luminosity";
+const QString COMPOSITE_WET_DEC_LUMINOSITY = "wet_dec_luminosity";
+
+const QString COMPOSITE_WET_HUE_HSV = "wet_hue_hsv";
+const QString COMPOSITE_WET_COLOR_HSV = "wet_color_hsv";
+const QString COMPOSITE_WET_SATURATION_HSV = "wet_saturation_hsv";
+const QString COMPOSITE_WET_INC_SATURATION_HSV = "wet_inc_saturation_hsv";
+const QString COMPOSITE_WET_DEC_SATURATION_HSV = "wet_dec_saturation_hsv";
+const QString COMPOSITE_WET_VALUE = "wet_value";
+const QString COMPOSITE_WET_INC_VALUE = "wet_inc_value";
+const QString COMPOSITE_WET_DEC_VALUE = "wet_dec_value";
+
+const QString COMPOSITE_WET_HUE_HSL = "wet_hue_hsl";
+const QString COMPOSITE_WET_COLOR_HSL = "wet_color_hsl";
+const QString COMPOSITE_WET_SATURATION_HSL = "wet_saturation_hsl";
+const QString COMPOSITE_WET_INC_SATURATION_HSL = "wet_inc_saturation_hsl";
+const QString COMPOSITE_WET_DEC_SATURATION_HSL = "wet_dec_saturation_hsl";
+const QString COMPOSITE_WET_LIGHTNESS = "wet_lightness";
+const QString COMPOSITE_WET_INC_LIGHTNESS = "wet_inc_lightness";
+const QString COMPOSITE_WET_DEC_LIGHTNESS = "wet_dec_lightness";
+
+const QString COMPOSITE_WET_HUE_HSI = "wet_hue_hsi";
+const QString COMPOSITE_WET_COLOR_HSI = "wet_color_hsi";
+const QString COMPOSITE_WET_SATURATION_HSI = "wet_saturation_hsi";
+const QString COMPOSITE_WET_INC_SATURATION_HSI = "wet_inc_saturation_hsi";
+const QString COMPOSITE_WET_DEC_SATURATION_HSI = "wet_dec_saturation_hsi";
+const QString COMPOSITE_WET_INTENSITY = "wet_intensity";
+const QString COMPOSITE_WET_INC_INTENSITY = "wet_inc_intensity";
+const QString COMPOSITE_WET_DEC_INTENSITY = "wet_dec_intensity";
+
+const QString COMPOSITE_WET_TANGENT_NORMALMAP = "wet_tangent_normalmap";
+
+const QString COMPOSITE_WET_COLORIZE = "wet_colorize";
+const QString COMPOSITE_WET_BUMPMAP = "wet_bumpmap";
+const QString COMPOSITE_WET_COMBINE_NORMAL = "wet_combine_normal";
+const QString COMPOSITE_WET_CLEAR = "wet_clear";
+const QString COMPOSITE_WET_DISSOLVE = "wet_dissolve";
+const QString COMPOSITE_WET_DISPLACE = "wet_displace";
+const QString COMPOSITE_WET_NO = "wet_nocomposition";
+const QString COMPOSITE_WET_PASS_THROUGH = "wet_pass_through"; // XXX: not implemented anywhere yet
+const QString COMPOSITE_WET_DARKER_COLOR = "wet_darker_color";
+const QString COMPOSITE_WET_LIGHTER_COLOR = "wet_lighter_color";
+const QString COMPOSITE_WET_UNDEF = "wet_undefined";
+
+const QString COMPOSITE_WET_REFLECT = "wet_reflect";
+const QString COMPOSITE_WET_GLOW = "wet_glow";
+const QString COMPOSITE_WET_FREEZE = "wet_freeze";
+const QString COMPOSITE_WET_HEAT = "wet_heat";
+const QString COMPOSITE_WET_GLEAT = "wet_glow_heat";
+const QString COMPOSITE_WET_HELOW = "wet_heat_glow";
+const QString COMPOSITE_WET_REEZE = "wet_reflect_freeze";
+const QString COMPOSITE_WET_FRECT = "wet_freeze_reflect";
+const QString COMPOSITE_WET_FHYRD = "wet_heat_glow_freeze_reflect_hybrid";
+
+const QString COMPOSITE_WET_LAMBERT_LIGHTING = "wet_lambert_lighting";
+const QString COMPOSITE_WET_LAMBERT_LIGHTING_GAMMA_2_2 = "wet_lambert_lighting_gamma2.2";
 
 
 class KRITAPIGMENT_EXPORT KoCompositeOpRegistry

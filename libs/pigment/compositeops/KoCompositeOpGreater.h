@@ -54,6 +54,21 @@ public:
         if (appliedAlpha == zeroValue<channels_type>()) return dstAlpha;
         channels_type newDstAlpha;
         
+        /*
+         * Greater mode formula for calculating Alpha. It creates small
+         * smoothing on the edge where two Alpha channels meet.
+         *
+         * w = 1/(1+exp(-x)) is the sigmoid function, there d-s would be x,
+         * the scalar (40) makes the slope more pronounced.
+         * Then the "w" wighting is used to interpolate between the two
+         * channels. It's probably made this way to make output color channels
+         * blend nicely with this alpha. This formulat is tailered for
+         * "Greater Blending Mode".
+         *
+         * For more universal Alpha union, check "Wet" blending mode, where
+         * simple max(sourceAlpha, destinationALpha) can be used.
+        */
+
         float dA = scale<float>(dstAlpha);
         
         float w = 1.0/(1.0+exp(-40.0*(dA - scale<float>(appliedAlpha))));

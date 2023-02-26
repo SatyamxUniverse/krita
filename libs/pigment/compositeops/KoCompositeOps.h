@@ -25,12 +25,6 @@
 #include "compositeops/KoCompositeOpDestinationIn.h"
 #include "compositeops/KoCompositeOpDestinationAtop.h"
 #include "compositeops/KoCompositeOpGreater.h"
-#include "compositeops/KoCompositeOpWetOver.h"
-#include "compositeops/KoCompositeOpWetParallel.h"
-#include "compositeops/KoCompositeOpWetMultiply.h"
-#include "compositeops/KoCompositeOpWetScreen.h"
-#include "compositeops/KoCompositeOpWetColorDodge.h"
-#include "compositeops/KoCompositeOpWetColorBurn.h"
 #include "compositeops/KoAlphaDarkenParamsWrapper.h"
 #include "KoOptimizedCompositeOpFactory.h"
 
@@ -150,12 +144,6 @@ struct AddGeneralOps<Traits, true>
          cs->addCompositeOp(new KoCompositeOpDestinationIn<Traits>(cs));
          cs->addCompositeOp(new KoCompositeOpDestinationAtop<Traits>(cs));
          cs->addCompositeOp(new KoCompositeOpGreater<Traits>(cs));
-         cs->addCompositeOp(new KoCompositeOpWetOver<Traits>(cs));
-         cs->addCompositeOp(new KoCompositeOpWetParallel<Traits>(cs));
-         cs->addCompositeOp(new KoCompositeOpWetMultiply<Traits>(cs));
-         cs->addCompositeOp(new KoCompositeOpWetScreen<Traits>(cs));
-         cs->addCompositeOp(new KoCompositeOpWetColorDodge<Traits>(cs));
-         cs->addCompositeOp(new KoCompositeOpWetColorBurn<Traits>(cs));
 
          add<&cfOverlay<Arg>       >(cs, COMPOSITE_OVERLAY       , KoCompositeOp::categoryMix());
          add<&cfGrainMerge<Arg>    >(cs, COMPOSITE_GRAIN_MERGE   , KoCompositeOp::categoryMix());
@@ -352,13 +340,224 @@ struct AddGeneralAlphaOps<Traits, true>
 };
 
 
+template<class Traits, bool flag>
+struct AddGeneralWetOps {
+    static void add(KoColorSpace *cs)
+    {
+        Q_UNUSED(cs);
+    }
+};
+
+template<class Traits>
+struct AddGeneralWetOps<Traits, true> {
+    typedef typename Traits::channels_type Arg;
+    typedef Arg (*CompositeFunc)(Arg, Arg);
+    static const qint32 alpha_pos = Traits::alpha_pos;
+
+    template<CompositeFunc func>
+    static void add(KoColorSpace *cs, const QString &id, const QString &category)
+    {
+        cs->addCompositeOp(new KoCompositeOpGenericSCWet<Traits, func>(cs, id, category));
+    }
+
+    static void add(KoColorSpace *cs)
+    {
+        // TODO Create optimised Wet Over
+        add<&cfOver<Arg>>(cs, COMPOSITE_WET_OVER, KoCompositeOp::categoryMix());
+
+        add<&cfOverlay<Arg>>(cs, COMPOSITE_WET_OVERLAY, KoCompositeOp::categoryMix());
+        add<&cfGrainMerge<Arg>>(cs, COMPOSITE_WET_GRAIN_MERGE, KoCompositeOp::categoryMix());
+        add<&cfGrainExtract<Arg>>(cs, COMPOSITE_WET_GRAIN_EXTRACT, KoCompositeOp::categoryMix());
+        add<&cfHardMix<Arg>>(cs, COMPOSITE_WET_HARD_MIX, KoCompositeOp::categoryMix());
+        add<&cfHardMixPhotoshop<Arg>>(cs, COMPOSITE_WET_HARD_MIX_PHOTOSHOP, KoCompositeOp::categoryMix());
+        add<&cfHardMixSofterPhotoshop<Arg>>(cs, COMPOSITE_WET_HARD_MIX_SOFTER_PHOTOSHOP, KoCompositeOp::categoryMix());
+        add<&cfGeometricMean<Arg>>(cs, COMPOSITE_WET_GEOMETRIC_MEAN, KoCompositeOp::categoryMix());
+        add<&cfParallel<Arg>>(cs, COMPOSITE_WET_PARALLEL, KoCompositeOp::categoryMix());
+        add<&cfAllanon<Arg>>(cs, COMPOSITE_WET_ALLANON, KoCompositeOp::categoryMix());
+        add<&cfHardOverlay<Arg>>(cs, COMPOSITE_WET_HARD_OVERLAY, KoCompositeOp::categoryMix());
+        add<&cfInterpolation<Arg>>(cs, COMPOSITE_WET_INTERPOLATION, KoCompositeOp::categoryMix());
+        add<&cfInterpolationB<Arg>>(cs, COMPOSITE_WET_INTERPOLATIONB, KoCompositeOp::categoryMix());
+        add<&cfPenumbraA<Arg>>(cs, COMPOSITE_WET_PENUMBRAA, KoCompositeOp::categoryMix());
+        add<&cfPenumbraB<Arg>>(cs, COMPOSITE_WET_PENUMBRAB, KoCompositeOp::categoryMix());
+        add<&cfPenumbraC<Arg>>(cs, COMPOSITE_WET_PENUMBRAC, KoCompositeOp::categoryMix());
+        add<&cfPenumbraD<Arg>>(cs, COMPOSITE_WET_PENUMBRAD, KoCompositeOp::categoryMix());
+
+        add<&cfScreen<Arg>>(cs, COMPOSITE_WET_SCREEN, KoCompositeOp::categoryLight());
+        add<&cfColorDodge<Arg>>(cs, COMPOSITE_WET_DODGE, KoCompositeOp::categoryLight());
+        add<&cfAddition<Arg>>(cs, COMPOSITE_WET_LINEAR_DODGE, KoCompositeOp::categoryLight());
+        add<&cfLightenOnly<Arg>>(cs, COMPOSITE_WET_LIGHTEN, KoCompositeOp::categoryLight());
+        add<&cfHardLight<Arg>>(cs, COMPOSITE_WET_HARD_LIGHT, KoCompositeOp::categoryLight());
+        add<&cfSoftLightIFSIllusions<Arg>>(cs, COMPOSITE_WET_SOFT_LIGHT_IFS_ILLUSIONS, KoCompositeOp::categoryLight());
+        add<&cfSoftLightPegtopDelphi<Arg>>(cs, COMPOSITE_WET_SOFT_LIGHT_PEGTOP_DELPHI, KoCompositeOp::categoryLight());
+        add<&cfSoftLightSvg<Arg>>(cs, COMPOSITE_WET_SOFT_LIGHT_SVG, KoCompositeOp::categoryLight());
+        add<&cfSoftLight<Arg>>(cs, COMPOSITE_WET_SOFT_LIGHT_PHOTOSHOP, KoCompositeOp::categoryLight());
+        add<&cfGammaLight<Arg>>(cs, COMPOSITE_WET_GAMMA_LIGHT, KoCompositeOp::categoryLight());
+        add<&cfGammaIllumination<Arg>>(cs, COMPOSITE_WET_GAMMA_ILLUMINATION, KoCompositeOp::categoryLight());
+        add<&cfVividLight<Arg>>(cs, COMPOSITE_WET_VIVID_LIGHT, KoCompositeOp::categoryLight());
+        add<&cfFlatLight<Arg>>(cs, COMPOSITE_WET_FLAT_LIGHT, KoCompositeOp::categoryLight());
+        add<&cfPinLight<Arg>>(cs, COMPOSITE_WET_PIN_LIGHT, KoCompositeOp::categoryLight());
+        add<&cfLinearLight<Arg>>(cs, COMPOSITE_WET_LINEAR_LIGHT, KoCompositeOp::categoryLight());
+        add<&cfPNormA<Arg>>(cs, COMPOSITE_WET_PNORM_A, KoCompositeOp::categoryLight());
+        add<&cfPNormB<Arg>>(cs, COMPOSITE_WET_PNORM_B, KoCompositeOp::categoryLight());
+        add<&cfSuperLight<Arg>>(cs, COMPOSITE_WET_SUPER_LIGHT, KoCompositeOp::categoryLight());
+        add<&cfTintIFSIllusions<Arg>>(cs, COMPOSITE_WET_TINT_IFS_ILLUSIONS, KoCompositeOp::categoryLight());
+        add<&cfFogLightenIFSIllusions<Arg>>(cs, COMPOSITE_WET_FOG_LIGHTEN_IFS_ILLUSIONS, KoCompositeOp::categoryLight());
+        add<&cfEasyDodge<Arg>>(cs, COMPOSITE_WET_EASY_DODGE, KoCompositeOp::categoryLight());
+
+        add<&cfColorBurn<Arg>>(cs, COMPOSITE_WET_BURN, KoCompositeOp::categoryDark());
+        add<&cfLinearBurn<Arg>>(cs, COMPOSITE_WET_LINEAR_BURN, KoCompositeOp::categoryDark());
+        add<&cfDarkenOnly<Arg>>(cs, COMPOSITE_WET_DARKEN, KoCompositeOp::categoryDark());
+        add<&cfGammaDark<Arg>>(cs, COMPOSITE_WET_GAMMA_DARK, KoCompositeOp::categoryDark());
+        add<&cfShadeIFSIllusions<Arg>>(cs, COMPOSITE_WET_SHADE_IFS_ILLUSIONS, KoCompositeOp::categoryDark());
+        add<&cfFogDarkenIFSIllusions<Arg>>(cs, COMPOSITE_WET_FOG_DARKEN_IFS_ILLUSIONS, KoCompositeOp::categoryDark());
+        add<&cfEasyBurn<Arg>>(cs, COMPOSITE_WET_EASY_BURN, KoCompositeOp::categoryDark());
+
+        add<&cfAddition<Arg>>(cs, COMPOSITE_WET_ADD, KoCompositeOp::categoryArithmetic());
+        add<&cfSubtract<Arg>>(cs, COMPOSITE_WET_SUBTRACT, KoCompositeOp::categoryArithmetic());
+        add<&cfInverseSubtract<Arg>>(cs, COMPOSITE_WET_INVERSE_SUBTRACT, KoCompositeOp::categoryArithmetic());
+        add<&cfMultiply<Arg>>(cs, COMPOSITE_WET_MULT, KoCompositeOp::categoryArithmetic());
+        add<&cfDivide<Arg>>(cs, COMPOSITE_WET_DIVIDE, KoCompositeOp::categoryArithmetic());
+
+        add<&cfModulo<Arg>>(cs, COMPOSITE_WET_MOD, KoCompositeOp::categoryModulo());
+        add<&cfModuloContinuous<Arg>>(cs, COMPOSITE_WET_MOD_CON, KoCompositeOp::categoryModulo());
+        add<&cfDivisiveModulo<Arg>>(cs, COMPOSITE_WET_DIVISIVE_MOD, KoCompositeOp::categoryModulo());
+        add<&cfDivisiveModuloContinuous<Arg>>(cs, COMPOSITE_WET_DIVISIVE_MOD_CON, KoCompositeOp::categoryModulo());
+        add<&cfModuloShift<Arg>>(cs, COMPOSITE_WET_MODULO_SHIFT, KoCompositeOp::categoryModulo());
+        add<&cfModuloShiftContinuous<Arg>>(cs, COMPOSITE_WET_MODULO_SHIFT_CON, KoCompositeOp::categoryModulo());
+
+        add<&cfArcTangent<Arg>>(cs, COMPOSITE_WET_ARC_TANGENT, KoCompositeOp::categoryNegative());
+        add<&cfDifference<Arg>>(cs, COMPOSITE_WET_DIFF, KoCompositeOp::categoryNegative());
+        add<&cfExclusion<Arg>>(cs, COMPOSITE_WET_EXCLUSION, KoCompositeOp::categoryNegative());
+        add<&cfEquivalence<Arg>>(cs, COMPOSITE_WET_EQUIVALENCE, KoCompositeOp::categoryNegative());
+        add<&cfAdditiveSubtractive<Arg>>(cs, COMPOSITE_WET_ADDITIVE_SUBTRACTIVE, KoCompositeOp::categoryNegative());
+        add<&cfNegation<Arg>>(cs, COMPOSITE_WET_NEGATION, KoCompositeOp::categoryNegative());
+
+        add<&cfXor<Arg>>(cs, COMPOSITE_WET_XOR, KoCompositeOp::categoryBinary());
+        add<&cfOr<Arg>>(cs, COMPOSITE_WET_OR, KoCompositeOp::categoryBinary());
+        add<&cfAnd<Arg>>(cs, COMPOSITE_WET_AND, KoCompositeOp::categoryBinary());
+        add<&cfNand<Arg>>(cs, COMPOSITE_WET_NAND, KoCompositeOp::categoryBinary());
+        add<&cfNor<Arg>>(cs, COMPOSITE_WET_NOR, KoCompositeOp::categoryBinary());
+        add<&cfXnor<Arg>>(cs, COMPOSITE_WET_XNOR, KoCompositeOp::categoryBinary());
+        add<&cfImplies<Arg>>(cs, COMPOSITE_WET_IMPLICATION, KoCompositeOp::categoryBinary());
+        add<&cfNotImplies<Arg>>(cs, COMPOSITE_WET_NOT_IMPLICATION, KoCompositeOp::categoryBinary());
+        add<&cfConverse<Arg>>(cs, COMPOSITE_WET_CONVERSE, KoCompositeOp::categoryBinary());
+        add<&cfNotConverse<Arg>>(cs, COMPOSITE_WET_NOT_CONVERSE, KoCompositeOp::categoryBinary());
+
+        add<&cfReflect<Arg>>(cs, COMPOSITE_WET_REFLECT, KoCompositeOp::categoryQuadratic());
+        add<&cfGlow<Arg>>(cs, COMPOSITE_WET_GLOW, KoCompositeOp::categoryQuadratic());
+        add<&cfFreeze<Arg>>(cs, COMPOSITE_WET_FREEZE, KoCompositeOp::categoryQuadratic());
+        add<&cfHeat<Arg>>(cs, COMPOSITE_WET_HEAT, KoCompositeOp::categoryQuadratic());
+        add<&cfGleat<Arg>>(cs, COMPOSITE_WET_GLEAT, KoCompositeOp::categoryQuadratic());
+        add<&cfHelow<Arg>>(cs, COMPOSITE_WET_HELOW, KoCompositeOp::categoryQuadratic());
+        add<&cfReeze<Arg>>(cs, COMPOSITE_WET_REEZE, KoCompositeOp::categoryQuadratic());
+        add<&cfFrect<Arg>>(cs, COMPOSITE_WET_FRECT, KoCompositeOp::categoryQuadratic());
+        add<&cfFhyrd<Arg>>(cs, COMPOSITE_WET_FHYRD, KoCompositeOp::categoryQuadratic());
+    }
+};
 
 
+template<class Traits, bool flag>
+struct AddRGBWetOps {
+    static void add(KoColorSpace *cs)
+    {
+        Q_UNUSED(cs);
+    }
+};
 
-}
+template<class Traits>
+struct AddRGBWetOps<Traits, true> {
+    typedef float Arg;
+
+    template<void compositeFunc(Arg, Arg, Arg, Arg &, Arg &, Arg &)>
+
+    static void add(KoColorSpace *cs, const QString &id, const QString &category)
+    {
+        cs->addCompositeOp(new KoCompositeOpGenericHSXWet<Traits, compositeFunc>(cs, id, category));
+    }
+
+    static void add(KoColorSpace *cs)
+    {
+        add<&cfTangentNormalmap<HSYType, Arg>>(cs, COMPOSITE_WET_TANGENT_NORMALMAP, KoCompositeOp::categoryMisc());
+        add<&cfReorientedNormalMapCombine<HSYType, Arg>>(cs,
+                                                         COMPOSITE_WET_COMBINE_NORMAL,
+                                                         KoCompositeOp::categoryMisc());
+
+        add<&cfColor<HSYType, Arg>>(cs, COMPOSITE_WET_COLOR, KoCompositeOp::categoryHSY());
+        add<&cfHue<HSYType, Arg>>(cs, COMPOSITE_WET_HUE, KoCompositeOp::categoryHSY());
+        add<&cfSaturation<HSYType, Arg>>(cs, COMPOSITE_WET_SATURATION, KoCompositeOp::categoryHSY());
+        add<&cfIncreaseSaturation<HSYType, Arg>>(cs, COMPOSITE_WET_INC_SATURATION, KoCompositeOp::categoryHSY());
+        add<&cfDecreaseSaturation<HSYType, Arg>>(cs, COMPOSITE_WET_DEC_SATURATION, KoCompositeOp::categoryHSY());
+        add<&cfLightness<HSYType, Arg>>(cs, COMPOSITE_WET_LUMINIZE, KoCompositeOp::categoryHSY());
+        add<&cfIncreaseLightness<HSYType, Arg>>(cs, COMPOSITE_WET_INC_LUMINOSITY, KoCompositeOp::categoryHSY());
+        add<&cfDecreaseLightness<HSYType, Arg>>(cs, COMPOSITE_WET_DEC_LUMINOSITY, KoCompositeOp::categoryHSY());
+        add<&cfDarkerColor<HSYType, Arg>>(cs,
+                                          COMPOSITE_WET_DARKER_COLOR,
+                                          KoCompositeOp::categoryDark()); // darker color as PSD does it//
+        add<&cfLighterColor<HSYType, Arg>>(cs,
+                                           COMPOSITE_WET_LIGHTER_COLOR,
+                                           KoCompositeOp::categoryLight()); // lighter color as PSD does it//
+
+        add<&cfLambertLighting<HSIType, Arg>>(cs, COMPOSITE_WET_LAMBERT_LIGHTING, KoCompositeOp::categoryMix());
+        add<&cfLambertLightingGamma2_2<HSIType, Arg>>(cs,
+                                                      COMPOSITE_WET_LAMBERT_LIGHTING_GAMMA_2_2,
+                                                      KoCompositeOp::categoryMix());
+
+        add<&cfColor<HSIType, Arg>>(cs, COMPOSITE_WET_COLOR_HSI, KoCompositeOp::categoryHSI());
+        add<&cfHue<HSIType, Arg>>(cs, COMPOSITE_WET_HUE_HSI, KoCompositeOp::categoryHSI());
+        add<&cfSaturation<HSIType, Arg>>(cs, COMPOSITE_WET_SATURATION_HSI, KoCompositeOp::categoryHSI());
+        add<&cfIncreaseSaturation<HSIType, Arg>>(cs, COMPOSITE_WET_INC_SATURATION_HSI, KoCompositeOp::categoryHSI());
+        add<&cfDecreaseSaturation<HSIType, Arg>>(cs, COMPOSITE_WET_DEC_SATURATION_HSI, KoCompositeOp::categoryHSI());
+        add<&cfLightness<HSIType, Arg>>(cs, COMPOSITE_WET_INTENSITY, KoCompositeOp::categoryHSI());
+        add<&cfIncreaseLightness<HSIType, Arg>>(cs, COMPOSITE_WET_INC_INTENSITY, KoCompositeOp::categoryHSI());
+        add<&cfDecreaseLightness<HSIType, Arg>>(cs, COMPOSITE_WET_DEC_INTENSITY, KoCompositeOp::categoryHSI());
+
+        add<&cfColor<HSLType, Arg>>(cs, COMPOSITE_WET_COLOR_HSL, KoCompositeOp::categoryHSL());
+        add<&cfHue<HSLType, Arg>>(cs, COMPOSITE_WET_HUE_HSL, KoCompositeOp::categoryHSL());
+        add<&cfSaturation<HSLType, Arg>>(cs, COMPOSITE_WET_SATURATION_HSL, KoCompositeOp::categoryHSL());
+        add<&cfIncreaseSaturation<HSLType, Arg>>(cs, COMPOSITE_WET_INC_SATURATION_HSL, KoCompositeOp::categoryHSL());
+        add<&cfDecreaseSaturation<HSLType, Arg>>(cs, COMPOSITE_WET_DEC_SATURATION_HSL, KoCompositeOp::categoryHSL());
+        add<&cfLightness<HSLType, Arg>>(cs, COMPOSITE_WET_LIGHTNESS, KoCompositeOp::categoryHSL());
+        add<&cfIncreaseLightness<HSLType, Arg>>(cs, COMPOSITE_WET_INC_LIGHTNESS, KoCompositeOp::categoryHSL());
+        add<&cfDecreaseLightness<HSLType, Arg>>(cs, COMPOSITE_WET_DEC_LIGHTNESS, KoCompositeOp::categoryHSL());
+
+        add<&cfColor<HSVType, Arg>>(cs, COMPOSITE_WET_COLOR_HSV, KoCompositeOp::categoryHSV());
+        add<&cfHue<HSVType, Arg>>(cs, COMPOSITE_WET_HUE_HSV, KoCompositeOp::categoryHSV());
+        add<&cfSaturation<HSVType, Arg>>(cs, COMPOSITE_WET_SATURATION_HSV, KoCompositeOp::categoryHSV());
+        add<&cfIncreaseSaturation<HSVType, Arg>>(cs, COMPOSITE_WET_INC_SATURATION_HSV, KoCompositeOp::categoryHSV());
+        add<&cfDecreaseSaturation<HSVType, Arg>>(cs, COMPOSITE_WET_DEC_SATURATION_HSV, KoCompositeOp::categoryHSV());
+        add<&cfLightness<HSVType, Arg>>(cs, COMPOSITE_WET_VALUE, KoCompositeOp::categoryHSV());
+        add<&cfIncreaseLightness<HSVType, Arg>>(cs, COMPOSITE_WET_INC_VALUE, KoCompositeOp::categoryHSV());
+        add<&cfDecreaseLightness<HSVType, Arg>>(cs, COMPOSITE_WET_DEC_VALUE, KoCompositeOp::categoryHSV());
+    }
+};
 
 
+template<class Traits, bool flag>
+struct AddGeneralAlphaWetOps {
+    static void add(KoColorSpace *cs)
+    {
+        Q_UNUSED(cs);
+    }
+};
 
+template<class Traits>
+struct AddGeneralAlphaWetOps<Traits, true> {
+    typedef float Arg;
+    static const qint32 alpha_pos = Traits::alpha_pos;
+    template<void compositeFunc(Arg, Arg, Arg &, Arg &)>
+
+    static void add(KoColorSpace *cs, const QString &id, const QString &category)
+    {
+        cs->addCompositeOp(new KoCompositeOpGenericSCAlphaWet<Traits, compositeFunc>(cs, id, category));
+    }
+
+    static void add(KoColorSpace *cs)
+    {
+        add<&cfAdditionSAI<HSVType, Arg>>(cs, COMPOSITE_WET_LUMINOSITY_SAI, KoCompositeOp::categoryLight());
+    }
+};
+
+} // namespace _Private
 
 
 /**
@@ -377,6 +576,9 @@ void addStandardCompositeOps(KoColorSpace* cs)
     _Private::AddGeneralOps      <_Traits_, useGeneralOps>::add(cs);
     _Private::AddRGBOps          <_Traits_, useRGBOps    >::add(cs);
     _Private::AddGeneralAlphaOps <_Traits_, useGeneralOps>::add(cs);
+    _Private::AddGeneralWetOps   <_Traits_, useGeneralOps>::add(cs);
+    _Private::AddRGBWetOps          <_Traits_, useRGBOps    >::add(cs);
+    _Private::AddGeneralAlphaWetOps <_Traits_, useGeneralOps>::add(cs);
 
 }
 
