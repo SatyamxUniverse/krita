@@ -75,6 +75,18 @@ public:
     RenderMode renderMode() const;
     void setRenderMode(RenderMode mode);
     /**
+     * @brief triangleInsteadDiamond determines the mode of "compacted" shapes.
+     *
+     * Compacted shapes are shapes where one axis shrinks to a point at the end(s)
+     * of the other axis. For HSL, HSI and HSY', both ends shrink to a point,
+     * effectively resulting in a top and bottom triangle.
+     * This sets whether a symmetric diamond is used, or the left edge is kept vertical
+     * so that the result is again a triangle pointing to the right.
+     * @return true if triangular, false if symmetric diamond
+     */
+    bool triangleInsteadDiamond() const;
+    void setTriangleInsteadDiamon(bool triangular);
+    /**
      * @brief Get the state of automatic exposure adjustment.
      * If enabled, the selector will set new maximum channel values on the selectorModel
      * whenever the set display renderer signals a configuration change.

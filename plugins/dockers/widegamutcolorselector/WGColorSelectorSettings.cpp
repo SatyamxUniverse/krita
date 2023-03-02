@@ -34,6 +34,7 @@ WGColorSelectorSettings::WGColorSelectorSettings(QWidget *parent)
             SLOT(slotSetSelectorConfiguration(KisColorSelectorConfiguration)));
     connect(m_selectorConfigGrid, SIGNAL(sigConfigSelected(KisColorSelectorConfiguration)),
             m_ui->btnSelectorShape, SLOT(hidePopupWidget()));
+    connect(m_ui->cmbCompactShapes, SIGNAL(currentIndexChanged(int)), SLOT(slotCompactShapeChanged(int)));
     connect(m_ui->cmbColorModel, SIGNAL(currentIndexChanged(int)), SLOT(slotSetColorModel(int)));
     connect(m_ui->sbShadeLineCount, SIGNAL(valueChanged(int)), SLOT(slotSetShadeLineCount(int)));
     m_favoriteConfigGrid = new WGSelectorConfigGrid(0, true);
@@ -89,6 +90,7 @@ void WGColorSelectorSettings::savePreferences() const
     WGConfig::Accessor cfg(false);
     cfg.set(WGConfig::selectorRenderMode,
             static_cast<KisVisualColorSelector::RenderMode>(m_ui->cmbSelectorRenderingMode->currentIndex()));
+    cfg.set(WGConfig::triangleInsteadDiamond, m_ui->cmbCompactShapes->currentIndex() != 0);
     cfg.set(WGConfig::rgbColorModel, static_cast<KisVisualColorModel::ColorModel>(
                 m_ui->cmbColorModel->currentIndex() +  KisVisualColorModel::HSV));
     cfg.setColorSelectorConfiguration(m_selectorConfigGrid->currentConfiguration());
@@ -151,6 +153,7 @@ void WGColorSelectorSettings::loadPreferencesImpl(bool defaults)
 {
     WGConfig::Accessor cfg;
     m_ui->cmbSelectorRenderingMode->setCurrentIndex(cfg.get(WGConfig::selectorRenderMode, defaults));
+    m_ui->cmbCompactShapes->setCurrentIndex(cfg.get(WGConfig::triangleInsteadDiamond, defaults) ? 1 : 0);
     m_ui->cmbColorModel->setCurrentIndex(cfg.get(WGConfig::rgbColorModel, defaults) - KisVisualColorModel::HSV);
     KisColorSelectorConfiguration selectorCfg = defaults ? cfg.defaultColorSelectorConfiguration
                                                              : cfg.colorSelectorConfiguration();
@@ -221,6 +224,13 @@ void WGColorSelectorSettings::loadPreferencesImpl(bool defaults)
 void WGColorSelectorSettings::slotSetSelectorConfiguration(const KisColorSelectorConfiguration &cfg)
 {
     Q_UNUSED(cfg);
+    m_ui->btnSelectorShape->setIcon(m_selectorConfigGrid->currentIcon());
+}
+
+void WGColorSelectorSettings::slotCompactShapeChanged(int index)
+{
+    m_selectorConfigGrid->setDisplayOptions(index != 0);
+    m_favoriteConfigGrid->setDisplayOptions(index != 0);
     m_ui->btnSelectorShape->setIcon(m_selectorConfigGrid->currentIcon());
 }
 

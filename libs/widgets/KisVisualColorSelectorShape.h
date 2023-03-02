@@ -80,7 +80,7 @@ public:
      */
     virtual QRect getSpaceForSquare(QRect geom) = 0;
     virtual QRect getSpaceForCircle(QRect geom) = 0;
-    virtual QRect getSpaceForTriangle(QRect geom) = 0;
+    virtual QRect getSpaceForTriangle(QRect geom, bool pointToRight = false) = 0;
 
     bool isHueControl() const;
     virtual bool supportsGamutMask() const;

@@ -30,6 +30,7 @@ struct KisVisualColorSelector::Private
     QList<KisVisualColorSelectorShape*> widgetlist;
     bool acceptTabletEvents {false};
     bool circular {false};
+    bool compactToTriangle {false};
     bool proofColors {false};
     bool initialized {false};
     bool useACSConfig {true};
@@ -176,6 +177,22 @@ void KisVisualColorSelector::setRenderMode(KisVisualColorSelector::RenderMode mo
         for (KisVisualColorSelectorShape *shape : qAsConst(m_d->widgetlist)) {
             shape->forceImageUpdate();
             shape->update();
+        }
+    }
+}
+
+bool KisVisualColorSelector::triangleInsteadDiamond() const
+{
+    return m_d->compactToTriangle;
+}
+
+void KisVisualColorSelector::setTriangleInsteadDiamon(bool triangular)
+{
+    if (m_d->compactToTriangle != triangular) {
+        m_d->compactToTriangle = triangular;
+        // this check could be more precise
+        if (m_d->colorChannelCount == 3 && m_d->acs_config.mainType == KisColorSelectorConfiguration::Triangle) {
+            rebuildSelector();
         }
     }
 }
@@ -462,7 +479,7 @@ void KisVisualColorSelector::rebuildSelector()
                                                            channel2, channel3);
             } else {
                 block = new KisVisualDiamondSelectorShape(this, KisVisualColorSelectorShape::twodimensional,
-                                                           channel2, channel3);
+                                                           channel2, channel3, m_d->compactToTriangle);
             }
         }
         else if (m_d->acs_config.mainType == KisColorSelectorConfiguration::Square) {
@@ -568,6 +585,8 @@ void KisVisualColorSelector::resizeEvent(QResizeEvent *)
         if (m_d->acs_config.mainType == KisColorSelectorConfiguration::Triangle) {
             if (m_d->selectorModel->colorModel() == KisVisualColorModel::HSV) {
                 m_d->widgetlist.at(1)->setGeometry(m_d->widgetlist.at(0)->getSpaceForTriangle(newrect));
+            } else if (m_d->compactToTriangle) {
+                m_d->widgetlist.at(1)->setGeometry(m_d->widgetlist.at(0)->getSpaceForTriangle(newrect, true));
             } else {
                 m_d->widgetlist.at(1)->setGeometry(m_d->widgetlist.at(0)->getSpaceForCircle(newrect));
             }

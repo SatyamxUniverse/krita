@@ -28,7 +28,7 @@ public:
      */
     QRect getSpaceForSquare(QRect geom) override;
     QRect getSpaceForCircle(QRect geom) override;
-    QRect getSpaceForTriangle(QRect geom) override;
+    QRect getSpaceForTriangle(QRect geom, bool pointToRight) override;
 
 protected:
     QImage renderAlphaMask() const override;

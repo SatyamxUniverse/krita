@@ -30,7 +30,7 @@ public:
      */
     QRect getSpaceForSquare(QRect geom) override;
     QRect getSpaceForCircle(QRect geom) override;
-    QRect getSpaceForTriangle(QRect geom) override;
+    QRect getSpaceForTriangle(QRect geom, bool pointToRight = false) override;
 protected:
     QRect getAvailableSpace(QRect geom, bool stretch);
     QImage renderAlphaMask() const override;

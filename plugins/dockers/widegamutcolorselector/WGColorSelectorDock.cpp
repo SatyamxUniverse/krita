@@ -271,6 +271,7 @@ void WGColorSelectorDock::slotConfigurationChanged()
 {
     WGConfig::Accessor cfg;
     m_selector->setRenderMode(cfg.get(WGConfig::selectorRenderMode));
+    m_selector->setTriangleInsteadDiamon(cfg.get(WGConfig::triangleInsteadDiamond));
     m_selector->selectorModel()->setRGBColorModel(cfg.get(WGConfig::rgbColorModel));
     KisColorSelectorConfiguration selectorCfg = cfg.colorSelectorConfiguration();
     m_selector->setConfiguration(&selectorCfg);

@@ -122,6 +122,14 @@ void WGSelectorConfigGrid::setConfigurations(const QVector<KisColorSelectorConfi
     }
 }
 
+void WGSelectorConfigGrid::setDisplayOptions(bool triangleInsteadDiamond)
+{
+    if (triangleInsteadDiamond != m_selector->triangleInsteadDiamond()) {
+        m_selector->setTriangleInsteadDiamon(triangleInsteadDiamond);
+        updateIcons();
+    }
+}
+
 void WGSelectorConfigGrid::setChecked(const KisColorSelectorConfiguration &configuration)
 {
     const QList<QAction*> actions = m_actionGroup->actions();

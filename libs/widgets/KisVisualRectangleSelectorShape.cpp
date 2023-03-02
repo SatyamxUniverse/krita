@@ -55,8 +55,9 @@ QRect KisVisualRectangleSelectorShape::getSpaceForCircle(QRect geom)
     return getAvailableSpace(geom, false);
 }
 
-QRect KisVisualRectangleSelectorShape::getSpaceForTriangle(QRect geom)
+QRect KisVisualRectangleSelectorShape::getSpaceForTriangle(QRect geom, bool pointToRight)
 {
+    Q_UNUSED(pointToRight);
     return getSpaceForSquare(geom);
 }
 

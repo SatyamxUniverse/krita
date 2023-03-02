@@ -130,6 +130,7 @@ void WGActionManager::showPopup(WGSelectorPopup *popup)
 void WGActionManager::loadColorSelectorSettings(WGConfig::Accessor &cfg)
 {
     m_colorSelector->setRenderMode(cfg.get(WGConfig::selectorRenderMode));
+    m_colorSelector->setTriangleInsteadDiamon(cfg.get(WGConfig::triangleInsteadDiamond));
     slotSelectorConfigChanged();
 }
 

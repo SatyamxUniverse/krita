@@ -14,11 +14,12 @@
 #include "kis_global.h"
 
 KisVisualDiamondSelectorShape::KisVisualDiamondSelectorShape(KisVisualColorSelector *parent,
-                                                               Dimensions dimension,
-                                                               int channel1, int channel2,
-                                                               int margin)
-    : KisVisualColorSelectorShape(parent, dimension, channel1, channel2),
-      m_margin(margin)
+                                                             Dimensions dimension,
+                                                             int channel1, int channel2,
+                                                             bool straightEdge, int margin)
+    : KisVisualColorSelectorShape(parent, dimension, channel1, channel2)
+    , m_margin(margin)
+    , m_straightEdge(straightEdge)
 {
 }
 
@@ -41,8 +42,9 @@ QRect KisVisualDiamondSelectorShape::getSpaceForCircle(QRect geom)
     return geom;
 }
 
-QRect KisVisualDiamondSelectorShape::getSpaceForTriangle(QRect geom)
+QRect KisVisualDiamondSelectorShape::getSpaceForTriangle(QRect geom, bool pointToRight)
 {
+    Q_UNUSED(pointToRight);
     return geom;
 }
 
@@ -60,7 +62,7 @@ QPointF KisVisualDiamondSelectorShape::convertShapeCoordinateToWidgetCoordinate(
     } else {
         horizontalLineLength = 2.0 * (1.0 - coordinate.y()) * triWidth;
     }
-    qreal horizontalLineStart = offset + 0.5 * (triWidth - horizontalLineLength);
+    qreal horizontalLineStart = m_straightEdge ? offset : offset + 0.5 * (triWidth - horizontalLineLength);
 
     qreal x = coordinate.x() * horizontalLineLength + horizontalLineStart;
 
@@ -85,7 +87,7 @@ QPointF KisVisualDiamondSelectorShape::convertWidgetCoordinateToShapeCoordinate(
     }
 
     if (horizontalLineLength > 1e-4) {
-        qreal horizontalLineStart = offset + 0.5 * (triWidth - horizontalLineLength);
+        qreal horizontalLineStart = m_straightEdge ? offset : offset + 0.5 * (triWidth - horizontalLineLength);
         x = qBound(0.0, (coordinate.x() - horizontalLineStart) / horizontalLineLength, 1.0);
     }
 
@@ -96,14 +98,23 @@ QRegion KisVisualDiamondSelectorShape::getMaskMap()
 {
     const int cursorWidth = qMax(2 * m_margin, 2);
     QPolygon maskPoly;
-    maskPoly << QPoint(qFloor(0.5 * (width() - cursorWidth)), 0)
-             << QPoint(qCeil(0.5 * (width() + cursorWidth)), 0)
-             << QPoint(width(), qFloor(0.5 * height() - cursorWidth))
-             << QPoint(width(), qCeil(0.5 * height() + cursorWidth))
-             << QPoint(qCeil(0.5 * (width() + cursorWidth)), height())
-             << QPoint(qFloor(0.5 * (width() - cursorWidth)), height())
-             << QPoint(0, qCeil(0.5 * height() + cursorWidth))
-             << QPoint(0, qFloor(0.5 * height() - cursorWidth));
+    if (m_straightEdge) {
+        maskPoly << QPoint(0, 0)
+                 << QPoint(cursorWidth, 0)
+                 << QPoint(width(), qFloor(0.5 * height() - cursorWidth))
+                 << QPoint(width(), qCeil(0.5 * height() + cursorWidth))
+                 << QPoint(cursorWidth, height())
+                 << QPoint(0, height());
+    } else {
+        maskPoly << QPoint(qFloor(0.5 * (width() - cursorWidth)), 0)
+                 << QPoint(qCeil(0.5 * (width() + cursorWidth)), 0)
+                 << QPoint(width(), qFloor(0.5 * height() - cursorWidth))
+                 << QPoint(width(), qCeil(0.5 * height() + cursorWidth))
+                 << QPoint(qCeil(0.5 * (width() + cursorWidth)), height())
+                 << QPoint(qFloor(0.5 * (width() - cursorWidth)), height())
+                 << QPoint(0, qCeil(0.5 * height() + cursorWidth))
+                 << QPoint(0, qFloor(0.5 * height() - cursorWidth));
+    }
 
     return QRegion(maskPoly);
 }
@@ -122,13 +133,22 @@ QImage KisVisualDiamondSelectorShape::renderAlphaMask() const
     painter.setRenderHint(QPainter::Antialiasing);
     painter.setBrush(Qt::white);
     painter.setPen(Qt::NoPen);
-    QPointF diamond[4] = {
-        QPointF(0.5 * width(), m_margin),
-        QPointF(m_margin, 0.5 * height()),
-        QPointF(0.5 * width(), height() - m_margin),
-        QPointF(width() - m_margin, 0.5 * height())
-    };
-    painter.drawConvexPolygon(diamond, 4);
+    if (m_straightEdge) {
+        QPointF triangle[3] = {
+            QPointF(m_margin, m_margin),
+            QPointF(width() - m_margin, 0.5 * height()),
+            QPointF(m_margin, height() - m_margin)
+        };
+        painter.drawConvexPolygon(triangle, 3);
+    } else {
+        QPointF diamond[4] = {
+            QPointF(0.5 * width(), m_margin),
+            QPointF(m_margin, 0.5 * height()),
+            QPointF(0.5 * width(), height() - m_margin),
+            QPointF(width() - m_margin, 0.5 * height())
+        };
+        painter.drawConvexPolygon(diamond, 4);
+    }
 
     return alphaMask;
 }
