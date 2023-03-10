@@ -16,8 +16,8 @@ class KisColorSmudgeStrategyWithOverlay : public KisColorSmudgeStrategyBase
 public:
     KisColorSmudgeStrategyWithOverlay(KisPainter *painter,
                                       KisImageSP image,
-                                      bool smearAlpha,
-                                      bool useDullingMode,
+                                      bool smearAlpha, bool smudgeScaling,
+                                      KisSmudgeOption::Mode smudgeMode,
                                       bool useOverlayMode);
 
     virtual ~KisColorSmudgeStrategyWithOverlay();
@@ -26,13 +26,15 @@ public:
 
     QVector<KisPainter*> finalPainters();
 
-    QVector<QRect> paintDab(const QRect &srcRect, const QRect &dstRect, const KoColor &currentPaintColor, qreal opacity,
+    QVector<QRect> paintDab(const QRect &neededRect, const QRect &srcRect, const QRect &dstRect,
+                            const KoColor &currentPaintColor, qreal opacity,
                             qreal colorRateValue, qreal smudgeRateValue, qreal maxPossibleSmudgeRateValue,
+                            qreal smudgeScalingValue,
                             qreal lightnessStrengthValue, qreal smudgeRadiusValue) override;
 
 protected:
     KisFixedPaintDeviceSP m_maskDab;
-    bool m_shouldPreserveMaskDab = true;
+    bool m_shouldPreserveMaskDab {true};
     QScopedPointer<KisOverlayPaintDeviceWrapper> m_layerOverlayDevice;
 
 private:
@@ -40,8 +42,7 @@ private:
     KisColorSmudgeSourceSP m_sourceWrapperDevice;
     KisPainter m_finalPainter;
     QScopedPointer<KisPainter> m_overlayPainter;
-    bool m_smearAlpha = true;
-    KisPainter *m_initializationPainter = 0;
+    bool m_smearAlpha {true};
 };
 
 

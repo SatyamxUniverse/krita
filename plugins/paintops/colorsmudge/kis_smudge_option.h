@@ -22,7 +22,7 @@ class KisSmudgeOption: public KisRateOption
 public:
     KisSmudgeOption();
 
-    enum Mode { SMEARING_MODE, DULLING_MODE };
+    enum Mode { SMEARING_MODE, DULLING_MODE, BLURRING_MODE };
 
     /**
      * Set the opacity of the painter based on the rate
@@ -40,6 +40,9 @@ public:
     void writeOptionSetting(KisPropertiesConfigurationSP setting) const override;
     void readOptionSetting(const KisPropertiesConfigurationSP setting) override;
 
+    bool getSmearOffset() const;
+    void setSmearOffset(bool smearOffset);
+
     bool getSmearAlpha() const;
     void setSmearAlpha(bool smearAlpha);
 
@@ -48,6 +51,7 @@ public:
 
 private:
     Mode m_mode;
+    bool m_smearOffset = true;
     bool m_smearAlpha = true;
     bool m_useNewEngine = false;
 };

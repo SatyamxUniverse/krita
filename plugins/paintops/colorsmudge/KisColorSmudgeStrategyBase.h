@@ -9,6 +9,7 @@
 
 #include <kis_types.h>
 
+#include "kis_smudge_option.h"
 #include "KisColorSmudgeStrategy.h"
 #include "KisColorSmudgeSource.h"
 
@@ -77,11 +78,15 @@ public:
 
 public:
 
-    KisColorSmudgeStrategyBase(bool useDullingMode);
+    KisColorSmudgeStrategyBase(KisPainter *painter, KisSmudgeOption::Mode smudgeMode, bool smudgeScaling);
+
+    virtual ~KisColorSmudgeStrategyBase();
 
     void initializePaintingImpl(const KoColorSpace *dstColorSpace,
                                 bool smearAlpha,
                                 const QString &colorRateCompositeOpId);
+
+    virtual QRect neededRect(const QRect &srcRect, qreal radiusFactor, qreal scalingFactor) override;
 
     virtual DabColoringStrategy& coloringStrategy() = 0;
 
@@ -103,24 +108,38 @@ public:
                                     KisFixedPaintDeviceSP tempFixedDevice, KisFixedPaintDeviceSP maskDab,
                                     KoColor *resultColor);
 
-    void blendBrush(const QVector<KisPainter *> dstPainters, KisColorSmudgeSourceSP srcSampleDevice,
-                    KisFixedPaintDeviceSP maskDab, bool preserveMaskDab, const QRect &srcRect, const QRect &dstRect,
+    void blendBrush(const QVector<KisPainter *> &dstPainters, KisColorSmudgeSourceSP srcSampleDevice,
+                    KisFixedPaintDeviceSP maskDab, bool preserveMaskDab,
+                    const QRect &neededRect, const QRect &srcRect, const QRect &dstRect,
                     const KoColor &currentPaintColor, qreal opacity, qreal smudgeRateValue,
-                    qreal maxPossibleSmudgeRateValue, qreal colorRateValue, qreal smudgeRadiusValue);
+                    qreal maxPossibleSmudgeRateValue, qreal smudgeScalingValue, qreal colorRateValue, qreal smudgeRadiusValue);
 
     void blendInBackgroundWithSmearing(KisFixedPaintDeviceSP dst, KisColorSmudgeSourceSP src, const QRect &srcRect,
-                                       const QRect &dstRect, const quint8 smudgeRateOpacity);
+                                       const QRect &dstRect, const quint8 smudgeRateOpacity, const qreal smudgeScalingValue);
 
     void blendInBackgroundWithDulling(KisFixedPaintDeviceSP dst, KisColorSmudgeSourceSP src, const QRect &dstRect,
                                       const KoColor &preparedDullingColor, const quint8 smudgeRateOpacity);
+
+    void blendInBackgroundWithBlurring(KisFixedPaintDeviceSP dst, KisColorSmudgeSourceSP src, const QRect &neededRect,
+                                       const QRect &srcRect, const QRect &dstRect,
+                                       const quint8 smudgeRateOpacity, const qreal smudgeRadiusValue, const qreal smudgeScalingValue);
+
+    static QRect neededScaleUpRect(const QRect &rect, const qreal factor);
+
+    static void scaleUp(KisFixedPaintDevice &dst, const QRect &rect,
+                        KisPaintDeviceSP src, const QRect &srcRect, const qreal factor);
 
 protected:
     const KoCompositeOp * m_colorRateOp {nullptr};
     KoColor m_preparedDullingColor;
     const KoCompositeOp * m_smearOp {nullptr};
+    KisPainter *m_initializationPainter {nullptr};
 private:
     KisFixedPaintDeviceSP m_blendDevice;
-    bool m_useDullingMode {true};
+    KisSmudgeOption::Mode m_smudgeMode {KisSmudgeOption::DULLING_MODE};
+    bool m_smudgeScaling {false};
+    
+    KisPaintDeviceSP m_filterDevice;
 };
 
 

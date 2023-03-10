@@ -18,13 +18,14 @@
 #include "kis_algebra_2d.h"
 #include <KoBgrColorSpaceTraits.h>
 
-KisColorSmudgeStrategyLightness::KisColorSmudgeStrategyLightness(KisPainter *painter, bool smearAlpha,
-                                                                 bool useDullingMode, KisPressurePaintThicknessOption::ThicknessMode thicknessMode)
-        : KisColorSmudgeStrategyBase(useDullingMode)
+KisColorSmudgeStrategyLightness::KisColorSmudgeStrategyLightness(KisPainter *painter,
+                                                                 bool smearAlpha, bool smudgeScaling,
+                                                                 KisSmudgeOption::Mode smudgeMode,
+                                                                 KisPressurePaintThicknessOption::ThicknessMode thicknessMode)
+        : KisColorSmudgeStrategyBase(painter, smudgeMode, smudgeScaling)
         , m_maskDab(new KisFixedPaintDevice(KoColorSpaceRegistry::instance()->alpha8()))
         , m_origDab(new KisFixedPaintDevice(KoColorSpaceRegistry::instance()->rgb8()))
         , m_smearAlpha(smearAlpha)
-        , m_initializationPainter(painter)
         , m_thicknessMode(thicknessMode)
 {
     KIS_SAFE_ASSERT_RECOVER(thicknessMode == KisPressurePaintThicknessOption::OVERLAY ||
@@ -136,10 +137,11 @@ void KisColorSmudgeStrategyLightness::updateMask(KisDabCache *dabCache, const Ki
 }
 
 QVector<QRect>
-KisColorSmudgeStrategyLightness::paintDab(const QRect &srcRect, const QRect &dstRect, const KoColor &currentPaintColor,
+KisColorSmudgeStrategyLightness::paintDab(const QRect &neededRect, const QRect &srcRect, const QRect &dstRect,
+                                          const KoColor &currentPaintColor,
                                           qreal opacity, qreal colorRateValue, qreal smudgeRateValue,
-                                          qreal maxPossibleSmudgeRateValue, qreal paintThicknessValue,
-                                          qreal smudgeRadiusValue)
+                                          qreal maxPossibleSmudgeRateValue, qreal smudgeScalingValue,
+                                          qreal paintThicknessValue, qreal smudgeRadiusValue)
 {
     const int numPixels = dstRect.width() * dstRect.height();
 
@@ -147,18 +149,19 @@ KisColorSmudgeStrategyLightness::paintDab(const QRect &srcRect, const QRect &dst
 
     QVector<QRect> readRects;
     readRects << mirroredRects;
-    readRects << srcRect;
+    readRects << neededRect;
     m_sourceWrapperDevice->readRects(readRects);
 
 
     blendBrush({ &m_finalPainter },
         m_sourceWrapperDevice,
         m_maskDab, m_shouldPreserveOriginalDab,
-        srcRect, dstRect,
+        neededRect, srcRect, dstRect,
         currentPaintColor,
         opacity,
         smudgeRateValue,
         maxPossibleSmudgeRateValue,
+        smudgeScalingValue,
         colorRateValue,
         smudgeRadiusValue);
 

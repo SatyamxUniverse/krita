@@ -14,8 +14,8 @@ class KisColorSmudgeStrategyMask : public KisColorSmudgeStrategyWithOverlay
 public:
     KisColorSmudgeStrategyMask(KisPainter *painter,
                                KisImageSP image,
-                               bool smearAlpha,
-                               bool useDullingMode,
+                               bool smearAlpha, bool smudgeScaling,
+                               KisSmudgeOption::Mode smudgeMode,
                                bool useOverlayMode);
 
     DabColoringStrategy &coloringStrategy() override;

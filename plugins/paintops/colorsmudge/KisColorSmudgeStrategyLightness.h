@@ -16,8 +16,8 @@ class KisColorSmudgeStrategyLightness : public KisColorSmudgeStrategyBase
 public:
 
     KisColorSmudgeStrategyLightness(KisPainter *painter,
-                                    bool smearAlpha,
-                                    bool useDullingMode, 
+                                    bool smearAlpha, bool smudgeScaling,
+                                    KisSmudgeOption::Mode smudgeMode, 
                                     KisPressurePaintThicknessOption::ThicknessMode thicknessMode);
 
     void initializePainting() override;
@@ -30,8 +30,10 @@ public:
                     const QPointF &cursorPoint,
                     QRect *dstDabRect, qreal lightnessStrength) override;
 
-    QVector<QRect> paintDab(const QRect &srcRect, const QRect &dstRect, const KoColor &currentPaintColor, qreal opacity,
+    QVector<QRect> paintDab(const QRect &neededRect, const QRect &srcRect, const QRect &dstRect,
+                            const KoColor &currentPaintColor, qreal opacity,
                             qreal colorRateValue, qreal smudgeRateValue, qreal maxPossibleSmudgeRateValue,
+                            qreal smudgeScalingValue,
                             qreal lightnessStrengthValue, qreal smudgeRadiusValue) override;
 private:
     KisFixedPaintDeviceSP m_maskDab;
@@ -46,7 +48,6 @@ private:
     bool m_shouldPreserveOriginalDab {true};
     DabColoringStrategyMask m_coloringStrategy;
     bool m_smearAlpha {true};
-    KisPainter *m_initializationPainter {nullptr};
     KisPressurePaintThicknessOption::ThicknessMode m_thicknessMode;
 };
 

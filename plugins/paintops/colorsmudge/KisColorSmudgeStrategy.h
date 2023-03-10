@@ -19,6 +19,8 @@ public:
 
     virtual void initializePainting() = 0;
 
+    virtual QRect neededRect(const QRect &srcRect, qreal radiusFactor, qreal scalingFactor) = 0;
+
     virtual void updateMask(KisDabCache *dabCache,
                             const KisPaintInformation& info,
                             const KisDabShape &shape,
@@ -26,12 +28,14 @@ public:
                             QRect *dstDabRect,
                             qreal lightnessStrength) = 0;
 
-    virtual QVector<QRect> paintDab(const QRect &srcRect, const QRect &dstRect,
+    virtual QVector<QRect> paintDab(const QRect &neededRect,
+                                    const QRect &srcRect, const QRect &dstRect,
                                     const KoColor &currentPaintColor,
                                     qreal opacity,
                                     qreal colorRateValue,
                                     qreal smudgeRateValue,
                                     qreal maxPossibleSmudgeRateValue,
+                                    qreal smudgeScalingValue,
                                     qreal lightnessStrengthValue,
                                     qreal smudgeRadiusValue) = 0;
 

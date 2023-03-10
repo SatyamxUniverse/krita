@@ -26,7 +26,9 @@ KisSmudgeOptionWidget::KisSmudgeOptionWidget()
     mCbSmudgeMode = new QComboBox();
     mCbSmudgeMode->addItem(i18n("Smearing"), KisSmudgeOption::SMEARING_MODE);
     mCbSmudgeMode->addItem("dulling-placeholder" , KisSmudgeOption::DULLING_MODE);
+    mCbSmudgeMode->addItem(i18n("Blurring"), KisSmudgeOption::BLURRING_MODE);
 
+    mChkSmearOffset = new QCheckBox();
     mChkSmearAlpha = new QCheckBox();
     mChkUseNewEngine = new QCheckBox();
     // the text for the second item is initialized here
@@ -34,6 +36,7 @@ KisSmudgeOptionWidget::KisSmudgeOptionWidget()
 
     QFormLayout *formLayout = new QFormLayout();
     formLayout->addRow(i18n("Smudge mode:"), mCbSmudgeMode);
+    formLayout->addRow(i18n("Smear offset:"), mChkSmearOffset);
     formLayout->addRow(i18n("Smear alpha:"), mChkSmearAlpha);
     formLayout->addRow(i18n("Use new smudge algorithm:"), mChkUseNewEngine);
     formLayout->addRow(new QLabel(i18n("(required for Color Image, Lightness Map, and Gradient Map brushes)")));
@@ -49,6 +52,7 @@ KisSmudgeOptionWidget::KisSmudgeOptionWidget()
     KisCurveOptionWidget::setConfigurationPage(page);
 
     connect(mCbSmudgeMode, SIGNAL(currentIndexChanged(int)), this, SLOT(slotCurrentIndexChanged(int)));
+    connect(mChkSmearOffset, SIGNAL(toggled(bool)), SLOT(slotSmearOffsetChanged(bool)));
     connect(mChkSmearAlpha, SIGNAL(toggled(bool)), SLOT(slotSmearAlphaChanged(bool)));
     connect(mChkUseNewEngine, SIGNAL(toggled(bool)), SLOT(slotUseNewEngineChanged(bool)));
 }
@@ -56,6 +60,12 @@ KisSmudgeOptionWidget::KisSmudgeOptionWidget()
 void KisSmudgeOptionWidget::slotCurrentIndexChanged(int index)
 {
     static_cast<KisSmudgeOption*>(curveOption())->setMode((KisSmudgeOption::Mode)index);
+    emitSettingChanged();
+}
+
+void KisSmudgeOptionWidget::slotSmearOffsetChanged(bool value)
+{
+    static_cast<KisSmudgeOption*>(curveOption())->setSmearOffset(value);
     emitSettingChanged();
 }
 
@@ -76,7 +86,10 @@ void KisSmudgeOptionWidget::readOptionSetting(const KisPropertiesConfigurationSP
     KisCurveOptionWidget::readOptionSetting(setting);
 
     KisSmudgeOption::Mode mode = static_cast<KisSmudgeOption*>(curveOption())->getMode();
-    mCbSmudgeMode->setCurrentIndex(mode == KisSmudgeOption::SMEARING_MODE ? 0 : 1);
+    mCbSmudgeMode->setCurrentIndex((int)mode);
+
+    const bool smearOffset = static_cast<KisSmudgeOption*>(curveOption())->getSmearOffset();
+    mChkSmearOffset->setChecked(smearOffset);
 
     const bool smearAlpha = static_cast<KisSmudgeOption*>(curveOption())->getSmearAlpha();
     mChkSmearAlpha->setChecked(smearAlpha);

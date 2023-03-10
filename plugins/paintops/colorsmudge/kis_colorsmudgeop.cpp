@@ -63,6 +63,7 @@ KisColorSmudgeOp::KisColorSmudgeOp(const KisPaintOpSettingsSP settings, KisPaint
     m_rateOption.readOptionSetting(settings);
     m_paintThicknessOption.readOptionSetting(settings);
     m_smudgeRateOption.readOptionSetting(settings);
+    m_smudgeScalingOption.readOptionSetting(settings);
     m_colorRateOption.readOptionSetting(settings);
 
     m_overlayModeOption.readOptionSetting(settings);
@@ -78,6 +79,7 @@ KisColorSmudgeOp::KisColorSmudgeOp(const KisPaintOpSettingsSP settings, KisPaint
     m_rateOption.resetAllSensors();
     m_paintThicknessOption.resetAllSensors();
     m_smudgeRateOption.resetAllSensors();
+    m_smudgeScalingOption.resetAllSensors();
     m_colorRateOption.resetAllSensors();
 
     m_rotationOption.resetAllSensors();
@@ -90,7 +92,8 @@ KisColorSmudgeOp::KisColorSmudgeOp(const KisPaintOpSettingsSP settings, KisPaint
     KIS_SAFE_ASSERT_RECOVER_NOOP(m_brush->brushApplication() == ALPHAMASK || m_smudgeRateOption.getUseNewEngine());
 
     const bool useSmearAlpha = m_smudgeRateOption.getSmearAlpha();
-    const bool useDullingMode = m_smudgeRateOption.getMode() == KisSmudgeOption::DULLING_MODE;
+    const bool useSmudgeScaling = m_smudgeScalingOption.isChecked();
+    const KisSmudgeOption::Mode smudgeMode = m_smudgeRateOption.getMode();
     const bool useOverlayMode = m_overlayModeOption.isChecked();
 
     m_rotationOption.applyFanCornersInfo(this);
@@ -105,27 +108,31 @@ KisColorSmudgeOp::KisColorSmudgeOp(const KisPaintOpSettingsSP settings, KisPaint
 
         m_strategy.reset(new KisColorSmudgeStrategyLightness(painter,
                                                              useSmearAlpha,
-                                                             useDullingMode,
+                                                             useSmudgeScaling,
+                                                             smudgeMode,
                                                              thicknessMode));
     } else if (m_smudgeRateOption.getUseNewEngine() &&
                m_brush->brushApplication() == ALPHAMASK) {
         m_strategy.reset(new KisColorSmudgeStrategyMask(painter,
                                                         image,
                                                         useSmearAlpha,
-                                                        useDullingMode,
+                                                        useSmudgeScaling,
+                                                        smudgeMode,
                                                         useOverlayMode));
     } else if (m_brush->brushApplication() == IMAGESTAMP ||
                m_brush->brushApplication() == GRADIENTMAP) {
         m_strategy.reset(new KisColorSmudgeStrategyStamp(painter,
                                                          image,
                                                          useSmearAlpha,
-                                                         useDullingMode,
+                                                         useSmudgeScaling,
+                                                         smudgeMode,
                                                          useOverlayMode));
     } else {
         m_strategy.reset(new KisColorSmudgeStrategyMaskLegacy(painter,
                                                               image,
                                                               useSmearAlpha,
-                                                              useDullingMode,
+                                                              useSmudgeScaling,
+                                                              smudgeMode,
                                                               useOverlayMode));
         usesNewEngine = false;
     }
@@ -201,7 +208,9 @@ KisSpacingInformation KisColorSmudgeOp::paintAt(const KisPaintInformation& info)
                               brush->maskWidth(shape, 0, 0, info),
                               brush->maskHeight(shape, 0, 0, info));
 
-    const qreal smudgeRadiusPortion = m_smudgeRadiusOption.isChecked() ? m_smudgeRadiusOption.computeSizeLikeValue(info) : 0.0;
+    const qreal smudgeRadiusPortion = m_smudgeRadiusOption.isChecked()
+        ? m_smudgeRadiusOption.computeSizeLikeValue(info)
+        : (m_smudgeRateOption.getMode() == KisSmudgeOption::BLURRING_MODE ? 1.0 : 0.0);
 
     KisSpacingInformation spacingInfo =
             effectiveSpacing(scale, rotation,
@@ -213,6 +222,7 @@ KisSpacingInformation KisColorSmudgeOp::paintAt(const KisPaintInformation& info)
     const qreal paintThickness = m_paintThicknessOption.apply(info);
     m_strategy->updateMask(m_dabCache, info, shape, scatteredPos, &m_dstDabRect, paintThickness);
 
+    const bool useSmearOffset = m_smudgeRateOption.getSmearOffset();
     QPointF newCenterPos = QRectF(m_dstDabRect).center();
     /**
      * Save the center of the current dab to know where to read the
@@ -221,11 +231,13 @@ KisSpacingInformation KisColorSmudgeOp::paintAt(const KisPaintInformation& info)
      * brush (due to rounding effects), which will result in a
      * really weird quality.
      */
-    QRect srcDabRect = m_dstDabRect.translated((m_lastPaintPos - newCenterPos).toPoint());
+    QRect srcDabRect = useSmearOffset
+        ? m_dstDabRect.translated((m_lastPaintPos - newCenterPos).toPoint())
+        : m_dstDabRect;
 
     m_lastPaintPos = newCenterPos;
 
-    if (m_firstRun) {
+    if (m_firstRun && useSmearOffset) {
         m_firstRun = false;
         return spacingInfo;
     }
@@ -233,7 +245,10 @@ KisSpacingInformation KisColorSmudgeOp::paintAt(const KisPaintInformation& info)
     const qreal colorRate = m_colorRateOption.isChecked() ? m_colorRateOption.computeSizeLikeValue(info) : 0.0;
     const qreal smudgeRate = m_smudgeRateOption.isChecked() ? m_smudgeRateOption.computeSizeLikeValue(info) : 1.0;
     const qreal maxSmudgeRate = m_smudgeRateOption.getRate();
+    const qreal smudgeScaling = m_smudgeScalingOption.isChecked() ? m_smudgeScalingOption.computeSizeLikeValue(info) : 1.0;
     const qreal fpOpacity = m_opacityOption.getOpacityf(info);
+    
+    const QRect neededRect = m_strategy->neededRect(srcDabRect, smudgeRadiusPortion, smudgeScaling);
 
     KoColor paintColor = m_paintColor;
 
@@ -246,11 +261,11 @@ KisSpacingInformation KisColorSmudgeOp::paintAt(const KisPaintInformation& info)
     }
 
     const QVector<QRect> dirtyRects =
-            m_strategy->paintDab(srcDabRect, m_dstDabRect,
+            m_strategy->paintDab(neededRect, srcDabRect, m_dstDabRect,
                                  paintColor,
                                  fpOpacity, colorRate,
-                                 smudgeRate,
-                                 maxSmudgeRate,
+                                 smudgeRate, maxSmudgeRate,
+                                 smudgeScaling,
                                  paintThickness,
                                  smudgeRadiusPortion);
 

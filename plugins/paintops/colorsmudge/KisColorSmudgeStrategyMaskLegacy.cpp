@@ -13,12 +13,14 @@
 #include "kis_image.h"
 
 KisColorSmudgeStrategyMaskLegacy::KisColorSmudgeStrategyMaskLegacy(KisPainter *painter, KisImageSP image,
-                                                                   bool smearAlpha, bool useDullingMode,
+                                                                   bool smearAlpha, bool smudgeScaling,
+                                                                   KisSmudgeOption::Mode smudgeMode,
                                                                    bool useOverlayMode)
         : KisColorSmudgeStrategyMask(painter,
                                      image,
                                      smearAlpha,
-                                     useDullingMode,
+                                     smudgeScaling,
+                                     smudgeMode,
                                      useOverlayMode)
 {
 }

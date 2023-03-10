@@ -16,12 +16,12 @@
 #include "KisOverlayPaintDeviceWrapper.h"
 
 KisColorSmudgeStrategyWithOverlay::KisColorSmudgeStrategyWithOverlay(KisPainter *painter, KisImageSP image,
-                                                                     bool smearAlpha, bool useDullingMode,
+                                                                     bool smearAlpha, bool smudgeScaling,
+                                                                     KisSmudgeOption::Mode smudgeMode,
                                                                      bool useOverlayMode)
-        : KisColorSmudgeStrategyBase(useDullingMode)
+        : KisColorSmudgeStrategyBase(painter, smudgeMode, smudgeScaling)
         , m_maskDab(new KisFixedPaintDevice(KoColorSpaceRegistry::instance()->alpha8()))
         , m_smearAlpha(smearAlpha)
-        , m_initializationPainter(painter)
 {
     if (useOverlayMode && image) {
         m_imageOverlayDevice.reset(new KisOverlayPaintDeviceWrapper(image->projection(), 1, KisOverlayPaintDeviceWrapper::PreciseMode));
@@ -69,10 +69,11 @@ QVector<KisPainter *> KisColorSmudgeStrategyWithOverlay::finalPainters()
     return result;
 }
 
-QVector<QRect> KisColorSmudgeStrategyWithOverlay::paintDab(const QRect &srcRect, const QRect &dstRect,
+QVector<QRect> KisColorSmudgeStrategyWithOverlay::paintDab(const QRect &neededRect,
+                                                           const QRect &srcRect, const QRect &dstRect,
                                                            const KoColor &currentPaintColor, qreal opacity,
                                                            qreal colorRateValue, qreal smudgeRateValue,
-                                                           qreal maxPossibleSmudgeRateValue,
+                                                           qreal maxPossibleSmudgeRateValue, qreal smudgeScalingValue,
                                                            qreal lightnessStrengthValue, qreal smudgeRadiusValue)
 {
     Q_UNUSED(lightnessStrengthValue);
@@ -81,7 +82,7 @@ QVector<QRect> KisColorSmudgeStrategyWithOverlay::paintDab(const QRect &srcRect,
 
     QVector<QRect> readRects;
     readRects << mirroredRects;
-    readRects << srcRect;
+    readRects << neededRect;
 
     m_sourceWrapperDevice->readRects(readRects);
 
@@ -96,11 +97,12 @@ QVector<QRect> KisColorSmudgeStrategyWithOverlay::paintDab(const QRect &srcRect,
     blendBrush(finalPainters(),
                m_sourceWrapperDevice,
                m_maskDab, m_shouldPreserveMaskDab,
-               srcRect, dstRect,
+               neededRect, srcRect, dstRect,
                currentPaintColor,
                opacity,
                smudgeRateValue,
                maxPossibleSmudgeRateValue,
+               smudgeScalingValue,
                colorRateValue, smudgeRadiusValue);
 
     m_layerOverlayDevice->writeRects(mirroredRects);

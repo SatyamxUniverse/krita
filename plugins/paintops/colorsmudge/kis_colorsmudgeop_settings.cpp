@@ -7,6 +7,7 @@
 #include "kis_colorsmudgeop_settings.h"
 
 #include "kis_smudge_option.h"
+#include "KisSmudgeScalingOption.h"
 
 struct KisColorSmudgeOpSettings::Private
 {
@@ -43,6 +44,7 @@ QList<KisUniformPaintOpPropertySP> KisColorSmudgeOpSettings::uniformProperties(K
             QList<QString> modes;
             modes << i18n("Smearing");
             modes << i18n("Dulling");
+            modes << i18n("Blurring");
 
             prop->setItems(modes);
 
@@ -77,6 +79,7 @@ QList<KisUniformPaintOpPropertySP> KisColorSmudgeOpSettings::uniformProperties(K
             prop->requestReadValue();
             props << toQShared(prop);
         }
+
         {
             KisCurveOptionUniformProperty *prop =
                 new KisCurveOptionUniformProperty(
@@ -91,10 +94,46 @@ QList<KisUniformPaintOpPropertySP> KisColorSmudgeOpSettings::uniformProperties(K
 
         {
             KisCurveOptionUniformProperty *prop =
+                new KisCurveOptionUniformProperty(
+                    "smudge_scaling",
+                    new KisSmudgeScalingOption(),
+                    settings, 0);
+
+            QObject::connect(updateProxy, SIGNAL(sigSettingsChanged()), prop, SLOT(requestReadValue()));
+            prop->requestReadValue();
+            props << toQShared(prop);
+        }
+
+        {
+            KisCurveOptionUniformProperty *prop =
                 new KisCurveOptionUniformProperty("smudge_color_rate",
                                                   new KisRateOption(KoID("ColorRate", i18n("Color Rate")), KisPaintOpOption::GENERAL, false),
                                                   settings,
                                                   0);
+
+            QObject::connect(updateProxy, SIGNAL(sigSettingsChanged()), prop, SLOT(requestReadValue()));
+            prop->requestReadValue();
+            props << toQShared(prop);
+        }
+
+        {
+            KisUniformPaintOpPropertyCallback *prop =
+                new KisUniformPaintOpPropertyCallback(KisUniformPaintOpPropertyCallback::Bool, KoID("smudge_smear_offset", i18n("Smear Offset")), settings, 0);
+
+            prop->setReadCallback(
+                [](KisUniformPaintOpProperty *prop) {
+                    KisSmudgeOption option;
+                    option.readOptionSetting(prop->settings().data());
+
+                    prop->setValue(option.getSmearOffset());
+                });
+            prop->setWriteCallback(
+                [](KisUniformPaintOpProperty *prop) {
+                    KisSmudgeOption option;
+                    option.readOptionSetting(prop->settings().data());
+                    option.setSmearOffset(prop->value().toBool());
+                    option.writeOptionSetting(prop->settings().data());
+                });
 
             QObject::connect(updateProxy, SIGNAL(sigSettingsChanged()), prop, SLOT(requestReadValue()));
             prop->requestReadValue();
