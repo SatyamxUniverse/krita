@@ -24,6 +24,7 @@ public:
     WGShadeSelector(WGSelectorDisplayConfigSP displayConfig, KisVisualColorModelSP colorModel, QWidget *parent = nullptr);
 
     void setModel(KisVisualColorModelSP colorModel) override;
+    void setOrientation(Qt::Orientation orientation);
     void updateSettings() override;
 protected:
     void mousePressEvent(QMouseEvent *event) override;
@@ -40,6 +41,7 @@ private Q_SLOTS:
 private:
     KisVisualColorModelSP m_model;
     QVector<WGShadeSlider *> m_sliders;
+    Qt::Orientation m_lineOrientation {Qt::Horizontal};
     int m_lineHeight {10};
     bool m_resetOnExternalUpdate {true};
     bool m_resetOnInteractions {false};

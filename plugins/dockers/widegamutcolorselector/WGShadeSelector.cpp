@@ -40,6 +40,29 @@ void WGShadeSelector::setModel(KisVisualColorModelSP colorModel)
     }
 }
 
+void WGShadeSelector::setOrientation(Qt::Orientation orientation)
+{
+    if (orientation != m_lineOrientation) {
+        m_lineOrientation = orientation;
+        QBoxLayout *lineLayout = qobject_cast<QBoxLayout*>(layout());
+        KIS_SAFE_ASSERT_RECOVER_RETURN(lineLayout);
+        lineLayout->setDirection(orientation == Qt::Horizontal ? QBoxLayout::TopToBottom : QBoxLayout::LeftToRight);
+        if (orientation == Qt::Horizontal) {
+            setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Fixed);
+        } else {
+            setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Preferred);
+        }
+
+        int lineWidth = m_lineOrientation == Qt::Horizontal ? QWIDGETSIZE_MAX : m_lineHeight;
+        int lineHeight = m_lineOrientation == Qt::Horizontal ? m_lineHeight : QWIDGETSIZE_MAX ;
+
+        for (WGShadeSlider *slider : qAsConst(m_sliders)) {
+            slider->setOrientation(orientation);
+            slider->setFixedSize(lineWidth, lineHeight);
+        }
+    }
+}
+
 void WGShadeSelector::updateSettings()
 {
     WGConfig::Accessor cfg;
@@ -48,6 +71,7 @@ void WGShadeSelector::updateSettings()
 
     while (config.size() > m_sliders.size()) {
         WGShadeSlider *line = new WGShadeSlider(displayConfiguration(), this, m_model);
+        line->setOrientation(m_lineOrientation);
         m_sliders.append(line);
         layout()->addWidget(m_sliders.last());
         connect(line, SIGNAL(sigChannelValuesChanged(QVector4D)), SLOT(slotSliderValuesChanged(QVector4D)));
@@ -58,10 +82,13 @@ void WGShadeSelector::updateSettings()
         delete m_sliders.takeLast();
     }
 
+    int lineWidth = m_lineOrientation == Qt::Horizontal ? QWIDGETSIZE_MAX : m_lineHeight;
+    int lineHeight = m_lineOrientation == Qt::Horizontal ? m_lineHeight : QWIDGETSIZE_MAX ;
     for (int i=0; i < config.size(); i++) {
         m_sliders[i]->setGradient(config[i].gradient, config[i].offset);
         m_sliders[i]->setDisplayMode(config[i].patchCount < 0, config[i].patchCount);
-        m_sliders[i]->setFixedHeight(m_lineHeight);
+        m_sliders[i]->setFixedWidth(lineWidth);
+        m_sliders[i]->setFixedHeight(lineHeight);
     }
     m_resetOnExternalUpdate = cfg.get(WGConfig::shadeSelectorUpdateOnExternalChanges);
     m_resetOnInteractions = cfg.get(WGConfig::shadeSelectorUpdateOnInteractionEnd);
