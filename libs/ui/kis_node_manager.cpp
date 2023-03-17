@@ -1382,10 +1382,8 @@ void KisNodeManager::toggleLock()
     KisNodeSP active = activeNode();
     if (nodes.isEmpty() || !active) return;
 
-    bool isLocked = active->userLocked();
-
     for (auto &node : nodes) {
-        KisLayerPropertiesIcons::setNodePropertyAutoUndo(node, KisLayerPropertiesIcons::locked, !isLocked, m_d->view->image());
+        KisLayerPropertiesIcons::setNodePropertyAutoUndo(node, KisLayerPropertiesIcons::locked, !node->userLocked(), m_d->view->image());
     }
 }
 
@@ -1395,10 +1393,8 @@ void KisNodeManager::toggleVisibility()
     KisNodeSP active = activeNode();
     if (nodes.isEmpty() || !active) return;
 
-    bool isVisible = active->visible();
-
     for (auto &node : nodes) {
-        KisLayerPropertiesIcons::setNodePropertyAutoUndo(node, KisLayerPropertiesIcons::visible, !isVisible, m_d->view->image());
+        KisLayerPropertiesIcons::setNodePropertyAutoUndo(node, KisLayerPropertiesIcons::visible, !node->visible(), m_d->view->image());
     }
 }
 
@@ -1408,16 +1404,10 @@ void KisNodeManager::toggleAlphaLock()
     KisNodeSP active = activeNode();
     if (nodes.isEmpty() || !active) return;
 
-    auto layer = qobject_cast<KisPaintLayer*>(active.data());
-    if (!layer) {
-        return;
-    }
-
-    bool isAlphaLocked = layer->alphaLocked();
     for (auto &node : nodes) {
         auto layer = qobject_cast<KisPaintLayer*>(node.data());
         if (layer) {
-            KisLayerPropertiesIcons::setNodePropertyAutoUndo(node, KisLayerPropertiesIcons::alphaLocked, !isAlphaLocked, m_d->view->image());
+            KisLayerPropertiesIcons::setNodePropertyAutoUndo(node, KisLayerPropertiesIcons::alphaLocked, !layer->alphaLocked(), m_d->view->image());
         }
     }
 }
@@ -1428,16 +1418,10 @@ void KisNodeManager::toggleInheritAlpha()
     KisNodeSP active = activeNode();
     if (nodes.isEmpty() || !active) return;
 
-    auto layer = qobject_cast<KisLayer*>(active.data());
-    if (!layer) {
-        return;
-    }
-
-    bool isAlphaDisabled = layer->alphaChannelDisabled();
     for (auto &node : nodes) {
         auto layer = qobject_cast<KisLayer*>(node.data());
         if (layer) {
-            KisLayerPropertiesIcons::setNodePropertyAutoUndo(node, KisLayerPropertiesIcons::inheritAlpha, !isAlphaDisabled, m_d->view->image());
+            KisLayerPropertiesIcons::setNodePropertyAutoUndo(node, KisLayerPropertiesIcons::inheritAlpha, !layer->alphaChannelDisabled(), m_d->view->image());
         }
     }
 }
