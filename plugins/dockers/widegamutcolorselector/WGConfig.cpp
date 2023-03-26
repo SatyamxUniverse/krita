@@ -236,6 +236,8 @@ const ColorPatches popupPatches {
 
 const GenericSetting<bool> triangleInsteadDiamond {"useTriangleInsteadDiamon", false};
 const GenericSetting<bool> proofToPaintingColors {"proofToPaintingColors", false};
+const GenericSetting<bool> minimalShadeSelectorEnabled {"minimalShadeSelectorEnabled", true};
+const GenericSetting<bool> myPaintShadeSelectorEnabled {"MyPaintShadeSelectorEnabled", false};
 const GenericSetting<bool> colorHistoryEnabled {"colorHistoryEnabled", true};
 const GenericSetting<bool> commonColorsEnabled {"commonColorsEnabled", true};
 const GenericSetting<bool> colorHistoryShowClearButton { "colorHistoryShowClearButton", false };
@@ -243,6 +245,9 @@ const GenericSetting<bool> commonColorsAutoUpdate { "commonColorsAutoUpdate", fa
 
 const GenericSetting<bool> quickSettingsEnabled { "quickSettingsMenuEnabled", true };
 const NumericSetting<int> popupSize { "popupSize", 300, 100, 500, true };
+const NumericSetting<Qt::Orientation> mainLayoutOrientation {
+    "mainLayoutOrientation", Qt::Vertical, Qt::Horizontal, Qt::Vertical, true
+};
 
 const NumericSetting<int> shadeSelectorLineHeight { "shadeSelectorLineHeight", 10, 8, 99 };
 const GenericSetting<bool> shadeSelectorUpdateOnExternalChanges { "shadeSelectorUpdateOnExternalChanges", true };

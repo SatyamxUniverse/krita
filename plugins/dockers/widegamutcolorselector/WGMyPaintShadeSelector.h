@@ -19,7 +19,7 @@ class WGMyPaintShadeSelector : public WGSelectorWidgetBase
 {
     Q_OBJECT
 public:
-    WGMyPaintShadeSelector(WGSelectorDisplayConfigSP displayConfig, QWidget *parent, UiMode mode);
+    WGMyPaintShadeSelector(WGSelectorDisplayConfigSP displayConfig, QWidget *parent, UiMode mode = DockerMode);
     ~WGMyPaintShadeSelector() override;
 
     void setModel(KisVisualColorModelSP model) override;

@@ -206,6 +206,8 @@ extern const ColorPatches popupPatches;
 
 extern const GenericSetting<bool> triangleInsteadDiamond;
 extern const GenericSetting<bool> proofToPaintingColors;
+extern const GenericSetting<bool> minimalShadeSelectorEnabled;
+extern const GenericSetting<bool> myPaintShadeSelectorEnabled;
 extern const GenericSetting<bool> colorHistoryEnabled;
 extern const GenericSetting<bool> commonColorsEnabled;
 extern const GenericSetting<bool> colorHistoryShowClearButton;
@@ -213,6 +215,7 @@ extern const GenericSetting<bool> commonColorsAutoUpdate;
 
 extern const GenericSetting<bool> quickSettingsEnabled;
 extern const NumericSetting<int> popupSize;
+extern const NumericSetting<Qt::Orientation> mainLayoutOrientation;
 
 // Shade Selector
 extern const NumericSetting<int> shadeSelectorLineHeight;

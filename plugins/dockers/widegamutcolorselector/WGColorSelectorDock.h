@@ -27,6 +27,7 @@ class WGActionManager;
 class WGColorPatches;
 class WGColorPreviewToolTip;
 class WGCommonColorSet;
+class WGMyPaintShadeSelector;
 class WGQuickSettingsWidget;
 class WGShadeSelector;
 class QBoxLayout;
@@ -93,6 +94,7 @@ private:
     WGActionManager *m_actionManager {0};
     WGColorPreviewToolTip *m_colorTooltip {0};
     WGShadeSelector *m_shadeSelector {0};
+    WGMyPaintShadeSelector *m_myPaintSelector {0};
     WGColorPatches *m_history {0};
     WGColorPatches *m_commonColors {0};
     QWidgetAction *m_quickSettingAction {0};

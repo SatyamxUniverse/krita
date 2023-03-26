@@ -97,6 +97,7 @@ void WGColorSelectorSettings::savePreferences() const
     // General
     cfg.set(WGConfig::quickSettingsEnabled, m_ui->grpQuickSettingsMenu->isChecked());
     cfg.setFavoriteConfigurations(m_favoriteConfigGrid->selectedConfigurations());
+    cfg.set(WGConfig::mainLayoutOrientation, m_ui->rdbMainLOHorizontal->isChecked() ? Qt::Horizontal : Qt::Vertical);
     cfg.set(WGConfig::colorSpaceSource,
             static_cast<WGColorSelectorDock::ColorSpaceSource>(m_ui->cmbSelectionColorSpace->currentIndex()));
     cfg.setCustomSelectionColorSpace(m_ui->wdgColorspace->currentColorSpace());
@@ -112,6 +113,8 @@ void WGColorSelectorSettings::savePreferences() const
     cfg.set(WGConfig::shadeSelectorUpdateOnExternalChanges, m_ui->chkShadeSelUpdateExternal->isChecked());
     cfg.set(WGConfig::shadeSelectorUpdateOnInteractionEnd, m_ui->chkShadeSelUpdateInteraction->isChecked());
     cfg.set(WGConfig::shadeSelectorUpdateOnRightClick, m_ui->chkShadeSelUpdateOnRightClick->isChecked());
+    cfg.set(WGConfig::minimalShadeSelectorEnabled, m_ui->grpMinimalShadeSelector->isChecked());
+    cfg.set(WGConfig::myPaintShadeSelectorEnabled, m_ui->chkMyPaintShadeSelector->isChecked());
     // we don't discard shade line configurations right away so we need to trim here
     QVector<WGConfig::ShadeLine> lineConfig = m_shadeLineConfig;
     lineConfig.resize(m_ui->sbShadeLineCount->value());
@@ -165,6 +168,11 @@ void WGColorSelectorSettings::loadPreferencesImpl(bool defaults)
     for (const KisColorSelectorConfiguration &fav : qAsConst(favoriteConfigs)) {
         m_favoriteConfigGrid->setChecked(fav);
     }
+    if (cfg.get(WGConfig::mainLayoutOrientation, defaults) == Qt::Horizontal) {
+        m_ui->rdbMainLOHorizontal->setChecked(true);
+    } else {
+        m_ui->rdbMainLOVertical->setChecked(true);
+    }
     m_ui->cmbSelectionColorSpace->setCurrentIndex(cfg.get(WGConfig::colorSpaceSource, defaults));
     m_ui->wdgColorspace->setCurrentColorSpace(cfg.customSelectionColorSpace(defaults));
     m_ui->chkProofColors->setChecked(cfg.get(WGConfig::proofToPaintingColors, defaults));
@@ -186,9 +194,11 @@ void WGColorSelectorSettings::loadPreferencesImpl(bool defaults)
     m_ui->chkShadeSelUpdateExternal->setChecked(cfg.get(WGConfig::shadeSelectorUpdateOnExternalChanges, defaults));
     m_ui->chkShadeSelUpdateInteraction->setChecked(cfg.get(WGConfig::shadeSelectorUpdateOnInteractionEnd, defaults));
     m_ui->chkShadeSelUpdateOnRightClick->setChecked(cfg.get(WGConfig::shadeSelectorUpdateOnRightClick, defaults));
+    m_ui->grpMinimalShadeSelector->setChecked(cfg.get(WGConfig::minimalShadeSelectorEnabled, defaults));
     m_shadeLineConfig = cfg.shadeSelectorLines(defaults);
     m_ui->sbShadeLineCount->setValue(m_shadeLineConfig.size());
     m_ui->sbShadeLineHeight->setValue(cfg.get(WGConfig::shadeSelectorLineHeight, defaults));
+    m_ui->chkMyPaintShadeSelector->setChecked(cfg.get(WGConfig::myPaintShadeSelectorEnabled, defaults));
     // Color History
     m_ui->historyGroupBox->setChecked(cfg.get(WGConfig::colorHistoryEnabled, defaults));
     patchOrientation = cfg.get(WGConfig::colorHistory.orientation, defaults);
