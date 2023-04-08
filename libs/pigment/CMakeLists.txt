@@ -52,6 +52,7 @@ set(kritapigment_SRCS
     KoFallBackColorTransformation.cpp
     KoHistogramProducer.cpp
     KoMultipleColorConversionTransformation.cpp
+    spectral.cpp
     colorspaces/KoAlphaColorSpace.cpp
     colorspaces/KoLabColorSpace.cpp
     colorspaces/KoRgbU16ColorSpace.cpp
