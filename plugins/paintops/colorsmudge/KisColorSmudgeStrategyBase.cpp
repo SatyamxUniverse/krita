@@ -210,7 +210,7 @@ KisColorSmudgeStrategyBase::blendBrush(const QVector<KisPainter *> dstPainters, 
     if (colorRateOpacity > 0 &&
         m_useDullingMode &&
         coloringStrategy.supportsFusedDullingBlending() &&
-       (m_smearOp->id() == COMPOSITE_OVER && m_colorRateOp->id() == COMPOSITE_OVER) ||
+       ((m_smearOp->id() == COMPOSITE_OVER && m_colorRateOp->id() == COMPOSITE_OVER) ||
        (m_smearOp->id() == COMPOSITE_OVER_SPECTRAL && m_colorRateOp->id() == COMPOSITE_OVER_SPECTRAL) ||
        ((m_smearOp->id() == COMPOSITE_COPY || m_smearOp->id() == COMPOSITE_COPY_SPECTRAL) &&
          dullingRateOpacity == OPACITY_OPAQUE_U8))) {

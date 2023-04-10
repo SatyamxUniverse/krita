@@ -30,15 +30,15 @@ float concentration(float sr, float sg, float sb, float sw, float dr, float dg, 
     return sw / (sw + dw);
   }
 
-void mixSpectrums(float* spectrum_s, float* spectrum_d, float t){
+void mixSpectrums(float* spectrum_s, float* spectrum_d, float sw){
     for (int i = 0; i < (int)81; i++) {
         float ks = 0.f, inv = 0.f;
 
         inv = (1.f - spectrum_s[i]);
-        ks += t * (inv * inv / (2.f * spectrum_s[i]));
+        ks += sw * (inv * inv / (2.f * spectrum_s[i]));
 
         inv = (1.f - spectrum_d[i]);
-        ks += (1.f - t) * (inv * inv / (2.f * spectrum_d[i]));
+        ks += (1.f - sw) * (inv * inv / (2.f * spectrum_d[i]));
 
         spectrum_d[i] = 1.f + ks - sqrt(ks * ks + 2.f * ks);
     }
