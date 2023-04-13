@@ -28,8 +28,8 @@ inline void cfSpectral(TReal sr, TReal sg, TReal sb, TReal sw, TReal& dr, TReal&
     db = fmax(db, 0.00000001f);
 
     TReal spectrum_s[81], spectrum_d[81];
-    LinearToSpectrum(sr, sg, sb, spectrum_s);
-    LinearToSpectrum(dr, dg, db, spectrum_d);
+    linearToSpectrum(sr, sg, sb, spectrum_s);
+    linearToSpectrum(dr, dg, db, spectrum_d);
 
     sw = concentration(sr, sg, sb, sw, dr, dg, db);
     mixSpectrums(spectrum_s, spectrum_d, sw);
