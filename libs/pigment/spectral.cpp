@@ -21,14 +21,14 @@ static const float CMF_Z[81] = {0.000152519f, 0.000261131f, 0.000518438f, 0.0011
 float spectrumToLuminance(float* spectrum) {
     float illum = 0.f;
     for (int i = 0; i < (int)81; i++) {
-        illum += CMF_X[i] * spectrum[i];
+        illum += CMF_Y[i] * spectrum[i];
     }
 
     return illum;
 }
 
 float linearToLuminance(float r, float g, float b) {
-    return 0.412408578f * r + 0.357589621f * g + 0.180431464f * b;
+    return 0.212648173f * r + 0.715179242f * g + 0.072172585f * b;
 }
 
 float concentration(float sr, float sg, float sb, float sw, float dr, float dg, float db) {
@@ -64,11 +64,11 @@ void linearToSpectrum(float r, float g, float b, float* spectrum) {
 }
 
 void spectrumToLinear(float* spectrum, float* r, float* g, float* b) {
-    float x = spectrumToLuminance(spectrum);
+    float y = spectrumToLuminance(spectrum);
 
-    float y = 0.f, z = 0.f;
+    float x = 0.f, z = 0.f;
     for (int i = 0; i < (int)81; i++) {
-        y += CMF_Y[i] * spectrum[i];
+        x += CMF_X[i] * spectrum[i];
         z += CMF_Z[i] * spectrum[i];
     }
 
