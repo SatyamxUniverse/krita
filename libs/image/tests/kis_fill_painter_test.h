@@ -14,16 +14,21 @@ class KisFillPainterTest : public QObject
     Q_OBJECT
 
 private:
-    void benchmarkFillPainter(const QPoint &startPoint, bool useCompositioning);
+    void benchmarkFillPainter(const QPoint &startPoint, bool useCompositioning, bool multiThreaded = false);
 
 private Q_SLOTS:
 
     void testCreation();
     void benchmarkFillPainter();
+    void benchmarkFillPainterMultiThreaded();
     void benchmarkFillPainterOffset();
+    void benchmarkFillPainterOffsetMultiThreaded();
     void benchmarkFillPainterOffsetCompositioning();
+    void benchmarkFillPainterOffsetCompositioningMultiThreaded();
     void benchmarkFillingScanlineColor();
+    void benchmarkFillingScanlineColorMultiThreaded();
     void benchmarkFillingScanlineSelection();
+    void benchmarkFillingScanlineSelectionMultiThreaded();
 
     void testPatternFill();
 };

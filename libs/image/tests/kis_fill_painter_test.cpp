@@ -12,6 +12,7 @@
 #include "kis_fill_painter.h"
 
 #include <floodfill/kis_scanline_fill.h>
+#include <floodfill/KisMultiThreadedScanlineFill.h>
 
 #define THRESHOLD 10
 
@@ -20,7 +21,7 @@ void KisFillPainterTest::testCreation()
     KisFillPainter test;
 }
 
-void KisFillPainterTest::benchmarkFillPainter(const QPoint &startPoint, bool useCompositioning)
+void KisFillPainterTest::benchmarkFillPainter(const QPoint &startPoint, bool useCompositioning, bool multiThreaded)
 {
     const KoColorSpace * cs = KoColorSpaceRegistry::instance()->rgb8();
     KisPaintDeviceSP dev = new KisPaintDevice(cs);
@@ -40,6 +41,9 @@ void KisFillPainterTest::benchmarkFillPainter(const QPoint &startPoint, bool use
         gc.setHeight(imageRect.height());
         gc.setPaintColor(KoColor(Qt::red, dev->colorSpace()));
         gc.setUseCompositioning(useCompositioning);
+        gc.setFloodFillAlgorithm(multiThreaded
+                                 ? KisFillPainter::FloodFillAlgorithm_MultiThreadedScanlineFill
+                                 : KisFillPainter::FloodFillAlgorithm_SequentialScanlineFill);
         gc.fillColor(startPoint.x(), startPoint.y(), dev);
     }
 
@@ -65,14 +69,29 @@ void KisFillPainterTest::benchmarkFillPainter()
     benchmarkFillPainter(QPoint(), false);
 }
 
+void KisFillPainterTest::benchmarkFillPainterMultiThreaded()
+{
+    benchmarkFillPainter(QPoint(), false, true);
+}
+
 void KisFillPainterTest::benchmarkFillPainterOffset()
 {
     benchmarkFillPainter(QPoint(5,5), false);
 }
 
+void KisFillPainterTest::benchmarkFillPainterOffsetMultiThreaded()
+{
+    benchmarkFillPainter(QPoint(5,5), false, true);
+}
+
 void KisFillPainterTest::benchmarkFillPainterOffsetCompositioning()
 {
     benchmarkFillPainter(QPoint(5,5), true);
+}
+
+void KisFillPainterTest::benchmarkFillPainterOffsetCompositioningMultiThreaded()
+{
+    benchmarkFillPainter(QPoint(5,5), true, true);
 }
 
 void KisFillPainterTest::benchmarkFillingScanlineColor()
@@ -105,6 +124,36 @@ void KisFillPainterTest::benchmarkFillingScanlineColor()
                                   "heavy_labyrinth_top_left"));
 }
 
+void KisFillPainterTest::benchmarkFillingScanlineColorMultiThreaded()
+{
+    const KoColorSpace * cs = KoColorSpaceRegistry::instance()->rgb8();
+    KisPaintDeviceSP dev = new KisPaintDevice(cs);
+
+    QImage srcImage(TestUtil::fetchDataFileLazy("heavy_labyrinth.png"));
+    QVERIFY(!srcImage.isNull());
+
+    QRect imageRect = srcImage.rect();
+
+    dev->convertFromQImage(srcImage, 0, 0, 0);
+
+
+    QBENCHMARK_ONCE {
+        KisMultiThreadedScanlineFill gc(dev, QPoint(), imageRect);
+        gc.setThreshold(THRESHOLD);
+        gc.fill(KoColor(Qt::red, dev->colorSpace()));
+    }
+
+    QImage resultImage =
+        dev->convertToQImage(0,
+                             imageRect.x(), imageRect.y(),
+                             imageRect.width(), imageRect.height());
+
+    QVERIFY(TestUtil::checkQImage(resultImage,
+                                  "fill_painter",
+                                  "scanline_",
+                                  "heavy_labyrinth_top_left"));
+}
+
 void KisFillPainterTest::benchmarkFillingScanlineSelection()
 {
     const KoColorSpace * cs = KoColorSpaceRegistry::instance()->rgb8();
@@ -122,6 +171,38 @@ void KisFillPainterTest::benchmarkFillingScanlineSelection()
 
     QBENCHMARK_ONCE {
         KisScanlineFill gc(dev, QPoint(), imageRect);
+        gc.setThreshold(THRESHOLD);
+        gc.fillSelection(pixelSelection);
+    }
+
+    QImage resultImage =
+        pixelSelection->convertToQImage(0,
+                                        imageRect.x(), imageRect.y(),
+                                        imageRect.width(), imageRect.height());
+
+    QVERIFY(TestUtil::checkQImage(resultImage,
+                                  "fill_painter",
+                                  "scanline_",
+                                  "heavy_labyrinth_top_left_selection"));
+}
+
+void KisFillPainterTest::benchmarkFillingScanlineSelectionMultiThreaded()
+{
+    const KoColorSpace * cs = KoColorSpaceRegistry::instance()->rgb8();
+    KisPaintDeviceSP dev = new KisPaintDevice(cs);
+
+    QImage srcImage(TestUtil::fetchDataFileLazy("heavy_labyrinth.png"));
+    QVERIFY(!srcImage.isNull());
+
+    QRect imageRect = srcImage.rect();
+
+    dev->convertFromQImage(srcImage, 0, 0, 0);
+
+
+    KisPixelSelectionSP pixelSelection = new KisPixelSelection();
+
+    QBENCHMARK_ONCE {
+        KisMultiThreadedScanlineFill gc(dev, QPoint(), imageRect);
         gc.setThreshold(THRESHOLD);
         gc.fillSelection(pixelSelection);
     }
