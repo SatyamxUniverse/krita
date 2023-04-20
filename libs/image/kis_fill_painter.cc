@@ -41,6 +41,7 @@
 #include "kis_pixel_selection.h"
 #include <KoCompositeOpRegistry.h>
 #include <floodfill/kis_scanline_fill.h>
+#include <floodfill/KisMultiThreadedScanlineFill.h>
 #include "kis_selection_filters.h"
 #include <kis_perspectivetransform_worker.h>
 #include <kis_sequential_iterator.h>
@@ -70,6 +71,7 @@ KisFillPainter::KisFillPainter(KisPaintDeviceSP device, KisSelectionSP selection
 
 void KisFillPainter::initFillPainter()
 {
+    m_floodFillAlgorithm = FloodFillAlgorithm_SequentialScanlineFill;
     m_width = m_height = -1;
     m_careForSelection = false;
     m_sizemod = 0;
@@ -251,12 +253,14 @@ void KisFillPainter::fillColor(int startX, int startY, KisPaintDeviceSP sourceDe
 
         if (!fillBoundsRect.contains(startPoint)) return;
 
-        KisScanlineFill gc(device(), startPoint, fillBoundsRect);
-        gc.setThreshold(m_threshold);
-        if (m_regionFillingMode == RegionFillingMode_FloodFill) {
+        if (m_floodFillAlgorithm == FloodFillAlgorithm_SequentialScanlineFill) {
+            KisScanlineFill gc(device(), startPoint, fillBoundsRect);
+            gc.setThreshold(m_threshold);
             gc.fill(paintColor());
         } else {
-            gc.fillUntilColor(paintColor(), m_regionFillingBoundaryColor);
+            KisMultiThreadedScanlineFill gc(device(), startPoint, fillBoundsRect);
+            gc.setThreshold(m_threshold);
+            gc.fill(paintColor());
         }
 
     } else {
@@ -294,7 +298,10 @@ void KisFillPainter::genericFillStart(int startX, int startY, KisPaintDeviceSP s
 
     // Create a selection from the surrounding area
 
-    KisSelectionSP newSelection = new KisSelection(new KisSelectionDefaultBounds(device()));
+    KisSelectionSP newSelection = new KisSelection(new KisSelectionDefaultBounds(device()),
+                                                   selection()
+                                                   ? selection()->resolutionProxy()
+                                                   : KisImageResolutionProxy::identity());
     createFloodSelection(newSelection->pixelSelection(), startX, startY, sourceDevice,
                          (selection().isNull() ? 0 : selection()->pixelSelection()));
     m_fillSelection = newSelection;
@@ -365,20 +372,23 @@ KisPixelSelectionSP KisFillPainter::createFloodSelection(KisPixelSelectionSP pix
         return pixelSelection;
     }
 
-    KisScanlineFill gc(sourceDevice, startPoint, fillBoundsRect);
-    gc.setThreshold(m_threshold);
-    gc.setOpacitySpread(m_useCompositioning ? m_opacitySpread : 100);
-    if (m_regionFillingMode == RegionFillingMode_FloodFill) {
+    if (m_floodFillAlgorithm == FloodFillAlgorithm_SequentialScanlineFill) {
+        KisScanlineFill gc(sourceDevice, startPoint, fillBoundsRect);
+        gc.setThreshold(m_threshold);
+        gc.setOpacitySpread(m_useCompositioning ? m_opacitySpread : 100);
         if (m_useSelectionAsBoundary && !pixelSelection.isNull()) {
             gc.fillSelection(pixelSelection, existingSelection);
         } else {
             gc.fillSelection(pixelSelection);
         }
     } else {
+        KisMultiThreadedScanlineFill gc(sourceDevice, startPoint, fillBoundsRect);
+        gc.setThreshold(m_threshold);
+        gc.setOpacitySpread(m_useCompositioning ? m_opacitySpread : 100);
         if (m_useSelectionAsBoundary && !pixelSelection.isNull()) {
-            gc.fillSelectionUntilColor(pixelSelection, m_regionFillingBoundaryColor, existingSelection);
+            gc.fillSelection(pixelSelection, existingSelection);
         } else {
-            gc.fillSelectionUntilColor(pixelSelection, m_regionFillingBoundaryColor);
+            gc.fillSelection(pixelSelection);
         }
     }
 

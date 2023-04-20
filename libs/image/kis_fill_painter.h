@@ -57,6 +57,12 @@ private:
     void initFillPainter();
 
 public:
+    enum FloodFillAlgorithm
+    {
+        FloodFillAlgorithm_SequentialScanlineFill,
+        FloodFillAlgorithm_MultiThreadedScanlineFill
+    };
+
     /**
      * Fill current selection of KisPainter with a specified \p color.
      *
@@ -228,6 +234,16 @@ public:
      */
     KisPixelSelectionSP createFloodSelection(KisPixelSelectionSP newSelection, int startX, int startY,
                                              KisPaintDeviceSP sourceDevice, KisPaintDeviceSP existingSelection);
+
+    inline void setFloodFillAlgorithm(FloodFillAlgorithm algorithm)
+    {
+        m_floodFillAlgorithm = algorithm;
+    }
+
+    FloodFillAlgorithm floodFillAlgorithm() const
+    {
+        return m_floodFillAlgorithm;
+    }
 
     /**
      * Fills all the pixels of the @ref outSelection device inside @ref rect
@@ -431,6 +447,7 @@ protected:
 private:
     KisSelectionSP m_fillSelection;
 
+    FloodFillAlgorithm m_floodFillAlgorithm;
     int m_feather;
     int m_sizemod;
     bool m_antiAlias;
