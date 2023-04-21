@@ -380,17 +380,35 @@ void KisNodeManager::setup(KisKActionCollection * actionCollection, KisActionMan
     connect(action, SIGNAL(triggered(bool)), this, SLOT(setIsolateActiveGroupMode(bool)));
     connect(this, SIGNAL(sigNodeActivated(KisNodeSP)), SLOT(changeIsolationRoot(KisNodeSP)));
 
+    // toggling layer properties
     action = actionManager->createAction("toggle_layer_visibility");
-    connect(action, SIGNAL(triggered()), this, SLOT(toggleVisibility()));
-
+    connect(action, SIGNAL(triggered()), this, SLOT(changeVisibility()));
     action = actionManager->createAction("toggle_layer_lock");
-    connect(action, SIGNAL(triggered()), this, SLOT(toggleLock()));
-
+    connect(action, SIGNAL(triggered()), this, SLOT(changeLock()));
     action = actionManager->createAction("toggle_layer_inherit_alpha");
-    connect(action, SIGNAL(triggered()), this, SLOT(toggleInheritAlpha()));
-
+    connect(action, SIGNAL(triggered()), this, SLOT(changeInheritAlpha()));
     action = actionManager->createAction("toggle_layer_alpha_lock");
-    connect(action, SIGNAL(triggered()), this, SLOT(toggleAlphaLock()));
+    connect(action, SIGNAL(triggered()), this, SLOT(changeAlphaLock()));
+
+    action = actionManager->createAction("change_layer_visibility");
+    connect(action, SIGNAL(triggered()), this, SLOT(changeVisibility()));
+    action = actionManager->createAction("change_layer_lock");
+    connect(action, SIGNAL(triggered()), this, SLOT(changeLock()));
+    action = actionManager->createAction("change_layer_inherit_alpha");
+    connect(action, SIGNAL(triggered()), this, SLOT(changeInheritAlpha()));
+    action = actionManager->createAction("change_layer_alpha_lock");
+    connect(action, SIGNAL(triggered()), this, SLOT(changeAlphaLock()));
+
+    action = actionManager->createAction("swap_layer_visibility");
+    connect(action, SIGNAL(triggered()), this, SLOT(swapVisibility()));
+    action = actionManager->createAction("swap_layer_lock");
+    connect(action, SIGNAL(triggered()), this, SLOT(swapLock()));
+    action = actionManager->createAction("swap_layer_inherit_alpha");
+    connect(action, SIGNAL(triggered()), this, SLOT(swapInheritAlpha()));
+    action = actionManager->createAction("swap_layer_alpha_lock");
+    connect(action, SIGNAL(triggered()), this, SLOT(swapAlphaLock()));
+
+
 
     action  = actionManager->createAction("split_alpha_into_mask");
     connect(action, SIGNAL(triggered()), this, SLOT(slotSplitAlphaIntoMask()));
@@ -1376,7 +1394,7 @@ void KisNodeManager::slotSplitAlphaSaveMerged()
     m_d->mergeTransparencyMaskAsAlpha(false);
 }
 
-void KisNodeManager::toggleLock()
+void KisNodeManager::swapLock()
 {
     KisNodeList nodes = this->selectedNodes();
     KisNodeSP active = activeNode();
@@ -1387,7 +1405,20 @@ void KisNodeManager::toggleLock()
     }
 }
 
-void KisNodeManager::toggleVisibility()
+void KisNodeManager::changeLock()
+{
+    KisNodeList nodes = this->selectedNodes();
+    KisNodeSP active = activeNode();
+    if (nodes.isEmpty() || !active) return;
+
+    bool isLocked = active->userLocked();
+
+    for (auto &node : nodes) {
+        KisLayerPropertiesIcons::setNodePropertyAutoUndo(node, KisLayerPropertiesIcons::locked, !isLocked, m_d->view->image());
+    }
+}
+
+void KisNodeManager::swapVisibility()
 {
     KisNodeList nodes = this->selectedNodes();
     KisNodeSP active = activeNode();
@@ -1398,7 +1429,20 @@ void KisNodeManager::toggleVisibility()
     }
 }
 
-void KisNodeManager::toggleAlphaLock()
+void KisNodeManager::changeVisibility()
+{
+    KisNodeList nodes = this->selectedNodes();
+    KisNodeSP active = activeNode();
+    if (nodes.isEmpty() || !active) return;
+
+    bool isVisible = active->visible();
+
+    for (auto &node : nodes) {
+        KisLayerPropertiesIcons::setNodePropertyAutoUndo(node, KisLayerPropertiesIcons::visible, !isVisible, m_d->view->image());
+    }
+}
+
+void KisNodeManager::swapAlphaLock()
 {
     KisNodeList nodes = this->selectedNodes();
     KisNodeSP active = activeNode();
@@ -1412,7 +1456,27 @@ void KisNodeManager::toggleAlphaLock()
     }
 }
 
-void KisNodeManager::toggleInheritAlpha()
+void KisNodeManager::changeAlphaLock()
+{
+    KisNodeList nodes = this->selectedNodes();
+    KisNodeSP active = activeNode();
+    if (nodes.isEmpty() || !active) return;
+
+    auto layer = qobject_cast<KisPaintLayer*>(active.data());
+    if (!layer) {
+        return;
+    }
+
+    bool isAlphaLocked = layer->alphaLocked();
+    for (auto &node : nodes) {
+        auto layer = qobject_cast<KisPaintLayer*>(node.data());
+        if (layer) {
+            KisLayerPropertiesIcons::setNodePropertyAutoUndo(node, KisLayerPropertiesIcons::alphaLocked, !isAlphaLocked, m_d->view->image());
+        }
+    }
+}
+
+void KisNodeManager::swapInheritAlpha()
 {
     KisNodeList nodes = this->selectedNodes();
     KisNodeSP active = activeNode();
@@ -1422,6 +1486,26 @@ void KisNodeManager::toggleInheritAlpha()
         auto layer = qobject_cast<KisLayer*>(node.data());
         if (layer) {
             KisLayerPropertiesIcons::setNodePropertyAutoUndo(node, KisLayerPropertiesIcons::inheritAlpha, !layer->alphaChannelDisabled(), m_d->view->image());
+        }
+    }
+}
+
+void KisNodeManager::changeInheritAlpha()
+{
+    KisNodeList nodes = this->selectedNodes();
+    KisNodeSP active = activeNode();
+    if (nodes.isEmpty() || !active) return;
+
+    auto layer = qobject_cast<KisLayer*>(active.data());
+    if (!layer) {
+        return;
+    }
+
+    bool isAlphaDisabled = layer->alphaChannelDisabled();
+    for (auto &node : nodes) {
+        auto layer = qobject_cast<KisLayer*>(node.data());
+        if (layer) {
+            KisLayerPropertiesIcons::setNodePropertyAutoUndo(node, KisLayerPropertiesIcons::inheritAlpha, !isAlphaDisabled, m_d->view->image());
         }
     }
 }
