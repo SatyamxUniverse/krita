@@ -816,7 +816,7 @@ private:
     GroupSplitPolicy_ m_groupSplitPolicy;
 };
 
-}
+} // namespace detail
 
 template <typename SelectionPolicyType_>
 using WriteToReferenceDeviceTilePolicy = detail::WriteToReferenceDeviceTilePolicy<SelectionPolicyType_>;

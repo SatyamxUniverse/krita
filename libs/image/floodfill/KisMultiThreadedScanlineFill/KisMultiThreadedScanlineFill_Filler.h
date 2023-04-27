@@ -17,6 +17,7 @@
 #include <QThread>
 
 #include <vector>
+#include <unordered_map>
 
 #include <KoColor.h>
 #include <kis_paint_device.h>
@@ -29,37 +30,37 @@ inline uint qHash(const QPoint &key)
     return qHash((static_cast<quint64>(key.x()) << 32) | static_cast<quint64>(key.y()));
 }
 
+template<>
+struct std::hash<QPoint>
+{
+    std::size_t operator()(const QPoint& pt) const noexcept
+    {
+        return qHash(pt);
+    }
+};
+
 namespace KisMultiThreadedScanlineFillNS
 {
 
-template <typename SelectionPolicyType_, typename TilePolicyType_>
+template <typename TilePolicyFactory>
 class Filler
 {
+    using TilePolicyType = typename TilePolicyFactory::TilePolicyType;
+
 public:
-    static_assert(std::is_same<SelectionPolicyType_, typename TilePolicyType_::SelectionPolicyType>::value,
-                  "Selection policies don't match.");
-
-    using SelectionPolicyType = SelectionPolicyType_;
-    using TilePolicyType = TilePolicyType_;
-
     Filler(KisPaintDeviceSP referenceDevice,
            KisPaintDeviceSP externalDevice,
            KisPixelSelectionSP maskDevice,
            KisPixelSelectionSP selectionDevice,
-           const KoColor &fillColor,
            const QRect &workingRect,
-           const SelectionPolicyType &masterSelectionPolicy)
+           const TilePolicyFactory &tilePolicyFactory)
         : m_referenceDevice(referenceDevice)
         , m_externalDevice(externalDevice)
         , m_maskDevice(maskDevice)
         , m_selectionDevice(selectionDevice)
-        , m_poolSize(static_cast<quint32>(QThread::idealThreadCount()))
         , m_workingRect(workingRect)
+        , m_tilePolicyFactory(tilePolicyFactory)
     {
-        m_pool.reserve(m_poolSize);
-        for (quint32 i = 0; i < m_poolSize; ++i) {
-            m_pool.push_back({QPair<bool, QFuture<TilePropagationInfo>>(), TilePolicyType(fillColor, masterSelectionPolicy)});
-        }
     }
 
     void fill(const QPoint &startPoint)
@@ -70,85 +71,42 @@ public:
         );
 
         TilePropagationInfo tilePropagationInfo;
-        tilePropagationInfo.insert(seedPointTileId, {Span{startPoint.x(), startPoint.x(), startPoint.y(), 1}});
+        tilePropagationInfo.insert({seedPointTileId, {Span{startPoint.x(), startPoint.x(), startPoint.y(), 1}}});
 
-        while (!tilePropagationInfo.isEmpty()) {
-            qint32 jobsRemainingToBeAdded = tilePropagationInfo.size();
-            qint32 numberOfCompletedJobs = 0;
-            TilePropagationInfo tilePropagationInfoResults;
-            QHashIterator<TileId, SeedSpanList> tilePropagationInfoIt(tilePropagationInfo);
+        while (!tilePropagationInfo.empty()) {
+            QThreadPool *pool = QThreadPool::globalInstance();
 
-            // Initialize the "job running" flag
-            for (quint32 i = 0; i < m_poolSize; ++i) {
-                m_pool[i].job.first = false;
+            QMutex resultGuard;
+            QList<TilePropagationInfo> result;
+
+            for (auto it = tilePropagationInfo.begin(); it !=  tilePropagationInfo.end(); ++it) {
+                const std::pair<QPoint, SeedSpanList> &value = *it;
+                pool->start([this, &resultGuard, &result, value] () {
+                    TilePolicyType tilePolicy = m_tilePolicyFactory();
+                    TilePropagationInfo info = processTile(value.first, value.second, tilePolicy);
+                    {
+                        QMutexLocker l(&resultGuard);
+                        result.append(info);
+                    }
+                });
             }
-            // Add initial jobs
-            for (quint32 i = 0; i < m_poolSize; ++i) {
-                if (tilePropagationInfoIt.hasNext()) {
-                    tilePropagationInfoIt.next();
-                    m_pool[i].job.first = true;
-                    m_pool[i].job.second =
-                        QtConcurrent::run(
-                            [tilePropagationInfoIt, i, this]
-                            () -> TilePropagationInfo
-                            {
-                                return processTile(tilePropagationInfoIt.key(), tilePropagationInfoIt.value(), m_pool[i].tilePolicy);
-                            }
-                        );
-                    --jobsRemainingToBeAdded;
-                } else {
-                    break;
-                }
-            }
-            // Add remaining jobs
-            while (jobsRemainingToBeAdded > 0) {
-                for (quint32 i = 0; i < m_poolSize; ++i) {
-                    if (m_pool[i].job.first == true && m_pool[i].job.second.isFinished()) {
-                        QHashIterator<TileId, SeedSpanList> futureTilePropagationInfoIt(m_pool[i].job.second.result());
-                        while (futureTilePropagationInfoIt.hasNext()) {
-                            futureTilePropagationInfoIt.next();
-                            const TileId &tileId = futureTilePropagationInfoIt.key();
-                            const SeedSpanList &seedSpanList = futureTilePropagationInfoIt.value();
-                            tilePropagationInfoResults[tileId].append(seedSpanList);
-                        }
-                        tilePropagationInfoIt.next();
-                        m_pool[i].job.second =
-                            QtConcurrent::run(
-                                [tilePropagationInfoIt, i, this]
-                                () -> TilePropagationInfo
-                                {
-                                    return processTile(tilePropagationInfoIt.key(), tilePropagationInfoIt.value(), m_pool[i].tilePolicy);
-                                }
-                            );
-                        ++numberOfCompletedJobs;
-                        --jobsRemainingToBeAdded;
-                        if (jobsRemainingToBeAdded == 0) {
-                            break;
-                        }
+            pool->waitForDone();
+
+            tilePropagationInfo.clear();
+            tilePropagationInfo.reserve(result.size());
+
+            for (auto it = result.cbegin(); it != result.cend(); ++it) {
+                for (auto infoIt = it->begin(); infoIt != it->end(); ++infoIt) {
+                    auto dstIt = tilePropagationInfo.find(infoIt->first);
+
+                    if (dstIt != tilePropagationInfo.end()) {
+                        dstIt->second.append(infoIt->second);
+                    } else {
+                        tilePropagationInfo.insert(*infoIt);
                     }
                 }
             }
-            // Wait for the remaining jobs to complete
-            while (numberOfCompletedJobs != tilePropagationInfo.size()) {
-                for (quint32 i = 0; i < m_poolSize; ++i) {
-                    if (m_pool[i].job.first == true && m_pool[i].job.second.isFinished()) {
-                        QHashIterator<TileId, SeedSpanList> futureTilePropagationInfoIt(m_pool[i].job.second.result());
-                        while (futureTilePropagationInfoIt.hasNext()) {
-                            futureTilePropagationInfoIt.next();
-                            const TileId &tileId = futureTilePropagationInfoIt.key();
-                            const SeedSpanList &seedSpanList = futureTilePropagationInfoIt.value();
-                            tilePropagationInfoResults[tileId].append(seedSpanList);
-                        }
-                        m_pool[i].job.first = false;
-                        ++numberOfCompletedJobs;
-                        if (numberOfCompletedJobs == tilePropagationInfo.size()) {
-                            break;
-                        }
-                    }
-                }
-            }
-            // Propagate the results
-            tilePropagationInfo = tilePropagationInfoResults;
+
         }
     }
 
@@ -164,23 +122,14 @@ private:
     };
 
     using SeedSpanList = QVector<Span>;
-    using TilePropagationInfo = QHash<TileId, SeedSpanList>;
-
-    struct PoolEntry
-    {
-        QPair<bool, QFuture<TilePropagationInfo>> job;
-        TilePolicyType tilePolicy;
-    };
+    using TilePropagationInfo = std::unordered_map<TileId, SeedSpanList>;
 
     KisPaintDeviceSP m_referenceDevice;
     KisPaintDeviceSP m_externalDevice;
     KisPixelSelectionSP m_maskDevice;
     KisPixelSelectionSP m_selectionDevice;
-    const quint32 m_poolSize;
     const QRect m_workingRect;
-    // Using std::vector since QVector does not allow deleted default constructor
-    // when using the reserve method (at least on 5.12, Sin 5.15 it does)
-    std::vector<PoolEntry> m_pool;
+    TilePolicyFactory m_tilePolicyFactory;
 
     TilePropagationInfo processTile(const TileId &tileId,
                                     const SeedSpanList &seedSpans,

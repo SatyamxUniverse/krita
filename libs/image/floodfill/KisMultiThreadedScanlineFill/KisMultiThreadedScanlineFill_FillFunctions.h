@@ -15,6 +15,25 @@
 namespace KisMultiThreadedScanlineFillNS
 {
 
+template <typename TilePolicyType_>
+struct TilePolicyFactory
+{
+    using TilePolicyType = TilePolicyType_;
+    using SelectionPolicyType = typename TilePolicyType::SelectionPolicyType;
+
+    TilePolicyType operator() () {
+        return TilePolicyType(m_fillColor, m_selectionPolicy);
+    }
+
+    TilePolicyFactory(const KoColor &color, const SelectionPolicyType &selectionPolicy)
+        : m_fillColor(color)
+        , m_selectionPolicy(selectionPolicy)
+    {}
+
+    KoColor m_fillColor;
+    SelectionPolicyType m_selectionPolicy;
+};
+
 template <typename SelectionPolicyType_>
 void fillColorDevice(KisPaintDeviceSP referenceDevice,
                      const KoColor &fillColor,
@@ -28,8 +47,8 @@ void fillColorDevice(KisPaintDeviceSP referenceDevice,
     KisPixelSelectionSP maskDevice = new KisPixelSelection(new KisSelectionDefaultBounds(referenceDevice));
     maskDevice->moveTo(referenceDevice->offset());
 
-    Filler<SelectionPolicyType_, WriteToReferenceDeviceTilePolicy<SelectionPolicyType_>>
-        filler(referenceDevice, nullptr, maskDevice, nullptr, fillColor, workingRect, selectionPolicy);
+    TilePolicyFactory<WriteToReferenceDeviceTilePolicy<SelectionPolicyType_>> tilePolicy(fillColor, selectionPolicy);
+    auto filler = Filler(referenceDevice, nullptr, maskDevice, nullptr, workingRect, tilePolicy);
     filler.fill(startPoint);
 }
 
@@ -54,12 +73,12 @@ void fillExternalColorDevice(KisPaintDeviceSP referenceDevice,
         QPoint(externalDevice->x() % tileSize.width(), externalDevice->y() % tileSize.height()) == tileGridOffset;
 
     if (externalDeviceIsAligned) {
-        Filler<SelectionPolicyType_, WriteToAlignedExternalDeviceTilePolicy<SelectionPolicyType_>>
-            filler(referenceDevice, externalDevice, maskDevice, nullptr, fillColor, workingRect, selectionPolicy);
+        TilePolicyFactory<WriteToAlignedExternalDeviceTilePolicy<SelectionPolicyType_>> tilePolicy(fillColor, selectionPolicy);
+        auto filler = Filler(referenceDevice, externalDevice, maskDevice, nullptr, workingRect, tilePolicy);
         filler.fill(startPoint);
     } else {
-        Filler<SelectionPolicyType_, WriteToUnalignedExternalDeviceTilePolicy<SelectionPolicyType_>>
-            filler(referenceDevice, externalDevice, maskDevice, nullptr, fillColor, workingRect, selectionPolicy);
+        TilePolicyFactory<WriteToUnalignedExternalDeviceTilePolicy<SelectionPolicyType_>> tilePolicy(fillColor, selectionPolicy);
+        auto filler = Filler(referenceDevice, externalDevice, maskDevice, nullptr, workingRect, tilePolicy);
         filler.fill(startPoint);
     }
 }
@@ -89,37 +108,59 @@ void fillMaskDevice(KisPaintDeviceSP referenceDevice,
     if (useBoundarySelectionDevice) {
         if (boundarySelectionDeviceIsAligned) {
             if (maskDeviceIsAligned) {
-                Filler<SelectionPolicyType_, WriteToAlignedMaskDeviceWithAlignedBoundarySelectionDeviceTilePolicy<SelectionPolicyType_>>
-                    filler(referenceDevice, nullptr, maskDevice, boundarySelectionDevice, KoColor(), workingRect, selectionPolicy);
+                TilePolicyFactory<WriteToAlignedMaskDeviceWithAlignedBoundarySelectionDeviceTilePolicy<SelectionPolicyType_>> tilePolicy(KoColor(), selectionPolicy);
+                auto filler = Filler(referenceDevice, nullptr, maskDevice, boundarySelectionDevice, workingRect, tilePolicy);
                 filler.fill(startPoint);
             } else {
-                Filler<SelectionPolicyType_, WriteToUnalignedMaskDeviceWithAlignedBoundarySelectionDeviceTilePolicy<SelectionPolicyType_>>
-                    filler(referenceDevice, nullptr, maskDevice, boundarySelectionDevice, KoColor(), workingRect, selectionPolicy);
+                TilePolicyFactory<WriteToUnalignedMaskDeviceWithAlignedBoundarySelectionDeviceTilePolicy<SelectionPolicyType_>> tilePolicy(KoColor(), selectionPolicy);
+                auto filler = Filler(referenceDevice, nullptr, maskDevice, boundarySelectionDevice, workingRect, tilePolicy);
                 filler.fill(startPoint);
             }
         } else {
             if (maskDeviceIsAligned) {
-                Filler<SelectionPolicyType_, WriteToAlignedMaskDeviceWithUnalignedBoundarySelectionDeviceTilePolicy<SelectionPolicyType_>>
-                    filler(referenceDevice, nullptr, maskDevice, boundarySelectionDevice, KoColor(), workingRect, selectionPolicy);
+                TilePolicyFactory<WriteToAlignedMaskDeviceWithUnalignedBoundarySelectionDeviceTilePolicy<SelectionPolicyType_>> tilePolicy(KoColor(), selectionPolicy);
+                auto filler = Filler(referenceDevice, nullptr, maskDevice, boundarySelectionDevice, workingRect, tilePolicy);
                 filler.fill(startPoint);
             } else {
-                Filler<SelectionPolicyType_, WriteToUnalignedMaskDeviceWithUnalignedBoundarySelectionDeviceTilePolicy<SelectionPolicyType_>>
-                    filler(referenceDevice, nullptr, maskDevice, boundarySelectionDevice, KoColor(), workingRect, selectionPolicy);
+                TilePolicyFactory<WriteToUnalignedMaskDeviceWithUnalignedBoundarySelectionDeviceTilePolicy<SelectionPolicyType_>> tilePolicy(KoColor(), selectionPolicy);
+                auto filler = Filler(referenceDevice, nullptr, maskDevice, boundarySelectionDevice, workingRect, tilePolicy);
                 filler.fill(startPoint);
             }
         }
     } else {
         if (maskDeviceIsAligned) {
-            Filler<SelectionPolicyType_, WriteToAlignedMaskDeviceTilePolicy<SelectionPolicyType_>>
-                filler(referenceDevice, nullptr, maskDevice, nullptr, KoColor(), workingRect, selectionPolicy);
+            TilePolicyFactory<WriteToAlignedMaskDeviceTilePolicy<SelectionPolicyType_>> tilePolicy(KoColor(), selectionPolicy);
+            auto filler = Filler(referenceDevice, nullptr, maskDevice, nullptr, workingRect, tilePolicy);
             filler.fill(startPoint);
         } else {
-            Filler<SelectionPolicyType_, WriteToUnalignedMaskDeviceTilePolicy<SelectionPolicyType_>>
-                filler(referenceDevice, nullptr, maskDevice, nullptr, KoColor(), workingRect, selectionPolicy);
+            TilePolicyFactory<WriteToUnalignedMaskDeviceTilePolicy<SelectionPolicyType_>> tilePolicy(KoColor(), selectionPolicy);
+            auto filler = Filler(referenceDevice, nullptr, maskDevice, nullptr, workingRect, tilePolicy);
             filler.fill(startPoint);
         }
     }
 }
+
+template <typename TilePolicyType_>
+struct GroupSplitTilePolicyFactory : TilePolicyFactory<TilePolicyType_>
+{
+    using TilePolicyType = typename TilePolicyFactory<TilePolicyType_>::TilePolicyType;
+    using SelectionPolicyType = typename TilePolicyFactory<TilePolicyType_>::SelectionPolicyType;
+
+    TilePolicyType operator() () {
+        TilePolicyType tilePolicy =
+            TilePolicyFactory<TilePolicyType_>::operator()();
+        tilePolicy.setGroupIndex(this->m_groupIndex);
+        return tilePolicy;
+    }
+
+    GroupSplitTilePolicyFactory(const KoColor &color, const SelectionPolicyType &selectionPolicy, int groupIndex)
+        : TilePolicyFactory<TilePolicyType_>(color, selectionPolicy)
+        , m_groupIndex(groupIndex)
+    {}
+
+    int m_groupIndex;
+};
+
 
 void fillContiguousGroup(KisPaintDeviceSP scribbleDevice,
                          KisPaintDeviceSP groupMapDevice,
@@ -144,18 +185,12 @@ void fillContiguousGroup(KisPaintDeviceSP scribbleDevice,
     GroupSplitSelectionPolicy selectionPolicy(referenceValue, threshold);
 
     if (groupMapDeviceIsAligned) {
-        using FillerType = Filler<GroupSplitSelectionPolicy, AlignedGroupSplitTilePolicy<GroupSplitSelectionPolicy>>;
-        FillerType filler(scribbleDevice, groupMapDevice, maskDevice, nullptr, KoColor(), workingRect, selectionPolicy);
-        for (FillerType::PoolEntry &poolEntry : filler.m_pool) {
-            poolEntry.tilePolicy.setGroupIndex(groupIndex);
-        }
+        GroupSplitTilePolicyFactory<AlignedGroupSplitTilePolicy<GroupSplitSelectionPolicy>> tilePolicy(KoColor(), selectionPolicy, groupIndex);
+        auto filler = Filler(scribbleDevice, groupMapDevice, maskDevice, nullptr, workingRect, tilePolicy);
         filler.fill(startPoint);
     } else {
-        using FillerType = Filler<GroupSplitSelectionPolicy, UnalignedGroupSplitTilePolicy<GroupSplitSelectionPolicy>>;
-        FillerType filler(scribbleDevice, groupMapDevice, maskDevice, nullptr, KoColor(), workingRect, selectionPolicy);
-        for (FillerType::PoolEntry &poolEntry : filler.m_pool) {
-            poolEntry.tilePolicy.setGroupIndex(groupIndex);
-        }
+        GroupSplitTilePolicyFactory<UnalignedGroupSplitTilePolicy<GroupSplitSelectionPolicy>> tilePolicy(KoColor(), selectionPolicy, groupIndex);
+        auto filler = Filler(scribbleDevice, groupMapDevice, maskDevice, nullptr, workingRect, tilePolicy);
         filler.fill(startPoint);
     }
 }

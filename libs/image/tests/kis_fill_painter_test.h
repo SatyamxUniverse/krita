@@ -29,7 +29,7 @@ private Q_SLOTS:
     void benchmarkFillingScanlineColorMultiThreaded();
     void benchmarkFillingScanlineSelection();
     void benchmarkFillingScanlineSelectionMultiThreaded();
-
+    void testChainLabirinthFillMultiThreaded();
     void testPatternFill();
 };
 

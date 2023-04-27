@@ -218,6 +218,35 @@ void KisFillPainterTest::benchmarkFillingScanlineSelectionMultiThreaded()
                                   "heavy_labyrinth_top_left_selection"));
 }
 
+void KisFillPainterTest::testChainLabirinthFillMultiThreaded()
+{
+    const KoColorSpace * cs = KoColorSpaceRegistry::instance()->rgb8();
+    KisPaintDeviceSP dev = new KisPaintDevice(cs);
+
+    QImage srcImage(TestUtil::fetchDataFileLazy("test_labirinth_fill.png"));
+    QVERIFY(!srcImage.isNull());
+
+    QRect imageRect = srcImage.rect();
+
+    dev->convertFromQImage(srcImage, 0, 0, 0);
+
+    ENTER_FUNCTION() << ppVar(dev->exactBounds());
+
+    KisMultiThreadedScanlineFill gc(dev, QPoint(126,1), imageRect);
+    gc.setThreshold(THRESHOLD);
+    gc.fill(KoColor(Qt::red, dev->colorSpace()));
+
+    QImage resultImage =
+        dev->convertToQImage(0,
+                             imageRect.x(), imageRect.y(),
+                             imageRect.width(), imageRect.height());
+
+    QVERIFY(TestUtil::checkQImage(resultImage,
+                                  "fill_painter",
+                                  "scanline_",
+                                  "test_labirinth_fill"));
+}
+
 void KisFillPainterTest::testPatternFill()
 {
     const KoColorSpace * cs = KoColorSpaceRegistry::instance()->rgb8();
