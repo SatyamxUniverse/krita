@@ -6,6 +6,7 @@
 
 #include "commonFunctions.h"
 #include "fillSelection.h"
+#include "MultithreadedFillTestHelpers.h"
 
 void FillSelectionBenchmark::benchmarkFillSelection_Aligned()
 {
@@ -19,10 +20,13 @@ void FillSelectionBenchmark::benchmarkFillSelection_Aligned()
         },
         [](KisPaintDeviceSP referenceDevice, const QRect &workingRect, const QPoint &seedPoint, KisPixelSelectionSP) -> void
         {
-            KisPixelSelectionSP mask = new KisPixelSelection();
-            KisMultiThreadedScanlineFill gc(referenceDevice, seedPoint, workingRect);
-            gc.setThreshold(50);
-            gc.fillSelection(mask);
+            KisImageSP image = new KisImage(0, workingRect.width(), workingRect.height(), referenceDevice->colorSpace(), "");
+            TestUtil::runFillStroke(image, [=] (KisRunnableStrokeJobsInterface *iface) {
+                KisPixelSelectionSP mask = new KisPixelSelection();
+                KisMultiThreadedScanlineFill gc(referenceDevice, seedPoint, workingRect, iface);
+                gc.setThreshold(50);
+                gc.fillSelection(mask);
+            });
         }
     );
 }
@@ -40,11 +44,14 @@ void FillSelectionBenchmark::benchmarkFillSelection_Unaligned()
         },
         [](KisPaintDeviceSP referenceDevice, const QRect &workingRect, const QPoint &seedPoint, KisPixelSelectionSP) -> void
         {
-            KisPixelSelectionSP mask = new KisPixelSelection();
-            mask->moveTo(32, 32);
-            KisMultiThreadedScanlineFill gc(referenceDevice, seedPoint, workingRect);
-            gc.setThreshold(50);
-            gc.fillSelection(mask);
+            KisImageSP image = new KisImage(0, workingRect.width(), workingRect.height(), referenceDevice->colorSpace(), "");
+            TestUtil::runFillStroke(image, [=] (KisRunnableStrokeJobsInterface *iface) {
+                KisPixelSelectionSP mask = new KisPixelSelection();
+                mask->moveTo(32, 32);
+                KisMultiThreadedScanlineFill gc(referenceDevice, seedPoint, workingRect, iface);
+                gc.setThreshold(50);
+                gc.fillSelection(mask);
+            });
         }
     );
 }

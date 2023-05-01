@@ -6,6 +6,8 @@
 
 #include "commonFunctions.h"
 #include "fillColor.h"
+#include "MultithreadedFillTestHelpers.h"
+
 
 void FillColorBenchmark::benchmarkFillColor()
 {
@@ -18,9 +20,12 @@ void FillColorBenchmark::benchmarkFillColor()
         },
         [](KisPaintDeviceSP referenceDevice, const QRect &workingRect, const QPoint &seedPoint, KisPixelSelectionSP) -> void
         {
-            KisMultiThreadedScanlineFill gc(referenceDevice, seedPoint, workingRect);
-            gc.setThreshold(50);
-            gc.fill(KoColor(Qt::red, referenceDevice->colorSpace()));
+            KisImageSP image = new KisImage(0, workingRect.width(), workingRect.height(), referenceDevice->colorSpace(), "");
+            TestUtil::runFillStroke(image, [=] (KisRunnableStrokeJobsInterface *iface) {
+                KisMultiThreadedScanlineFill gc(referenceDevice, seedPoint, workingRect, iface);
+                gc.setThreshold(50);
+                gc.fill(KoColor(Qt::red, referenceDevice->colorSpace()));
+            });
         }
     );
 }

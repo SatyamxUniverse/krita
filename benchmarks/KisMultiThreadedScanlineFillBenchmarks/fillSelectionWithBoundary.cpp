@@ -6,6 +6,7 @@
 
 #include "commonFunctions.h"
 #include "fillSelectionWithBoundary.h"
+#include "MultithreadedFillTestHelpers.h"
 
 void FillSelectionWithBoundaryBenchmark::benchmarkFillSelectionWithBoundary_Aligned_Aligned()
 {
@@ -19,10 +20,13 @@ void FillSelectionWithBoundaryBenchmark::benchmarkFillSelectionWithBoundary_Alig
         },
         [](KisPaintDeviceSP referenceDevice, const QRect &workingRect, const QPoint &seedPoint, KisPixelSelectionSP boundarySelection) -> void
         {
-            KisPixelSelectionSP mask = new KisPixelSelection();
-            KisMultiThreadedScanlineFill gc(referenceDevice, seedPoint, workingRect);
-            gc.setThreshold(50);
-            gc.fillSelection(mask, boundarySelection);
+            KisImageSP image = new KisImage(0, workingRect.width(), workingRect.height(), referenceDevice->colorSpace(), "");
+            TestUtil::runFillStroke(image, [=] (KisRunnableStrokeJobsInterface *iface) {
+                KisPixelSelectionSP mask = new KisPixelSelection();
+                KisMultiThreadedScanlineFill gc(referenceDevice, seedPoint, workingRect, iface);
+                gc.setThreshold(50);
+                gc.fillSelection(mask, boundarySelection);
+            });
         },
         true
     );
@@ -41,11 +45,14 @@ void FillSelectionWithBoundaryBenchmark::benchmarkFillSelectionWithBoundary_Alig
         },
         [](KisPaintDeviceSP referenceDevice, const QRect &workingRect, const QPoint &seedPoint, KisPixelSelectionSP boundarySelection) -> void
         {
-            boundarySelection->moveTo(-32, -32);
-            KisPixelSelectionSP mask = new KisPixelSelection();
-            KisMultiThreadedScanlineFill gc(referenceDevice, seedPoint, workingRect);
-            gc.setThreshold(50);
-            gc.fillSelection(mask, boundarySelection);
+            KisImageSP image = new KisImage(0, workingRect.width(), workingRect.height(), referenceDevice->colorSpace(), "");
+            TestUtil::runFillStroke(image, [=] (KisRunnableStrokeJobsInterface *iface) mutable {
+                boundarySelection->moveTo(-32, -32);
+                KisPixelSelectionSP mask = new KisPixelSelection();
+                KisMultiThreadedScanlineFill gc(referenceDevice, seedPoint, workingRect, iface);
+                gc.setThreshold(50);
+                gc.fillSelection(mask, boundarySelection);
+            });
         },
         true
     );
@@ -64,11 +71,14 @@ void FillSelectionWithBoundaryBenchmark::benchmarkFillSelectionWithBoundary_Unal
         },
         [](KisPaintDeviceSP referenceDevice, const QRect &workingRect, const QPoint &seedPoint, KisPixelSelectionSP boundarySelection) -> void
         {
-            KisPixelSelectionSP mask = new KisPixelSelection();
-            mask->moveTo(32, 32);
-            KisMultiThreadedScanlineFill gc(referenceDevice, seedPoint, workingRect);
-            gc.setThreshold(50);
-            gc.fillSelection(mask, boundarySelection);
+            KisImageSP image = new KisImage(0, workingRect.width(), workingRect.height(), referenceDevice->colorSpace(), "");
+            TestUtil::runFillStroke(image, [=] (KisRunnableStrokeJobsInterface *iface) {
+                KisPixelSelectionSP mask = new KisPixelSelection();
+                mask->moveTo(32, 32);
+                KisMultiThreadedScanlineFill gc(referenceDevice, seedPoint, workingRect, iface);
+                gc.setThreshold(50);
+                gc.fillSelection(mask, boundarySelection);
+            });
         },
         true
     );
@@ -88,12 +98,15 @@ void FillSelectionWithBoundaryBenchmark::benchmarkFillSelectionWithBoundary_Unal
         },
         [](KisPaintDeviceSP referenceDevice, const QRect &workingRect, const QPoint &seedPoint, KisPixelSelectionSP boundarySelection) -> void
         {
-            boundarySelection->moveTo(-32, -32);
-            KisPixelSelectionSP mask = new KisPixelSelection();
-            mask->moveTo(32, 32);
-            KisMultiThreadedScanlineFill gc(referenceDevice, seedPoint, workingRect);
-            gc.setThreshold(50);
-            gc.fillSelection(mask, boundarySelection);
+            KisImageSP image = new KisImage(0, workingRect.width(), workingRect.height(), referenceDevice->colorSpace(), "");
+            TestUtil::runFillStroke(image, [=] (KisRunnableStrokeJobsInterface *iface) mutable {
+                boundarySelection->moveTo(-32, -32);
+                KisPixelSelectionSP mask = new KisPixelSelection();
+                mask->moveTo(32, 32);
+                KisMultiThreadedScanlineFill gc(referenceDevice, seedPoint, workingRect, iface);
+                gc.setThreshold(50);
+                gc.fillSelection(mask, boundarySelection);
+            });
         },
         true
     );

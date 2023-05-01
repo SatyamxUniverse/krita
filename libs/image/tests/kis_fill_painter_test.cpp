@@ -16,33 +16,8 @@
 
 #define THRESHOLD 10
 
-#include <KisRunnableBasedStrokeStrategy.h>
-#include <kis_image.h>
-
-void runFillStroke(KisImageSP image, std::function<void(KisRunnableStrokeJobsInterface*)> functor)
-{
-    struct FillStroke : public KisRunnableBasedStrokeStrategy {
-        FillStroke(std::function<void(KisRunnableStrokeJobsInterface*)> functor)
-            : KisRunnableBasedStrokeStrategy(QLatin1String("test-fill-stroke"), kundo2_noi18n("test-fill-stroke"))
-            , m_functor(functor)
-        {
-            this->enableJob(JOB_INIT);
-            this->enableJob(JOB_DOSTROKE);
-        }
-
-        void initStrokeCallback() override {
-            m_functor(runnableJobsInterface());
-        }
-
-    private:
-        std::function<void(KisRunnableStrokeJobsInterface*)> m_functor;
-    };
-
-
-    KisStrokeId id = image->startStroke(new FillStroke(functor));
-    image->endStroke(id);
-    image->waitForDone();
-}
+#include "MultithreadedFillTestHelpers.h"
+using namespace TestUtil;
 
 void KisFillPainterTest::testCreation()
 {

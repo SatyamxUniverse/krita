@@ -124,8 +124,6 @@ public:
     }
 
 private:
-    friend void fillContiguousGroup(KisPaintDeviceSP, KisPaintDeviceSP, qint32, quint8, qint32, const QRect&, const QPoint&);
-
     template <typename T>
     friend struct PopulateFillTasks;
 
