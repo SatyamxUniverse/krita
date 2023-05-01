@@ -258,11 +258,10 @@ void KisFillPainter::fillColor(int startX, int startY, KisPaintDeviceSP sourceDe
             gc.setThreshold(m_threshold);
             gc.fill(paintColor());
         } else {
-            KisMultiThreadedScanlineFill gc(device(), startPoint, fillBoundsRect);
+            KisMultiThreadedScanlineFill gc(device(), startPoint, fillBoundsRect, runnableStrokeJobsInterface());
             gc.setThreshold(m_threshold);
             gc.fill(paintColor());
         }
-
     } else {
         genericFillStart(startX, startY, sourceDevice);
 
@@ -372,7 +371,10 @@ KisPixelSelectionSP KisFillPainter::createFloodSelection(KisPixelSelectionSP pix
         return pixelSelection;
     }
 
+#if 0
     if (m_floodFillAlgorithm == FloodFillAlgorithm_SequentialScanlineFill) {
+#endif
+
         KisScanlineFill gc(sourceDevice, startPoint, fillBoundsRect);
         gc.setThreshold(m_threshold);
         gc.setOpacitySpread(m_useCompositioning ? m_opacitySpread : 100);
@@ -381,8 +383,9 @@ KisPixelSelectionSP KisFillPainter::createFloodSelection(KisPixelSelectionSP pix
         } else {
             gc.fillSelection(pixelSelection);
         }
+#if 0
     } else {
-        KisMultiThreadedScanlineFill gc(sourceDevice, startPoint, fillBoundsRect);
+        KisMultiThreadedScanlineFill gc(sourceDevice, startPoint, fillBoundsRect, runnableStrokeJobsInterface());
         gc.setThreshold(m_threshold);
         gc.setOpacitySpread(m_useCompositioning ? m_opacitySpread : 100);
         if (m_useSelectionAsBoundary && !pixelSelection.isNull()) {
@@ -391,7 +394,7 @@ KisPixelSelectionSP KisFillPainter::createFloodSelection(KisPixelSelectionSP pix
             gc.fillSelection(pixelSelection);
         }
     }
-
+#endif
     if (m_useCompositioning) {
         if (m_sizemod > 0) {
             if (m_stopGrowingAtDarkestPixel) {

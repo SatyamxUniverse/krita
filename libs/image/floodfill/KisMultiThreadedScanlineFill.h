@@ -14,10 +14,13 @@
 #include <kis_types.h>
 #include <kis_paint_device.h>
 
+class KisRunnableStrokeJobsInterface;
+
+
 class KRITAIMAGE_EXPORT KisMultiThreadedScanlineFill
 {
 public:
-    KisMultiThreadedScanlineFill(KisPaintDeviceSP referenceDevice, const QPoint &startPoint, const QRect &boundingRect);
+    KisMultiThreadedScanlineFill(KisPaintDeviceSP referenceDevice, const QPoint &startPoint, const QRect &boundingRect, KisRunnableStrokeJobsInterface *jobsInterface = 0);
     ~KisMultiThreadedScanlineFill();
 
     /**

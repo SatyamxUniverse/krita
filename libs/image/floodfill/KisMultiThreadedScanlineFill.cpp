@@ -13,6 +13,8 @@
 #include <KoColorSpace.h>
 #include "kis_pixel_selection.h"
 
+#include <KisFakeRunnableStrokeJobsExecutor.h>
+
 struct Q_DECL_HIDDEN KisMultiThreadedScanlineFill::Private
 {
     KisPaintDeviceSP referenceDevice;
@@ -20,16 +22,25 @@ struct Q_DECL_HIDDEN KisMultiThreadedScanlineFill::Private
     QRect boundingRect;
     int threshold;
     int opacitySpread;
+    KisRunnableStrokeJobsInterface *jobsInterface = 0;
 };
 
-KisMultiThreadedScanlineFill::KisMultiThreadedScanlineFill(KisPaintDeviceSP referenceDevice, const QPoint &startPoint, const QRect &boundingRect)
+KisMultiThreadedScanlineFill::KisMultiThreadedScanlineFill(KisPaintDeviceSP referenceDevice, const QPoint &startPoint, const QRect &boundingRect, KisRunnableStrokeJobsInterface *jobsInterface)
     : m_d(new Private)
 {
+
+    // TODO: remove and pass this responsibility to the caller!
+    if (!jobsInterface) {
+        qWarning() << "WARNING: Created leaking fake stroke jobs executor!";
+        jobsInterface = new KisFakeRunnableStrokeJobsExecutor();
+    }
+
     m_d->referenceDevice = referenceDevice;
     m_d->startPoint = startPoint;
     m_d->boundingRect = boundingRect;
     m_d->threshold = 0;
     m_d->opacitySpread = 0;
+    m_d->jobsInterface = jobsInterface;
 }
 
 KisMultiThreadedScanlineFill::~KisMultiThreadedScanlineFill()
@@ -58,23 +69,23 @@ void KisMultiThreadedScanlineFill::fill(const KoColor &originalFillColor)
     if (pixelSize == 1) {
         HardSelectionPolicy<DifferencePolicyOptimized<quint8>>
             selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillColorDevice(m_d->referenceDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillColorDevice(m_d->referenceDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     } else if (pixelSize == 2) {
         HardSelectionPolicy<DifferencePolicyOptimized<quint16>>
             selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillColorDevice(m_d->referenceDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillColorDevice(m_d->referenceDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     } else if (pixelSize == 4) {
         HardSelectionPolicy<DifferencePolicyOptimized<quint32>>
             selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillColorDevice(m_d->referenceDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillColorDevice(m_d->referenceDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     } else if (pixelSize == 8) {
         HardSelectionPolicy<DifferencePolicyOptimized<quint64>>
             selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillColorDevice(m_d->referenceDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillColorDevice(m_d->referenceDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     } else {
         HardSelectionPolicy<DifferencePolicySlow>
             selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillColorDevice(m_d->referenceDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillColorDevice(m_d->referenceDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     }
 }
 
@@ -92,23 +103,23 @@ void KisMultiThreadedScanlineFill::fillUntilColor(const KoColor &originalFillCol
     if (pixelSize == 1) {
         SelectAllUntilColorHardSelectionPolicy<DifferencePolicyOptimized<quint8>>
             selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillColorDevice(m_d->referenceDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillColorDevice(m_d->referenceDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     } else if (pixelSize == 2) {
         SelectAllUntilColorHardSelectionPolicy<DifferencePolicyOptimized<quint16>>
             selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillColorDevice(m_d->referenceDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillColorDevice(m_d->referenceDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     } else if (pixelSize == 4) {
         SelectAllUntilColorHardSelectionPolicy<DifferencePolicyOptimized<quint32>>
             selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillColorDevice(m_d->referenceDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillColorDevice(m_d->referenceDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     } else if (pixelSize == 8) {
         SelectAllUntilColorHardSelectionPolicy<DifferencePolicyOptimized<quint64>>
             selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillColorDevice(m_d->referenceDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillColorDevice(m_d->referenceDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     } else {
         SelectAllUntilColorHardSelectionPolicy<DifferencePolicySlow>
             selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillColorDevice(m_d->referenceDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillColorDevice(m_d->referenceDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     }
 }
 
@@ -125,23 +136,23 @@ void KisMultiThreadedScanlineFill::fill(const KoColor &originalFillColor, KisPai
     if (pixelSize == 1) {
         HardSelectionPolicy<DifferencePolicyOptimized<quint8>>
             selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillExternalColorDevice(m_d->referenceDevice, externalDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillExternalColorDevice(m_d->referenceDevice, externalDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     } else if (pixelSize == 2) {
         HardSelectionPolicy<DifferencePolicyOptimized<quint16>>
             selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillExternalColorDevice(m_d->referenceDevice, externalDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillExternalColorDevice(m_d->referenceDevice, externalDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     } else if (pixelSize == 4) {
         HardSelectionPolicy<DifferencePolicyOptimized<quint32>>
             selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillExternalColorDevice(m_d->referenceDevice, externalDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillExternalColorDevice(m_d->referenceDevice, externalDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     } else if (pixelSize == 8) {
         HardSelectionPolicy<DifferencePolicyOptimized<quint64>>
             selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillExternalColorDevice(m_d->referenceDevice, externalDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillExternalColorDevice(m_d->referenceDevice, externalDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     } else {
         HardSelectionPolicy<DifferencePolicySlow>
             selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillExternalColorDevice(m_d->referenceDevice, externalDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillExternalColorDevice(m_d->referenceDevice, externalDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     }
 }
 
@@ -159,23 +170,23 @@ void KisMultiThreadedScanlineFill::fillUntilColor(const KoColor &originalFillCol
     if (pixelSize == 1) {
         SelectAllUntilColorHardSelectionPolicy<DifferencePolicyOptimized<quint8>>
             selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillExternalColorDevice(m_d->referenceDevice, externalDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillExternalColorDevice(m_d->referenceDevice, externalDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     } else if (pixelSize == 2) {
         SelectAllUntilColorHardSelectionPolicy<DifferencePolicyOptimized<quint16>>
             selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillExternalColorDevice(m_d->referenceDevice, externalDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillExternalColorDevice(m_d->referenceDevice, externalDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     } else if (pixelSize == 4) {
         SelectAllUntilColorHardSelectionPolicy<DifferencePolicyOptimized<quint32>>
             selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillExternalColorDevice(m_d->referenceDevice, externalDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillExternalColorDevice(m_d->referenceDevice, externalDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     } else if (pixelSize == 8) {
         SelectAllUntilColorHardSelectionPolicy<DifferencePolicyOptimized<quint64>>
             selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillExternalColorDevice(m_d->referenceDevice, externalDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillExternalColorDevice(m_d->referenceDevice, externalDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     } else {
         SelectAllUntilColorHardSelectionPolicy<DifferencePolicySlow>
             selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillExternalColorDevice(m_d->referenceDevice, externalDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillExternalColorDevice(m_d->referenceDevice, externalDevice, fillColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     }
 }
 
@@ -193,45 +204,45 @@ void KisMultiThreadedScanlineFill::fillSelection(KisPixelSelectionSP pixelSelect
         if (pixelSize == 1) {
             HardSelectionPolicy<DifferencePolicyOptimized<quint8>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else if (pixelSize == 2) {
             HardSelectionPolicy<DifferencePolicyOptimized<quint16>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else if (pixelSize == 4) {
             HardSelectionPolicy<DifferencePolicyOptimized<quint32>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else if (pixelSize == 8) {
             HardSelectionPolicy<DifferencePolicyOptimized<quint64>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else {
             HardSelectionPolicy<DifferencePolicySlow>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         }
     } else {
         if (pixelSize == 1) {
             SoftSelectionPolicy<DifferencePolicyOptimized<quint8>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold, softness);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else if (pixelSize == 2) {
             SoftSelectionPolicy<DifferencePolicyOptimized<quint16>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold, softness);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else if (pixelSize == 4) {
             SoftSelectionPolicy<DifferencePolicyOptimized<quint32>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold, softness);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else if (pixelSize == 8) {
             SoftSelectionPolicy<DifferencePolicyOptimized<quint64>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold, softness);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else {
             SoftSelectionPolicy<DifferencePolicySlow>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold, softness);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         }
     }
 }
@@ -257,45 +268,45 @@ void KisMultiThreadedScanlineFill::fillSelectionUntilColor(KisPixelSelectionSP p
         if (pixelSize == 1) {
             SelectAllUntilColorHardSelectionPolicy<DifferencePolicyOptimized<quint8>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else if (pixelSize == 2) {
             SelectAllUntilColorHardSelectionPolicy<DifferencePolicyOptimized<quint16>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else if (pixelSize == 4) {
             SelectAllUntilColorHardSelectionPolicy<DifferencePolicyOptimized<quint32>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else if (pixelSize == 8) {
             SelectAllUntilColorHardSelectionPolicy<DifferencePolicyOptimized<quint64>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else {
             SelectAllUntilColorHardSelectionPolicy<DifferencePolicySlow>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         }
     } else {
         if (pixelSize == 1) {
             SelectAllUntilColorSoftSelectionPolicy<DifferencePolicyOptimized<quint8>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold, softness);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else if (pixelSize == 2) {
             SelectAllUntilColorSoftSelectionPolicy<DifferencePolicyOptimized<quint16>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold, softness);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else if (pixelSize == 4) {
             SelectAllUntilColorSoftSelectionPolicy<DifferencePolicyOptimized<quint32>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold, softness);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else if (pixelSize == 8) {
             SelectAllUntilColorSoftSelectionPolicy<DifferencePolicyOptimized<quint64>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold, softness);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else {
             SelectAllUntilColorSoftSelectionPolicy<DifferencePolicySlow>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold, softness);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         }
     }
 }
@@ -321,45 +332,45 @@ void KisMultiThreadedScanlineFill::fillSelectionUntilColorOrTransparent(KisPixel
         if (pixelSize == 1) {
             SelectAllUntilColorHardSelectionPolicy<ColorOrTransparentDifferencePolicyOptimized<quint8>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else if (pixelSize == 2) {
             SelectAllUntilColorHardSelectionPolicy<ColorOrTransparentDifferencePolicyOptimized<quint16>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else if (pixelSize == 4) {
             SelectAllUntilColorHardSelectionPolicy<ColorOrTransparentDifferencePolicyOptimized<quint32>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else if (pixelSize == 8) {
             SelectAllUntilColorHardSelectionPolicy<ColorOrTransparentDifferencePolicyOptimized<quint64>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else {
             SelectAllUntilColorHardSelectionPolicy<ColorOrTransparentDifferencePolicySlow>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         }
     } else {
         if (pixelSize == 1) {
             SelectAllUntilColorSoftSelectionPolicy<ColorOrTransparentDifferencePolicyOptimized<quint8>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold, softness);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else if (pixelSize == 2) {
             SelectAllUntilColorSoftSelectionPolicy<ColorOrTransparentDifferencePolicyOptimized<quint16>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold, softness);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else if (pixelSize == 4) {
             SelectAllUntilColorSoftSelectionPolicy<ColorOrTransparentDifferencePolicyOptimized<quint32>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold, softness);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else if (pixelSize == 8) {
             SelectAllUntilColorSoftSelectionPolicy<ColorOrTransparentDifferencePolicyOptimized<quint64>>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold, softness);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         } else {
             SelectAllUntilColorSoftSelectionPolicy<ColorOrTransparentDifferencePolicySlow>
                 selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold, softness);
-            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+            fillMaskDevice(m_d->referenceDevice, pixelSelection, boundarySelection, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
         }
     }
 }
@@ -378,19 +389,19 @@ void KisMultiThreadedScanlineFill::clearNonZeroComponent()
 
     if (pixelSize == 1) {
         HardSelectionPolicy<IsNonNullPolicyOptimized<quint8>> selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillColorDevice(m_d->referenceDevice, srcColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillColorDevice(m_d->referenceDevice, srcColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     } else if (pixelSize == 2) {
         HardSelectionPolicy<IsNonNullPolicyOptimized<quint16>> selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillColorDevice(m_d->referenceDevice, srcColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillColorDevice(m_d->referenceDevice, srcColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     } else if (pixelSize == 4) {
         HardSelectionPolicy<IsNonNullPolicyOptimized<quint32>> selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillColorDevice(m_d->referenceDevice, srcColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillColorDevice(m_d->referenceDevice, srcColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     } else if (pixelSize == 8) {
         HardSelectionPolicy<IsNonNullPolicyOptimized<quint64>> selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillColorDevice(m_d->referenceDevice, srcColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillColorDevice(m_d->referenceDevice, srcColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     } else {
         HardSelectionPolicy<IsNonNullPolicySlow> selectionPolicy(m_d->referenceDevice, srcColor, m_d->threshold);
-        fillColorDevice(m_d->referenceDevice, srcColor, m_d->boundingRect, m_d->startPoint, selectionPolicy);
+        fillColorDevice(m_d->referenceDevice, srcColor, m_d->boundingRect, m_d->startPoint, selectionPolicy, m_d->jobsInterface);
     }
 }
 
@@ -402,5 +413,5 @@ void KisMultiThreadedScanlineFill::fillContiguousGroup(KisPaintDeviceSP groupMap
     const quint8 referenceValue = *m_d->referenceDevice->pixel(m_d->startPoint).data();
 
     KisMultiThreadedScanlineFillNS::fillContiguousGroup(m_d->referenceDevice, groupMapDevice, groupIndex,
-                                                        referenceValue, m_d->threshold, m_d->boundingRect, m_d->startPoint);
+                                                        referenceValue, m_d->threshold, m_d->boundingRect, m_d->startPoint, m_d->jobsInterface);
 }

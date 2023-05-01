@@ -16,6 +16,34 @@
 
 #define THRESHOLD 10
 
+#include <KisRunnableBasedStrokeStrategy.h>
+#include <kis_image.h>
+
+void runFillStroke(KisImageSP image, std::function<void(KisRunnableStrokeJobsInterface*)> functor)
+{
+    struct FillStroke : public KisRunnableBasedStrokeStrategy {
+        FillStroke(std::function<void(KisRunnableStrokeJobsInterface*)> functor)
+            : KisRunnableBasedStrokeStrategy(QLatin1String("test-fill-stroke"), kundo2_noi18n("test-fill-stroke"))
+            , m_functor(functor)
+        {
+            this->enableJob(JOB_INIT);
+            this->enableJob(JOB_DOSTROKE);
+        }
+
+        void initStrokeCallback() override {
+            m_functor(runnableJobsInterface());
+        }
+
+    private:
+        std::function<void(KisRunnableStrokeJobsInterface*)> m_functor;
+    };
+
+
+    KisStrokeId id = image->startStroke(new FillStroke(functor));
+    image->endStroke(id);
+    image->waitForDone();
+}
+
 void KisFillPainterTest::testCreation()
 {
     KisFillPainter test;
@@ -31,20 +59,24 @@ void KisFillPainterTest::benchmarkFillPainter(const QPoint &startPoint, bool use
 
     QRect imageRect = srcImage.rect();
 
+    KisImageSP image = new KisImage(0, imageRect.width(), imageRect.height(), cs, "");
+
     dev->convertFromQImage(srcImage, 0, 0, 0);
 
-
     QBENCHMARK_ONCE {
-        KisFillPainter gc(dev);
-        gc.setFillThreshold(THRESHOLD);
-        gc.setWidth(imageRect.width());
-        gc.setHeight(imageRect.height());
-        gc.setPaintColor(KoColor(Qt::red, dev->colorSpace()));
-        gc.setUseCompositioning(useCompositioning);
-        gc.setFloodFillAlgorithm(multiThreaded
-                                 ? KisFillPainter::FloodFillAlgorithm_MultiThreadedScanlineFill
-                                 : KisFillPainter::FloodFillAlgorithm_SequentialScanlineFill);
-        gc.fillColor(startPoint.x(), startPoint.y(), dev);
+        runFillStroke(image, [dev, imageRect, useCompositioning, multiThreaded, startPoint] (KisRunnableStrokeJobsInterface *iface) {
+            KisFillPainter gc(dev);
+            gc.setFillThreshold(THRESHOLD);
+            gc.setWidth(imageRect.width());
+            gc.setHeight(imageRect.height());
+            gc.setPaintColor(KoColor(Qt::red, dev->colorSpace()));
+            gc.setUseCompositioning(useCompositioning);
+            gc.setFloodFillAlgorithm(multiThreaded
+                                         ? KisFillPainter::FloodFillAlgorithm_MultiThreadedScanlineFill
+                                         : KisFillPainter::FloodFillAlgorithm_SequentialScanlineFill);
+            gc.setRunnableStrokeJobsInterface(iface);
+            gc.fillColor(startPoint.x(), startPoint.y(), dev);
+        });
     }
 
     QImage resultImage =
@@ -134,13 +166,17 @@ void KisFillPainterTest::benchmarkFillingScanlineColorMultiThreaded()
 
     QRect imageRect = srcImage.rect();
 
+    KisImageSP image = new KisImage(0, imageRect.width(), imageRect.height(), cs, "");
+
     dev->convertFromQImage(srcImage, 0, 0, 0);
 
 
     QBENCHMARK_ONCE {
-        KisMultiThreadedScanlineFill gc(dev, QPoint(), imageRect);
-        gc.setThreshold(THRESHOLD);
-        gc.fill(KoColor(Qt::red, dev->colorSpace()));
+        runFillStroke(image, [dev, imageRect] (KisRunnableStrokeJobsInterface *iface) {
+            KisMultiThreadedScanlineFill gc(dev, QPoint(), imageRect, iface);
+            gc.setThreshold(THRESHOLD);
+            gc.fill(KoColor(Qt::red, dev->colorSpace()));
+        });
     }
 
     QImage resultImage =
@@ -196,15 +232,19 @@ void KisFillPainterTest::benchmarkFillingScanlineSelectionMultiThreaded()
 
     QRect imageRect = srcImage.rect();
 
+    KisImageSP image = new KisImage(0, imageRect.width(), imageRect.height(), cs, "");
+
     dev->convertFromQImage(srcImage, 0, 0, 0);
 
 
     KisPixelSelectionSP pixelSelection = new KisPixelSelection();
 
     QBENCHMARK_ONCE {
-        KisMultiThreadedScanlineFill gc(dev, QPoint(), imageRect);
-        gc.setThreshold(THRESHOLD);
-        gc.fillSelection(pixelSelection);
+        runFillStroke(image, [dev, imageRect, pixelSelection] (KisRunnableStrokeJobsInterface *iface) {
+            KisMultiThreadedScanlineFill gc(dev, QPoint(), imageRect, iface);
+            gc.setThreshold(THRESHOLD);
+            gc.fillSelection(pixelSelection);
+        });
     }
 
     QImage resultImage =
@@ -221,20 +261,23 @@ void KisFillPainterTest::benchmarkFillingScanlineSelectionMultiThreaded()
 void KisFillPainterTest::testChainLabirinthFillMultiThreaded()
 {
     const KoColorSpace * cs = KoColorSpaceRegistry::instance()->rgb8();
-    KisPaintDeviceSP dev = new KisPaintDevice(cs);
+
 
     QImage srcImage(TestUtil::fetchDataFileLazy("test_labirinth_fill.png"));
     QVERIFY(!srcImage.isNull());
 
     QRect imageRect = srcImage.rect();
 
+    KisImageSP image = new KisImage(0, imageRect.width(), imageRect.height(), cs, "");
+
+    KisPaintDeviceSP dev = new KisPaintDevice(cs);
     dev->convertFromQImage(srcImage, 0, 0, 0);
 
-    ENTER_FUNCTION() << ppVar(dev->exactBounds());
-
-    KisMultiThreadedScanlineFill gc(dev, QPoint(126,1), imageRect);
-    gc.setThreshold(THRESHOLD);
-    gc.fill(KoColor(Qt::red, dev->colorSpace()));
+    runFillStroke(image, [dev, pt = QPoint(126,1)] (KisRunnableStrokeJobsInterface *iface) {
+        KisMultiThreadedScanlineFill gc(dev, pt, dev->exactBounds(), iface);
+        gc.setThreshold(THRESHOLD);
+        gc.fill(KoColor(Qt::red, dev->colorSpace()));
+    });
 
     QImage resultImage =
         dev->convertToQImage(0,

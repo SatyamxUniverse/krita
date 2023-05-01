@@ -39,7 +39,8 @@ void fillColorDevice(KisPaintDeviceSP referenceDevice,
                      const KoColor &fillColor,
                      const QRect &workingRect,
                      const QPoint &startPoint,
-                     const SelectionPolicyType_ &selectionPolicy)
+                     const SelectionPolicyType_ &selectionPolicy,
+                     KisRunnableStrokeJobsInterface *jobsInterface)
 {
     KIS_SAFE_ASSERT_RECOVER_RETURN(referenceDevice);
     KIS_SAFE_ASSERT_RECOVER_RETURN(workingRect.contains(startPoint));
@@ -48,8 +49,7 @@ void fillColorDevice(KisPaintDeviceSP referenceDevice,
     maskDevice->moveTo(referenceDevice->offset());
 
     TilePolicyFactory<WriteToReferenceDeviceTilePolicy<SelectionPolicyType_>> tilePolicy(fillColor, selectionPolicy);
-    auto filler = Filler(referenceDevice, nullptr, maskDevice, nullptr, workingRect, tilePolicy);
-    filler.fill(startPoint);
+    startFillProcess(startPoint, referenceDevice, nullptr, maskDevice, nullptr, workingRect, tilePolicy, jobsInterface);
 }
 
 template <typename SelectionPolicyType_>
@@ -58,7 +58,8 @@ void fillExternalColorDevice(KisPaintDeviceSP referenceDevice,
                              const KoColor &fillColor,
                              const QRect &workingRect,
                              const QPoint &startPoint,
-                             const SelectionPolicyType_ &selectionPolicy)
+                             const SelectionPolicyType_ &selectionPolicy,
+                             KisRunnableStrokeJobsInterface *jobsInterface)
 {
     KIS_SAFE_ASSERT_RECOVER_RETURN(referenceDevice);
     KIS_SAFE_ASSERT_RECOVER_RETURN(externalDevice);
@@ -74,12 +75,10 @@ void fillExternalColorDevice(KisPaintDeviceSP referenceDevice,
 
     if (externalDeviceIsAligned) {
         TilePolicyFactory<WriteToAlignedExternalDeviceTilePolicy<SelectionPolicyType_>> tilePolicy(fillColor, selectionPolicy);
-        auto filler = Filler(referenceDevice, externalDevice, maskDevice, nullptr, workingRect, tilePolicy);
-        filler.fill(startPoint);
+        startFillProcess(startPoint, referenceDevice, externalDevice, maskDevice, nullptr, workingRect, tilePolicy, jobsInterface);
     } else {
         TilePolicyFactory<WriteToUnalignedExternalDeviceTilePolicy<SelectionPolicyType_>> tilePolicy(fillColor, selectionPolicy);
-        auto filler = Filler(referenceDevice, externalDevice, maskDevice, nullptr, workingRect, tilePolicy);
-        filler.fill(startPoint);
+        startFillProcess(startPoint, referenceDevice, externalDevice, maskDevice, nullptr, workingRect, tilePolicy, jobsInterface);
     }
 }
 
@@ -89,7 +88,8 @@ void fillMaskDevice(KisPaintDeviceSP referenceDevice,
                     KisPixelSelectionSP boundarySelectionDevice,
                     const QRect &workingRect,
                     const QPoint &startPoint,
-                    SelectionPolicyType_ &selectionPolicy)
+                    SelectionPolicyType_ &selectionPolicy,
+                    KisRunnableStrokeJobsInterface *jobsInterface)
 {
     KIS_SAFE_ASSERT_RECOVER_RETURN(referenceDevice);
     KIS_SAFE_ASSERT_RECOVER_RETURN(maskDevice);
@@ -109,33 +109,27 @@ void fillMaskDevice(KisPaintDeviceSP referenceDevice,
         if (boundarySelectionDeviceIsAligned) {
             if (maskDeviceIsAligned) {
                 TilePolicyFactory<WriteToAlignedMaskDeviceWithAlignedBoundarySelectionDeviceTilePolicy<SelectionPolicyType_>> tilePolicy(KoColor(), selectionPolicy);
-                auto filler = Filler(referenceDevice, nullptr, maskDevice, boundarySelectionDevice, workingRect, tilePolicy);
-                filler.fill(startPoint);
+                startFillProcess(startPoint, referenceDevice, nullptr, maskDevice, boundarySelectionDevice, workingRect, tilePolicy, jobsInterface);
             } else {
                 TilePolicyFactory<WriteToUnalignedMaskDeviceWithAlignedBoundarySelectionDeviceTilePolicy<SelectionPolicyType_>> tilePolicy(KoColor(), selectionPolicy);
-                auto filler = Filler(referenceDevice, nullptr, maskDevice, boundarySelectionDevice, workingRect, tilePolicy);
-                filler.fill(startPoint);
+                startFillProcess(startPoint, referenceDevice, nullptr, maskDevice, boundarySelectionDevice, workingRect, tilePolicy, jobsInterface);
             }
         } else {
             if (maskDeviceIsAligned) {
                 TilePolicyFactory<WriteToAlignedMaskDeviceWithUnalignedBoundarySelectionDeviceTilePolicy<SelectionPolicyType_>> tilePolicy(KoColor(), selectionPolicy);
-                auto filler = Filler(referenceDevice, nullptr, maskDevice, boundarySelectionDevice, workingRect, tilePolicy);
-                filler.fill(startPoint);
+                startFillProcess(startPoint, referenceDevice, nullptr, maskDevice, boundarySelectionDevice, workingRect, tilePolicy, jobsInterface);
             } else {
                 TilePolicyFactory<WriteToUnalignedMaskDeviceWithUnalignedBoundarySelectionDeviceTilePolicy<SelectionPolicyType_>> tilePolicy(KoColor(), selectionPolicy);
-                auto filler = Filler(referenceDevice, nullptr, maskDevice, boundarySelectionDevice, workingRect, tilePolicy);
-                filler.fill(startPoint);
+                startFillProcess(startPoint, referenceDevice, nullptr, maskDevice, boundarySelectionDevice, workingRect, tilePolicy, jobsInterface);
             }
         }
     } else {
         if (maskDeviceIsAligned) {
             TilePolicyFactory<WriteToAlignedMaskDeviceTilePolicy<SelectionPolicyType_>> tilePolicy(KoColor(), selectionPolicy);
-            auto filler = Filler(referenceDevice, nullptr, maskDevice, nullptr, workingRect, tilePolicy);
-            filler.fill(startPoint);
+            startFillProcess(startPoint, referenceDevice, nullptr, maskDevice, nullptr, workingRect, tilePolicy, jobsInterface);
         } else {
             TilePolicyFactory<WriteToUnalignedMaskDeviceTilePolicy<SelectionPolicyType_>> tilePolicy(KoColor(), selectionPolicy);
-            auto filler = Filler(referenceDevice, nullptr, maskDevice, nullptr, workingRect, tilePolicy);
-            filler.fill(startPoint);
+            startFillProcess(startPoint, referenceDevice, nullptr, maskDevice, nullptr, workingRect, tilePolicy, jobsInterface);
         }
     }
 }
@@ -168,7 +162,8 @@ void fillContiguousGroup(KisPaintDeviceSP scribbleDevice,
                          quint8 referenceValue,
                          qint32 threshold,
                          const QRect &workingRect,
-                         const QPoint &startPoint)
+                         const QPoint &startPoint,
+                         KisRunnableStrokeJobsInterface *jobsInterface)
 {
     KIS_SAFE_ASSERT_RECOVER_RETURN(scribbleDevice);
     KIS_SAFE_ASSERT_RECOVER_RETURN(groupMapDevice);
@@ -186,12 +181,10 @@ void fillContiguousGroup(KisPaintDeviceSP scribbleDevice,
 
     if (groupMapDeviceIsAligned) {
         GroupSplitTilePolicyFactory<AlignedGroupSplitTilePolicy<GroupSplitSelectionPolicy>> tilePolicy(KoColor(), selectionPolicy, groupIndex);
-        auto filler = Filler(scribbleDevice, groupMapDevice, maskDevice, nullptr, workingRect, tilePolicy);
-        filler.fill(startPoint);
+        startFillProcess(startPoint, scribbleDevice, groupMapDevice, maskDevice, nullptr, workingRect, tilePolicy, jobsInterface);
     } else {
         GroupSplitTilePolicyFactory<UnalignedGroupSplitTilePolicy<GroupSplitSelectionPolicy>> tilePolicy(KoColor(), selectionPolicy, groupIndex);
-        auto filler = Filler(scribbleDevice, groupMapDevice, maskDevice, nullptr, workingRect, tilePolicy);
-        filler.fill(startPoint);
+        startFillProcess(startPoint, scribbleDevice, groupMapDevice, maskDevice, nullptr, workingRect, tilePolicy, jobsInterface);
     }
 }
 
