@@ -80,14 +80,15 @@ struct AlignedDeviceAccessor : public DeviceAccessorBase<IsReadOnly_>
 
     void initialize(KisPaintDeviceSP device, const QRect &tileRect)
     {
-        typename DeviceAccessorBase<IsReadOnly_>::RandomAccessorType deviceIterator =
-            this->getRandomAccessor(device);
+        deviceIterator = this->getRandomAccessor(device);
         deviceIterator->moveTo(tileRect.x(), tileRect.y());
         this->m_deviceTileDataBegin = this->getRawData(deviceIterator);
         this->m_deviceTileRowDataBegin = this->m_deviceTileDataBegin;
         this->m_devicePixelSize = device->pixelSize();
         this->m_deviceRowStride = deviceIterator->rowStride(tileRect.x(), tileRect.y());
     }
+
+    typename DeviceAccessorBase<IsReadOnly_>::RandomAccessorType deviceIterator;
 };
 
 template <bool IsReadOnly_>
@@ -113,21 +114,24 @@ struct UnalignedDeviceAccessor : public DeviceAccessorBase<IsReadOnly_>
 
     void initialize(KisPaintDeviceSP device, const QRect &tileRect)
     {
-        typename DeviceAccessorBase<IsReadOnly_>::RandomAccessorType deviceIterator =
-            this->getRandomAccessor(device);
-        m_numContiguousColumns = deviceIterator->numContiguousColumns(tileRect.x());
-        m_numContiguousRows = deviceIterator->numContiguousRows(tileRect.y());
-        this->m_devicePixelSize = device->pixelSize();
-        this->m_deviceRowStride = deviceIterator->rowStride(tileRect.x(), tileRect.y());
+        deviceIterator[0] = this->getRandomAccessor(device);
+        deviceIterator[1] = this->getRandomAccessor(device);
+        deviceIterator[2] = this->getRandomAccessor(device);
+        deviceIterator[3] = this->getRandomAccessor(device);
 
-        deviceIterator->moveTo(tileRect.x(), tileRect.y());
-        m_partialDeviceTileDataBegin[0] = this->getRawData(deviceIterator);
-        deviceIterator->moveTo(tileRect.x() + m_numContiguousColumns, tileRect.y());
-        m_partialDeviceTileDataBegin[1] = this->getRawData(deviceIterator);
-        deviceIterator->moveTo(tileRect.x(), tileRect.y() + m_numContiguousRows);
-        m_partialDeviceTileDataBegin[2] = this->getRawData(deviceIterator);
-        deviceIterator->moveTo(tileRect.x() + m_numContiguousColumns, tileRect.y() + m_numContiguousRows);
-        m_partialDeviceTileDataBegin[3] = this->getRawData(deviceIterator);
+        m_numContiguousColumns = deviceIterator[0]->numContiguousColumns(tileRect.x());
+        m_numContiguousRows = deviceIterator[0]->numContiguousRows(tileRect.y());
+        this->m_devicePixelSize = device->pixelSize();
+        this->m_deviceRowStride = deviceIterator[0]->rowStride(tileRect.x(), tileRect.y());
+
+        deviceIterator[0]->moveTo(tileRect.x(), tileRect.y());
+        m_partialDeviceTileDataBegin[0] = this->getRawData(deviceIterator[0]);
+        deviceIterator[1]->moveTo(tileRect.x() + m_numContiguousColumns, tileRect.y());
+        m_partialDeviceTileDataBegin[1] = this->getRawData(deviceIterator[1]);
+        deviceIterator[2]->moveTo(tileRect.x(), tileRect.y() + m_numContiguousRows);
+        m_partialDeviceTileDataBegin[2] = this->getRawData(deviceIterator[2]);
+        deviceIterator[3]->moveTo(tileRect.x() + m_numContiguousColumns, tileRect.y() + m_numContiguousRows);
+        m_partialDeviceTileDataBegin[3] = this->getRawData(deviceIterator[3]);
 
         this->m_deviceTileDataBegin = m_partialDeviceTileDataBegin[0];
         this->m_deviceTileRowDataBegin = this->m_deviceTileDataBegin;
@@ -135,6 +139,7 @@ struct UnalignedDeviceAccessor : public DeviceAccessorBase<IsReadOnly_>
     }
 
 private:
+    typename DeviceAccessorBase<IsReadOnly_>::RandomAccessorType deviceIterator[4];
     typename DeviceAccessorBase<IsReadOnly_>::DataPointerType m_partialDeviceTileDataBegin[4] {nullptr};
     qint32 m_numContiguousColumns {0};
     qint32 m_numContiguousRows {0};
