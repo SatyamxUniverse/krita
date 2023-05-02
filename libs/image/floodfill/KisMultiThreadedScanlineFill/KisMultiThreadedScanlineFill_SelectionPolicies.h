@@ -21,6 +21,16 @@ namespace KisMultiThreadedScanlineFillNS
 class DifferencePolicySlow
 {
 public:
+    DifferencePolicySlow() = default;
+
+    ALWAYS_INLINE DifferencePolicySlow(const DifferencePolicySlow &rhs)
+        : m_colorSpace(rhs.m_colorSpace)
+        , m_srcPixel(rhs.m_srcPixel)
+        , m_srcPixelPtr(m_srcPixel.data())
+        , m_threshold(rhs.m_threshold)
+    {
+    }
+
     ALWAYS_INLINE void initDifferences(KisPaintDeviceSP device, const KoColor &srcPixel, int threshold) {
         m_colorSpace = device->colorSpace();
         m_srcPixel = srcPixel;
@@ -54,6 +64,17 @@ class DifferencePolicyOptimized
     typedef QHash<HashKeyType, quint8> HashType;
 
 public:
+    DifferencePolicyOptimized() = default;
+
+    ALWAYS_INLINE DifferencePolicyOptimized(const DifferencePolicyOptimized &rhs)
+        : m_differences(rhs.m_differences)
+        , m_colorSpace(rhs.m_colorSpace)
+        , m_srcPixel(rhs.m_srcPixel)
+        , m_srcPixelPtr(m_srcPixel.data())
+        , m_threshold(rhs.m_threshold)
+    {
+    }
+
     ALWAYS_INLINE void initDifferences(KisPaintDeviceSP device, const KoColor &srcPixel, int threshold) {
         m_colorSpace = device->colorSpace();
         m_srcPixel = srcPixel;
@@ -100,6 +121,15 @@ private:
 class ColorOrTransparentDifferencePolicySlow
 {
 public:
+    ColorOrTransparentDifferencePolicySlow() = default;
+    ALWAYS_INLINE ColorOrTransparentDifferencePolicySlow(const ColorOrTransparentDifferencePolicySlow &rhs)
+        : m_colorSpace(rhs.m_colorSpace)
+        , m_srcPixel(rhs.m_srcPixel)
+        , m_srcPixelPtr(m_srcPixel.data())
+        , m_threshold(rhs.m_threshold)
+    {
+    }
+
     ALWAYS_INLINE void initDifferences(KisPaintDeviceSP device, const KoColor &srcPixel, int threshold) {
         m_colorSpace = device->colorSpace();
         m_srcPixel = srcPixel;
@@ -136,6 +166,17 @@ class ColorOrTransparentDifferencePolicyOptimized
     typedef QHash<HashKeyType, quint8> HashType;
 
 public:
+    ColorOrTransparentDifferencePolicyOptimized() = default;
+
+    ALWAYS_INLINE ColorOrTransparentDifferencePolicyOptimized(const ColorOrTransparentDifferencePolicyOptimized &rhs)
+        : m_differences(rhs.m_differences)
+        , m_colorSpace(rhs.m_colorSpace)
+        , m_srcPixel(rhs.m_srcPixel)
+        , m_srcPixelPtr(m_srcPixel.data())
+        , m_threshold(rhs.m_threshold)
+    {
+    }
+
     ALWAYS_INLINE void initDifferences(KisPaintDeviceSP device, const KoColor &srcPixel, int threshold) {
         m_colorSpace = device->colorSpace();
         m_srcPixel = srcPixel;
