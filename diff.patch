@@ -1,0 +1,99 @@
+diff --git a/libs/psd/psd_layer_section.cpp b/libs/psd/psd_layer_section.cpp
+index 7fd0ff1e7e..8db2dddedc 100644
+--- a/libs/psd/psd_layer_section.cpp
++++ b/libs/psd/psd_layer_section.cpp
+@@ -439,12 +439,15 @@ void flattenNodes(KisNodeSP node, QList<FlattenedNode> &nodes)
+ 
+             flattenNodes(child, nodes);
+ 
+-            {
+-                FlattenedNode item;
+-                item.node = child;
+-                item.type = FlattenedNode::FOLDER_OPEN;
+-                nodes << item;
++            FlattenedNode item;
++            item.node = child;
++            if (child->collapsed())   {
++                item.type = FlattenedNode::FOLDER_CLOSED;
++            }
++            else { item.type = FlattenedNode::FOLDER_OPEN;
+             }
++            nodes << item;
++
+         } else if (isLayer) {
+             FlattenedNode item;
+             item.node = child;
+@@ -581,7 +584,6 @@ void PSDLayerMaskSection::writePsdImpl(QIODevice &io, KisNodeSP rootLayer, psd_c
+                 const bool nodeVisible = node->visible();
+                 const KoColorSpace *colorSpace = node->colorSpace();
+                 const quint8 nodeOpacity = node->opacity();
+-                const quint8 nodeClipping = 0;
+                 const int nodeLabelColor = node->colorLabelIndex();
+                 const KisPaintLayer *paintLayer = qobject_cast<KisPaintLayer *>(node.data());
+                 const bool alphaLocked = (paintLayer && paintLayer->alphaLocked());
+@@ -714,10 +716,16 @@ void PSDLayerMaskSection::writePsdImpl(QIODevice &io, KisNodeSP rootLayer, psd_c
+                 layerRecord->blendModeKey = composite_op_to_psd_blendmode(nodeCompositeOp);
+                 layerRecord->isPassThrough = nodeIsPassThrough;
+                 layerRecord->opacity = nodeOpacity;
++
++                if (qobject_cast<const KisLayer*>(node)->alphaChannelDisabled()){
++                const quint8 nodeClipping = 1;
+                 layerRecord->clipping = nodeClipping;
++                } else {
++                    const quint8 nodeClipping = 0;
++                    layerRecord->clipping = nodeClipping;
++                }
+ 
+                 layerRecord->labelColor = nodeLabelColor;
+-
+                 layerRecord->transparencyProtected = alphaLocked;
+                 layerRecord->visible = nodeVisible;
+                 layerRecord->irrelevant = nodeIrrelevant;
+@@ -786,7 +794,7 @@ void PSDLayerMaskSection::writeTiffImpl(QIODevice &io, KisNodeSP rootLayer, psd_
+                 const bool nodeVisible = node->visible();
+                 const KoColorSpace *colorSpace = node->colorSpace();
+                 const quint8 nodeOpacity = node->opacity();
+-                const quint8 nodeClipping = 0;
++
+                 const int nodeLabelColor = node->colorLabelIndex();
+                 const KisPaintLayer *paintLayer = qobject_cast<KisPaintLayer *>(node.data());
+                 const bool alphaLocked = (paintLayer && paintLayer->alphaLocked());
+@@ -863,7 +871,15 @@ void PSDLayerMaskSection::writeTiffImpl(QIODevice &io, KisNodeSP rootLayer, psd_
+                 layerRecord->blendModeKey = composite_op_to_psd_blendmode(nodeCompositeOp);
+                 layerRecord->isPassThrough = nodeIsPassThrough;
+                 layerRecord->opacity = nodeOpacity;
++
++                if (qobject_cast<const KisLayer*>(node)->alphaChannelDisabled()){
++                const quint8 nodeClipping = 1;
+                 layerRecord->clipping = nodeClipping;
++                } else {
++                    const quint8 nodeClipping = 0;
++                    layerRecord->clipping = nodeClipping;
++                }
++
+ 
+                 layerRecord->transparencyProtected = alphaLocked;
+                 layerRecord->visible = nodeVisible;
+diff --git a/plugins/impex/psd/psd_loader.cpp b/plugins/impex/psd/psd_loader.cpp
+index a37fcd5272..e33bf9baa7 100644
+--- a/plugins/impex/psd/psd_loader.cpp
++++ b/plugins/impex/psd/psd_loader.cpp
+@@ -250,6 +250,8 @@ KisImportExportErrorCode PSDLoader::decode(QIODevice &io)
+ 
+                 groupLayer->setName(layerRecord->layerName);
+                 groupLayer->setVisible(layerRecord->visible);
++                if (layerRecord->infoBlocks.sectionDividerType == psd_closed_folder) {
++                groupLayer->setCollapsed(true); }
+ 
+                 QString compositeOp = psd_blendmode_to_composite_op(layerRecord->infoBlocks.sectionDividerBlendMode);
+ 
+@@ -364,6 +366,9 @@ KisImportExportErrorCode PSDLoader::decode(QIODevice &io)
+                 m_image->addNode(layer, m_image->root());
+             }
+             layer->setVisible(layerRecord->visible);
++            if (layerRecord->clipping==1){
++                layer->disableAlphaChannel(true);
++            }
+             newLayer = layer;
+ 
+         }
