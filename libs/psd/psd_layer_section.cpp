@@ -439,12 +439,15 @@ void flattenNodes(KisNodeSP node, QList<FlattenedNode> &nodes)
 
             flattenNodes(child, nodes);
 
-            {
-                FlattenedNode item;
-                item.node = child;
-                item.type = FlattenedNode::FOLDER_OPEN;
-                nodes << item;
+            FlattenedNode item;
+            item.node = child;
+            if (child->collapsed())   {
+                item.type = FlattenedNode::FOLDER_CLOSED;
             }
+            else { item.type = FlattenedNode::FOLDER_OPEN;
+            }
+            nodes << item;
+
         } else if (isLayer) {
             FlattenedNode item;
             item.node = child;
@@ -581,7 +584,6 @@ void PSDLayerMaskSection::writePsdImpl(QIODevice &io, KisNodeSP rootLayer, psd_c
                 const bool nodeVisible = node->visible();
                 const KoColorSpace *colorSpace = node->colorSpace();
                 const quint8 nodeOpacity = node->opacity();
-                const quint8 nodeClipping = 0;
                 const int nodeLabelColor = node->colorLabelIndex();
                 const KisPaintLayer *paintLayer = qobject_cast<KisPaintLayer *>(node.data());
                 const bool alphaLocked = (paintLayer && paintLayer->alphaLocked());
@@ -714,10 +716,16 @@ void PSDLayerMaskSection::writePsdImpl(QIODevice &io, KisNodeSP rootLayer, psd_c
                 layerRecord->blendModeKey = composite_op_to_psd_blendmode(nodeCompositeOp);
                 layerRecord->isPassThrough = nodeIsPassThrough;
                 layerRecord->opacity = nodeOpacity;
+
+                if (qobject_cast<const KisLayer*>(node)->alphaChannelDisabled()){
+                const quint8 nodeClipping = 1;
                 layerRecord->clipping = nodeClipping;
+                } else {
+                    const quint8 nodeClipping = 0;
+                    layerRecord->clipping = nodeClipping;
+                }
 
                 layerRecord->labelColor = nodeLabelColor;
-
                 layerRecord->transparencyProtected = alphaLocked;
                 layerRecord->visible = nodeVisible;
                 layerRecord->irrelevant = nodeIrrelevant;
@@ -786,7 +794,7 @@ void PSDLayerMaskSection::writeTiffImpl(QIODevice &io, KisNodeSP rootLayer, psd_
                 const bool nodeVisible = node->visible();
                 const KoColorSpace *colorSpace = node->colorSpace();
                 const quint8 nodeOpacity = node->opacity();
-                const quint8 nodeClipping = 0;
+
                 const int nodeLabelColor = node->colorLabelIndex();
                 const KisPaintLayer *paintLayer = qobject_cast<KisPaintLayer *>(node.data());
                 const bool alphaLocked = (paintLayer && paintLayer->alphaLocked());
@@ -863,7 +871,15 @@ void PSDLayerMaskSection::writeTiffImpl(QIODevice &io, KisNodeSP rootLayer, psd_
                 layerRecord->blendModeKey = composite_op_to_psd_blendmode(nodeCompositeOp);
                 layerRecord->isPassThrough = nodeIsPassThrough;
                 layerRecord->opacity = nodeOpacity;
+
+                if (qobject_cast<const KisLayer*>(node)->alphaChannelDisabled()){
+                const quint8 nodeClipping = 1;
                 layerRecord->clipping = nodeClipping;
+                } else {
+                    const quint8 nodeClipping = 0;
+                    layerRecord->clipping = nodeClipping;
+                }
+
 
                 layerRecord->transparencyProtected = alphaLocked;
                 layerRecord->visible = nodeVisible;
