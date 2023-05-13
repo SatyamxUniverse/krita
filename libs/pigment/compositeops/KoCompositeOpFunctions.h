@@ -1047,9 +1047,10 @@ inline void cfAdditionSAI(TReal src, TReal sa, TReal& dst, TReal& da)
     typedef typename KoColorSpaceMathsTraits<TReal>::compositetype composite_type;
 
     Q_UNUSED(da);
-    composite_type newsrc;
+    composite_type newsrc, newdst;
     newsrc = mul(src, sa);
-    dst = clamp<TReal>(newsrc + dst);
+    newdst = mul(dst, da);
+    dst = clamp<TReal>(newsrc + newdst);
 }
 
 

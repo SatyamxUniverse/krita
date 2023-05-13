@@ -197,7 +197,7 @@ public:
                         float dstValueFloat = scale<float>(dst[i]);
                         float dstAlphaFloat = scale<float>(oldAlpha);
                         compositeFunc(scale<float>(src[i]), scale<float>(srcAlpha), dstValueFloat, dstAlphaFloat);
-                        dst[i] = scale<channels_type>(dstValueFloat);
+                        dst[i] = scale<channels_type>(lerp(scale<float>(dst[i]), dstValueFloat, scale<float>(srcAlpha)));
                     }
                 }
             }
@@ -214,7 +214,7 @@ public:
                         float dstFloat = scale<float>(dst[i]);
                         float dstAlphaFloat = scale<float>(oldAlpha);
                         compositeFunc(scale<float>(src[i]), scale<float>(srcAlpha), dstFloat, dstAlphaFloat);
-                        dst[i] = scale<channels_type>(dstFloat);
+                        dst[i] = scale<channels_type>(div(scale<float>(dstFloat), scale<float>(newDstAlpha)));
                     }
                 }
             }
