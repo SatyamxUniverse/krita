@@ -186,6 +186,144 @@ KoCompositeOpRegistry::KoCompositeOpRegistry()
     m_map.insert(m_categories[12], KoID(COMPOSITE_REEZE            ,  i18nc("Blending mode - Reflect-Freeze", "Reflect-Freeze")));
     m_map.insert(m_categories[12], KoID(COMPOSITE_FRECT            ,  i18nc("Blending mode - Freeze-Reflect", "Freeze-Reflect")));
     m_map.insert(m_categories[12], KoID(COMPOSITE_FHYRD            ,  i18nc("Blending mode - Heat-Glow & Freeze-Reflect Hybrid", "Heat-Glow & Freeze-Reflect Hybrid")));
+
+    // "Wet" Modes
+
+    m_map.insert(m_categories[0], KoID(COMPOSITE_WET_ADD             ,  i18nc("Blending mode - Wet Addition", "Wet Addition")));
+    m_map.insert(m_categories[0], KoID(COMPOSITE_WET_SUBTRACT        ,  i18nc("Blending mode - Wet Subtract", "Wet Subtract")));
+    m_map.insert(m_categories[0], KoID(COMPOSITE_WET_MULT            ,  i18nc("Blending mode - Wet Multiply", "Wet Multiply")));
+    m_map.insert(m_categories[0], KoID(COMPOSITE_WET_DIVIDE          ,  i18nc("Blending mode - Wet Divide", "Wet Divide")));
+    m_map.insert(m_categories[0], KoID(COMPOSITE_WET_INVERSE_SUBTRACT,  i18nc("Blending mode - Wet Inverse Subtract", "Wet Inverse Subtract")));
+
+    m_map.insert(m_categories[1], KoID(COMPOSITE_WET_XOR             ,  i18nc("Blending mode - Wet XOR", "Wet XOR")));
+    m_map.insert(m_categories[1], KoID(COMPOSITE_WET_OR              ,  i18nc("Blending mode - Wet OR", "Wet OR")));
+    m_map.insert(m_categories[1], KoID(COMPOSITE_WET_AND             ,  i18nc("Blending mode - Wet AND", "Wet AND")));
+    m_map.insert(m_categories[1], KoID(COMPOSITE_WET_NAND            ,  i18nc("Blending mode - Wet NAND", "Wet NAND")));
+    m_map.insert(m_categories[1], KoID(COMPOSITE_WET_NOR             ,  i18nc("Blending mode - Wet NOR", "Wet NOR")));
+    m_map.insert(m_categories[1], KoID(COMPOSITE_WET_XNOR            ,  i18nc("Blending mode - Wet XNOR", "Wet XNOR")));
+    m_map.insert(m_categories[1], KoID(COMPOSITE_WET_IMPLICATION     ,  i18nc("Blending mode - Wet IMPLICATION", "Wet IMPLICATION")));
+    m_map.insert(m_categories[1], KoID(COMPOSITE_WET_NOT_IMPLICATION ,  i18nc("Blending mode - Wet NOT IMPLICATION", "Wet NOT IMPLICATION")));
+    m_map.insert(m_categories[1], KoID(COMPOSITE_WET_CONVERSE        ,  i18nc("Blending mode - Wet CONVERSE", "Wet CONVERSE")));
+    m_map.insert(m_categories[1], KoID(COMPOSITE_WET_NOT_CONVERSE    ,  i18nc("Blending mode - Wet NOT CONVERSE", "Wet NOT CONVERSE")));
+
+    m_map.insert(m_categories[2], KoID(COMPOSITE_WET_BURN       ,  i18nc("Blending mode - Wet Burn", "Wet Burn")));
+    m_map.insert(m_categories[2], KoID(COMPOSITE_WET_LINEAR_BURN,  i18nc("Blending mode - Wet Linear Burn", "Wet Linear Burn")));
+    m_map.insert(m_categories[2], KoID(COMPOSITE_WET_DARKEN     ,  i18nc("Blending mode - Wet Darken", "Wet Darken")));
+    m_map.insert(m_categories[2], KoID(COMPOSITE_WET_GAMMA_DARK ,  i18nc("Blending mode - Wet Gamma Dark", "Wet Gamma Dark")));
+    m_map.insert(m_categories[2], KoID(COMPOSITE_WET_DARKER_COLOR     ,  i18nc("Blending mode - Wet Darker Color", "Wet Darker Color")));
+    m_map.insert(m_categories[2], KoID(COMPOSITE_WET_SHADE_IFS_ILLUSIONS,  i18nc("Blending mode - Wet Shade (IFS Illusions)", "Wet Shade (IFS Illusions)")));
+    m_map.insert(m_categories[2], KoID(COMPOSITE_WET_FOG_DARKEN_IFS_ILLUSIONS,  i18nc("Blending mode - Wet Fog Darken (IFS Illusions)", "Wet Fog Darken (IFS Illusions)")));
+    m_map.insert(m_categories[2], KoID(COMPOSITE_WET_EASY_BURN       ,  i18nc("Blending mode - Wet Easy Burn", "Wet Easy Burn")));
+
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_DODGE       ,  i18nc("Blending mode - Wet Color Dodge", "Wet Color Dodge")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_LINEAR_DODGE,  i18nc("Blending mode - Wet Linear Dodge", "Wet Linear Dodge")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_LIGHTEN     ,  i18nc("Blending mode - Wet Lighten", "Wet Lighten")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_LINEAR_LIGHT,  i18nc("Blending mode - Wet Linear Light", "Wet Linear Light")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_SCREEN      ,  i18nc("Blending mode - Wet Screen", "Wet Screen")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_PIN_LIGHT   ,  i18nc("Blending mode - Wet Pin Light", "Wet Pin Light")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_VIVID_LIGHT ,  i18nc("Blending mode - Wet Vivid Light", "Wet Vivid Light")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_FLAT_LIGHT  ,  i18nc("Blending mode - Wet Flat Light", "Wet Flat Light")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_HARD_LIGHT  ,  i18nc("Blending mode - Wet Hard Light", "Wet Hard Light")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_SOFT_LIGHT_IFS_ILLUSIONS,  i18nc("Blending mode - Wet Soft Light (IFS Illusions)", "Wet Soft Light (IFS Illusions)")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_SOFT_LIGHT_PEGTOP_DELPHI,  i18nc("Blending mode - Wet Soft Light (Pegtop-Delphi)", "Wet Soft Light (Pegtop-Delphi)")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_SOFT_LIGHT_PHOTOSHOP,  i18nc("Blending mode - Wet Soft Light (Photoshop)", "Wet Soft Light (Photoshop)")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_SOFT_LIGHT_SVG,  i18nc("Blending mode - Wet Soft Light (SVG)", "Wet Soft Light (SVG)")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_GAMMA_LIGHT ,  i18nc("Blending mode - Wet Gamma Light", "Wet Gamma Light")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_GAMMA_ILLUMINATION ,  i18nc("Blending mode - Wet Gamma Illumination", "Wet Gamma Illumination")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_LIGHTER_COLOR     ,  i18nc("Blending mode - Wet Lighter Color", "Wet Lighter Color")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_PNORM_A           ,  i18nc("Blending mode - Wet P-Norm A", "Wet P-Norm A")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_PNORM_B           ,  i18nc("Blending mode - Wet P-Norm B", "Wet P-Norm B")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_SUPER_LIGHT     ,  i18nc("Blending mode - Wet Super Light", "Wet Super Light")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_TINT_IFS_ILLUSIONS,  i18nc("Blending mode - Wet Tint (IFS Illusions)", "Wet Tint (IFS Illusions)")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_FOG_LIGHTEN_IFS_ILLUSIONS,  i18nc("Blending mode - Wet Fog Lighten (IFS Illusions)", "Wet Fog Lighten (IFS Illusions)")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_EASY_DODGE       ,  i18nc("Blending mode - Wet Easy Dodge", "Wet Easy Dodge")));
+    m_map.insert(m_categories[3], KoID(COMPOSITE_WET_LUMINOSITY_SAI       ,  i18nc("Blending mode - Wet Luminosity/Shine (SAI)", "Wet Luminosity/Shine (SAI)")));
+
+    m_map.insert(m_categories[4], KoID(COMPOSITE_WET_MOD              ,  i18nc("Blending mode - Wet Modulo", "Wet Modulo")));
+    m_map.insert(m_categories[4], KoID(COMPOSITE_WET_MOD_CON          ,  i18nc("Blending mode - Wet Modulo - Continuous", "Wet Modulo - Continuous")));
+    m_map.insert(m_categories[4], KoID(COMPOSITE_WET_DIVISIVE_MOD     ,  i18nc("Blending mode - Wet Divisive Modulo", "Wet Divisive Modulo")));
+    m_map.insert(m_categories[4], KoID(COMPOSITE_WET_DIVISIVE_MOD_CON ,  i18nc("Blending mode - Wet Divisive Modulo - Continuous", "Wet Divisive Modulo - Continuous")));
+    m_map.insert(m_categories[4], KoID(COMPOSITE_WET_MODULO_SHIFT     ,  i18nc("Blending mode - Wet Modulo Shift", "Wet Modulo Shift")));
+    m_map.insert(m_categories[4], KoID(COMPOSITE_WET_MODULO_SHIFT_CON ,  i18nc("Blending mode - Wet Modulo Shift - Continuous", "Wet Modulo Shift - Continuous")));
+
+    m_map.insert(m_categories[5], KoID(COMPOSITE_WET_DIFF                 ,  i18nc("Blending mode - Wet Difference", "Wet Difference")));
+    m_map.insert(m_categories[5], KoID(COMPOSITE_WET_EQUIVALENCE          ,  i18nc("Blending mode - Wet Equivalence", "Wet Equivalence")));
+    m_map.insert(m_categories[5], KoID(COMPOSITE_WET_ADDITIVE_SUBTRACTIVE ,  i18nc("Blending mode - Wet Additive Subtractive", "Wet Additive Subtractive")));
+    m_map.insert(m_categories[5], KoID(COMPOSITE_WET_EXCLUSION            ,  i18nc("Blending mode - Wet Exclusion", "Wet Exclusion")));
+    m_map.insert(m_categories[5], KoID(COMPOSITE_WET_ARC_TANGENT          ,  i18nc("Blending mode - Wet Arcus Tangent", "Wet Arcus Tangent")));
+    m_map.insert(m_categories[5], KoID(COMPOSITE_WET_NEGATION             ,  i18nc("Blending mode - Wet Negation", "Wet Negation")));
+
+//    m_map.insert(m_categories[6], koidCompositeOverStatic());
+    // TODO implement optimised Wet Normal (Over)
+    m_map.insert(m_categories[6], KoID(COMPOSITE_WET_OVER          ,  i18nc("Blending mode - Wet Normal", "Wet Normal")));
+    m_map.insert(m_categories[6], KoID(COMPOSITE_WET_OVERLAY         ,  i18nc("Blending mode - Wet Overlay", "Wet Overlay")));
+    m_map.insert(m_categories[6], KoID(COMPOSITE_WET_LAMBERT_LIGHTING, i18nc("Blending mode - Wet Lambert Lighting (Linear)", "Wet Lambert Lighting (Linear)")));
+    m_map.insert(m_categories[6], KoID(COMPOSITE_WET_LAMBERT_LIGHTING_GAMMA_2_2, i18nc("Blending mode - Wet Lambert Lighting (Gamma 2.2)", "Wet Lambert Lighting (Gamma 2.2)")));
+    m_map.insert(m_categories[6], KoID(COMPOSITE_WET_HARD_MIX        ,  i18nc("Blending mode - Wet Hard Mix", "Wet Hard Mix")));
+    m_map.insert(m_categories[6], KoID(COMPOSITE_WET_HARD_MIX_PHOTOSHOP,  i18nc("Blending mode - Wet Hard Mix (Photoshop)", "Wet Hard Mix (Photoshop)")));
+    m_map.insert(m_categories[6], KoID(COMPOSITE_WET_HARD_MIX_SOFTER_PHOTOSHOP,  i18nc("Blending mode - Wet Hard Mix Softer (Photoshop)", "Wet Hard Mix Softer (Photoshop)")));
+    m_map.insert(m_categories[6], KoID(COMPOSITE_WET_GRAIN_MERGE     ,  i18nc("Blending mode - Wet Grain Merge", "Wet Grain Merge")));
+    m_map.insert(m_categories[6], KoID(COMPOSITE_WET_GRAIN_EXTRACT   ,  i18nc("Blending mode - Wet Grain Extract", "Wet Grain Extract")));
+    m_map.insert(m_categories[6], KoID(COMPOSITE_WET_PARALLEL        ,  i18nc("Blending mode - Wet Parallel", "Wet Parallel")));
+    m_map.insert(m_categories[6], KoID(COMPOSITE_WET_ALLANON         ,  i18nc("Blending mode - Wet Allanon", "Wet Allanon")));
+    m_map.insert(m_categories[6], KoID(COMPOSITE_WET_GEOMETRIC_MEAN  ,  i18nc("Blending mode - Wet Geometric Mean", "Wet Geometric Mean")));
+    m_map.insert(m_categories[6], KoID(COMPOSITE_WET_HARD_OVERLAY    ,  i18nc("Blending mode - Wet Hard Overlay", "Wet Hard Overlay")));
+    m_map.insert(m_categories[6], KoID(COMPOSITE_WET_INTERPOLATION   ,  i18nc("Blending mode - Wet Interpolation", "Wet Interpolation")));
+    m_map.insert(m_categories[6], KoID(COMPOSITE_WET_INTERPOLATIONB  ,  i18nc("Blending mode - Wet Interpolation - 2X", "Wet Interpolation - 2X")));
+    m_map.insert(m_categories[6], KoID(COMPOSITE_WET_PENUMBRAA       ,  i18nc("Blending mode - Wet Penumbra A", "Wet Penumbra A")));
+    m_map.insert(m_categories[6], KoID(COMPOSITE_WET_PENUMBRAB       ,  i18nc("Blending mode - Wet Penumbra B", "Wet Penumbra B")));
+    m_map.insert(m_categories[6], KoID(COMPOSITE_WET_PENUMBRAC       ,  i18nc("Blending mode - Wet Penumbra C", "Wet Penumbra C")));
+    m_map.insert(m_categories[6], KoID(COMPOSITE_WET_PENUMBRAD       ,  i18nc("Blending mode - Wet Penumbra D", "Wet Penumbra D")));
+
+    m_map.insert(m_categories[7], KoID(COMPOSITE_WET_BUMPMAP   ,  i18nc("Blending mode - Wet Bumpmap", "Wet Bumpmap")));
+    m_map.insert(m_categories[7], KoID(COMPOSITE_WET_COMBINE_NORMAL,  i18nc("Blending mode - Wet Combine Normal Map", "Wet Combine Normal Map")));
+    m_map.insert(m_categories[7], KoID(COMPOSITE_WET_TANGENT_NORMALMAP,  i18nc("Blending mode - Wet Tangent Normalmap", "Wet Tangent Normalmap")));
+
+    m_map.insert(m_categories[8], KoID(COMPOSITE_WET_COLOR         ,  i18nc("Blending mode - Wet Color HSY", "Wet Color")));
+    m_map.insert(m_categories[8], KoID(COMPOSITE_WET_HUE           ,  i18nc("Blending mode - Wet Hue HSY", "Wet Hue")));
+    m_map.insert(m_categories[8], KoID(COMPOSITE_WET_SATURATION    ,  i18nc("Blending mode - Wet Saturation HSY", "Wet Saturation")));
+    m_map.insert(m_categories[8], KoID(COMPOSITE_WET_LUMINIZE      ,  i18nc("Blending mode - Wet Luminosity HSY", "Wet Luminosity")));
+    m_map.insert(m_categories[8], KoID(COMPOSITE_WET_DEC_SATURATION,  i18nc("Blending mode - Wet Decrease Saturation HSY", "Wet Decrease Saturation")));
+    m_map.insert(m_categories[8], KoID(COMPOSITE_WET_INC_SATURATION,  i18nc("Blending mode - Wet Increase Saturation HSY", "Wet Increase Saturation")));
+    m_map.insert(m_categories[8], KoID(COMPOSITE_WET_DEC_LUMINOSITY,  i18nc("Blending mode - Wet Decrease Luminosity HSY", "Wet Decrease Luminosity")));
+    m_map.insert(m_categories[8], KoID(COMPOSITE_WET_INC_LUMINOSITY,  i18nc("Blending mode - Wet Increase Luminosity HSY", "Wet Increase Luminosity")));
+
+    m_map.insert(m_categories[9], KoID(COMPOSITE_WET_COLOR_HSI         ,  i18nc("Blending mode - Wet Color HSI", "Wet Color HSI")));
+    m_map.insert(m_categories[9], KoID(COMPOSITE_WET_HUE_HSI           ,  i18nc("Blending mode - Wet Hue HSI", "Wet Hue HSI")));
+    m_map.insert(m_categories[9], KoID(COMPOSITE_WET_SATURATION_HSI    ,  i18nc("Blending mode - Wet Saturation HSI", "Wet Saturation HSI")));
+    m_map.insert(m_categories[9], KoID(COMPOSITE_WET_INTENSITY         ,  i18nc("Blending mode - Wet Intensity HSI", "Wet Intensity")));
+    m_map.insert(m_categories[9], KoID(COMPOSITE_WET_DEC_SATURATION_HSI,  i18nc("Blending mode - Wet Decrease Saturation HSI", "Wet Decrease Saturation HSI")));
+    m_map.insert(m_categories[9], KoID(COMPOSITE_WET_INC_SATURATION_HSI,  i18nc("Blending mode - Wet Increase Saturation HSI", "Wet Increase Saturation HSI")));
+    m_map.insert(m_categories[9], KoID(COMPOSITE_WET_DEC_INTENSITY     ,  i18nc("Blending mode - Wet Decrease Intensity", "Wet Decrease Intensity")));
+    m_map.insert(m_categories[9], KoID(COMPOSITE_WET_INC_INTENSITY     ,  i18nc("Blending mode - Wet Increase Intensity", "Wet Increase Intensity")));
+
+    m_map.insert(m_categories[10], KoID(COMPOSITE_WET_COLOR_HSL         ,  i18nc("Blending mode - Wet Color HSL", "Wet Color HSL")));
+    m_map.insert(m_categories[10], KoID(COMPOSITE_WET_HUE_HSL           ,  i18nc("Blending mode - Wet Hue HSL", "Wet Hue HSL")));
+    m_map.insert(m_categories[10], KoID(COMPOSITE_WET_SATURATION_HSL    ,  i18nc("Blending mode - Wet Saturation HSL", "Wet Saturation HSL")));
+    m_map.insert(m_categories[10], KoID(COMPOSITE_WET_LIGHTNESS         ,  i18nc("Blending mode - Wet Lightness HSI", "Wet Lightness")));
+    m_map.insert(m_categories[10], KoID(COMPOSITE_WET_DEC_SATURATION_HSL,  i18nc("Blending mode - Wet Decrease Saturation HSL", "Wet Decrease Saturation HSL")));
+    m_map.insert(m_categories[10], KoID(COMPOSITE_WET_INC_SATURATION_HSL,  i18nc("Blending mode - Wet Increase Saturation HSL", "Wet Increase Saturation HSL")));
+    m_map.insert(m_categories[10], KoID(COMPOSITE_WET_DEC_LIGHTNESS     ,  i18nc("Blending mode - Wet Decrease Lightness", "Wet Decrease Lightness")));
+    m_map.insert(m_categories[10], KoID(COMPOSITE_WET_INC_LIGHTNESS     ,  i18nc("Blending mode - Wet Increase Lightness", "Wet Increase Lightness")));
+
+    m_map.insert(m_categories[11], KoID(COMPOSITE_WET_COLOR_HSV         ,  i18nc("Blending mode - Wet Color HSV", "Wet Color HSV")));
+    m_map.insert(m_categories[11], KoID(COMPOSITE_WET_HUE_HSV           ,  i18nc("Blending mode - Wet Hue HSV", "Wet Hue HSV")));
+    m_map.insert(m_categories[11], KoID(COMPOSITE_WET_SATURATION_HSV    ,  i18nc("Blending mode - Wet Saturation HSV", "Wet Saturation HSV")));
+    m_map.insert(m_categories[11], KoID(COMPOSITE_WET_VALUE             ,  i18nc("Blending mode - Wet Value HSV", "Wet Value")));
+    m_map.insert(m_categories[11], KoID(COMPOSITE_WET_DEC_SATURATION_HSV,  i18nc("Blending mode - Wet Decrease Saturation HSV", "Wet Decrease Saturation HSV")));
+    m_map.insert(m_categories[11], KoID(COMPOSITE_WET_INC_SATURATION_HSV,  i18nc("Blending mode - Wet Increase Saturation HSV", "Wet Increase Saturation HSV")));
+    m_map.insert(m_categories[11], KoID(COMPOSITE_WET_DEC_VALUE         ,  i18nc("Blending mode - Wet Decrease Value HSV", "Wet Decrease Value")));
+    m_map.insert(m_categories[11], KoID(COMPOSITE_WET_INC_VALUE         ,  i18nc("Blending mode - Wet Increase Value HSV", "Wet Increase Value")));
+
+    m_map.insert(m_categories[12], KoID(COMPOSITE_WET_REFLECT          ,  i18nc("Blending mode - Wet Reflect", "Wet Reflect")));
+    m_map.insert(m_categories[12], KoID(COMPOSITE_WET_GLOW             ,  i18nc("Blending mode - Wet Glow", "Wet Glow")));
+    m_map.insert(m_categories[12], KoID(COMPOSITE_WET_FREEZE           ,  i18nc("Blending mode - Wet Freeze", "Wet Freeze")));
+    m_map.insert(m_categories[12], KoID(COMPOSITE_WET_HEAT             ,  i18nc("Blending mode - Wet Heat", "Wet Heat")));
+    m_map.insert(m_categories[12], KoID(COMPOSITE_WET_GLEAT            ,  i18nc("Blending mode - Wet Glow-Heat", "Wet Glow-Heat")));
+    m_map.insert(m_categories[12], KoID(COMPOSITE_WET_HELOW            ,  i18nc("Blending mode - Wet Heat-Glow", "Wet Heat-Glow")));
+    m_map.insert(m_categories[12], KoID(COMPOSITE_WET_REEZE            ,  i18nc("Blending mode - Wet Reflect-Freeze", "Wet Reflect-Freeze")));
+    m_map.insert(m_categories[12], KoID(COMPOSITE_WET_FRECT            ,  i18nc("Blending mode - Wet Freeze-Reflect", "Wet Freeze-Reflect")));
+    m_map.insert(m_categories[12], KoID(COMPOSITE_WET_FHYRD            ,  i18nc("Blending mode - Wet Heat-Glow & Freeze-Reflect Hybrid", "Wet Heat-Glow & Freeze-Reflect Hybrid")));
 }
 
 const KoCompositeOpRegistry& KoCompositeOpRegistry::instance()
