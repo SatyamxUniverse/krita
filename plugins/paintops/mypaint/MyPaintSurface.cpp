@@ -6,6 +6,7 @@
 
 #include "MyPaintSurface.h"
 
+#include <KoColorModelStandardIds.h>
 #include <KoColorConversions.h>
 #include <KoColorSpace.h>
 #include <KoColorSpaceMaths.h>
@@ -18,7 +19,6 @@
 #include <kis_selection.h>
 #include <qmath.h>
 #include <KoCompositeOpRegistry.h>
-#include <KoMixColorsOp.h>
 
 using namespace std;
 
@@ -161,15 +161,12 @@ int KisMyPaintSurface::drawDabImpl(MyPaintSurface *self, float x, float y, float
     float minValue = KoColorSpaceMathsTraits<channelType>::min;
     bool eraser = painter()->compositeOpId() == COMPOSITE_ERASE;
 
-
     m_maskDevice->setRect(dabRectAligned);
     m_maskDevice->lazyGrowBufferWithoutInitialization();
-
 
     // Dmitry says that going with the pointer should be in the same order
     // as using the sequential iterator
     quint8* maskPointer = m_maskDevice->data();
-
 
     while(it.nextPixel()) {
 
@@ -204,20 +201,26 @@ int KisMyPaintSurface::drawDabImpl(MyPaintSurface *self, float x, float y, float
 
         channelType* nativeArray = reinterpret_cast<channelType*>(it.rawData());
 
-        b = nativeArray[0]/unitValue;
-        g = nativeArray[1]/unitValue;
-        r = nativeArray[2]/unitValue;
-        dst_alpha = nativeArray[3]/unitValue;
+        const KoColorSpace *colorSpace = m_dab->colorSpace();
+        if (colorSpace->colorModelId() == AlphaColorModelID) {
+            r = g = b = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[0]);
+            dst_alpha = 1.0f;
+        } else {
+            b = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[0]);
+            g = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[1]);
+            r = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[2]);
+            dst_alpha = nativeArray[3]/unitValue;
 
-        if (unitValue == 1.0f) {
-            swap(b, r);
+            if (unitValue == 1.0f) {
+                swap(b, r);
+            }
         }
 
         a = alpha * (color_a - dst_alpha) + dst_alpha;
 
         if (eraser) {
             alpha = 1 - (opaque*base_alpha);
-            a = dst_alpha * alpha ;
+            a = dst_alpha * alpha;
         } else {
             if (a > 0.0f) {
                 float src_term = (alpha * color_a) / a;
@@ -255,17 +258,20 @@ int KisMyPaintSurface::drawDabImpl(MyPaintSurface *self, float x, float y, float
             }
         }
 
-        if (unitValue == 1.0f) {
-            swap(b, r);
+        if (colorSpace->colorModelId() == AlphaColorModelID) {
+            nativeArray[0] = KoColorSpaceMaths<float, channelType>::scaleToA(g);
+        } else {
+            if (unitValue == 1.0f) {
+                swap(b, r);
+            }
+            nativeArray[0] = KoColorSpaceMaths<float, channelType>::scaleToA(b);
+            nativeArray[1] = KoColorSpaceMaths<float, channelType>::scaleToA(g);
+            nativeArray[2] = KoColorSpaceMaths<float, channelType>::scaleToA(r);
+            nativeArray[3] = KoColorSpaceMaths<float, channelType>::scaleToA(a);
         }
-        nativeArray[0] = KoColorSpaceMaths<float, channelType>::scaleToA(b);
-        nativeArray[1] = KoColorSpaceMaths<float, channelType>::scaleToA(g);
-        nativeArray[2] = KoColorSpaceMaths<float, channelType>::scaleToA(r);
-        nativeArray[3] = KoColorSpaceMaths<float, channelType>::scaleToA(a);
 
         maskPointer++;
     }
-
 
     m_tempPainter->bitBltWithFixedSelection(dabRectAligned.x(), dabRectAligned.y(), m_dab, m_maskDevice, dabRectAligned.x(), dabRectAligned.y(), dabRectAligned.x(), dabRectAligned.y(), dabRectAligned.width(), dabRectAligned.height());
     m_tempPainter->renderMirrorMask(dabRectAligned, m_dab, dabRectAligned.x(), dabRectAligned.y(), m_maskDevice);
@@ -290,13 +296,11 @@ void KisMyPaintSurface::getColorImpl(MyPaintSurface *self, float x, float y, flo
     const QPoint pt = QPoint(x - radius, y - radius);
     const QSize sz = QSize(2 * radius, 2 * radius);
 
-
     const QRect dabRectAligned = QRect(pt, sz);
     const QPointF center = QPointF(x, y);
     KisAlgebra2D::OuterCircle outer(center, radius);
 
     const float one_over_radius2 = 1.0f / (radius * radius);
-    quint32 sum_weight = 0.0f;
 
     m_precisePainterWrapper.readRect(dabRectAligned);
     KisPaintDeviceSP activeDev = m_precisePainterWrapper.overlay();
@@ -314,63 +318,60 @@ void KisMyPaintSurface::getColorImpl(MyPaintSurface *self, float x, float y, flo
     }
 
     KisSequentialIterator it(activeDev, dabRectAligned);
-    QVector<float> surface_color_vec = {0,0,0,0};
     float unitValue = KoColorSpaceMathsTraits<channelType>::unitValue;
-    float maxValue = KoColorSpaceMathsTraits<channelType>::max;
 
-    quint32 size = dabRectAligned.width() * dabRectAligned.height();
-    m_blendDevice->setRect(dabRectAligned);
-    m_blendDevice->lazyGrowBufferWithoutInitialization();
-
-
-    qint16* weights = new qint16[size];
-    quint32 num_colors = 0;
-
-    activeDev->readBytes(m_blendDevice->data(), dabRectAligned);
+    float da = 0.0f, sw = 0.0f;
+    float rgb[3] = {0};
 
     while(it.nextPixel()) {
 
         QPointF pt(it.x(), it.y());
 
-        float rr = 0.0;
-        if(outer.fadeSq(pt) <= 1.0) {
-            /* pixel_weight == a standard dab with hardness = 0.5, aspect_ratio = 1.0, and angle = 0.0 */
+        float rr = 0.0f;
+        if(outer.fadeSq(pt) <= 1.0f) {
             float yy = (it.y() + 0.5f - y);
             float xx = (it.x() + 0.5f - x);
-
             rr = qMax((yy * yy + xx * xx) * one_over_radius2, 0.0f);
         }
 
-        weights[num_colors] = qRound((1.0f - rr) * 255);
-        sum_weight += weights[num_colors];
-        num_colors += 1;
-    }
+        float weight = 1.0f - rr;
 
-    KoColor color(Qt::transparent, activeDev->colorSpace());
-    activeDev->colorSpace()->mixColorsOp()->mixColors(m_blendDevice->data(), weights, size, color.data(), sum_weight);
+        channelType* nativeArray = reinterpret_cast<channelType*>(it.rawData());
+        float sr, sg, sb, sa;
 
-    if (sum_weight > 0.0f) {
-        qreal r, g, b, a;
-        channelType* nativeArray = reinterpret_cast<channelType*>(color.data());
-
-        if (unitValue == 1.0f) {
-            *color_r = nativeArray[0];
-            *color_g = nativeArray[1];
-            *color_b = nativeArray[2];
-            *color_a = nativeArray[3];
+        if (activeDev->colorSpace()->colorModelId() == AlphaColorModelID) {
+            sr = sg = sb = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[0]);
+            sa = 1.0f;
         } else {
-            b = nativeArray[0]/maxValue;
-            g = nativeArray[1]/maxValue;
-            r = nativeArray[2]/maxValue;
-            a = nativeArray[3]/maxValue;
-            *color_r = CLAMP(r, 0.0f, 1.0f);
-            *color_g = CLAMP(g, 0.0f, 1.0f);
-            *color_b = CLAMP(b, 0.0f, 1.0f);
-            *color_a = CLAMP(a, 0.0f, 1.0f);
+            sb = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[0]);
+            sg = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[1]);
+            sr = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[2]);
+            sa = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[3]);
+
+            if (unitValue == 1.0f) {
+                swap(sb, sr);
+            }
         }
+
+        if (sa > 0.0f) {
+            sa = sa * weight;
+            da += sa;
+            sa = sa / da;
+
+            rgb[0] = sr * sa + rgb[0] * (1.0f - sa);
+            rgb[1] = sg * sa + rgb[1] * (1.0f - sa);
+            rgb[2] = sb * sa + rgb[2] * (1.0f - sa);
+        }
+
+        sw += weight;
     }
 
-    delete [] weights;
+    if (sw > 0.0f) {
+        *color_r = rgb[0];
+        *color_g = rgb[1];
+        *color_b = rgb[2];
+        *color_a = da / sw;
+   }
 }
 
 KisPainter* KisMyPaintSurface::painter() {

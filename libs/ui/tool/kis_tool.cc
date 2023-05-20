@@ -554,7 +554,7 @@ KisTool::NodePaintAbility KisTool::nodePaintAbility()
         KisPaintOpPresetSP currentPaintOpPreset = canvas()->resourceManager()->resource(KoCanvasResource::CurrentPaintOpPreset).value<KisPaintOpPresetSP>();
         if (currentPaintOpPreset->paintOp().id() == "mypaintbrush") {
             const KoColorSpace *colorSpace = node->paintDevice()->colorSpace();
-            if (colorSpace->colorModelId() != RGBAColorModelID) {
+            if (colorSpace->colorModelId() != RGBAColorModelID && colorSpace->colorModelId() != AlphaColorModelID) {
                 return NodePaintAbility::MYPAINTBRUSH_UNPAINTABLE;
             }
         }
