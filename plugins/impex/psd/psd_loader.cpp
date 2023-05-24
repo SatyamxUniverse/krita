@@ -251,7 +251,8 @@ KisImportExportErrorCode PSDLoader::decode(QIODevice &io)
                 groupLayer->setName(layerRecord->layerName);
                 groupLayer->setVisible(layerRecord->visible);
                 if (layerRecord->infoBlocks.sectionDividerType == psd_closed_folder) {
-                groupLayer->setCollapsed(true); }
+                    groupLayer->setCollapsed(true);
+                }
 
                 QString compositeOp = psd_blendmode_to_composite_op(layerRecord->infoBlocks.sectionDividerBlendMode);
 
@@ -366,7 +367,7 @@ KisImportExportErrorCode PSDLoader::decode(QIODevice &io)
                 m_image->addNode(layer, m_image->root());
             }
             layer->setVisible(layerRecord->visible);
-            if (layerRecord->clipping==1){
+            if (layerRecord->clipping == 1){
                 layer->disableAlphaChannel(true);
             }
             newLayer = layer;
