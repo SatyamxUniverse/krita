@@ -443,9 +443,15 @@ void flattenNodes(KisNodeSP node, QList<FlattenedNode> &nodes)
             item.node = child;
             if (child->collapsed())   {
                 item.type = FlattenedNode::FOLDER_CLOSED;
+<<<<<<< HEAD
             } else {
                 item.type = FlattenedNode::FOLDER_OPEN;
             }
+=======
+            }
+            else { item.type = FlattenedNode::FOLDER_OPEN;
+            }
+>>>>>>> 84b75474a4a24b67f71bf7419a0a3f3845919aac
             nodes << item;
 
         } else if (isLayer) {
@@ -718,8 +724,13 @@ void PSDLayerMaskSection::writePsdImpl(QIODevice &io, KisNodeSP rootLayer, psd_c
                 layerRecord->opacity = nodeOpacity;
 
                 if (qobject_cast<const KisLayer*>(node)->alphaChannelDisabled()){
+<<<<<<< HEAD
                     const quint8 nodeClipping = 1;
                     layerRecord->clipping = nodeClipping;
+=======
+                const quint8 nodeClipping = 1;
+                layerRecord->clipping = nodeClipping;
+>>>>>>> 84b75474a4a24b67f71bf7419a0a3f3845919aac
                 } else {
                     const quint8 nodeClipping = 0;
                     layerRecord->clipping = nodeClipping;
@@ -873,8 +884,13 @@ void PSDLayerMaskSection::writeTiffImpl(QIODevice &io, KisNodeSP rootLayer, psd_
                 layerRecord->opacity = nodeOpacity;
 
                 if (qobject_cast<const KisLayer*>(node)->alphaChannelDisabled()){
+<<<<<<< HEAD
                     const quint8 nodeClipping = 1;
                     layerRecord->clipping = nodeClipping;
+=======
+                const quint8 nodeClipping = 1;
+                layerRecord->clipping = nodeClipping;
+>>>>>>> 84b75474a4a24b67f71bf7419a0a3f3845919aac
                 } else {
                     const quint8 nodeClipping = 0;
                     layerRecord->clipping = nodeClipping;
