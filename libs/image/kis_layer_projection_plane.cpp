@@ -14,6 +14,7 @@
 #include "kis_projection_leaf.h"
 #include "kis_cached_paint_device.h"
 #include "kis_sequential_iterator.h"
+#include "kis_paint_layer.h"
 
 
 struct KisLayerProjectionPlane::Private
@@ -41,7 +42,16 @@ QRect KisLayerProjectionPlane::recalculate(const QRect& rect, KisNodeSP filthyNo
 void KisLayerProjectionPlane::applyImpl(KisPainter *painter, const QRect &rect, KritaUtils::ThresholdMode thresholdMode)
 {
     KisPaintDeviceSP device = m_d->layer->projection();
+
     if (!device) return;
+
+    //if current layer is clipped we don't need to update projection
+    //because it should be updated already in the base layer
+    bool clip = m_d->layer->alphaChannelDisabled();
+    if (clip) {
+        return;
+    }
+
 
     QRect needRect = rect;
 
@@ -99,7 +109,62 @@ void KisLayerProjectionPlane::applyImpl(KisPainter *painter, const QRect &rect, 
     painter->setChannelFlags(channelFlags);
     painter->setCompositeOpId(m_d->layer->compositeOpId());
     painter->setOpacity(m_d->layer->projectionLeaf()->opacity());
-    painter->bitBlt(needRect.topLeft(), device, needRect);
+
+
+    /* if layer above current have clipping enabled we gather all layers
+     * with clipping and apply them on copy of current layer
+     * then apply that copy to global projection
+     */
+    bool clipping = false;
+    KisNodeSP nextNode = m_d->layer->nextSibling();
+    KisLayer* nextLayer;
+    if(nextNode){
+        nextLayer = qobject_cast<KisLayer*>(nextNode.data());
+        if (nextLayer){
+            clipping = nextLayer->alphaChannelDisabled();
+        }
+    }
+
+
+    if (!clipping){
+        //if no clipping layers use regular bitblt
+        painter->bitBlt(needRect.topLeft(), device, needRect);
+    } else {
+
+        QList<KisNodeSP> nodes;
+        if (nextNode->visible()) nodes.append(nextNode);
+
+        while (true) {
+            nextNode = nextLayer->nextSibling();
+            if (!nextNode) break;
+            nextLayer = qobject_cast<KisLayer*>(nextNode.data());
+            if (!nextLayer) break;
+            if (nextNode->visible() && nextLayer->alphaChannelDisabled())  {
+                nodes.append(nextNode);}
+            else if (!nextLayer->alphaChannelDisabled()){
+                break;
+            }
+        }
+
+        KisPaintDeviceSP deviceClone = new KisPaintDevice(dstCS);
+        deviceClone->makeCloneFrom(device,needRect);
+
+        foreach (KisNodeSP node, nodes) {
+            KisPaintLayerSP clipLayer = qobject_cast<KisPaintLayer*>(node.data());
+
+            //merge with alpha disabled for proper results
+            QBitArray newChannelFlags = clipLayer->colorSpace()->channelFlags(true, false);
+
+            KisPainter clipMerger(deviceClone);
+            clipMerger.setChannelFlags(newChannelFlags);
+            clipMerger.setCompositeOpId(clipLayer->compositeOpId());
+            clipMerger.setOpacity(clipLayer->projectionLeaf()->opacity());
+            clipMerger.bitBlt(needRect.topLeft(), clipLayer->projection(), needRect);
+
+        }
+
+        painter->bitBlt(needRect.topLeft(), deviceClone, needRect);
+    }
 }
 
 void KisLayerProjectionPlane::apply(KisPainter *painter, const QRect &rect)

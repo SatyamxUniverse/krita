@@ -1002,6 +1002,16 @@ KisNodeSP KisKraLoader::loadNode(const QDomElement& element, KisImageSP image)
         QBitArray channelFlags    = stringToFlags(element.attribute(CHANNEL_FLAGS, ""), colorSpace->channelCount());
         layer->setChannelFlags(channelFlags);
 
+        bool clipped = false;
+        if (element.hasAttribute(CLIPPED)){
+            clipped = element.attribute(CLIPPED, "1") == "0" ? false : true;
+        } else {
+            //for loading alpha inherit as clipping, will remove this part later
+            clipped = channelFlags[colorSpace->channelCount()-1] == 1 ? false : true;
+        }
+
+        layer->disableAlphaChannel(clipped);
+
         if (element.hasAttribute(LAYER_STYLE_UUID)) {
             QString uuidString = element.attribute(LAYER_STYLE_UUID);
             QUuid uuid(uuidString);

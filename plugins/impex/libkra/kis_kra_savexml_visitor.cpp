@@ -309,6 +309,10 @@ void KisSaveXmlVisitor::loadLayerAttributes(const QDomElement &el, KisLayer *lay
         layer->setUserLocked(el.attribute(LOCKED).toInt());
     }
 
+    if (el.hasAttribute(CLIPPED)) {
+        layer->disableAlphaChannel(el.attribute(CLIPPED).toInt());
+    }
+
     if (el.hasAttribute(X)) {
         layer->setX(el.attribute(X).toInt());
     }
@@ -365,6 +369,9 @@ void KisSaveXmlVisitor::saveLayer(QDomElement & el, const QString & layerType, c
     el.setAttribute(COMPOSITE_OP, layer->compositeOp()->id());
     el.setAttribute(VISIBLE, layer->visible());
     el.setAttribute(LOCKED, layer->userLocked());
+    //alphaChannelDisabled doesn't work for some reason, always save 0
+    //el.setAttribute(CLIPPED, layer->alphaChannelDisabled());
+    el.setAttribute(CLIPPED, layer->alphaDisabled());
     el.setAttribute(NODE_TYPE, layerType);
     el.setAttribute(FILE_NAME, filename);
     el.setAttribute(X, layer->x());
