@@ -11,10 +11,14 @@
 #define _VANISHINGPOINT_ASSISTANT_H_
 
 #include "kis_painting_assistant.h"
+
 #include <QObject>
 #include <QPolygonF>
 #include <QLineF>
 #include <QTransform>
+
+#include "KisAbstractPerspectiveSystem.h"
+
 /* Design:
  *The idea behind the vanishing point ruler is that in a perspective deformed landscape, a set of parallel
  *lines al share a single vanishing point.
@@ -30,7 +34,7 @@
  */
 //class VanishingPoint;
 
-class VanishingPointAssistant : public KisPaintingAssistant
+class VanishingPointAssistant : public KisPaintingAssistant, public KisAbstractPerspectiveSystem
 {
 public:
     VanishingPointAssistant();
@@ -56,6 +60,10 @@ public:
     void saveCustomXml(QXmlStreamWriter* xml) override;
     bool loadCustomXml(QXmlStreamReader* xml) override;
 
+    // KisAbstractPerspectiveSystem interface
+    QList<QLineF> additionalHorizonLines() override;
+    QList<QPointF> vanishingPoints() override;
+
 protected:
     void drawAssistant(QPainter& gc, const QRectF& updateRect, const KisCoordinatesConverter* converter, bool  cached = true,KisCanvas2* canvas=nullptr, bool assistantVisible=true, bool previewVisible=true) override;
     void drawCache(QPainter& gc, const KisCoordinatesConverter *converter,  bool assistantVisible=true) override;
@@ -72,6 +80,7 @@ private:
     KisCanvas2 *m_canvas {nullptr};
 
     float m_referenceLineDensity {15.0};
+
 };
 
 class VanishingPointAssistantFactory : public KisPaintingAssistantFactory

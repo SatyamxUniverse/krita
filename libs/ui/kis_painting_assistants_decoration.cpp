@@ -21,6 +21,8 @@
 #include "kis_icon_utils.h"
 #include "KisViewManager.h"
 #include <KoCompositeOpRegistry.h>
+#include <KisAbstractPerspectiveSystem.h>
+#include <kis_algebra_2d.h>
 
 #include <QPainter>
 #include <QPainterPath>
@@ -518,6 +520,76 @@ void KisPaintingAssistantsDecoration::setGlobalAssistantsColor(QColor color)
     }
 
     uncache();
+}
+
+QPointF KisPaintingAssistantsDecoration::snapAssistantToExistingPerspective(QPointF vanishingPoint, KisPaintingAssistantSP exceptThisOne, qreal maxDistance)
+{
+    // PerspectiveBasedAssistantInterface (the other one change to "PerspectiveGrid" or something)
+    //
+    // 1. Snap to horizon
+    // QLineF horizonLine() -> vanishing point doesn't have it!
+    // 2. Snap to vps
+    // QList<QPointF> vanishingPoints() -> to snap to vanishing point specifically
+    // 3. Snap to single vps
+    // 4. Snap to horizons between single vps
+    // then something to check just single vanishing points and horizons between them
+    // higher priority for the vanishing points
+    QList<QPointF> allVanishingPoints;
+    QList<QLineF> allHorizonLines;
+    Q_FOREACH (KisPaintingAssistantSP assistant, assistants()) {
+        if (assistant == exceptThisOne) {
+            continue; // skip the assistant that we're trying to snap
+        }
+        KisAbstractPerspectiveSystem* perspective = dynamic_cast<KisAbstractPerspectiveSystem*>(assistant.data());
+        if (perspective) {
+            Q_FOREACH(QPointF vp, perspective->vanishingPoints()) {
+                allVanishingPoints << vp;
+            }
+            Q_FOREACH(QLineF horizon, perspective->additionalHorizonLines()) {
+                allHorizonLines << horizon;
+            }
+        }
+    }
+
+    QPointF closestToVp = vanishingPoint;
+    qreal dist = maxDistance + 1;
+    Q_FOREACH(QPointF vp, allVanishingPoints) {
+        qreal distHere = kisDistance(vp, vanishingPoint);
+        if (distHere < dist) {
+            dist = distHere;
+            closestToVp = vp;
+        }
+    }
+    if (dist <= maxDistance) {
+        // no need to check horizon lines
+        return closestToVp;
+    }
+
+    // TODO: add horizons from all vanishing points
+    for (int i = 0; i < allVanishingPoints.count(); i++) {
+        for (int j = 0; j < i; j++) {
+            allHorizonLines << QLineF(allVanishingPoints[i], allVanishingPoints[j]);
+        }
+    }
+
+    dist = maxDistance + 1;
+    QLineF closestHorizon;
+    Q_FOREACH(QLineF horizon, allHorizonLines) {
+        qreal distHere = kisDistanceToLine(vanishingPoint, horizon);
+        if (distHere < dist) {
+            dist = distHere;
+            closestHorizon = horizon;
+        }
+    }
+    if (dist <= maxDistance) {
+        QPointF pointOnHorizon;
+        // TODO: find the actual point
+        return pointOnHorizon;
+    }
+
+    return vanishingPoint;
+
+
 }
 
 void KisPaintingAssistantsDecoration::activateAssistantsEditor()

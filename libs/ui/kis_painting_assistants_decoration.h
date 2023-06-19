@@ -117,6 +117,12 @@ public:
     QColor globalAssistantsColor();
     void setGlobalAssistantsColor(QColor color);
 
+
+    /// snap vanishing point to a horizon or to an existing vanishing point
+    /// from other assistant(s)
+    QPointF snapAssistantToExistingPerspective(QPointF vanishingPoint, KisPaintingAssistantSP exceptThisOne, qreal maxDistance);
+
+
 Q_SIGNALS:
     void assistantChanged();
     void selectedAssistantChanged();

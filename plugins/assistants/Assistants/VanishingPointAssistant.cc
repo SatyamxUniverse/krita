@@ -368,3 +368,18 @@ KisPaintingAssistant* VanishingPointAssistantFactory::createPaintingAssistant() 
 {
     return new VanishingPointAssistant;
 }
+
+
+QList<QLineF> VanishingPointAssistant::additionalHorizonLines()
+{
+    return QList<QLineF>();
+}
+
+QList<QPointF> VanishingPointAssistant::vanishingPoints()
+{
+    if(isAssistantComplete()) {
+
+        return { (QPointF)(*handles()[0]) };
+    }
+    return QList<QPointF>();
+}
