@@ -8,20 +8,20 @@
 
 #include <QTransform>
 
-#include <QPushButton>
-#include <QComboBox>
-#include <QFormLayout>
-#include <QStackedWidget>
-#include <kis_slider_spin_box.h>
-#include <QLabel>
+#include "KisViewManager.h"
 #include "kis_canvas2.h"
 #include "kis_cursor.h"
-#include "KisViewManager.h"
+#include <QComboBox>
+#include <QFormLayout>
+#include <QLabel>
+#include <QPushButton>
+#include <QStackedWidget>
+#include <kis_slider_spin_box.h>
+#include <stdio.h>
 
 #include "kis_tool_multihand_helper.h"
 
-
-static const int MAXIMUM_BRUSHES = 50;
+static const int MAXIMUM_BRUSHES = 64;
 
 #include <QtGlobal>
 #ifdef Q_OS_WIN
@@ -31,18 +31,18 @@ static const int MAXIMUM_BRUSHES = 50;
 #define drand48() (static_cast<double>(qrand()) / static_cast<double>(RAND_MAX))
 #endif
 
-
 KisToolMultihand::KisToolMultihand(KoCanvasBase *canvas)
-    : KisToolBrush(canvas),
-      m_transformMode(SYMMETRY),
-      m_angle(0),
-      m_handsCount(6),
-      m_mirrorVertically(false),
-      m_mirrorHorizontally(false),
-      m_showAxes(false),
-      m_translateRadius(100),
-      m_setupAxesFlag(false),
-      m_addSubbrushesMode(false)
+    : KisToolBrush(canvas)
+    , m_transformMode(SYMMETRY)
+    , m_angle(0)
+    , m_handsCount(6)
+    , m_mirrorVertically(false)
+    , m_mirrorHorizontally(false)
+    , m_showAxes(false)
+    , m_translateRadius(100)
+    , m_tileSize(400)
+    , m_setupAxesFlag(false)
+    , m_addSubbrushesMode(false)
     , customUI(0)
 {
 
@@ -54,6 +54,9 @@ KisToolMultihand::KisToolMultihand(KoCanvasBase *canvas)
     resetHelper(m_helper);
     if (image()) {
         m_axesPoint = QPointF(0.5 * image()->width(), 0.5 * image()->height());
+        m_imageWidth = image()->width();
+        m_imageHeight = image()->height();
+        m_tileSize = qRound(m_imageWidth / sqrt(3) / 2);
     }
 
 }
@@ -186,9 +189,64 @@ void KisToolMultihand::paint(QPainter& gc, const KoViewConverter &converter)
                 path.lineTo(symmetryLinePoint);
             }
 
-        }
-        else if(m_transformMode == MIRROR) {
+        } else if (m_transformMode == HONEYCOMB) {
+            QVector<QPointF> squiggly;
+            double hexagon_angle = 30.0 / 180 * M_PI;
+            int nx = 2;
+            int ny = 2;
+            QPointF pos(-nx * m_tileSize * cos(hexagon_angle), 0);
+            QVector<QTransform> trans_odd_even = {QTransform().rotateRadians(-hexagon_angle), QTransform().rotateRadians(hexagon_angle)};
 
+            squiggly.push_back(pos);
+            for (int i = 0; i < 2 * nx; i++) {
+                pos = pos + trans_odd_even[i % 2].map(QPointF(m_tileSize, 0));
+                squiggly.push_back(pos);
+            }
+
+            for (int i = 0; i < ny; i++) {
+                QVector<QPointF> anchors, anchorsUp;
+                for (int j = 0; j < (int)squiggly.size(); j++) {
+                    QPointF p =
+                        (QTransform().translate(0, m_tileSize * i * 2) * QTransform().scale(1, i % 2 == 0 ? 1 : -1) * QTransform().translate(0, m_tileSize))
+                            .map(squiggly[j]);
+                    p = QTransform().map(p);
+
+                    // Anchor downwards for all rows
+                    if ((j + i) % 2 == 0)
+                        anchors << p;
+                    else
+                        anchorsUp << p;
+
+                    if (j == 0)
+                        path.moveTo(m_axesPoint.x() + p.x(), m_axesPoint.y() + p.y());
+                    else
+                        path.lineTo(m_axesPoint.x() + p.x(), m_axesPoint.y() + p.y());
+                }
+                // Draw connecting lines between the squiggly lines.
+                for (QPointF &p : anchors) {
+                    QPointF q = p + QPointF(0, m_tileSize);
+                    path.moveTo(m_axesPoint.x() + p.x(), m_axesPoint.y() + p.y());
+
+                    QPointF dest_xy = m_axesPoint + q;
+                    // crop in y
+                    if (dest_xy.y() > m_imageHeight)
+                        dest_xy = QPointF(dest_xy.x(), m_imageHeight);
+                    path.lineTo(dest_xy.x(), dest_xy.y());
+                }
+                // The topmost row
+                if (i == ny - 1)
+                    for (QPointF &p : anchorsUp) {
+                        QPointF q = p + QPointF(0, -m_tileSize);
+                        // crop in y
+                        QPointF dest_xy = m_axesPoint + q;
+                        if (dest_xy.y() < 0)
+                            dest_xy = QPointF(dest_xy.x(), 0);
+                        path.moveTo(m_axesPoint.x() + p.x(), m_axesPoint.y() + p.y());
+                        path.lineTo(dest_xy.x(), dest_xy.y());
+                    }
+            }
+
+        } else if (m_transformMode == MIRROR) {
             if (m_mirrorHorizontally) {
                 path.moveTo(m_axesPoint.x()-axisLength*cos(m_angle+M_PI_2), m_axesPoint.y()-axisLength*sin(m_angle+M_PI_2));
                 path.lineTo(m_axesPoint.x()+axisLength*cos(m_angle+M_PI_2), m_axesPoint.y()+axisLength*sin(m_angle+M_PI_2));
@@ -198,9 +256,7 @@ void KisToolMultihand::paint(QPainter& gc, const KoViewConverter &converter)
                 path.moveTo(m_axesPoint.x()-axisLength*cos(m_angle), m_axesPoint.y()-axisLength*sin(m_angle));
                 path.lineTo(m_axesPoint.x()+axisLength*cos(m_angle), m_axesPoint.y()+axisLength*sin(m_angle));
             }
-        }
-        else if (m_transformMode == COPYTRANSLATE) {
-
+        } else if (m_transformMode == COPYTRANSLATE) {
             int ellipsePreviewSize = 10;
             // draw ellipse at origin to emphasize this is a drawing point
             path.addEllipse(m_axesPoint.x()-(ellipsePreviewSize),
@@ -218,9 +274,7 @@ void KisToolMultihand::paint(QPainter& gc, const KoViewConverter &converter)
             path.moveTo(m_axesPoint.x()-axisLength*cos(m_angle+M_PI_2), m_axesPoint.y()-axisLength*sin(m_angle+M_PI_2));
             path.lineTo(m_axesPoint.x()+axisLength*cos(m_angle+M_PI_2), m_axesPoint.y()+axisLength*sin(m_angle+M_PI_2));
 
-        }
-        else {
-
+        } else {
             // draw the horiz/vertical line for axis  origin
             path.moveTo(m_axesPoint.x()-axisLength*cos(m_angle), m_axesPoint.y()-axisLength*sin(m_angle));
             path.lineTo(m_axesPoint.x()+axisLength*cos(m_angle), m_axesPoint.y()+axisLength*sin(m_angle));
@@ -359,8 +413,32 @@ void KisToolMultihand::initTransformations()
                angle += angleStep*2;
             }
         }
-    }
-    else if(m_transformMode == TRANSLATE) {
+    } else if (m_transformMode == HONEYCOMB) {
+        int nx = 3;
+        int ny = 3;
+        double hexagon_angle = 30.0 / 180 * M_PI;
+
+        double dx = cos(hexagon_angle) * m_tileSize * 2;
+        double dy = m_tileSize * (sin(hexagon_angle) + 1.0);
+        for (int j = 0; j < ny; j++) { // y loop
+            for (int i = 0; i < nx; i++) { // x loop
+                for (int k = 0; k < 3; k++) { // symmetry loop
+                    double angle = 4 * hexagon_angle * k;
+                    double xc = (i - (nx - 1) / 2 + 0.5 * (1 - (j % 2))) * dx;
+                    double yc = dy * (j - ny / 2);
+                    for (auto scale : {1, -1}) { // mirror loop
+                        m.translate(m_axesPoint.x(), m_axesPoint.y());
+                        m.translate(xc, yc);
+                        m.rotateRadians(angle);
+                        m.scale(scale, 1);
+                        m.translate(-m_axesPoint.x(), -m_axesPoint.y());
+                        transformations << m;
+                        m.reset();
+                    }
+                }
+            }
+        }
+    } else if (m_transformMode == TRANSLATE) {
         /**
          * TODO: currently, the seed is the same for all the
          * strokes
@@ -421,6 +499,7 @@ QWidget* KisToolMultihand::createOptionWidget()
     customUI->multihandTypeCombobox->addItem(i18n("Translate"),int(TRANSLATE));
     customUI->multihandTypeCombobox->addItem(i18n("Snowflake"),int(SNOWFLAKE));
     customUI->multihandTypeCombobox->addItem(i18n("Copy Translate"),int(COPYTRANSLATE));
+    customUI->multihandTypeCombobox->addItem(i18n("Honeycomb"), int(HONEYCOMB));
     connect(customUI->multihandTypeCombobox,SIGNAL(currentIndexChanged(int)),this, SLOT(slotSetTransformMode(int)));
     customUI->multihandTypeCombobox->setCurrentIndex(m_configGroup.readEntry("transformMode", 0));
     slotSetTransformMode(customUI->multihandTypeCombobox->currentIndex());
@@ -533,6 +612,8 @@ void KisToolMultihand::slotSetTransformMode(int index)
     customUI->subbrushLabel->setVisible(false);
     customUI->addSubbrushButton->setVisible(false);
     customUI->removeSubbrushButton->setVisible(false);
+    customUI->axisRotationAngleSelector->setVisible(true);
+    customUI->axisRotationLabel->setVisible(true);
     m_addSubbrushesMode = 0;
 
     // turn on what we need
@@ -546,20 +627,24 @@ void KisToolMultihand::slotSetTransformMode(int index)
         customUI->radiusLabel->setVisible(true);
         customUI->brushCountSpinBox->setVisible(true);
         customUI->brushesLabel->setVisible(true);
-     }
+    }
 
-    else if (index == SYMMETRY || index == SNOWFLAKE || index == TRANSLATE ) {
+    else if (index == HONEYCOMB) {
+        customUI->axisRotationAngleSelector->setVisible(false);
+        customUI->axisRotationLabel->setVisible(false);
+    }
+
+    else if (index == SYMMETRY || index == SNOWFLAKE || index == TRANSLATE) {
         customUI->brushCountSpinBox->setVisible(true);
         customUI->brushesLabel->setVisible(true);
-     }
-    
+    }
+
     else if (index == COPYTRANSLATE) {
         customUI->subbrushLabel->setVisible(true);
         customUI->addSubbrushButton->setVisible(true);
         customUI->addSubbrushButton->setChecked(false);
         customUI->removeSubbrushButton->setVisible(true);
     }
-
 }
 
 void KisToolMultihand::slotSetAxesVisible(bool vis)
