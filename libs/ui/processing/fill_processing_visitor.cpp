@@ -169,6 +169,7 @@ void FillProcessingVisitor::normalFill(KisPaintDeviceSP device, const QRect &fil
         fillPainter.setOpacity(m_customOpacity);
         fillPainter.setCompositeOpId(m_customCompositeOp);
     }
+    fillPainter.setFloodFillAlgorithm(KisFillPainter::FloodFillAlgorithm_MultiThreadedScanlineFill);
 
     KisPaintDeviceSP sourceDevice = m_unmerged ? device : m_refPaintDevice;
 
@@ -249,15 +250,21 @@ void FillProcessingVisitor::continuousFill(KisPaintDeviceSP device, const QRect 
         painter.setWidth(fillRect.width());
         painter.setHeight(fillRect.height());
         painter.setUseCompositioning(!m_useFastMode);
+        painter.setFloodFillAlgorithm(KisFillPainter::FloodFillAlgorithm_MultiThreadedScanlineFill);
 
-        KisPixelSelectionSP pixelSelection = painter.createFloodSelection(seedPoint.x(),
-                                                                          seedPoint.y(),
-                                                                          sourceDevice,
-                                                                          m_selection.isNull() ? 0 : m_selection->pixelSelection());
-
-        newFillSelection = new KisSelection(pixelSelection->defaultBounds(),
-                                            m_selection ? m_selection->resolutionProxy() : KisImageResolutionProxy::identity());
-        newFillSelection->pixelSelection()->applySelection(pixelSelection, SELECTION_REPLACE);
+        newFillSelection = new KisSelection(new KisSelectionDefaultBounds(sourceDevice),
+                                            m_selection
+                                            ? m_selection->resolutionProxy()
+                                            : KisImageResolutionProxy::identity());
+        painter.createFloodSelection(newFillSelection->pixelSelection(),
+                                     seedPoint.x(),
+                                     seedPoint.y(),
+                                     sourceDevice,
+                                     m_selection.isNull() ? 0 : m_selection->pixelSelection());
+    }
+    // Now we update the continuous fill mask with the new mask
+    {
+        m_continuousFillMask->pixelSelection()->applySelection(newFillSelection->pixelSelection(), SELECTION_ADD);
     }
     // Now we actually fill the destination device
     // If there is an active selection, we use a trimmed version of the mask to
@@ -266,22 +273,13 @@ void FillProcessingVisitor::continuousFill(KisPaintDeviceSP device, const QRect 
     // fill mask. This avoids unnecessary and expensive flood fill operations
     // when the user drags the mouse outside the selection.
     {
-        KisSelectionSP trimmedFillSelection;
         if (m_selection) {
-            trimmedFillSelection = new KisSelection(newFillSelection->pixelSelection()->defaultBounds(), newFillSelection->resolutionProxy());
-            trimmedFillSelection->pixelSelection()->applySelection(newFillSelection->pixelSelection(), SELECTION_REPLACE);
-            trimmedFillSelection->pixelSelection()->applySelection(m_selection->projection(), SELECTION_INTERSECT);
-        } else {
-            trimmedFillSelection = newFillSelection;
+            newFillSelection->pixelSelection()->applySelection(m_selection->projection(), SELECTION_INTERSECT);
         }
         KisSelectionSP tmpSelection = m_selection;
-        m_selection = trimmedFillSelection;
+        m_selection = newFillSelection;
         selectionFill(device, fillRect, undoAdapter);
         m_selection = tmpSelection;
-    }
-    // Now we update the continuous fill mask with the new mask
-    {
-        m_continuousFillMask->pixelSelection()->applySelection(newFillSelection->pixelSelection(), SELECTION_ADD);
     }
 }
 
