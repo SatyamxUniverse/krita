@@ -485,6 +485,10 @@ inline T cfHardMixPhotoshop(T src, T dst) {
 
     const composite_type sum = composite_type(src) + dst;
 
+    if (sum == unitValue<T>()){
+        return src > halfValue<T>() ? unitValue<T>() : zeroValue<T>();
+    }
+
     return sum > unitValue<T>() ? unitValue<T>() : zeroValue<T>();
 }
 
