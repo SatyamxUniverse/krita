@@ -492,6 +492,11 @@ bool KisTool::alternateActionSupportsHiResEvents(AlternateAction action) const
     return false;
 }
 
+bool KisTool::supportsPaintingAssistants() const
+{
+    return false;
+}
+
 void KisTool::mouseDoubleClickEvent(KoPointerEvent *event)
 {
     Q_UNUSED(event);
@@ -554,7 +559,7 @@ KisTool::NodePaintAbility KisTool::nodePaintAbility()
         KisPaintOpPresetSP currentPaintOpPreset = canvas()->resourceManager()->resource(KoCanvasResource::CurrentPaintOpPreset).value<KisPaintOpPresetSP>();
         if (currentPaintOpPreset->paintOp().id() == "mypaintbrush") {
             const KoColorSpace *colorSpace = node->paintDevice()->colorSpace();
-            if (colorSpace->colorModelId() != RGBAColorModelID && colorSpace->colorModelId() != AlphaColorModelID) {
+            if (colorSpace->colorModelId() != AlphaColorModelID/* && colorSpace->colorModelId() != GrayAColorModelID*/ && colorSpace->colorModelId() != RGBAColorModelID) {
                 return NodePaintAbility::MYPAINTBRUSH_UNPAINTABLE;
             }
         }

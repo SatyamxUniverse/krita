@@ -19,6 +19,7 @@
 #include <kis_selection.h>
 #include <qmath.h>
 #include <KoCompositeOpRegistry.h>
+#include <KoMixColorsOp.h>
 
 using namespace std;
 
@@ -37,8 +38,6 @@ KisMyPaintSurface::KisMyPaintSurface(KisPainter *painter, KisPaintDeviceSP paint
     , m_tempPainter(new KisPainter(m_precisePainterWrapper.overlay()))
     , m_backgroundPainter(new KisPainter(m_precisePainterWrapper.createPreciseCompositionSourceDevice()))
 {
-    m_blendDevice = KisFixedPaintDeviceSP(new KisFixedPaintDevice(m_precisePainterWrapper.overlayColorSpace()));
-
     m_backgroundPainter->setCompositeOpId(COMPOSITE_COPY);
     m_backgroundPainter->setOpacity(OPACITY_OPAQUE_U8);
     m_tempPainter->setCompositeOpId(COMPOSITE_COPY);
@@ -205,11 +204,14 @@ int KisMyPaintSurface::drawDabImpl(MyPaintSurface *self, float x, float y, float
         if (colorSpace->colorModelId() == AlphaColorModelID) {
             r = g = b = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[0]);
             dst_alpha = 1.0f;
-        } else {
+        }/* else if (colorSpace->colorModelId() == GrayAColorModelID) {
+            r = g = b = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[0]);
+            dst_alpha = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[1]);
+        }*/ else {
             b = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[0]);
             g = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[1]);
             r = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[2]);
-            dst_alpha = nativeArray[3]/unitValue;
+            dst_alpha = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[3]);
 
             if (unitValue == 1.0f) {
                 swap(b, r);
@@ -260,7 +262,10 @@ int KisMyPaintSurface::drawDabImpl(MyPaintSurface *self, float x, float y, float
 
         if (colorSpace->colorModelId() == AlphaColorModelID) {
             nativeArray[0] = KoColorSpaceMaths<float, channelType>::scaleToA(g);
-        } else {
+        }/* else if (colorSpace->colorModelId() == GrayAColorModelID) {
+            nativeArray[0] = KoColorSpaceMaths<float, channelType>::scaleToA(g);
+            nativeArray[1] = KoColorSpaceMaths<float, channelType>::scaleToA(a);
+        }*/ else {
             if (unitValue == 1.0f) {
                 swap(b, r);
             }
@@ -318,13 +323,15 @@ void KisMyPaintSurface::getColorImpl(MyPaintSurface *self, float x, float y, flo
     }
 
     KisSequentialIterator it(activeDev, dabRectAligned);
-    float unitValue = KoColorSpaceMathsTraits<channelType>::unitValue;
 
-    float da = 0.0f, sw = 0.0f;
-    float rgb[3] = {0};
+    quint32 size = dabRectAligned.width() * dabRectAligned.height();
+    quint32 sum_weight = 0;
+    quint32 num_colors = 0;
+
+    qint16* weights = new qint16[size];
+    quint8** colors = new quint8*[size];
 
     while(it.nextPixel()) {
-
         QPointF pt(it.x(), it.y());
 
         float rr = 0.0f;
@@ -334,44 +341,39 @@ void KisMyPaintSurface::getColorImpl(MyPaintSurface *self, float x, float y, flo
             rr = qMax((yy * yy + xx * xx) * one_over_radius2, 0.0f);
         }
 
-        float weight = 1.0f - rr;
-
-        channelType* nativeArray = reinterpret_cast<channelType*>(it.rawData());
-        float sr, sg, sb, sa;
-
-        if (activeDev->colorSpace()->colorModelId() == AlphaColorModelID) {
-            sr = sg = sb = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[0]);
-            sa = 1.0f;
-        } else {
-            sb = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[0]);
-            sg = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[1]);
-            sr = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[2]);
-            sa = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[3]);
-
-            if (unitValue == 1.0f) {
-                swap(sb, sr);
-            }
-        }
-
-        if (sa > 0.0f) {
-            sa = sa * weight;
-            da += sa;
-            sa = sa / da;
-
-            rgb[0] = sr * sa + rgb[0] * (1.0f - sa);
-            rgb[1] = sg * sa + rgb[1] * (1.0f - sa);
-            rgb[2] = sb * sa + rgb[2] * (1.0f - sa);
-        }
-
-        sw += weight;
+        colors[num_colors] = it.rawData();
+        weights[num_colors] = qRound((1.0f - rr) * 255);
+        sum_weight += weights[num_colors];
+        num_colors += 1;
     }
 
-    if (sw > 0.0f) {
-        *color_r = rgb[0];
-        *color_g = rgb[1];
-        *color_b = rgb[2];
-        *color_a = da / sw;
-   }
+    KoColor color = KoColor::createTransparent(activeDev->colorSpace());
+    activeDev->colorSpace()->mixColorsOp()->mixColors(colors, weights, size, color.data(), sum_weight);
+
+    if (sum_weight > 0) {
+        channelType* nativeArray = reinterpret_cast<channelType*>(color.data());
+
+        if (activeDev->colorSpace()->colorModelId() == AlphaColorModelID) {
+            *color_r = *color_g = *color_b = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[0]);
+            *color_a = 1.0f;
+        }/* else if (activeDev->colorSpace()->colorModelId() == GrayAColorModelID) {
+            *color_r = *color_g = *color_b = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[0]);
+            *color_a = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[1]);
+        }*/ else {
+            *color_b = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[0]);
+            *color_g = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[1]);
+            *color_r = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[2]);
+            *color_a = KoColorSpaceMaths<channelType, float>::scaleToA(nativeArray[3]);
+
+            float unitValue = KoColorSpaceMathsTraits<channelType>::unitValue;
+            if (unitValue == 1.0f) {
+                swap(*color_b, *color_r);
+            }
+        }
+    }
+
+    delete[] weights;
+    delete[] colors;
 }
 
 KisPainter* KisMyPaintSurface::painter() {
@@ -494,7 +496,7 @@ inline float KisMyPaintSurface::calculate_rr_antialiased (int  xp, int  yp, floa
         /* XXX: precision of "nearest" values could be improved
          * by intersecting the line that goes from nearest_x/Y to 0
          * with the pixel's borders here, however the improvements
-         * would probably not justify the perdormance cost.
+         * would probably not justify the performance cost.
          */
         r_near = calculate_r_sample( nearest_x, nearest_y, aspect_ratio, sn, cs );
         rr_near = r_near * one_over_radius2;

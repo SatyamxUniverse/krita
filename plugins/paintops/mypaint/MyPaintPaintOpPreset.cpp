@@ -64,19 +64,18 @@ KoResourceSP KisMyPaintPaintOpPreset::clone() const
 }
 
 void KisMyPaintPaintOpPreset::setColor(const KoColor color, const KoColorSpace *colorSpace) {
-
-    float hue, saturation, value;
+    float hue = 0.0f, saturation = 0.0f, value = 0.0f;
 
     QColor dstColor;
-    if (colorSpace->colorModelId() == AlphaColorModelID) {
-        dstColor = color.toQColor();
-    } else if (colorSpace->colorModelId() == RGBAColorModelID) {
-        colorSpace->toQColor(color.data(), &dstColor, colorSpace->profile());
-    } else {
-        dstColor = QColor(Qt::black);
-    }
+    colorSpace->toQColor(color.data(), &dstColor);
 
-    RGBToHSV(dstColor.redF(), dstColor.greenF(), dstColor.blueF(), &hue, &saturation, &value);
+    if (colorSpace->colorModelId() == AlphaColorModelID) {
+        value = dstColor.alphaF();
+    }/* else if (colorSpace->colorModelId() == GrayAColorModelID) {
+        value = dstColor.greenF();
+    }*/ else {
+        RGBToHSV(dstColor.redF(), dstColor.greenF(), dstColor.blueF(), &hue, &saturation, &value);
+    }
 
     mypaint_brush_set_base_value(d->brush, MYPAINT_BRUSH_SETTING_COLOR_H, (hue)/360);
     mypaint_brush_set_base_value(d->brush, MYPAINT_BRUSH_SETTING_COLOR_S, (saturation));
