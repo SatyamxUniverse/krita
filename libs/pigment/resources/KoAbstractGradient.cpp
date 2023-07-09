@@ -10,6 +10,8 @@
 #include "KoColorSpaceRegistry.h"
 
 #include <KoColor.h>
+#include <KoCanvasResourcesIds.h>
+#include <KoCanvasResourcesInterface.h>
 
 #include <QBuffer>
 #include <QByteArray>
@@ -49,6 +51,7 @@ KoAbstractGradientSP KoAbstractGradient::cloneAndBakeVariableColors(KoCanvasReso
     KoAbstractGradientSP result = this->clone().dynamicCast<KoAbstractGradient>();
     if (canvasResourcesInterface) {
         result->bakeVariableColors(canvasResourcesInterface);
+        result->setColorSpace(canvasResourcesInterface->resource(KoCanvasResource::ForegroundColor).value<KoColor>().colorSpace());
     }
     return result;
 }
@@ -77,7 +80,7 @@ void KoAbstractGradient::colorAt(KoColor&, qreal t) const
     Q_UNUSED(t);
 }
 
-void KoAbstractGradient::setColorSpace(KoColorSpace* colorSpace)
+void KoAbstractGradient::setColorSpace(const KoColorSpace* colorSpace)
 {
     d->colorSpace = colorSpace;
 }
@@ -113,7 +116,7 @@ QImage KoAbstractGradient::generatePreview(int width, int height) const
 
     QRgb * firstLine = reinterpret_cast<QRgb*>(image.scanLine(0));
 
-    KoColor c;
+    KoColor c(d->colorSpace);
     QColor color;
     // first create a reference line
     for (int x = 0; x < image.width(); ++x) {

@@ -41,7 +41,7 @@ public:
     /// gets the color at position 0 <= t <= 1
     virtual void colorAt(KoColor&, qreal t) const;
 
-    void setColorSpace(KoColorSpace* colorSpace);
+    void setColorSpace(const KoColorSpace* colorSpace);
     const KoColorSpace * colorSpace() const;
 
     void setSpread(QGradient::Spread spreadMethod);
