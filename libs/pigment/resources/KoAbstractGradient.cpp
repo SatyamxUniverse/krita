@@ -10,8 +10,6 @@
 #include "KoColorSpaceRegistry.h"
 
 #include <KoColor.h>
-#include <KoCanvasResourcesIds.h>
-#include <KoCanvasResourcesInterface.h>
 
 #include <QBuffer>
 #include <QByteArray>
@@ -51,7 +49,6 @@ KoAbstractGradientSP KoAbstractGradient::cloneAndBakeVariableColors(KoCanvasReso
     KoAbstractGradientSP result = this->clone().dynamicCast<KoAbstractGradient>();
     if (canvasResourcesInterface) {
         result->bakeVariableColors(canvasResourcesInterface);
-        result->setColorSpace(canvasResourcesInterface->resource(KoCanvasResource::ForegroundColor).value<KoColor>().colorSpace());
     }
     return result;
 }

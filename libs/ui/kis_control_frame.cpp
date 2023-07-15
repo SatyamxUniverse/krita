@@ -146,9 +146,8 @@ void KisControlFrame::slotSetPattern(KoPatternSP pattern)
 
 void KisControlFrame::slotSetGradient(KoAbstractGradientSP gradient)
 {
-    gradient->setColorSpace(m_viewManager->canvasResourceProvider()->fgColor().colorSpace());
-
     const QSize iconSize = m_gradientWidget->preferredIconSize();
+
     QImage icon(iconSize, QImage::Format_ARGB32);
 
     {
@@ -259,3 +258,5 @@ void KisControlFrame::createGradientsChooser(KisViewManager * view)
     m_gradientWidget->setPopupWidget(m_gradientChooserPopup);
 
 }
+
+
