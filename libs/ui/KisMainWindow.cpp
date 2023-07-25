@@ -183,7 +183,7 @@ public:
         : q(parent)
         , id(id)
         , styleMenu(new KActionMenu(i18nc("@action:inmenu", "Styles"), parent))
-        , dockWidgetMenu(new KActionMenu(i18nc("@action:inmenu", "&Dockers"), parent))
+        , dockMenu(new KActionMenu(i18nc("@action:inmenu", "&Dockers"), parent))
         , windowMenu(new KActionMenu(i18nc("@action:inmenu", "&Window"), parent))
         , documentMenu(new KActionMenu(i18nc("@action:inmenu", "New &View"), parent))
         , workspaceMenu(new KActionMenu(i18nc("@action:inmenu", "Wor&kspace"), parent))
@@ -261,7 +261,7 @@ public:
     QActionGroup* styleActions {nullptr};
     QMap<QString, QAction*> actionMap;
 
-    KActionMenu *dockWidgetMenu {nullptr};
+    KActionMenu *dockMenu {nullptr};
     KActionMenu *windowMenu {nullptr};
     KActionMenu *documentMenu {nullptr};
     KActionMenu *workspaceMenu {nullptr};
@@ -408,8 +408,19 @@ KisMainWindow::KisMainWindow(QUuid uuid)
     }
     connect(KoToolManager::instance(), SIGNAL(toolOptionWidgetsChanged(KoCanvasController*,QList<QPointer<QWidget> >)), this, SLOT(newOptionWidgets(KoCanvasController*,QList<QPointer<QWidget> >)));
 
+    KisActionManager *actionManager = d->actionManager();
+    d->toggleDockers = actionManager->createAction("view_toggledockers");
+
+    KisConfig(true).showDockers(true);
+    d->toggleDockers->setChecked(true);
+    connect(d->toggleDockers, SIGNAL(toggled(bool)), SLOT(toggleDockersVisibility(bool)));
+
+    d->dockMenu->addAction(d->toggleDockers);
+
+    d->dockMenu->addSeparator();
+
     Q_FOREACH (QString title, dockwidgetActions.keys()) {
-        d->dockWidgetMenu->addAction(dockwidgetActions[title]);
+        d->dockMenu->addAction(dockwidgetActions[title]);
     }
 
 
@@ -2918,12 +2929,6 @@ void KisMainWindow::createActions()
     d->themeManager->registerThemeActions(actionCollection());
     connect(d->themeManager, SIGNAL(signalThemeChanged()), this, SLOT(slotThemeChanged()), Qt::QueuedConnection);
     connect(this, SIGNAL(themeChanged()), d->welcomePage, SLOT(slotUpdateThemeColors()), Qt::UniqueConnection);
-    d->toggleDockers = actionManager->createAction("view_toggledockers");
-
-
-    KisConfig(true).showDockers(true);
-    d->toggleDockers->setChecked(true);
-    connect(d->toggleDockers, SIGNAL(toggled(bool)), SLOT(toggleDockersVisibility(bool)));
 
     d->resetConfigurations  = actionManager->createAction("reset_configurations");
     connect(d->resetConfigurations, SIGNAL(triggered()), this, SLOT(slotResetConfigurations()));
@@ -2939,7 +2944,7 @@ void KisMainWindow::createActions()
     d->toggleDockerTitleBars->setChecked(KisConfig(false).showDockerTitleBars());
     connect(d->toggleDockerTitleBars, SIGNAL(toggled(bool)), SLOT(showDockerTitleBars(bool)));
 
-    actionCollection()->addAction("settings_dockers_menu", d->dockWidgetMenu);
+    actionCollection()->addAction("dockers", d->dockMenu);
     actionCollection()->addAction("window", d->windowMenu);
 
     actionCollection()->addAction("style_menu", d->styleMenu); // for widget styles: breeze, fusion, etc
