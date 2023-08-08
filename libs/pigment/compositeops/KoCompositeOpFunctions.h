@@ -601,6 +601,9 @@ template<class T>
 inline T cfMultiplyAdditive(T src, T dst) { return Arithmetic::mul(src, dst) + src; }
 
 template<class T>
+inline T cfMultiplyAdditiveDarken(T src, T dst) { return unitValue<T>() - (Arithmetic::mul(inv(dst), src - unitValue<T>())) + dst; }
+
+template<class T>
 inline T cfHardOverlay(T src, T dst) {
     using namespace Arithmetic;
 
