@@ -589,9 +589,9 @@ inline T cfOverlay2(T src, T dst) {
         return scale<T>(1.0);}
 
     if(fsrc > 0.5) {
-        return scale<T>(fdst + (2.0 * fdst) * (fsrc - 0.5));
+        return scale<T>(fdst * (2.0 * (fsrc - 0.5)) + fdst);
     }
-    return scale<T>(fdst - (2.0 * fdst) * (0.5 - fsrc));
+    return scale<T>(unitValue<T>() - (inv(fdst) * (2.0 * (inv(fsrc) - 0.5)) + inv(fdst)));
  }
 
 template<class T>
