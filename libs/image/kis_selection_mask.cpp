@@ -12,7 +12,6 @@
 #include "kis_selection.h"
 #include <KoColorSpaceRegistry.h>
 #include <KoColorSpace.h>
-#include <KoMixColorsOp.h>
 #include <KoProperties.h>
 #include "kis_fill_painter.h"
 #include <KoCompositeOp.h>
