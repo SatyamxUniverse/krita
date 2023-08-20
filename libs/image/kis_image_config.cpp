@@ -669,15 +669,26 @@ void KisImageConfig::setSelectionOutlineOpacity(qreal value)
     m_config.writeEntry("selectionOutlineOpacity", value);
 }
 
-QColor KisImageConfig::selectionOverlayMaskColor(bool defaultValue) const
+QColor KisImageConfig::selectionOverlayMaskColor1(bool defaultValue) const
 {
-    QColor def(255, 0, 0, 128);
-    return (defaultValue ? def : m_config.readEntry("selectionOverlayMaskColor", def));
+    QColor def(255, 255, 255, 128);
+    return (defaultValue ? def : m_config.readEntry("selectionOverlayMaskColor1", def));
 }
 
-void KisImageConfig::setSelectionOverlayMaskColor(const QColor &color)
+void KisImageConfig::setSelectionOverlayMaskColor1(const QColor &color)
 {
-    m_config.writeEntry("selectionOverlayMaskColor", color);
+    m_config.writeEntry("selectionOverlayMaskColor1", color);
+}
+
+QColor KisImageConfig::selectionOverlayMaskColor2(bool defaultValue) const
+{
+    QColor def(0, 0, 0, 128);
+    return (defaultValue ? def : m_config.readEntry("selectionOverlayMaskColor2", def));
+}
+
+void KisImageConfig::setSelectionOverlayMaskColor2(const QColor &color)
+{
+    m_config.writeEntry("selectionOverlayMaskColor2", color);
 }
 
 int KisImageConfig::maxBrushSize(bool defaultValue) const

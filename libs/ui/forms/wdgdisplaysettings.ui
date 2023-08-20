@@ -11,7 +11,7 @@
     <x>0</x>
     <y>0</y>
     <width>674</width>
-    <height>413</height>
+    <height>459</height>
    </rect>
   </property>
   <property name="sizePolicy">
@@ -437,12 +437,12 @@
           <item row="1" column="0">
            <widget class="QLabel" name="label_12">
             <property name="text">
-             <string>Overlay color:</string>
+             <string>Overlay color 1:</string>
             </property>
            </widget>
           </item>
           <item row="1" column="1">
-           <widget class="KisColorButton" name="btnSelectionOverlayColor">
+           <widget class="KisColorButton" name="btnSelectionOverlayColor1">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
               <horstretch>0</horstretch>
@@ -457,12 +457,49 @@
           <item row="2" column="0">
            <widget class="QLabel" name="label_3">
             <property name="text">
-             <string>Overlay opacity:</string>
+             <string>Overlay opacity 1:</string>
             </property>
            </widget>
           </item>
           <item row="2" column="1">
-           <widget class="KisDoubleSliderSpinBox" name="sldSelectionOverlayOpacity">
+           <widget class="KisDoubleSliderSpinBox" name="sldSelectionOverlayOpacity1">
+            <property name="minimumSize">
+             <size>
+              <width>50</width>
+              <height>20</height>
+             </size>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="0">
+           <widget class="QLabel" name="label_13">
+            <property name="text">
+             <string>Overlay color 2:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="3" column="1">
+           <widget class="KisColorButton" name="btnSelectionOverlayColor2">
+            <property name="sizePolicy">
+             <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
+              <horstretch>0</horstretch>
+              <verstretch>0</verstretch>
+             </sizepolicy>
+            </property>
+            <property name="text">
+             <string/>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="0">
+           <widget class="QLabel" name="label_8">
+            <property name="text">
+             <string>Overlay opacity 2:</string>
+            </property>
+           </widget>
+          </item>
+          <item row="4" column="1">
+           <widget class="KisDoubleSliderSpinBox" name="sldSelectionOverlayOpacity2">
             <property name="minimumSize">
              <size>
               <width>50</width>

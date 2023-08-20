@@ -12,6 +12,7 @@
 #include "kis_selection.h"
 #include <KoColorSpaceRegistry.h>
 #include <KoColorSpace.h>
+#include <KoMixColorsOp.h>
 #include <KoProperties.h>
 #include "kis_fill_painter.h"
 #include <KoCompositeOp.h>
@@ -27,7 +28,7 @@
 
 #include "kis_image_config.h"
 #include "KisImageConfigNotifier.h"
-
+#include "kis_iterator_ng.h"
 
 struct Q_DECL_HIDDEN KisSelectionMask::Private
 {
@@ -35,13 +36,15 @@ public:
     Private(KisSelectionMask *_q)
         : q(_q)
         , updatesCompressor(0)
-        , maskColor(Qt::green, KoColorSpaceRegistry::instance()->rgb8())
+        , maskColor1(Qt::white, KoColorSpaceRegistry::instance()->rgb8())
+        , maskColor2(Qt::black, KoColorSpaceRegistry::instance()->rgb8())
     {}
     KisSelectionMask *q;
     KisCachedPaintDevice paintDeviceCache;
     KisCachedSelection cachedSelection;
     KisThreadSafeSignalCompressor *updatesCompressor;
-    KoColor maskColor;
+    KoColor maskColor1;
+    KoColor maskColor2;
 
     void slotSelectionChangedCompressed();
     void slotConfigChangedImpl(bool blockUpdates);
@@ -109,25 +112,42 @@ void KisSelectionMask::mergeInMaskInternal(KisPaintDeviceSP projection,
 
     KisCachedPaintDevice::Guard d1(projection, m_d->paintDeviceCache);
     KisPaintDeviceSP fillDevice = d1.device();
-    fillDevice->setDefaultPixel(m_d->maskColor);
+    fillDevice->setDefaultPixel(m_d->maskColor2);
 
     const QRect selectionExtent = effectiveSelection->selectedRect();
 
     if (selectionExtent.contains(applyRect) || selectionExtent.intersects(applyRect)) {
-        KisCachedSelection::Guard s1(m_d->cachedSelection);
-        KisSelectionSP invertedSelection = s1.selection();
+        // Get a reference to the selection device
+        KisPixelSelectionSP pixelSelection = effectiveSelection->pixelSelection();
 
-        invertedSelection->pixelSelection()->makeCloneFromRough(effectiveSelection->pixelSelection(), applyRect);
-        invertedSelection->pixelSelection()->invert();
+        // Get the color spaces of the selection and fillDevice
+        const KoColorSpace *selectionCS = pixelSelection->colorSpace();
+        const KoColorSpace *fillDeviceCS = fillDevice->colorSpace(); 
 
-        KisPainter gc(projection);
-        gc.setSelection(invertedSelection);
-        gc.bitBlt(applyRect.topLeft(), fillDevice, applyRect);
+        // Get some iterators for the devices
+        KisSequentialConstIterator selectionIt(pixelSelection, selectionExtent);
+        KisSequentialIterator fillDeviceIt(fillDevice, selectionExtent);
 
-    } else {
-        KisPainter gc(projection);
-        gc.bitBlt(applyRect.topLeft(), fillDevice, applyRect);
+        // Prepare the vectors that contain the normalized channel values
+        const quint32 channelCount = fillDeviceCS->channelCount();
+        QVector<float> nonSelectedAreaColor(channelCount), selectedAreaColor(channelCount), resultColor(channelCount);
+        fillDeviceCS->normalisedChannelsValue(m_d->maskColor1.data(), selectedAreaColor);
+        fillDeviceCS->normalisedChannelsValue(m_d->maskColor2.data(), nonSelectedAreaColor);
+
+        // Interpolate the two overlay colors based on the selection value and put
+        // the result on the fill device
+        while (selectionIt.nextPixel() && fillDeviceIt.nextPixel()) {
+            const float t = selectionCS->opacityF(selectionIt.rawDataConst());
+            const float oneMinusT = 1.f - t;
+            for (quint32 i = 0; i < channelCount; ++i) {
+                resultColor[i] = oneMinusT * nonSelectedAreaColor[i] + t * selectedAreaColor[i];
+            }
+            fillDeviceCS->fromNormalisedChannelsValue(fillDeviceIt.rawData(), resultColor);
+        }
     }
+
+    KisPainter gc(projection);
+    gc.bitBlt(applyRect.topLeft(), fillDevice, applyRect);
 }
 
 bool KisSelectionMask::paintsOutsideSelection() const
@@ -320,7 +340,8 @@ void KisSelectionMask::Private::slotConfigChangedImpl(bool doUpdates)
 
     KisImageConfig cfg(true);
 
-    maskColor = KoColor(cfg.selectionOverlayMaskColor(), cs);
+    maskColor1 = KoColor(cfg.selectionOverlayMaskColor1(), cs);
+    maskColor2 = KoColor(cfg.selectionOverlayMaskColor2(), cs);
 
     if (doUpdates && image && image->overlaySelectionMask() == q) {
         q->setDirty();

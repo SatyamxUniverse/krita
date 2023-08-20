@@ -267,7 +267,7 @@ void TransformStrokeStrategy::doStrokeCallback(KisStrokeJobData *data)
 
 
                 KisImageConfig cfg(true);
-                KoColor pixel(cfg.selectionOverlayMaskColor(), previewDevice->colorSpace());
+                KoColor pixel(cfg.selectionOverlayMaskColor2(), previewDevice->colorSpace());
 
                 const qreal coeff = 1.0 / 255.0;
                 const qreal baseOpacity = 0.5;

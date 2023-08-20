@@ -135,8 +135,11 @@ public:
     qreal selectionOutlineOpacity(bool defaultValue = false) const;
     void setSelectionOutlineOpacity(qreal value);
 
-    QColor selectionOverlayMaskColor(bool defaultValue = false) const;
-    void setSelectionOverlayMaskColor(const QColor &color);
+    QColor selectionOverlayMaskColor1(bool defaultValue = false) const;
+    void setSelectionOverlayMaskColor1(const QColor &color);
+
+    QColor selectionOverlayMaskColor2(bool defaultValue = false) const;
+    void setSelectionOverlayMaskColor2(const QColor &color);
 
     int maxBrushSize(bool defaultValue = false) const;
     void setMaxBrushSize(int value);
