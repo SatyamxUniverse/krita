@@ -128,18 +128,28 @@ void KisSelectionMask::mergeInMaskInternal(KisPaintDeviceSP projection,
         KisSequentialIterator fillDeviceIt(fillDevice, selectionExtent);
 
         // Prepare the vectors that contain the normalized channel values
-        const quint32 channelCount = fillDeviceCS->channelCount();
-        QVector<float> nonSelectedAreaColor(channelCount), selectedAreaColor(channelCount), resultColor(channelCount);
+        const int channelCount = fillDeviceCS->channelCount();
+        QVector<float> unselectedAreaColor(channelCount), selectedAreaColor(channelCount), resultColor(channelCount);
         fillDeviceCS->normalisedChannelsValue(m_d->maskColor1.data(), selectedAreaColor);
-        fillDeviceCS->normalisedChannelsValue(m_d->maskColor2.data(), nonSelectedAreaColor);
+        fillDeviceCS->normalisedChannelsValue(m_d->maskColor2.data(), unselectedAreaColor);
 
         // Interpolate the two overlay colors based on the selection value and put
         // the result on the fill device
+        const int alphaPos = fillDeviceCS->alphaPos();
         while (selectionIt.nextPixel() && fillDeviceIt.nextPixel()) {
-            const float t = selectionCS->opacityF(selectionIt.rawDataConst());
-            const float oneMinusT = 1.f - t;
-            for (quint32 i = 0; i < channelCount; ++i) {
-                resultColor[i] = oneMinusT * nonSelectedAreaColor[i] + t * selectedAreaColor[i];
+            float t = selectionCS->opacityF(selectionIt.rawDataConst());
+            if (alphaPos != -1) {
+                const float selectedAreaColorWeight = t * selectedAreaColor[alphaPos];
+                resultColor[alphaPos] = (1.f - t) * unselectedAreaColor[alphaPos] + selectedAreaColorWeight;
+                if (resultColor[alphaPos] > 0) {
+                    t = selectedAreaColorWeight / resultColor[alphaPos];
+                }
+            }
+
+            for (int i = 0; i < channelCount; ++i) {
+                if (i != alphaPos) {
+                    resultColor[i] = (1.f - t) * unselectedAreaColor[i] + t * selectedAreaColor[i];
+                }
             }
             fillDeviceCS->fromNormalisedChannelsValue(fillDeviceIt.rawData(), resultColor);
         }
@@ -339,8 +349,8 @@ void KisSelectionMask::Private::slotConfigChangedImpl(bool doUpdates)
 
     KisImageConfig cfg(true);
 
-    maskColor1 = KoColor(cfg.selectionOverlayMaskColor1(), cs);
-    maskColor2 = KoColor(cfg.selectionOverlayMaskColor2(), cs);
+    maskColor1 = KoColor(cfg.selectedAreasOverlay(), cs);
+    maskColor2 = KoColor(cfg.unselectedAreasOverlay(), cs);
 
     if (doUpdates && image && image->overlaySelectionMask() == q) {
         q->setDirty();

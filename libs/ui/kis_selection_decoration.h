@@ -67,7 +67,8 @@ private:
 
     qreal m_opacity;
 
-    QColor m_maskColor;
+    QColor m_maskColor1;
+    QColor m_maskColor2;
     bool m_antialiasSelectionOutline;
 
     QWindow *m_window;
