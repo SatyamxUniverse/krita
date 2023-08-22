@@ -40,12 +40,20 @@ void KisShortcutsDialog::KisShortcutsDialogPrivate::changeShortcutScheme(const Q
     // KTreeWidgetSearchLine is unhappy if the contents of the tree change
     m_shortcutsEditor->clearSearch();
 
-    QString dialogText = i18n("The current shortcut scheme is modified. Save before switching to the new one?");
-    if (m_shortcutsEditor->isModified() &&
-        KMessageBox::questionYesNo( q,dialogText ) == KMessageBox::Yes) {
-        m_shortcutsEditor->save();
-    } else {
-        m_shortcutsEditor->undo();
+    if (m_shortcutsEditor->isModified()) {
+        KMessageBox::ButtonCode answer =
+            KMessageBox::questionTwoActions(
+                q,
+                i18n("The current shortcut scheme is modified. Save before switching to the new one?"),
+                i18n("Question"),
+                KStandardGuiItem::save(),
+                KStandardGuiItem::discard());
+
+        if (answer == KMessageBox::PrimaryAction) {
+            m_shortcutsEditor->save();
+        } else {
+            m_shortcutsEditor->undo();
+        }
     }
 
     KisCursorOverrideLock cursorLock(Qt::WaitCursor);

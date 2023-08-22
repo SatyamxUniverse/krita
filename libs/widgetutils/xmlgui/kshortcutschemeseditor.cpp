@@ -123,9 +123,16 @@ void KisKShortcutSchemesEditor::newScheme()
 
 void KisKShortcutSchemesEditor::deleteScheme()
 {
-    if (KMessageBox::questionYesNo(m_dialog,
-                                   i18n("Do you really want to delete the scheme %1?\n\
-Note that this will not remove any system wide shortcut schemes.", currentScheme())) == KMessageBox::No) {
+    KMessageBox::ButtonCode answer =
+        KMessageBox::questionTwoActions(
+            m_dialog,
+            i18n("Do you really want to delete the scheme %1?\n"
+                 "Note that this will not remove any system wide shortcut schemes.",
+                 currentScheme()),
+            i18n("Question"),
+            KStandardGuiItem::del(),
+            KStandardGuiItem::cancel());
+    if (answer == KMessageBox::SecondaryAction) {
         return;
     }
 
