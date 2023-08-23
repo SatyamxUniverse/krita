@@ -15,7 +15,7 @@
 class KRITAIMAGE_EXPORT KisUpdateOutlineJob : public KisSpontaneousJob
 {
 public:
-    KisUpdateOutlineJob(KisSelectionSP selection, bool updateThumbnail, const QColor &maskColor);
+    KisUpdateOutlineJob(KisSelectionSP selection, bool updateThumbnail, const QColor &maskColor1, const QColor &maskColor2);
 
     bool overrides(const KisSpontaneousJob *otherJob) override;
     void run() override;
@@ -25,7 +25,8 @@ public:
 private:
     KisSelectionSP m_selection;
     bool m_updateThumbnail;
-    QColor m_maskColor;
+    QColor m_maskColor1;
+    QColor m_maskColor2;
 };
 
 #endif /* __KIS_UPDATE_OUTLINE_JOB_H */

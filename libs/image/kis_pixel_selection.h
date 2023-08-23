@@ -121,7 +121,7 @@ public:
     bool thumbnailImageValid() const;
     QImage thumbnailImage() const;
     QTransform thumbnailImageTransform() const;
-    void recalculateThumbnailImage(const QColor &maskColor);
+    void recalculateThumbnailImage(const QColor &maskColor1, const QColor &maskColor2);
 
 
     void setParentSelection(KisSelectionWSP selection);

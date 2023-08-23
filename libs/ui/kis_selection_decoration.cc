@@ -165,7 +165,7 @@ void KisSelectionDecoration::slotStartUpdateSelection()
     KisSelectionSP selection = view()->selection();
     if (!selection) return;
 
-    view()->image()->addSpontaneousJob(new KisUpdateOutlineJob(selection, m_mode == Mask, m_maskColor2));
+    view()->image()->addSpontaneousJob(new KisUpdateOutlineJob(selection, m_mode == Mask, m_maskColor1, m_maskColor2));
 }
 
 void KisSelectionDecoration::slotConfigChanged()
@@ -227,10 +227,8 @@ void KisSelectionDecoration::drawDecoration(QPainter& gc, const QRectF& updateRe
         QPainterPath p2;
         p2.addRect(r2);
 
-        gc.setPen(Qt::NoPen);
-        gc.setBrush(m_maskColor1);
-        gc.drawPath(p2);
         gc.setBrush(m_maskColor2);
+        gc.setPen(Qt::NoPen);
         gc.drawPath(p1 - p2);
     } else /* if (m_mode == Ants) */ {
         gc.setRenderHints(QPainter::Antialiasing | QPainter::Antialiasing, m_antialiasSelectionOutline);

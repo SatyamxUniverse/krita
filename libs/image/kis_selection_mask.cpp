@@ -122,33 +122,46 @@ void KisSelectionMask::mergeInMaskInternal(KisPaintDeviceSP projection,
         // Get the color spaces of the selection and fillDevice
         const KoColorSpace *selectionCS = pixelSelection->colorSpace();
         const KoColorSpace *fillDeviceCS = fillDevice->colorSpace(); 
+        const quint32 alphaPos = fillDeviceCS->alphaPos();
+        const KoColor color1(m_d->maskColor1, fillDeviceCS);
+        const KoColor color2(m_d->maskColor2, fillDeviceCS);
 
         // Get some iterators for the devices
         KisSequentialConstIterator selectionIt(pixelSelection, selectionExtent);
         KisSequentialIterator fillDeviceIt(fillDevice, selectionExtent);
 
         // Prepare the vectors that contain the normalized channel values
-        const int channelCount = fillDeviceCS->channelCount();
+        const quint32 channelCount = fillDeviceCS->channelCount();
         QVector<float> unselectedAreaColor(channelCount), selectedAreaColor(channelCount), resultColor(channelCount);
-        fillDeviceCS->normalisedChannelsValue(m_d->maskColor1.data(), selectedAreaColor);
-        fillDeviceCS->normalisedChannelsValue(m_d->maskColor2.data(), unselectedAreaColor);
-
+        fillDeviceCS->normalisedChannelsValue(color1.data(), selectedAreaColor);
+        fillDeviceCS->normalisedChannelsValue(color2.data(), unselectedAreaColor);
+        // Premultiply
+        for (quint32 i = 0; i < channelCount; ++i) {
+            if (i != alphaPos) {
+                unselectedAreaColor[i] *= unselectedAreaColor[alphaPos];
+                selectedAreaColor[i] *= selectedAreaColor[alphaPos];
+            }
+        }
         // Interpolate the two overlay colors based on the selection value and put
         // the result on the fill device
-        const int alphaPos = fillDeviceCS->alphaPos();
         while (selectionIt.nextPixel() && fillDeviceIt.nextPixel()) {
-            float t = selectionCS->opacityF(selectionIt.rawDataConst());
-            if (alphaPos != -1) {
-                const float selectedAreaColorWeight = t * selectedAreaColor[alphaPos];
-                resultColor[alphaPos] = (1.f - t) * unselectedAreaColor[alphaPos] + selectedAreaColorWeight;
-                if (resultColor[alphaPos] > 0) {
-                    t = selectedAreaColorWeight / resultColor[alphaPos];
+            const float t = selectionCS->opacityF(selectionIt.rawDataConst());
+            const float oneMinusT = 1.0F - t;
+            // Alpha channel
+            resultColor[alphaPos] = oneMinusT * unselectedAreaColor[alphaPos] + t * selectedAreaColor[alphaPos];
+            if (resultColor[alphaPos] > 0.0F) {
+                for (quint32 i = 0; i < channelCount; ++i) {
+                    if (i != alphaPos) {
+                        resultColor[i] = oneMinusT * unselectedAreaColor[i] + t * selectedAreaColor[i];
+                        // Un-premultiply
+                        resultColor[i] /= resultColor[alphaPos];
+                    }
                 }
-            }
-
-            for (int i = 0; i < channelCount; ++i) {
-                if (i != alphaPos) {
-                    resultColor[i] = (1.f - t) * unselectedAreaColor[i] + t * selectedAreaColor[i];
+            } else {
+                for (quint32 i = 0; i < channelCount; ++i) {
+                    if (i != alphaPos) {
+                        resultColor[i] = 0.0F;
+                    }
                 }
             }
             fillDeviceCS->fromNormalisedChannelsValue(fillDeviceIt.rawData(), resultColor);
