@@ -223,11 +223,16 @@ void KarbonCalligraphyOptionWidget::saveProfileAs()
         }
 
         if (m_profiles.contains(name)) {
-            int ret = KMessageBox::warningYesNo(this,
-                                                i18n("A profile with that name already exists.\n"
-                                                        "Do you want to overwrite it?"));
+            KMessageBox::ButtonCode answer =
+                KMessageBox::warningTwoActions(
+                    this,
+                    i18n("A profile with that name already exists.\n"
+                         "Do you want to overwrite it?"),
+                    i18n("Warning"),
+                    KStandardGuiItem::overwrite(),
+                    KStandardGuiItem::cancel());
 
-            if (ret == KMessageBox::Yes) {
+            if (answer == KMessageBox::PrimaryAction) {
                 break;    // exit while loop (save profile)
             }
             // else ask again

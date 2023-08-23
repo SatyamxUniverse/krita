@@ -380,12 +380,15 @@ protected:
        Reimplement this function to prevent the user from losing data.
        Example:
        \code
-       switch ( KMessageBox::warningYesNoCancel( this,
-                i18n("Save changes to document foo?")) ) {
-       case KMessageBox::Yes :
+       switch ( KMessageBox::warningTwoActionsCancel(this,
+                i18n("Save changes to document foo?"),
+                i18n("Unsaved Document"),
+                KStandardGuiItem::save(),
+                KStandardGuiItem::discard()) ) {
+       case KMessageBox::PrimaryAction :
          // save document here. If saving fails, return false;
          return true;
-       case KMessageBox::No :
+       case KMessageBox::SecondaryAction :
          return true;
        default: // cancel
          return false;
