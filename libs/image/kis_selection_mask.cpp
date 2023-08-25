@@ -95,81 +95,11 @@ void KisSelectionMask::mergeInMaskInternal(KisPaintDeviceSP projection,
                                            const QRect &preparedNeedRect,
                                            KisNode::PositionToFilthy maskPos) const
 {
-    Q_UNUSED(maskPos);
+    Q_UNUSED(projection);
+    Q_UNUSED(effectiveSelection);
+    Q_UNUSED(applyRect);
     Q_UNUSED(preparedNeedRect);
-    if (!effectiveSelection) return;
-
-    {
-        KisSelectionSP mainMaskSelection = this->selection();
-        if (mainMaskSelection &&
-            (!mainMaskSelection->isVisible() ||
-             mainMaskSelection->pixelSelection()->defaultBounds()->externalFrameActive())) {
-
-            return;
-        }
-    }
-
-    KisCachedPaintDevice::Guard d1(projection, m_d->paintDeviceCache);
-    KisPaintDeviceSP fillDevice = d1.device();
-    fillDevice->setDefaultPixel(m_d->maskColor2);
-
-    const QRect selectionExtent = effectiveSelection->selectedRect();
-
-    if (selectionExtent.contains(applyRect) || selectionExtent.intersects(applyRect)) {
-        // Get a reference to the selection device
-        KisPixelSelectionSP pixelSelection = effectiveSelection->pixelSelection();
-
-        // Get the color spaces of the selection and fillDevice
-        const KoColorSpace *selectionCS = pixelSelection->colorSpace();
-        const KoColorSpace *fillDeviceCS = fillDevice->colorSpace(); 
-        const quint32 alphaPos = fillDeviceCS->alphaPos();
-        const KoColor color1(m_d->maskColor1, fillDeviceCS);
-        const KoColor color2(m_d->maskColor2, fillDeviceCS);
-
-        // Get some iterators for the devices
-        KisSequentialConstIterator selectionIt(pixelSelection, selectionExtent);
-        KisSequentialIterator fillDeviceIt(fillDevice, selectionExtent);
-
-        // Prepare the vectors that contain the normalized channel values
-        const quint32 channelCount = fillDeviceCS->channelCount();
-        QVector<float> unselectedAreaColor(channelCount), selectedAreaColor(channelCount), resultColor(channelCount);
-        fillDeviceCS->normalisedChannelsValue(color1.data(), selectedAreaColor);
-        fillDeviceCS->normalisedChannelsValue(color2.data(), unselectedAreaColor);
-        // Premultiply
-        for (quint32 i = 0; i < channelCount; ++i) {
-            if (i != alphaPos) {
-                unselectedAreaColor[i] *= unselectedAreaColor[alphaPos];
-                selectedAreaColor[i] *= selectedAreaColor[alphaPos];
-            }
-        }
-        // Interpolate the two overlay colors based on the selection value and put
-        // the result on the fill device
-        while (selectionIt.nextPixel() && fillDeviceIt.nextPixel()) {
-            const float t = selectionCS->opacityF(selectionIt.rawDataConst());
-            const float oneMinusT = 1.0F - t;
-            // Alpha channel
-            resultColor[alphaPos] = oneMinusT * unselectedAreaColor[alphaPos] + t * selectedAreaColor[alphaPos];
-            if (resultColor[alphaPos] > 0.0F) {
-                for (quint32 i = 0; i < channelCount; ++i) {
-                    if (i != alphaPos) {
-                        resultColor[i] = oneMinusT * unselectedAreaColor[i] + t * selectedAreaColor[i];
-                        // Un-premultiply
-                        resultColor[i] /= resultColor[alphaPos];
-                    }
-                }
-            } else {
-                for (quint32 i = 0; i < channelCount; ++i) {
-                    if (i != alphaPos) {
-                        resultColor[i] = 0.0F;
-                    }
-                }
-            }
-            fillDeviceCS->fromNormalisedChannelsValue(fillDeviceIt.rawData(), resultColor);
-        }
-    }
-
-    KisPainter gc(projection);
-    gc.bitBlt(applyRect.topLeft(), fillDevice, applyRect);
+    Q_UNUSED(maskPos);
 }
 
 bool KisSelectionMask::paintsOutsideSelection() const

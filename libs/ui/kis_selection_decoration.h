@@ -55,6 +55,7 @@ private:
 private:
 
     KisSignalCompressor m_signalCompressor;
+    KisSelectionMaskSP m_mask;
     QPainterPath m_outlinePath;
     QImage m_thumbnailImage;
     QTransform m_thumbnailImageTransform;
