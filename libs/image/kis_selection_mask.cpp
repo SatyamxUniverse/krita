@@ -25,10 +25,6 @@
 #include "kis_layer_properties_icons.h"
 #include "kis_cached_paint_device.h"
 
-#include "kis_image_config.h"
-#include "KisImageConfigNotifier.h"
-#include "kis_iterator_ng.h"
-
 struct Q_DECL_HIDDEN KisSelectionMask::Private
 {
 public:
