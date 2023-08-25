@@ -186,8 +186,8 @@ void KisSelectionDecoration::slotConfigChanged()
     KisConfig cfg(true);
 
     m_opacity = imageConfig.selectionOutlineOpacity();
-    m_maskColor1 = imageConfig.selectedAreasOverlay();
-    m_maskColor2 = imageConfig.unselectedAreasOverlay();
+    m_maskColor1 = imageConfig.selectionOverlayMaskColorSelected();
+    m_maskColor2 = imageConfig.selectionOverlayMaskColor();
     m_antialiasSelectionOutline = cfg.antialiasSelectionOutline();
 }
 

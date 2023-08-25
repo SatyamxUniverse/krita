@@ -35,19 +35,13 @@ public:
     Private(KisSelectionMask *_q)
         : q(_q)
         , updatesCompressor(0)
-        , maskColor1(Qt::white, KoColorSpaceRegistry::instance()->rgb8())
-        , maskColor2(Qt::black, KoColorSpaceRegistry::instance()->rgb8())
     {}
     KisSelectionMask *q;
     KisCachedPaintDevice paintDeviceCache;
     KisCachedSelection cachedSelection;
     KisThreadSafeSignalCompressor *updatesCompressor;
-    KoColor maskColor1;
-    KoColor maskColor2;
 
     void slotSelectionChangedCompressed();
-    void slotConfigChangedImpl(bool blockUpdates);
-    void slotConfigChanged();
 };
 
 KisSelectionMask::KisSelectionMask(KisImageWSP image, const QString &name)
@@ -61,9 +55,6 @@ KisSelectionMask::KisSelectionMask(KisImageWSP image, const QString &name)
             new KisThreadSafeSignalCompressor(50, KisSignalCompressor::FIRST_ACTIVE);
 
     connect(m_d->updatesCompressor, SIGNAL(timeout()), SLOT(slotSelectionChangedCompressed()));
-
-    connect(KisImageConfigNotifier::instance(), SIGNAL(configChanged()), SLOT(slotConfigChanged()));
-    m_d->slotConfigChangedImpl(false);
 }
 
 KisSelectionMask::KisSelectionMask(const KisSelectionMask& rhs)
@@ -74,9 +65,6 @@ KisSelectionMask::KisSelectionMask(const KisSelectionMask& rhs)
             new KisThreadSafeSignalCompressor(300, KisSignalCompressor::POSTPONE);
 
     connect(m_d->updatesCompressor, SIGNAL(timeout()), SLOT(slotSelectionChangedCompressed()));
-
-    connect(KisImageConfigNotifier::instance(), SIGNAL(configChanged()), SLOT(slotConfigChanged()));
-    m_d->slotConfigChangedImpl(false);
 }
 
 KisSelectionMask::~KisSelectionMask()
@@ -280,29 +268,6 @@ void KisSelectionMask::Private::slotSelectionChangedCompressed()
     if (!currentSelection) return;
 
     currentSelection->notifySelectionChanged();
-}
-
-void KisSelectionMask::Private::slotConfigChangedImpl(bool doUpdates)
-{
-    KisImageSP image = q->image();
-
-    const KoColorSpace *cs = image ?
-        image->colorSpace() :
-        KoColorSpaceRegistry::instance()->rgb8();
-
-    KisImageConfig cfg(true);
-
-    maskColor1 = KoColor(cfg.selectedAreasOverlay(), cs);
-    maskColor2 = KoColor(cfg.unselectedAreasOverlay(), cs);
-
-    if (doUpdates && image && image->overlaySelectionMask() == q) {
-        q->setDirty();
-    }
-}
-
-void KisSelectionMask::Private::slotConfigChanged()
-{
-    slotConfigChangedImpl(true);
 }
 
 #include "moc_kis_selection_mask.cpp"

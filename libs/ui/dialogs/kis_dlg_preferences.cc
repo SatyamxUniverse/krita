@@ -1834,19 +1834,19 @@ DisplaySettingsTab::DisplaySettingsTab(QWidget *parent, const char *name)
     KisImageConfig imageCfg(false);
 
     KoColor c;
-    c.fromQColor(imageCfg.selectedAreasOverlay());
+    c.fromQColor(imageCfg.selectionOverlayMaskColorSelected());
     c.setOpacity(1.0);
     btnSelectedAreasOverlayColor->setColor(c);
     sldSelectedAreasOverlayOpacity->setRange(0.0, 1.0, 2);
     sldSelectedAreasOverlayOpacity->setSingleStep(0.05);
-    sldSelectedAreasOverlayOpacity->setValue(imageCfg.selectedAreasOverlay().alphaF());
+    sldSelectedAreasOverlayOpacity->setValue(imageCfg.selectionOverlayMaskColorSelected().alphaF());
 
-    c.fromQColor(imageCfg.unselectedAreasOverlay());
+    c.fromQColor(imageCfg.selectionOverlayMaskColor());
     c.setOpacity(1.0);
     btnUnselectedAreasOverlayColor->setColor(c);
     sldUnselectedAreasOverlayOpacity->setRange(0.0, 1.0, 2);
     sldUnselectedAreasOverlayOpacity->setSingleStep(0.05);
-    sldUnselectedAreasOverlayOpacity->setValue(imageCfg.unselectedAreasOverlay().alphaF());
+    sldUnselectedAreasOverlayOpacity->setValue(imageCfg.selectionOverlayMaskColor().alphaF());
 
     sldSelectionOutlineOpacity->setRange(0.0, 1.0, 2);
     sldSelectionOutlineOpacity->setSingleStep(0.05);
@@ -1906,15 +1906,15 @@ void DisplaySettingsTab::setDefault()
     KisImageConfig imageCfg(false);
 
     KoColor c;
-    c.fromQColor(imageCfg.selectedAreasOverlay(true));
+    c.fromQColor(imageCfg.selectionOverlayMaskColorSelected(true));
     c.setOpacity(1.0);
     btnSelectedAreasOverlayColor->setColor(c);
-    sldSelectedAreasOverlayOpacity->setValue(imageCfg.selectedAreasOverlay(true).alphaF());
+    sldSelectedAreasOverlayOpacity->setValue(imageCfg.selectionOverlayMaskColorSelected(true).alphaF());
 
-    c.fromQColor(imageCfg.unselectedAreasOverlay(true));
+    c.fromQColor(imageCfg.selectionOverlayMaskColor(true));
     c.setOpacity(1.0);
     btnUnselectedAreasOverlayColor->setColor(c);
-    sldUnselectedAreasOverlayOpacity->setValue(imageCfg.unselectedAreasOverlay(true).alphaF());
+    sldUnselectedAreasOverlayOpacity->setValue(imageCfg.selectionOverlayMaskColor(true).alphaF());
 
     sldSelectionOutlineOpacity->setValue(imageCfg.selectionOutlineOpacity(true));
 
@@ -2448,10 +2448,10 @@ bool KisDlgPreferences::editPreferences()
         KoColor c;
         c = m_displaySettings->btnSelectedAreasOverlayColor->color();
         c.setOpacity(m_displaySettings->sldSelectedAreasOverlayOpacity->value());
-        cfgImage.setSelectedAreasOverlay(c.toQColor());
+        cfgImage.setSelectionOverlayMaskColorSelected(c.toQColor());
         c = m_displaySettings->btnUnselectedAreasOverlayColor->color();
         c.setOpacity(m_displaySettings->sldUnselectedAreasOverlayOpacity->value());
-        cfgImage.setUnselectedAreasOverlay(c.toQColor());
+        cfgImage.setSelectionOverlayMaskColor(c.toQColor());
         cfgImage.setSelectionOutlineOpacity(m_displaySettings->sldSelectionOutlineOpacity->value());
         cfg.setAntialiasCurves(m_displaySettings->chkCurveAntialiasing->isChecked());
         cfg.setAntialiasSelectionOutline(m_displaySettings->chkSelectionOutlineAntialiasing->isChecked());
