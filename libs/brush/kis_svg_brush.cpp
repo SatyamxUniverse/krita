@@ -50,7 +50,7 @@ bool KisSvgBrush::loadFromDevice(QIODevice *dev, KisResourcesInterfaceSP resourc
 
     QVector<QRgb> table;
     for (int i = 0; i < 256; ++i) table.push_back(qRgb(i, i, i));
-    image_ = image_.convertToFormat(QImage::Format_Indexed8, table);
+    image_ = std::move(image_).convertToFormat(QImage::Format_Indexed8, table);
 
     setBrushTipImage(image_);
 

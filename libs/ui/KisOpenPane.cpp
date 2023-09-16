@@ -322,9 +322,9 @@ QTreeWidgetItem* KisOpenPane::addPane(const QString &title, const QString &untra
             image = image.scaled(iconSize, iconSize, Qt::KeepAspectRatio, Qt::SmoothTransformation);
         }
 
-        image = image.convertToFormat(QImage::Format_ARGB32);
+        image = std::move(image).convertToFormat(QImage::Format_ARGB32);
         image = image.copy((image.width() - iconSize) / 2, (image.height() - iconSize) / 2, iconSize, iconSize);
-        listItem->setIcon(0, QIcon(QPixmap::fromImage(image)));
+        listItem->setIcon(0, QIcon(QPixmap::fromImage(std::move(image))));
     }
 
     return listItem;

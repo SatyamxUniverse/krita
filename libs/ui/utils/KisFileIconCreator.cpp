@@ -56,7 +56,7 @@ QIcon createIcon(const QImage &source, const QSize &iconSize)
     // The final size must be compared with iconSize
     // because otherwise parts of the image may be chopped off if
     // result > iconSize.
-    result = result.convertToFormat(QImage::Format_ARGB32) // add transparency
+    result = std::move(result).convertToFormat(QImage::Format_ARGB32) // add transparency
         .copy((result.width() - iconSize.width()) / 2, (result.height() - iconSize.height()) / 2, iconSize.width(), iconSize.height());
 
     // draw faint outline
@@ -66,8 +66,9 @@ QIcon createIcon(const QImage &source, const QSize &iconSize)
     QColor blendedColor = KisPaintingTweaks::blendColors(textColor, backgroundColor, 0.2);
     painter.setPen(blendedColor);
     painter.drawRect(result.rect().adjusted(0, 0, -1, -1));
+    painter.end(); // Otherwise there will always be a copy
 
-    return QIcon(QPixmap::fromImage(result));
+    return QIcon(QPixmap::fromImage(std::move(result)));
 }
 
 }

@@ -203,7 +203,7 @@ KisResourceItemChooser::KisResourceItemChooser(const QString &resourceType, bool
     d->buttonGroup->addButton(d->deleteButton, Button_Remove);
     connect(d->buttonGroup, SIGNAL(buttonClicked(int)), this, SLOT(slotButtonClicked(int)));
 
-    d->importExportBtns = new QFrame(this);  
+    d->importExportBtns = new QFrame(this);
     QHBoxLayout* importExportLayout = new QHBoxLayout(d->importExportBtns);
     importExportLayout->setAlignment(Qt::AlignmentFlag::AlignLeft);
     importExportLayout->setMargin(0);
@@ -554,7 +554,7 @@ void KisResourceItemChooser::updatePreview(const QModelIndex &idx)
         image.format() != QImage::Format_ARGB32 &&
         image.format() != QImage::Format_ARGB32_Premultiplied) {
 
-        image = image.convertToFormat(QImage::Format_ARGB32_Premultiplied);
+        image = std::move(image).convertToFormat(QImage::Format_ARGB32_Premultiplied);
     }
 
     if (d->tiledPreview) {
@@ -583,7 +583,7 @@ void KisResourceItemChooser::updatePreview(const QModelIndex &idx)
             }
         }
     }
-    d->previewLabel->setPixmap(QPixmap::fromImage(image));
+    d->previewLabel->setPixmap(QPixmap::fromImage(std::move(image)));
 }
 
 KoResourceSP KisResourceItemChooser::resourceFromModelIndex(const QModelIndex &index) const
