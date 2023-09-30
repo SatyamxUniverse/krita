@@ -20,21 +20,24 @@
 
 template<class HSXType, class TReal>
 inline void cfSpectral(TReal sr, TReal sg, TReal sb, TReal sw, TReal& dr, TReal& dg, TReal& db) {
-    sr = fmax(sr, 0.00000001f);
-    sg = fmax(sg, 0.00000001f);
-    sb = fmax(sb, 0.00000001f);
-    dr = fmax(dr, 0.00000001f);
-    dg = fmax(dg, 0.00000001f);
-    db = fmax(db, 0.00000001f);
+    sr = fmax(sr, 0.00000001);
+    sg = fmax(sg, 0.00000001);
+    sb = fmax(sb, 0.00000001);
+    dr = fmax(dr, 0.00000001);
+    dg = fmax(dg, 0.00000001);
+    db = fmax(db, 0.00000001);
 
-    TReal spectrum_s[81], spectrum_d[81];
-    linearToSpectrum(sr, sg, sb, spectrum_s);
-    linearToSpectrum(dr, dg, db, spectrum_d);
+    TReal dw = 1.0 - sw;
+    sw = linearToWeight(sr, sg, sb, sw);
+    dw = linearToWeight(dr, dg, db, dw);
 
-    sw = concentration(sr, sg, sb, sw, dr, dg, db);
-    mixSpectrums(spectrum_s, spectrum_d, sw);
+    TReal ks_s[41], ks_d[41];
+    linearToKs(sr, sg, sb, sw, ks_s);
+    linearToKs(dr, dg, db, dw, ks_d);
 
-    spectrumToLinear(spectrum_d, &dr, &dg, &db);
+    addKs(ks_s, ks_d);
+
+    ksToLinear(ks_d, &dr, &dg, &db, sw + dw);
 }
 
 template<class HSXType, class TReal>
