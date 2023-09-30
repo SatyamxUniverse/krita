@@ -28,8 +28,8 @@ inline void cfSpectral(TReal sr, TReal sg, TReal sb, TReal sw, TReal& dr, TReal&
     db = fmax(db, 0.00000001);
 
     TReal dw = 1.0 - sw;
-    sw = linearToWeight(sr, sg, sb, sw);
-    dw = linearToWeight(dr, dg, db, dw);
+    sw = linearToKsWeight(sr, sg, sb, sw);
+    dw = linearToKsWeight(dr, dg, db, dw);
 
     TReal ks_s[41], ks_d[41];
     linearToKs(sr, sg, sb, sw, ks_s);

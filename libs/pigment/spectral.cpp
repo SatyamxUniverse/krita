@@ -48,7 +48,7 @@ static float_v linearToKsV(float r, float g, float b, float w, size_t i) {
 }
 
 // https://github.com/rvanwijnen/spectral.js
-float linearToWeight(float r, float g, float b, float a) {
+float linearToKsWeight(float r, float g, float b, float a) {
     float l = 0.212648173 * r + 0.715179242 * g + 0.072172585 * b;
     return a * a * l;
 }
@@ -100,7 +100,7 @@ void ksToLinear(float* KS, float* r, float* g, float* b, float w, float offset) 
         z += Z_BAR[i] * spectrum;
     }
 
-    *r =  3.240830229f * x - 1.537316904f * y - 0.498589266f * z;
-    *g = -0.969229321f * x + 1.875939794f * y + 0.041554444f * z;
-    *b =  0.055645287f * x - 0.204032720f * y + 1.057260459f * z;
+    *r =  3.240830229 * x - 1.537316904 * y - 0.498589266 * z;
+    *g = -0.969229321 * x + 1.875939794 * y + 0.041554444 * z;
+    *b =  0.055645287 * x - 0.204032720 * y + 1.057260459 * z;
 }

@@ -6,7 +6,7 @@
     /**
      * Conversion of linear sRGB to ksWeight.
      */
-KRITAPIGMENT_EXPORT float linearToWeight(float r, float g, float b, float a);
+KRITAPIGMENT_EXPORT float linearToKsWeight(float r, float g, float b, float a);
 
     /**
      * Conversion of linear sRGB to KS with ksWeight.
