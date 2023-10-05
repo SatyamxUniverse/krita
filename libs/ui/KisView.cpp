@@ -1377,17 +1377,13 @@ void KisView::slotSoftProofing(bool softProofing)
 {
     d->softProofing = softProofing;
     QString message;
-    if (canvasBase()->image()->colorSpace()->colorDepthId().id().contains("F"))
-    {
-        message = i18n("Soft Proofing doesn't work in floating point.");
-        viewManager()->showFloatingMessage(message,QIcon());
-        return;
-    }
+
     if (softProofing){
         message = i18n("Soft Proofing turned on.");
     } else {
         message = i18n("Soft Proofing turned off.");
     }
+
     viewManager()->showFloatingMessage(message,QIcon());
     canvasBase()->slotSoftProofing();
 }
@@ -1396,12 +1392,6 @@ void KisView::slotGamutCheck(bool gamutCheck)
 {
     d->gamutCheck = gamutCheck;
     QString message;
-    if (canvasBase()->image()->colorSpace()->colorDepthId().id().contains("F"))
-    {
-        message = i18n("Gamut Warnings don't work in floating point.");
-        viewManager()->showFloatingMessage(message,QIcon());
-        return;
-    }
 
     if (gamutCheck){
         message = i18n("Gamut Warnings turned on.");
@@ -1411,6 +1401,7 @@ void KisView::slotGamutCheck(bool gamutCheck)
     } else {
         message = i18n("Gamut Warnings turned off.");
     }
+
     viewManager()->showFloatingMessage(message,QIcon());
     canvasBase()->slotGamutCheck();
 }
