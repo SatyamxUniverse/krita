@@ -138,6 +138,7 @@ public:
 
     psd_vector_mask vectorMask;
     psd_layer_type_shape textShape;
+    QDomDocument vectorStroke;
 
     struct LayerMaskData {
         qint32 top {0};

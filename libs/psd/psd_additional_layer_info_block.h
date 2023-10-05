@@ -30,6 +30,7 @@
 #include <KoColorBackground.h>
 #include <KoGradientBackground.h>
 #include <KoPatternBackground.h>
+#include <KoShapeStroke.h>
 #include <psd.h>
 
 #include <asl/kis_asl_xml_writer.h>
@@ -901,6 +902,15 @@ struct KRITAPSD_EXPORT psd_vector_stroke_data {
         resolution = res;
     }
 
+    void loadFromShapeStroke(KoShapeStrokeSP stroke) {
+        pen.setWidthF(stroke->lineWidth());
+        pen.setCapStyle(stroke->capStyle());
+        pen.setJoinStyle(stroke->joinStyle());
+        pen.setDashOffset(stroke->dashOffset());
+        pen.setMiterLimit(stroke->miterLimit());
+        dashPattern = stroke->lineDashes();
+    }
+
     static void setupCatcher(const QString path, KisAslCallbackObjectCatcher &catcher, psd_vector_stroke_data *data) {
         catcher.subscribeBoolean(path + "/strokeStyle/strokeEnabled", std::bind(&psd_vector_stroke_data::setStrokeEnabled, data, std::placeholders::_1));
         catcher.subscribeBoolean(path + "/strokeStyle/fillEnabled", std::bind(&psd_vector_stroke_data::setFillEnabled, data, std::placeholders::_1));
@@ -914,7 +924,7 @@ struct KRITAPSD_EXPORT psd_vector_stroke_data {
         catcher.subscribeDouble(path + "/strokeStyle/strokeStyleResolution", std::bind(&psd_vector_stroke_data::setResolution, data, std::placeholders::_1));
     }
     
-    QDomDocument ASLXML() {
+    QDomDocument getASLXML() {
         KisAslXmlWriter w;
         w.enterDescriptor("", "", "strokeStyle");
         
@@ -927,7 +937,17 @@ struct KRITAPSD_EXPORT psd_vector_stroke_data {
         w.writeDouble("strokeStyleMiterLimit", pen.miterLimit());
         
         QString linecap = "strokeStyleButtCap";
+        if (pen.capStyle() == Qt::SquareCap) {
+            linecap = "strokeStyleSquareCap";
+        } else if (pen.capStyle() == Qt::RoundCap) {
+            linecap = "strokeStyleRoundCap";
+        }
         QString linejoin = "strokeStyleMiterJoin";
+        if (pen.joinStyle() == Qt::BevelJoin) {
+            linejoin = "strokeStyleBevelJoin";
+        } else if (pen.joinStyle() == Qt::RoundJoin) {
+            linejoin = "strokeStyleRoundJoin";
+        }
         w.writeEnum("strokeStyleLineCapType", "strokeStyleLineCapType", linecap);
         w.writeEnum("strokeStyleLineJoinType", "strokeStyleLineJoinType", linejoin);
         
@@ -949,12 +969,13 @@ struct KRITAPSD_EXPORT psd_vector_stroke_data {
         // Color Descriptor
         // Others are "gradientLayer" and "patternLayer"
         w.enterDescriptor("strokeStyleContent", "", "solidColorLayer");
-        w.writeColor("Clr ", KoColor());
+        KoColor c = KoColor();
+        c.setOpacity(1.0);
+        w.writeColor("Clr ", c);
         w.leaveDescriptor();
         
         w.writeDouble("strokeStyleResolution", resolution);
-        
-        
+
         w.leaveDescriptor();
 
         return w.document();
@@ -989,6 +1010,7 @@ public:
     void writeFillLayerBlockEx(QIODevice &io, const QDomDocument &fillConfig, psd_fill_type type);
     void writeVmskBlockEx(QIODevice &io, psd_vector_mask mask);
     void writeTypeToolBlockEx(QIODevice &io, psd_layer_type_shape typeTool);
+    void writeVectorStrokeDataEx(QIODevice &io, const QDomDocument &vectorStroke);
 
     bool valid();
 
@@ -1040,6 +1062,9 @@ private:
 
     template<psd_byte_order byteOrder = psd_byte_order::psdBigEndian>
     void writeTypeToolImpl(QIODevice &io, psd_layer_type_shape tool);
+
+    template<psd_byte_order byteOrder = psd_byte_order::psdBigEndian>
+    void writeVectorStrokeDataImpl(QIODevice &io, const QDomDocument &vectorStroke);
 
 private:
     ExtraLayerInfoBlockHandler m_layerInfoBlockHandler;
