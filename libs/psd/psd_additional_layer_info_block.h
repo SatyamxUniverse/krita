@@ -209,15 +209,18 @@ struct KRITAPSD_EXPORT psd_layer_solid_color {
     QDomDocument getASLXML() {
         KisAslXmlWriter w;
         w.enterDescriptor("", "", "null");
+        writeASL(w);
+        w.leaveDescriptor();
+
+        return w.document();
+    }
+
+    void writeASL(KisAslXmlWriter &w) {
         if (cs) {
             w.writeColor("Clr ", fill_color.convertedTo(cs));
         } else {
              w.writeColor("Clr ", fill_color);
         }
-
-        w.leaveDescriptor();
-
-        return w.document();
     }
 
     QBrush getBrush() {
@@ -467,7 +470,14 @@ struct KRITAPSD_EXPORT psd_layer_gradient_fill {
     QDomDocument getASLXML() {
         KisAslXmlWriter w;
         w.enterDescriptor("", "", "null");
+        writeASL(w);
 
+        w.leaveDescriptor();
+
+        return w.document();
+    }
+
+    void writeASL(KisAslXmlWriter &w) {
         if (!gradient.isNull()) {
             const QDomElement gradientElement = gradient.firstChildElement();
             if (!gradientElement.isNull()) {
@@ -506,16 +516,11 @@ struct KRITAPSD_EXPORT psd_layer_gradient_fill {
         w.writeBoolean("Algn", align_with_layer);
         w.writeUnitFloat("Scl ", "#Prc", scale);
         w.writePoint("Ofst", offset);
-
-        w.leaveDescriptor();
-
-        return w.document();
     }
 
     QBrush getBrush() {
         QGradient *grad = getGradient();
         if (grad) {
-            grad->setCoordinateMode(QGradient::ObjectBoundingMode);
             QBrush brush = *grad;
             return brush;
         }
@@ -540,16 +545,32 @@ struct KRITAPSD_EXPORT psd_layer_gradient_fill {
                 }
             }
         }
+        if (pointer) {
+            if (repeat == "alternate") {
+                pointer->setSpread(QGradient::ReflectSpread);
+            }
+            pointer->setCoordinateMode(QGradient::ObjectBoundingMode);
+            QLinearGradient *g = static_cast<QLinearGradient*>(pointer);
+            if (g) {
+                g->setStart(QPointF(0,0.5));
+                g->setFinalStop(QPointF(1.0, 0.5));
+                pointer = g;
+            }
+        }
+
         return pointer;
     }
     QSharedPointer<KoShapeBackground> getBackground() {
         QGradient *pointer = getGradient();
-        pointer->setCoordinateMode(QGradient::ObjectBoundingMode);
-        if (repeat == "alternate") {
-            pointer->setSpread(QGradient::RepeatSpread);
-        }
         QSharedPointer<KoGradientBackground> bg = QSharedPointer<KoGradientBackground>(new KoGradientBackground(pointer));
         return bg;
+    }
+
+    bool svgCompatible() {
+        if (style == "radial" || style == "linear") {
+            return true;
+        }
+        return false;
     }
 };
 
@@ -645,14 +666,23 @@ struct KRITAPSD_EXPORT psd_layer_pattern_fill {
         KisAslXmlWriter w;
         w.enterDescriptor("", "", "null");
 
-        // pattern ref
-        w.enterDescriptor("Ptrn", "", "Ptrn");
-
-        w.writeText("Nm  ", patternName);
         if (patternID.isEmpty()) {
             qWarning() << "This pattern cannot be saved: No pattern UUID available.";
             return QDomDocument();
         }
+
+        writeASL(w);
+
+        w.leaveDescriptor();
+
+        return w.document();
+    }
+
+    void writeASL(KisAslXmlWriter &w) {
+        // pattern ref
+        w.enterDescriptor("Ptrn", "", "Ptrn");
+
+        w.writeText("Nm  ", patternName);
         w.writeText("Idnt", patternID);
         w.leaveDescriptor();
 
@@ -662,10 +692,6 @@ struct KRITAPSD_EXPORT psd_layer_pattern_fill {
         w.writeUnitFloat("Scl ", "#Prc", scale);
         w.writeUnitFloat("Angl", "#Ang", angle);
         w.writePoint("phase", offset);
-
-        w.leaveDescriptor();
-
-        return w.document();
     }
 
     QSharedPointer<KoShapeBackground> getBackground() {
@@ -678,8 +704,10 @@ struct KRITAPSD_EXPORT psd_layer_pattern_fill {
         pattern = res.resource<KoPattern>();
         if (pattern) {
             bg->setPattern(pattern->pattern());
+        } else {
+            res = KisGlobalResourcesInterface::instance()->source(ResourceType::Patterns).fallbackResource();
+            bg->setPattern(res.resource<KoPattern>()->pattern());
         }
-        bg->setTileRepeatOffset(offset);
         return bg;
     }
 };
@@ -846,16 +874,28 @@ struct KRITAPSD_EXPORT psd_vector_mask {
 };
 
 struct KRITAPSD_EXPORT psd_vector_stroke_data {
+
+    int strokeVersion {2};
+
     bool strokeEnabled {false};
     bool fillEnabled {true};
     
     QPen pen;
+    bool gradient{false};
+
+    bool scaleLock {false};
+    bool strokeAdjust {false};
 
     QVector<double> dashPattern;
     
     double opacity {1.0};
     
     double resolution {72};
+    bool pixelWidth {false};
+
+    void setVersion(int version) {
+        strokeVersion = version;
+    }
     
     void setStrokeEnabled(bool enabled) {
         strokeEnabled = enabled;
@@ -865,6 +905,11 @@ struct KRITAPSD_EXPORT psd_vector_stroke_data {
     }
     void setStrokeWidth(double width) {
         pen.setWidthF(width);
+        pixelWidth = false;
+    }
+    void setStrokePixel(double width) {
+        pen.setWidthF(width);
+        pixelWidth = true;
     }
 
     void setStrokeDashOffset(double dashOffset) {
@@ -892,8 +937,18 @@ struct KRITAPSD_EXPORT psd_vector_stroke_data {
         }
     }
 
+    void setScaleLock(bool enabled) {
+        scaleLock = enabled;
+    }
+
+    void setStrokeAdjust(bool enabled) {
+        strokeAdjust = enabled;
+    }
+
     void appendToDashPattern(double val) {
-        dashPattern.append(val);
+        if (val > 0) {
+            dashPattern.append(val);
+        }
     }
     void setOpacityFromPercentage(double o) {
         opacity = o * 0.01;
@@ -903,23 +958,30 @@ struct KRITAPSD_EXPORT psd_vector_stroke_data {
     }
 
     void loadFromShapeStroke(KoShapeStrokeSP stroke) {
-        pen.setWidthF(stroke->lineWidth());
-        pen.setCapStyle(stroke->capStyle());
-        pen.setJoinStyle(stroke->joinStyle());
-        pen.setDashOffset(stroke->dashOffset());
-        pen.setMiterLimit(stroke->miterLimit());
+        pen = stroke->resultLinePen();
+        gradient = stroke->lineBrush().gradient()? true: false;
+        opacity = stroke->color().alphaF();
         dashPattern = stroke->lineDashes();
     }
 
     static void setupCatcher(const QString path, KisAslCallbackObjectCatcher &catcher, psd_vector_stroke_data *data) {
+        catcher.subscribeInteger(path + "/strokeStyle/strokeStyleVersion", std::bind(&psd_vector_stroke_data::setVersion, data, std::placeholders::_1));
         catcher.subscribeBoolean(path + "/strokeStyle/strokeEnabled", std::bind(&psd_vector_stroke_data::setStrokeEnabled, data, std::placeholders::_1));
         catcher.subscribeBoolean(path + "/strokeStyle/fillEnabled", std::bind(&psd_vector_stroke_data::setFillEnabled, data, std::placeholders::_1));
+
         catcher.subscribeUnitFloat(path + "/strokeStyle/strokeStyleLineWidth", "#Pnt", std::bind(&psd_vector_stroke_data::setStrokeWidth, data, std::placeholders::_1));
+        //catcher.subscribeUnitFloat(path + "/strokeStyle/strokeStyleLineWidth", "#Pxl", std::bind(&psd_vector_stroke_data::setStrokePixel, data, std::placeholders::_1));
         catcher.subscribeUnitFloat(path + "/strokeStyle/strokeStyleLineDashOffset", "#Pnt", std::bind(&psd_vector_stroke_data::setStrokeDashOffset, data, std::placeholders::_1));
         catcher.subscribeDouble(path + "/strokeStyle/strokeStyleMiterLimit", std::bind(&psd_vector_stroke_data::setStrokeMiterLimit, data, std::placeholders::_1));
+
         catcher.subscribeEnum(path + "/strokeStyle/strokeStyleLineCapType", "strokeStyleLineCapType", std::bind(&psd_vector_stroke_data::setLineCapType, data, std::placeholders::_1));
         catcher.subscribeEnum(path + "/strokeStyle/strokeStyleLineJoinType", "strokeStyleLineJoinType", std::bind(&psd_vector_stroke_data::setLineJoinType, data, std::placeholders::_1));
+
+        catcher.subscribeBoolean(path + "/strokeStyle/strokeStyleScaleLock", std::bind(&psd_vector_stroke_data::setScaleLock, data, std::placeholders::_1));
+        catcher.subscribeBoolean(path + "/strokeStyle/strokeStyleStrokeAdjust", std::bind(&psd_vector_stroke_data::setStrokeAdjust, data, std::placeholders::_1));
+
         catcher.subscribeUnitFloat(path + "/strokeStyle/strokeStyleLineDashSet/", "#Nne", std::bind(&psd_vector_stroke_data::appendToDashPattern, data, std::placeholders::_1));
+
         catcher.subscribeUnitFloat(path + "/strokeStyle/strokeStyleOpacity", "#Prc", std::bind(&psd_vector_stroke_data::setOpacityFromPercentage, data, std::placeholders::_1));
         catcher.subscribeDouble(path + "/strokeStyle/strokeStyleResolution", std::bind(&psd_vector_stroke_data::setResolution, data, std::placeholders::_1));
     }
@@ -958,7 +1020,7 @@ struct KRITAPSD_EXPORT psd_vector_stroke_data {
         w.writeBoolean("strokeStyleStrokeAdjust", false);
         
         w.enterList("strokeStyleLineDashSet");
-        Q_FOREACH(qreal val, dashPattern) {
+        Q_FOREACH(double val, dashPattern) {
             w.writeUnitFloat("", "#Nne", val);
         }
         w.leaveList();
@@ -967,18 +1029,52 @@ struct KRITAPSD_EXPORT psd_vector_stroke_data {
         w.writeUnitFloat("strokeStyleOpacity ", "#Prc", opacity * 100.0);
         
         // Color Descriptor
-        // Others are "gradientLayer" and "patternLayer"
-        w.enterDescriptor("strokeStyleContent", "", "solidColorLayer");
-        KoColor c = KoColor();
-        c.setOpacity(1.0);
-        w.writeColor("Clr ", c);
-        w.leaveDescriptor();
+        // Missing is "patternLayer"
+        if (gradient) {
+            w.enterDescriptor("strokeStyleContent", "", "gradientLayer");
+            psd_layer_gradient_fill fill;
+            fill.setGradient(KoStopGradient::fromQGradient(pen.brush().gradient()));
+            fill.writeASL(w);
+            w.leaveDescriptor();
+        } else {
+            w.enterDescriptor("strokeStyleContent", "", "solidColorLayer");
+            KoColor c (KoColorSpaceRegistry::instance()->rgb8());
+            c.fromQColor(pen.color());
+            c.setOpacity(1.0);
+            psd_layer_solid_color fill;
+            fill.fill_color = c;
+            fill.writeASL(w);
+            w.leaveDescriptor();
+        }
         
         w.writeDouble("strokeStyleResolution", resolution);
 
         w.leaveDescriptor();
 
         return w.document();
+    }
+
+    void setupShapeStroke(KoShapeStrokeSP stroke) {
+        double width = pen.widthF();
+        if (pixelWidth) {
+            width = (width / resolution) * 72.0;
+        }
+        stroke->setLineWidth(width);
+        stroke->setCapStyle(pen.capStyle());
+        stroke->setJoinStyle(pen.joinStyle());
+        stroke->setDashOffset(pen.dashOffset());
+        stroke->setMiterLimit(pen.miterLimit());
+        if (dashPattern.isEmpty()) {
+            stroke->setLineStyle(Qt::SolidLine, QVector<double>());
+        } else {
+            if (dashPattern.size() % 2 > 0) {
+                QVector<double> pattern = dashPattern;
+                pattern.append(dashPattern);
+                stroke->setLineStyle(Qt::CustomDashLine, pattern);
+            } else {
+                stroke->setLineStyle(Qt::CustomDashLine, dashPattern);
+            }
+        }
     }
 };
 
