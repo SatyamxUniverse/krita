@@ -85,7 +85,7 @@ public:
      */
     bool convertSvgToDocument(const QString &svgText, QTextDocument *doc);
 
-    bool convertPSDTextEngineDataToSVG(QByteArray ba,
+    bool convertPSDTextEngineDataToSVG(QJsonDocument tySh,
                                        QString *svgText,
                                        QString *svgStyles,
                                        QPointF &offset,
@@ -94,7 +94,7 @@ public:
                                        QTransform scaleToPt = QTransform());
     bool convertToPSDTextEngineData(const QString &svgText,
                                     QRectF &boundingBox,
-                                    QByteArray *ba,
+                                    QJsonDocument &tySh,
                                     QString &textTotal,
                                     bool &isHorizontal,
                                     QTransform scaleToPx = QTransform());
