@@ -619,6 +619,8 @@ void KoGenericHSLHistogramProducer::addRegionToBin(const quint8 * pixels, const 
                     channelValues[i] = channelValuesF[i];
                 }
 
+                std::swap(channelValues[0], channelValues[2]);
+
                 qreal hue, sat, luma;
                 m_colorSpace->toHSY(channelValues, &hue, &sat, &luma);
                 luma = pow(luma, 1.0 / 2.2);
