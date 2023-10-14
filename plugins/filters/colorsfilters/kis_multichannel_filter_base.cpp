@@ -28,7 +28,7 @@
 #include "KoID.h"
 
 #include "kis_signals_blocker.h"
-
+#include "kis_icon_utils.h"
 #include "kis_bookmarked_configuration_manager.h"
 #include "kis_config_widget.h"
 #include <filter/kis_filter_category_ids.h>
@@ -36,6 +36,7 @@
 #include <kis_selection.h>
 #include <kis_paint_device.h>
 #include <kis_processing_information.h>
+#include <resources/KoStopGradient.h>
 
 #include "kis_histogram.h"
 #include "kis_painter.h"
@@ -365,6 +366,7 @@ void KisMultiChannelConfigWidget::init() {
     Q_CHECK_PTR(layout);
     layout->setContentsMargins(0,0,0,0);
     layout->addWidget(m_page);
+    setButtonsIcons();
 
     resetCurves();
 
@@ -374,32 +376,36 @@ void KisMultiChannelConfigWidget::init() {
         m_page->cmbChannel->addItem(info.name(), i);
     }
 
-    connect(m_page->cmbChannel, SIGNAL(activated(int)), this, SLOT(slotChannelSelected(int)));
-    connect((QObject*)(m_page->chkLogarithmic), SIGNAL(toggled(bool)), this, SLOT(logHistView()));
-    connect((QObject*)(m_page->resetButton), SIGNAL(clicked()), this, SLOT(resetCurve()));
+    connect(m_page->cmbChannel, static_cast<void(QComboBox::*)(int)>(&QComboBox::currentIndexChanged), [=](int index){
+        slotChannelSelected(index);
+        setActiveChannel(true, m_page->cmbDriverChannel->isHidden());
+    });
 
-    // create the horizontal and vertical gradient labels
-    m_page->hgradient->setPixmap(createGradient(Qt::Horizontal));
-    m_page->vgradient->setPixmap(createGradient(Qt::Vertical));
+    connect(m_page->buttonGroupHistogramMode, SIGNAL(buttonToggled(QAbstractButton*, bool)), SLOT(slot_buttonGroupHistogramMode_buttonToggled(QAbstractButton*, bool)));
 
-    // init histogram calculator
-    const KoColorSpace *targetColorSpace = m_dev->compositionSourceColorSpace();
-    QList<QString> keys =
-        KoHistogramProducerFactoryRegistry::instance()->keysCompatibleWith(targetColorSpace);
+    connect(m_page->buttonScaleHistogramToFit, &QToolButton::clicked, [=](){
+        m_histogramPainter.setScaleToFit();
+        m_page->curveWidget->setPixmap(getHistogram());
+    });
 
-    if (keys.size() > 0) {
-        KoHistogramProducerFactory *hpf;
-        hpf = KoHistogramProducerFactoryRegistry::instance()->get(keys.at(0));
-        m_histogram = new KisHistogram(m_dev, m_dev->exactBounds(), hpf->generate(), LINEAR);
-    }
+    connect(m_page->buttonScaleHistogramToCutLongPeaks, &QToolButton::clicked, [=](){
+        m_histogramPainter.setScaleToCutLongPeaks();
+        m_page->curveWidget->setPixmap(getHistogram());
+    });
+
+    connect(m_page->buttonReset, SIGNAL(clicked()), this, SLOT(resetCurve()));
+
+    initHistogramCalculator();
 
     connect(m_page->curveWidget, SIGNAL(modified()), this, SIGNAL(sigConfigurationItemChanged()));
 
     {
         KisSignalsBlocker b(m_page->curveWidget);
         m_page->curveWidget->setCurve(m_curves[0]);
-        setActiveChannel(0);
+        slotChannelSelected(0);
     }
+
+    setActiveChannel();
 }
 
 KisMultiChannelConfigWidget::~KisMultiChannelConfigWidget()
@@ -466,7 +472,8 @@ void KisMultiChannelConfigWidget::setConfiguration(const KisPropertiesConfigurat
     // HACK: we save the previous curve in setActiveChannel, so just copy it
     m_page->curveWidget->setCurve(m_curves[m_activeVChannel]);
 
-    setActiveChannel(0);
+    slotChannelSelected(0);
+    setActiveChannel();
 }
 
 inline QPixmap KisMultiChannelConfigWidget::createGradient(Qt::Orientation orient /*, int invert (not used yet) */)
@@ -476,99 +483,214 @@ inline QPixmap KisMultiChannelConfigWidget::createGradient(Qt::Orientation orien
     int *i, inc, col;
     int x = 0, y = 0;
 
+    int maxsize = m_histogram->producer()->numberOfBins(m_histogramPainter.channels().at(0));
+
     if (orient == Qt::Horizontal) {
         i = &x; inc = 1; col = 0;
-        width = 256; height = 1;
+        width = maxsize; height = 1;
     } else {
-        i = &y; inc = -1; col = 255;
-        width = 1; height = 256;
+        i = &y; inc = -1; col = maxsize - 1;
+        width = 1; height = maxsize;
     }
 
     QPixmap gradientpix(width, height);
     QPainter p(&gradientpix);
     p.setPen(QPen(QColor(0, 0, 0), 1, Qt::SolidLine));
-    for (; *i < 256; (*i)++, col += inc) {
-        p.setPen(QColor(col, col, col));
-        p.drawPoint(x, y);
+
+    const VirtualChannelInfo &info = (!m_page->cmbDriverChannel->isHidden() && orient == Qt::Horizontal)
+        ? m_virtualChannels[m_activeVDriverChannel] : m_virtualChannels[m_activeVChannel];
+
+    if ((info.type() == VirtualChannelInfo::ALL_COLORS || info.type() == VirtualChannelInfo::REAL)) {
+        QColor leftColor, rightColor;
+        int channelIndex = info.pixelIndex();
+        const KoColorSpace *colorSpace = m_dev->compositionSourceColorSpace();
+        if (colorSpace->colorModelId() == GrayAColorModelID || info.type() == VirtualChannelInfo::ALL_COLORS || info.isAlpha()) {
+            if (info.type() != VirtualChannelInfo::ALL_COLORS) {
+                colorSpace = KoColorSpaceRegistry::instance()->graya8();
+            }
+
+            leftColor = Qt::black;
+            rightColor = Qt::white;
+        } else if (colorSpace->colorModelId() == RGBAColorModelID && colorSpace->colorDepthId().id().contains("U")) {
+            leftColor = Qt::black;
+            rightColor = channelIndex == 0 ? Qt::blue : (channelIndex == 1 ? Qt::green : Qt::red);
+        } else if (colorSpace->colorModelId() == RGBAColorModelID && colorSpace->colorDepthId().id().contains("F")) {
+            leftColor = Qt::black;
+            rightColor = channelIndex == 0 ? Qt::red : (channelIndex == 1 ? Qt::green : Qt::blue);
+        } else if (colorSpace->colorModelId() == CMYKAColorModelID) {
+            leftColor = Qt::white;
+            rightColor = channelIndex == 0 ? Qt::cyan : (channelIndex == 1 ? Qt::magenta : (channelIndex == 2 ? Qt::yellow : Qt::black));
+        } else {
+            leftColor = Qt::black;
+            rightColor = Qt::white;
+        }
+
+        QList<KoGradientStop> stops;
+        KoStopGradientSP gradient(new KoStopGradient());
+        gradient->setType(QGradient::LinearGradient);
+        stops << KoGradientStop(0.0, KoColor(leftColor, colorSpace), COLORSTOP);
+        stops << KoGradientStop(1.0, KoColor(rightColor, colorSpace), COLORSTOP);
+        gradient->setStops(stops);
+
+        KoColor penColor(colorSpace);
+        for (; *i < maxsize; (*i)++, col += inc) {
+            gradient->colorAt(penColor, col / qreal(maxsize - 1));
+            p.setPen(penColor.toQColor());
+            p.drawPoint(x, y);
+        }
+    } else {
+        const KoColorSpace *colorSpace = KoColorSpaceRegistry::instance()->rgb16();
+
+        KoColor penColor(colorSpace);
+        int channelCount = colorSpace->channelCount();
+        for (; *i < maxsize; (*i)++, col += inc) {
+            qreal c = col / qreal(maxsize - 1);
+            qreal hue, sat, luma;
+            if (info.type() == VirtualChannelInfo::HUE) {
+                hue = c;
+                sat = 1.0;
+                luma = pow(0.5, 2.2);
+            } else if (info.type() == VirtualChannelInfo::SATURATION) {
+                hue = 0.0;
+                sat = c;
+                luma = pow(0.5, 2.2);
+            } else {
+                hue = 0.0;
+                sat = 0.0;
+                luma = pow(c, 2.2);
+            }
+
+            QVector <double> channelValues(channelCount);
+            channelValues = colorSpace->fromHSY(&hue, &sat, &luma);
+
+            std::swap(channelValues[0], channelValues[2]);
+
+            QVector <float> channelValuesF(channelCount);
+            for (int i = 0;i < channelCount; i++){
+                channelValuesF[i] = channelValues[i];
+            }
+
+            colorSpace->fromNormalisedChannelsValue(penColor.data(), channelValuesF);
+
+            p.setPen(penColor.toQColor());
+            p.drawPoint(x, y);
+        }
     }
+
     return gradientpix;
 }
 
 inline QPixmap KisMultiChannelConfigWidget::getHistogram()
 {
-    int i;
     int height = 256;
     QPixmap pix(256, height);
     KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(m_histogram, pix);
 
-
-    bool logarithmic = m_page->chkLogarithmic->isChecked();
-
-    if (logarithmic)
-        m_histogram->setHistogramType(LOGARITHMIC);
-    else
-        m_histogram->setHistogramType(LINEAR);
-
-
     QPalette appPalette = QApplication::palette();
 
     pix.fill(QColor(appPalette.color(QPalette::Base)));
+    QPainter painter(&pix);
+    painter.save();
 
-    QPainter p(&pix);
-    p.setPen(QColor(appPalette.color(QPalette::Text)));
-    p.save();
-    p.setOpacity(0.2);
-
-    const VirtualChannelInfo &info = m_virtualChannels[m_activeVChannel];
-
-
-    if (info.type() == VirtualChannelInfo::REAL) {
-        m_histogram->setChannel(info.pixelIndex());
-
-        double highest = (double)m_histogram->calculations().getHighest();
-
-        qint32 bins = m_histogram->producer()->numberOfBins();
-
-        if (m_histogram->getHistogramType() == LINEAR) {
-            double factor = (double)height / highest;
-            for (i = 0; i < bins; ++i) {
-                p.drawLine(i, height, i, height - int(m_histogram->getValue(i) * factor));
-            }
-        } else {
-            double factor = (double)height / (double)log(highest);
-            for (i = 0; i < bins; ++i) {
-                p.drawLine(i, height, i, height - int(log((double)m_histogram->getValue(i)) * factor));
+    const VirtualChannelInfo &info = m_page->cmbDriverChannel->isHidden() ? m_virtualChannels[m_activeVChannel] : m_virtualChannels[m_activeVDriverChannel];
+    if (info.type() == VirtualChannelInfo::ALL_COLORS) {
+        QVector<int> channels;
+        for (const VirtualChannelInfo &channelInfo : m_virtualChannels) {
+            if (channelInfo.type() == VirtualChannelInfo::REAL && !channelInfo.isAlpha()) {
+                channels.append(channelInfo.pixelIndex());
             }
         }
+
+        m_histogramPainter.setChannels(channels);
+    } else if (info.type() == VirtualChannelInfo::REAL) {
+        m_histogramPainter.setChannel(info.pixelIndex());
+    } else {
+        if (info.type() == VirtualChannelInfo::HUE) {
+            m_histogramPainter.setChannel(0);
+        } else if (info.type() == VirtualChannelInfo::SATURATION) {
+            m_histogramPainter.setChannel(1);
+        } else {
+            m_histogramPainter.setChannel(2);
+        } 
     }
 
-    p.restore();
+    QImage histogramImage = m_histogramPainter.paint(256, height);
 
+    QLinearGradient shadowGradient(QPointF(0.0, 0.0), QPointF(0.0, static_cast<qreal>(height) * 0.2));
+    shadowGradient.setColorAt(0.00, QColor(0, 0, 0, 64));
+    shadowGradient.setColorAt(0.25, QColor(0, 0, 0, 36));
+    shadowGradient.setColorAt(0.50, QColor(0, 0, 0, 16));
+    shadowGradient.setColorAt(0.75, QColor(0, 0, 0, 4));
+    shadowGradient.setColorAt(1.00, QColor(0, 0, 0, 0));
+
+    QPainter histogramPainter(&histogramImage);
+    histogramPainter.setCompositionMode(QPainter::CompositionMode_SourceAtop);
+    histogramPainter.fillRect(histogramImage.rect(), shadowGradient);
+
+    painter.drawImage(0, 0, histogramImage);
+    painter.setOpacity(1.0);
+
+    painter.restore();
     return pix;
 }
 
 void KisMultiChannelConfigWidget::slotChannelSelected(int index)
 {
     const int virtualChannel = m_page->cmbChannel->itemData(index).toInt();
-    setActiveChannel(virtualChannel);
+
+    m_curves[m_activeVChannel] = m_page->curveWidget->curve();
+    m_activeVChannel = virtualChannel;
+    m_page->curveWidget->setCurve(m_curves[m_activeVChannel]);
+
+    int currentIndex = m_page->cmbChannel->findData(m_activeVChannel);
+    m_page->cmbChannel->setCurrentIndex(currentIndex);
 }
 
-void KisMultiChannelConfigWidget::setActiveChannel(int ch)
+void KisMultiChannelConfigWidget::setActiveChannel(bool setVgradient, bool setHgradientAndHistogram)
 {
-    m_curves[m_activeVChannel] = m_page->curveWidget->curve();
+    if (setHgradientAndHistogram) {
+        initHistogramCalculator();
+        m_page->curveWidget->setPixmap(getHistogram());
 
-    m_activeVChannel = ch;
-    m_page->curveWidget->setCurve(m_curves[m_activeVChannel]);
-    m_page->curveWidget->setPixmap(getHistogram());
+        m_page->hgradient->setPixmap(createGradient(Qt::Horizontal));
+    }
 
-    const int index = m_page->cmbChannel->findData(m_activeVChannel);
-    m_page->cmbChannel->setCurrentIndex(index);
+    if (setVgradient) {
+        m_page->vgradient->setPixmap(createGradient(Qt::Vertical));
+    }
 
     updateChannelControls();
 }
 
-void KisMultiChannelConfigWidget::logHistView()
+void KisMultiChannelConfigWidget::initHistogramCalculator()
 {
+    const KoColorSpace *targetColorSpace = m_dev->compositionSourceColorSpace();
+    const VirtualChannelInfo &info = m_page->cmbDriverChannel->isHidden() ? m_virtualChannels[m_activeVChannel] : m_virtualChannels[m_activeVDriverChannel];
+
+    if (info.type() == VirtualChannelInfo::ALL_COLORS || info.type() == VirtualChannelInfo::REAL) {
+        QList<QString> keys = KoHistogramProducerFactoryRegistry::instance()->keysCompatibleWith(targetColorSpace);
+
+        if (keys.size() > 0) {
+            KoHistogramProducerFactory *hpf;
+            hpf = KoHistogramProducerFactoryRegistry::instance()->get(keys.at(0));
+            m_histogram = new KisHistogram(m_dev, m_dev->exactBounds(), hpf->generate(), LINEAR);
+            m_histogramPainter.setup(m_histogram, targetColorSpace);
+        }
+    } else {
+        KoHistogramProducer *HSLHistogramProducer = new KoGenericHSLHistogramProducer();
+        m_histogram = new KisHistogram(m_dev, m_dev->exactBounds(), HSLHistogramProducer, LINEAR);
+        m_histogramPainter.setup(m_histogram, 0, QVector<int>({0, 1, 2}));
+    }
+}
+
+
+void KisMultiChannelConfigWidget::slot_buttonGroupHistogramMode_buttonToggled(QAbstractButton *button, bool checked)
+{
+    if (!checked) {
+        return;
+    }
+
+    m_histogramPainter.setLogarithmic(button == m_page->buttonLogarithmicHistogram);
     m_page->curveWidget->setPixmap(getHistogram());
 }
 
@@ -579,7 +701,16 @@ void KisMultiChannelConfigWidget::resetCurve()
     KIS_SAFE_ASSERT_RECOVER_RETURN(defaults);
 
     auto defaultCurves = defaults->curves();
-    KIS_SAFE_ASSERT_RECOVER_RETURN(defaultCurves.size() > m_activeVChannel);
+    int currentVChannel = m_page->cmbDriverChannel->isHidden() ? m_activeVChannel : m_activeVDriverChannel;
+    KIS_SAFE_ASSERT_RECOVER_RETURN(defaultCurves.size() > currentVChannel);
 
-    m_page->curveWidget->setCurve(defaultCurves[m_activeVChannel]);
+    m_page->curveWidget->setCurve(defaultCurves[currentVChannel]);
+}
+
+void KisMultiChannelConfigWidget::setButtonsIcons()
+{
+    m_page->buttonLinearHistogram->setIcon(KisIconUtils::loadIcon("histogram-linear"));
+    m_page->buttonLogarithmicHistogram->setIcon(KisIconUtils::loadIcon("histogram-logarithmic"));
+    m_page->buttonScaleHistogramToFit->setIcon(KisIconUtils::loadIcon("histogram-show-all"));
+    m_page->buttonScaleHistogramToCutLongPeaks->setIcon(KisIconUtils::loadIcon("histogram-show-best"));
 }
