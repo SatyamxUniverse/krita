@@ -6,259 +6,461 @@
  * SPDX-License-Identifier: GPL-2.0-or-later
  */
 
-#include <QMouseEvent>
+#include <cmath>
+#include <algorithm>
+
+#include <QHash>
+#include <QPair>
+#include <QPolygonF>
 
 #include <kis_histogram.h>
 #include <KoColorSpace.h>
-#include <KisHistogramPainter.h>
+#include <kis_algebra_2d.h>
+#include <KoColor.h>
+#include <KoColorModelStandardIds.h>
 
-#include "KisHistogramView.h"
+#include "KisHistogramPainter.h"
 
-class KisHistogramView::Private
+struct HistogramShapeInfo
 {
-public:
-    QVector<KisHistogramPainter> histogramPainters;
-    int histogramIndex{0};
-
-    qreal preDraggingScale;
-    int draggingStartMouseY;
-    bool isScaling{false};
+    QPolygonF linearHistogram;
+    QPolygonF logarithmicHistogram;
+    quint32 highest;
+    qreal linearBestCutOffHeight;
+    qreal logarithmicBestCutOffHeight;
+    QColor color;
+    QPainter::CompositionMode compositionMode;
 };
 
-KisHistogramView::KisHistogramView(QWidget *parent)
-    : QWidget(parent)
-    , m_d(new Private)
-{}
-
-KisHistogramView::~KisHistogramView()
-{}
-
-void KisHistogramView::setup(const QVector<KisHistogram*> &histograms,
-                             const QVector<const KoColorSpace*> &colorSpaces,
-                             const QVector<QVector<int>> &channels)
+class KisHistogramPainter::Private
 {
-    Q_ASSERT(colorSpaces.size() == histograms.size());
-    Q_ASSERT(channels.size() == 0 || channels.size() == histograms.size());
+public:
+    static constexpr qreal maximumOrientationDeviation = M_PI / 16.0;
+    static constexpr int maximumNumberOfSimplifiedPoints = 3;
+    static constexpr qreal histogramHeightFactor = 0.9;
+    static constexpr qreal maximumNeighborWeight = 0.33;
+    static constexpr qreal percentageForPercentile = 0.98;
 
-    m_d->histogramIndex = 0;
-    m_d->histogramPainters.clear();
+    QHash<int, HistogramShapeInfo> histogramChannelShapeInfo;
+    QVector<int> channelsToPaint;
+    QColor defaultColor;
+    qreal scale{1.0};
+    bool isLogarithmic{false};
 
-    if (histograms.size() == 0) {
+    QImage paintChannels(const QSize &imageSize, const QVector<int> &channels = {}, bool logarithmic = false);
+
+    static qreal orientationDeviation(const QPointF &A, const QPointF &B, const QPointF &C);
+    static QPair<QPolygonF, QPolygonF> computeHistogramShape(KisHistogram *histogram,
+                                                             int channel,
+                                                             quint32 highest);
+    static qreal bestCutOffHeight(QPolygonF polygon);
+    static void smoothHistogramShape(QPolygonF &polygon);
+    static void simplifyHistogramShape(QPolygonF &polygon);
+    static QPair<QColor, QPainter::CompositionMode> computeChannelPaintingInfo(const KoColorSpace *colorSpace,
+                                                                              int channel);
+    static void paintHistogramShape(QImage &image,
+                                    const QPolygonF &polygon,
+                                    qreal scale,
+                                    const QColor &color,
+                                    QPainter::CompositionMode compositionMode);
+};
+
+qreal KisHistogramPainter::Private::orientationDeviation(const QPointF &A,
+                                                         const QPointF &B,
+                                                         const QPointF &C)
+{
+    const QPointF AB = B - A;
+    const QPointF BC = C - B;
+    const qreal angle =KisAlgebra2D::angleBetweenVectors(AB, BC);
+    return angle < -M_PI ? angle + 2.0 * M_PI : (angle > M_PI ? angle - 2.0 * M_PI : angle);
+}
+
+QPair<QPolygonF, QPolygonF>
+KisHistogramPainter::Private::computeHistogramShape(KisHistogram *histogram,
+                                                    int channel,
+                                                    quint32 highest)
+{
+    Q_ASSERT(histogram);
+    Q_ASSERT(channel >= 0);
+
+    QPolygonF linearHistogramShape, logarithmicHistogramShape;
+    const int bins = histogram->producer()->numberOfBins(channel);
+    const qreal heightfactor = 1.0 / static_cast<qreal>(highest);
+    const qreal logHeightFactor = 1.0 / std::log(static_cast<qreal>(highest + 1));
+    const qreal widthFactor = 1.0 / static_cast<qreal>(bins);
+
+    // Add extra points at the beginning and end so that the shape is a bit
+    // hidden on the bottom (hides the pen line on the bottom when painting)
+    linearHistogramShape.append(QPointF(0.0, -0.1));
+    linearHistogramShape.append(QPointF(0.0, 0.0));
+    logarithmicHistogramShape.append(QPointF(0.0, -0.1));
+    logarithmicHistogramShape.append(QPointF(0.0, 0.0));
+
+    for (int i = 0; i < bins; ++i) {
+        const QPointF p = QPointF((static_cast<qreal>(i) + 0.5) * widthFactor,
+                                  static_cast<qreal>(histogram->getValue(i)) * heightfactor);
+        const QPointF logP = QPointF(p.x(), std::log(static_cast<qreal>(histogram->getValue(i) + 1)) * logHeightFactor);
+        linearHistogramShape.append(p);
+        logarithmicHistogramShape.append(logP);
+    }
+
+    linearHistogramShape.append(QPointF(1.0, 0.0));
+    linearHistogramShape.append(QPointF(1.0, -0.1));
+    logarithmicHistogramShape.append(QPointF(1.0, 0.0));
+    logarithmicHistogramShape.append(QPointF(1.0, -0.1));
+
+    return {linearHistogramShape, logarithmicHistogramShape};
+}
+
+qreal KisHistogramPainter::Private::bestCutOffHeight(QPolygonF polygon)
+{
+    const int binOfPercentile = static_cast<int>(std::round((1.0 - percentageForPercentile) * (polygon.size() - 4 - 1)));
+    std::nth_element(polygon.begin() + 2,
+                     polygon.begin() + 2 + binOfPercentile,
+                     polygon.end() - 2,
+                     [](const QPointF &p1, const QPointF &p2) ->bool
+                     {
+                         return p1.y() > p2.y();
+                     });
+    const qreal percentile = polygon[binOfPercentile + 2].y();
+    return qFuzzyIsNull(percentile) ? 1.0 : percentile;
+}
+
+void KisHistogramPainter::Private::smoothHistogramShape(QPolygonF &polygon)
+{
+    if (polygon.size() < 5) {
         return;
     }
 
-    QVector<QVector<int>> autoGeneratedChannels;
-    if (channels.size() == 0) {
-        for (int i = 0; i < histograms.size(); ++i) {
-            autoGeneratedChannels.append(QVector<int>());
+    for (int i = 2; i < polygon.size() - 2; ++i) {
+        const qreal leftValue = polygon[i - 1].y();
+        const qreal centerValue = polygon[i].y();
+        const qreal rightValue = polygon[i + 1].y();
+        const qreal leftDelta = std::abs(centerValue - leftValue);
+        const qreal rightDelta = std::abs(centerValue - rightValue);
+        const qreal leftWeight = maximumNeighborWeight * std::exp(-pow2(10.0 * leftDelta));
+        const qreal rightWeight = maximumNeighborWeight * std::exp(-pow2(10.0 * rightDelta));
+        const qreal centerWeight = 1.0 - leftWeight - rightWeight;
+        polygon[i].setY(leftValue * leftWeight + centerValue * centerWeight + rightValue * rightWeight);
+    }
+}
+
+void KisHistogramPainter::Private::simplifyHistogramShape(QPolygonF &polygon)
+{
+    if (polygon.size() < 5) {
+        return;
+    }
+
+    qreal accumulatedOrientationDeviation = 0.0;
+    int numberOfSimplifiedPoints = 0;
+
+    for (int i = polygon.size() - 3; i > 1; --i) {
+        accumulatedOrientationDeviation += orientationDeviation(polygon[i + 1], polygon[i], polygon[i - 1]);
+        ++numberOfSimplifiedPoints;
+        if (std::abs(accumulatedOrientationDeviation) > maximumOrientationDeviation ||
+            numberOfSimplifiedPoints > maximumNumberOfSimplifiedPoints) {
+            accumulatedOrientationDeviation = 0.0;
+            numberOfSimplifiedPoints = 0;
+        } else {
+            polygon.remove(i);
+        }
+    }
+}
+
+QPair<QColor, QPainter::CompositionMode>
+KisHistogramPainter::Private::computeChannelPaintingInfo(const KoColorSpace *colorSpace,
+                                                        int channel)
+{
+    Q_ASSERT(channel >= 0);
+
+    QColor color;
+    QPainter::CompositionMode compositionMode = QPainter::CompositionMode_Plus;
+
+    if (colorSpace) {
+        if (colorSpace->colorModelId() == RGBAColorModelID && colorSpace->colorDepthId().id().contains("U")) {
+            if (channel == 0) {
+                color = Qt::blue;
+            } else if (channel == 1) {
+                color = Qt::green;
+            } else if (channel == 2) {
+                color = Qt::red;
+            }
+        } else if (colorSpace->colorModelId() == RGBAColorModelID && colorSpace->colorDepthId().id().contains("F")) {
+            if (channel == 0) {
+                color = Qt::red;
+            } else if (channel == 1) {
+                color = Qt::green;
+            } else if (channel == 2) {
+                color = Qt::blue;
+            }
+        } else if (colorSpace->colorModelId() == XYZAColorModelID) {
+            if (channel == 0) {
+                color = Qt::red;
+            } else if (channel == 1) {
+                color = Qt::green;
+            } else if (channel == 2) {
+                color = Qt::blue;
+            }
+        } else if (colorSpace->colorModelId() == CMYKAColorModelID) {
+            if (channel == 0) {
+                color = Qt::cyan;
+            } else if (channel == 1) {
+                color = Qt::magenta;
+            } else if (channel == 2) {
+                color = Qt::yellow;
+            } else if (channel == 3) {
+                color = Qt::black;
+            }
+            if (channel != 4) {
+                color = KoColor(color, KoColorSpaceRegistry::instance()->rgb8())
+                        .convertedTo(colorSpace,
+                                    KoColorConversionTransformation::IntentSaturation,
+                                    KoColorConversionTransformation::Empty)
+                        .toQColor();
+                compositionMode = QPainter::CompositionMode_Multiply;
+            }
         }
     }
 
-    const QVector<QVector<int>> &finalChannels =
-        channels.size() == 0 ? autoGeneratedChannels : channels;
+    return {color, compositionMode};
+}
 
-    for (int i = 0; i < histograms.size(); ++i) {
-        m_d->histogramPainters.append(KisHistogramPainter());
-        m_d->histogramPainters[i].setup(histograms[i], colorSpaces[i], finalChannels[i]);
+void KisHistogramPainter::Private::paintHistogramShape(QImage &image,
+                                                       const QPolygonF &polygon,
+                                                       qreal scale,
+                                                       const QColor &color,
+                                                       QPainter::CompositionMode compositionMode)
+{
+    const qreal w = static_cast<qreal>(image.width());
+    const qreal h = static_cast<qreal>(image.height());
+    const qreal maxH = h * histogramHeightFactor;
+
+    QPainter p(&image);
+    p.setRenderHint(QPainter::Antialiasing);
+    p.translate(0.0, h);
+    p.scale(w, -scale * maxH);
+    QPen pen(color, 2);
+    pen.setCosmetic(true);
+    QBrush brush(QColor(color.red(), color.green(), color.blue(), 200));
+    p.setPen(pen);
+    p.setBrush(brush);
+    p.setCompositionMode(compositionMode);
+    p.drawPolygon(polygon);
+}
+
+QImage KisHistogramPainter::Private::paintChannels(const QSize &imageSize,
+                                                   const QVector<int> &channels,
+                                                   bool logarithmic)
+{
+    QImage image(imageSize, QImage::Format_ARGB32);
+    image.fill(0);
+
+    const int nChannels = histogramChannelShapeInfo.size();
+
+    if (nChannels == 0 || channels.size() == 0) {
+        return image;
+    }
+
+    qreal overallHighest = 0.0;
+    for (int channel : channels) {
+        if (!histogramChannelShapeInfo.contains(channel)) {
+            continue;
+        }
+
+        const qreal channelHighest = static_cast<qreal>(histogramChannelShapeInfo[channel].highest);
+        if (channelHighest > overallHighest) {
+            overallHighest = channelHighest;
+        }
+    }
+
+    for (int channel : channels) {
+        if (!histogramChannelShapeInfo.contains(channel)) {
+            continue;
+        }
+
+        const HistogramShapeInfo &info = histogramChannelShapeInfo[channel];
+        Private::paintHistogramShape(
+            image,
+            logarithmic ? info.logarithmicHistogram : info.linearHistogram,
+            logarithmic
+                ? scale * std::log(info.highest + 1.0) / std::log(overallHighest + 1.0)
+                : scale * info.highest / overallHighest,
+            info.color.isValid() ? info.color : defaultColor,
+            info.compositionMode
+        );
+    }
+
+    return image;
+}
+
+KisHistogramPainter::KisHistogramPainter()
+    : m_d(new Private)
+{
+    m_d->defaultColor = Qt::gray;
+}
+
+KisHistogramPainter::KisHistogramPainter(const KisHistogramPainter &other)
+    : m_d(new Private(*other.m_d))
+{}
+
+KisHistogramPainter::KisHistogramPainter(KisHistogramPainter && other)
+    : m_d(other.m_d.take())
+{}
+
+KisHistogramPainter::~KisHistogramPainter()
+{}
+
+void KisHistogramPainter::setup(KisHistogram *histogram, const KoColorSpace *colorSpace, QVector<int> channels)
+{
+    Q_ASSERT(histogram);
+
+    const int nChannels = static_cast<int>(histogram->producer()->channels().size());
+
+    if (channels.size() == 0) {
+        for (int i = 0; i < nChannels; ++i) {
+            channels.append(i);
+        }
+    }
+
+    m_d->histogramChannelShapeInfo.clear();
+
+    for (int channel : channels) {
+        if (channel < 0 || channel >= nChannels || m_d->histogramChannelShapeInfo.contains(channel)) {
+            continue;
+        }
+        histogram->setChannel(channel);
+        const quint32 highest = histogram->calculations().getHighest();
+        QPair<QPolygonF, QPolygonF> shapes = Private::computeHistogramShape(histogram, channel, highest);
+        const QPair<QColor, QPainter::CompositionMode> channelPaintingInfo =
+            Private::computeChannelPaintingInfo(colorSpace, channel);
+        const qreal linearBestCutOffHeight = Private::bestCutOffHeight(shapes.first);
+        const qreal logarithmicBestCutOffHeight = Private::bestCutOffHeight(shapes.second);
+
+        Private::smoothHistogramShape(shapes.first);
+        Private::smoothHistogramShape(shapes.second);
+        Private::simplifyHistogramShape(shapes.first);
+        Private::simplifyHistogramShape(shapes.second);
+
+        m_d->histogramChannelShapeInfo.insert(
+            channel,
+            {
+                shapes.first,
+                shapes.second,
+                highest,
+                linearBestCutOffHeight,
+                logarithmicBestCutOffHeight,
+                channelPaintingInfo.first,
+                channelPaintingInfo.second
+            }
+        );
     }
 }
 
-const QVector<int>& KisHistogramView::channels() const
+QImage KisHistogramPainter::paint(const QSize &imageSize)
 {
-    return m_d->histogramPainters[m_d->histogramIndex].channels();
+    return m_d->paintChannels(imageSize, m_d->channelsToPaint, m_d->isLogarithmic);
 }
 
-void KisHistogramView::setChannel(int channel, int histogramIndex)
+QImage KisHistogramPainter::paint(int w, int h)
 {
-    setChannels({channel}, histogramIndex);
+    return paint(QSize(w, h));
 }
 
-void KisHistogramView::setChannels(const QVector<int> &channels, int histogramIndex)
+void KisHistogramPainter::paint(QPainter &painter, const QRect &rect)
 {
-    Q_ASSERT(m_d->histogramPainters.size() > 0);
-    Q_ASSERT(histogramIndex >= 0 && histogramIndex < m_d->histogramPainters.size());
-
-    const QColor defaultColor = m_d->histogramPainters[m_d->histogramIndex].defaultColor();
-    const bool isLogarithmic = m_d->histogramPainters[m_d->histogramIndex].isLogarithmic();
-
-    m_d->histogramIndex = histogramIndex;
-    m_d->histogramPainters[m_d->histogramIndex].setChannels(channels);
-    m_d->histogramPainters[m_d->histogramIndex].setDefaultColor(defaultColor);
-    m_d->histogramPainters[m_d->histogramIndex].setLogarithmic(isLogarithmic);
-    setScaleToFit();
-    
-    update();
+    const QImage image = m_d->paintChannels(rect.size(), m_d->channelsToPaint, m_d->isLogarithmic);
+    painter.drawImage(rect.topLeft(), image);
 }
 
-void KisHistogramView::clearChannels()
+int KisHistogramPainter::totalNumberOfAvailableChannels() const
 {
-    setChannels({});
+    return m_d->histogramChannelShapeInfo.size();
 }
 
-QColor KisHistogramView::defaultColor() const
+QList<int> KisHistogramPainter::availableChannels() const
 {
-    Q_ASSERT(m_d->histogramPainters.size() > 0);
-
-    return m_d->histogramPainters[m_d->histogramIndex].defaultColor();
+    return m_d->histogramChannelShapeInfo.keys();
 }
 
-void KisHistogramView::setDefaultColor(const QColor &newDefaultColor)
+const QVector<int>& KisHistogramPainter::channels() const
 {
-    Q_ASSERT(m_d->histogramPainters.size() > 0);
-
-    m_d->histogramPainters[m_d->histogramIndex].setDefaultColor(newDefaultColor);
-    update();
+    return m_d->channelsToPaint;
 }
 
-qreal KisHistogramView::scale() const
+void KisHistogramPainter::setChannel(int channel)
 {
-    Q_ASSERT(m_d->histogramPainters.size() > 0);
-    
-    return m_d->histogramPainters[m_d->histogramIndex].scale();
+    setChannels({channel});
 }
 
-void KisHistogramView::setScale(qreal newScale)
+void KisHistogramPainter::setChannels(const QVector<int> &channels)
 {
-    Q_ASSERT(m_d->histogramPainters.size() > 0);
-    
-    m_d->histogramPainters[m_d->histogramIndex].setScale(newScale);
-    update();
+    m_d->channelsToPaint = channels;
 }
 
-void KisHistogramView::setScaleToFit()
+QColor KisHistogramPainter::defaultColor() const
+{
+    return m_d->defaultColor;
+}
+
+void KisHistogramPainter::setDefaultColor(const QColor &newDefaultColor)
+{
+    m_d->defaultColor = newDefaultColor;
+}
+
+qreal KisHistogramPainter::scale() const
+{
+    return m_d->scale;
+}
+
+void KisHistogramPainter::setScale(qreal newScale)
+{
+    m_d->scale = newScale;
+}
+
+void KisHistogramPainter::setScaleToFit()
 {
     setScale(1.0);
 }
 
-void KisHistogramView::setScaleToCutLongPeaks()
+void KisHistogramPainter::setScaleToCutLongPeaks()
 {
-    Q_ASSERT(m_d->histogramPainters.size() > 0);
-    
-    m_d->histogramPainters[m_d->histogramIndex].setScaleToCutLongPeaks();
-    update();
-}
-
-bool KisHistogramView::isLogarithmic() const
-{
-    Q_ASSERT(m_d->histogramPainters.size() > 0);
-    
-    return m_d->histogramPainters[m_d->histogramIndex].isLogarithmic();
-}
-
-void KisHistogramView::setLogarithmic(bool logarithmic)
-{
-    Q_ASSERT(m_d->histogramPainters.size() > 0);
-    
-    m_d->histogramPainters[m_d->histogramIndex].setLogarithmic(logarithmic);
-    setScaleToFit();
-    update();
-}
-
-void KisHistogramView::paintEvent(QPaintEvent *e)
-{
-    Q_UNUSED(e);
-
-    QPainter painter(this);
-
-    // Background
-    painter.fillRect(rect(), palette().base());
-
-    // Histogram
-    if (m_d->histogramPainters.size() > 0 &&
-        m_d->histogramPainters[m_d->histogramIndex].channels().size() > 0) {
-        // Histogram
-        QImage histogramImage = m_d->histogramPainters[m_d->histogramIndex].paint(size());
-        // Shadow
-        QLinearGradient shadowGradient(QPointF(0.0, 0.0), QPointF(0.0, static_cast<qreal>(height()) * 0.2));
-        shadowGradient.setColorAt(0.00, QColor(0, 0, 0, 64));
-        shadowGradient.setColorAt(0.25, QColor(0, 0, 0, 36));
-        shadowGradient.setColorAt(0.50, QColor(0, 0, 0, 16));
-        shadowGradient.setColorAt(0.75, QColor(0, 0, 0, 4));
-        shadowGradient.setColorAt(1.00, QColor(0, 0, 0, 0));
-        QPainter histogramPainter(&histogramImage);
-        histogramPainter.setCompositionMode(QPainter::CompositionMode_SourceAtop);
-        histogramPainter.fillRect(histogramImage.rect(), shadowGradient);
-        if (!isEnabled()) {
-            painter.setOpacity(0.5);
+    qreal overallHighest = 0.0;
+    qreal fittedChannelHighest = 0.0;
+    qreal bestCutOffHeight = 0.0;
+    for (int channel : m_d->channelsToPaint) {
+        if (!m_d->histogramChannelShapeInfo.contains(channel)) {
+            continue;
         }
-        painter.drawImage(0, 0, histogramImage);
-        painter.setOpacity(1.0);
-    } else {
-        const qreal w = static_cast<qreal>(width());
-        const qreal h = static_cast<qreal>(height());
-        const qreal radius = qMin(w, h) * 0.3;
-        const QPointF center = QPointF(w / 2.0, h / 2.0);
-        const int penWidth = static_cast<int>(qRound(radius / 8));
-        painter.setPen(QPen(palette().alternateBase(), penWidth, Qt::SolidLine, Qt::FlatCap));
-        painter.setBrush(Qt::NoBrush);
-        painter.setRenderHint(QPainter::Antialiasing);
-        painter.drawEllipse(center, radius, radius);
-        painter.drawLine(center + QPointF(radius, -radius), center + QPointF(-radius, radius));
-    }
 
-    // Border
-    QColor c = palette().text().color();
-    c.setAlpha(64);
-    painter.setPen(QPen(c, 1));
-    painter.setBrush(Qt::NoBrush);
-    painter.setRenderHint(QPainter::Antialiasing, false);
-    painter.drawRect(0, 0, width() - 1, height() - 1);
-}
+        const qreal channelBestCutOffHeight =
+            isLogarithmic()
+            ? m_d->histogramChannelShapeInfo[channel].logarithmicBestCutOffHeight
+            : m_d->histogramChannelShapeInfo[channel].linearBestCutOffHeight;
+        const qreal channelHighest = static_cast<qreal>(m_d->histogramChannelShapeInfo[channel].highest);
 
-void KisHistogramView::mouseDoubleClickEvent(QMouseEvent *e)
-{
-    if (m_d->histogramPainters.size() == 0 ||
-        m_d->histogramPainters[m_d->histogramIndex].channels().size() == 0) {
-        return;
-    }
+        if (channelBestCutOffHeight * channelHighest > bestCutOffHeight * fittedChannelHighest) {
+            bestCutOffHeight = channelBestCutOffHeight;
+            fittedChannelHighest = channelHighest;
+        }
 
-    if (e->button() != Qt::LeftButton) {
-        return;
-    }
-
-    if (qFuzzyCompare(scale(), 1.0)) {
-        setScaleToCutLongPeaks();
-    } else {
-        setScaleToFit();
-    }
-}
-
-void KisHistogramView::mousePressEvent(QMouseEvent *e)
-{
-    if (m_d->histogramPainters.size() == 0 ||
-        m_d->histogramPainters[m_d->histogramIndex].channels().size() == 0) {
-        return;
-    }
-
-    if (e->button() != Qt::LeftButton) {
-        return;
-    }
-
-    m_d->preDraggingScale = scale();
-    m_d->draggingStartMouseY = e->y();
-    m_d->isScaling = false;
-}
-
-void KisHistogramView::mouseMoveEvent(QMouseEvent *e)
-{
-    if (m_d->histogramPainters.size() == 0 ||
-        m_d->histogramPainters[m_d->histogramIndex].channels().size() == 0) {
-        return;
-    }
-
-    if (!(e->buttons() & Qt::LeftButton)) {
-        return;
-    }
-
-    if (m_d->isScaling) {
-        const qreal newScale =
-            m_d->preDraggingScale * static_cast<qreal>(height() - e->y()) /
-                static_cast<qreal>(height() - m_d->draggingStartMouseY);
-        setScale(qMax(newScale, 1.0));
-    } else {
-        if (qAbs(e->y() - m_d->draggingStartMouseY) > 4) {
-            m_d->isScaling = true;
+        if (channelHighest > overallHighest) {
+            overallHighest = channelHighest;
         }
     }
+    const qreal overallBestCutOffHeight = bestCutOffHeight * fittedChannelHighest / overallHighest;
+    if (overallBestCutOffHeight < 0.8) {
+        setScale(1.0 / overallBestCutOffHeight);
+    } else {
+        setScale(1.0);
+    }
+}
 
+bool KisHistogramPainter::isLogarithmic() const
+{
+    return m_d->isLogarithmic;
+}
+
+void KisHistogramPainter::setLogarithmic(bool logarithmic)
+{
+    m_d->isLogarithmic = logarithmic;
 }

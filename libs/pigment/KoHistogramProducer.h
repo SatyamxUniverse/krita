@@ -70,7 +70,7 @@ public:
     // Methods with general information about this specific producer
     virtual const KoID& id() const = 0;
     virtual QList<KoChannelInfo *> channels() = 0;
-    virtual qint32 numberOfBins() = 0;
+    virtual qint32 numberOfBins(int channel) = 0;
     virtual QString positionToString(qreal pos) const = 0;
     virtual qreal viewFrom() const = 0;
     virtual qreal viewWidth() const = 0;

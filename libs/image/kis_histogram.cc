@@ -151,7 +151,7 @@ KisHistogram::Calculations KisHistogram::calculateSingleRange(int channel, doubl
         return c;
     }
 
-    qint32 totbins = m_producer->numberOfBins();
+    qint32 totbins = m_producer->numberOfBins(channel);
     quint32 current;
 
     // convert the double range into actual bins:
