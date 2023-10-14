@@ -84,7 +84,7 @@ KisHistogramPainter::Private::computeHistogramShape(KisHistogram *histogram,
     Q_ASSERT(channel >= 0);
 
     QPolygonF linearHistogramShape, logarithmicHistogramShape;
-    const int bins = histogram->producer()->numberOfBins();
+    const int bins = histogram->producer()->numberOfBins(channel);
     const qreal heightfactor = 1.0 / static_cast<qreal>(highest);
     const qreal logHeightFactor = 1.0 / std::log(static_cast<qreal>(highest + 1));
     const qreal widthFactor = 1.0 / static_cast<qreal>(bins);
@@ -171,47 +171,54 @@ QPair<QColor, QPainter::CompositionMode>
 KisHistogramPainter::Private::computeChannelPaintingInfo(const KoColorSpace *colorSpace,
                                                         int channel)
 {
-    Q_ASSERT(colorSpace);
     Q_ASSERT(channel >= 0);
 
     QColor color;
-    QPainter::CompositionMode compositionMode = QPainter::CompositionMode_SourceOver;
+    QPainter::CompositionMode compositionMode = QPainter::CompositionMode_Plus;
 
-    if (colorSpace->colorModelId() == RGBAColorModelID) {
-        if (channel == 0) {
-            color = Qt::blue;
-        } else if (channel == 1) {
-            color = Qt::green;
-        } else if (channel == 2) {
-            color = Qt::red;
-        }
-        compositionMode = QPainter::CompositionMode_Plus;
-    } else if (colorSpace->colorModelId() == XYZAColorModelID) {
-        if (channel == 0) {
-            color = Qt::red;
-        } else if (channel == 1) {
-            color = Qt::green;
-        } else if (channel == 2) {
-            color = Qt::blue;
-        }
-        compositionMode = QPainter::CompositionMode_Plus;
-    } else if (colorSpace->colorModelId() == CMYKAColorModelID) {
-        if (channel == 0) {
-            color = Qt::cyan;
-        } else if (channel == 1) {
-            color = Qt::magenta;
-        } else if (channel == 2) {
-            color = Qt::yellow;
-        } else if (channel == 3) {
-            color = Qt::black;
-        }
-        if (channel != 4) {
-            color = KoColor(color, KoColorSpaceRegistry::instance()->rgb8())
-                    .convertedTo(colorSpace,
-                                KoColorConversionTransformation::IntentSaturation,
-                                KoColorConversionTransformation::Empty)
-                    .toQColor();
-            compositionMode = QPainter::CompositionMode_Multiply;
+    if (colorSpace) {
+        if (colorSpace->colorModelId() == RGBAColorModelID && colorSpace->colorDepthId().id().contains("U")) {
+            if (channel == 0) {
+                color = Qt::blue;
+            } else if (channel == 1) {
+                color = Qt::green;
+            } else if (channel == 2) {
+                color = Qt::red;
+            }
+        } else if (colorSpace->colorModelId() == RGBAColorModelID && colorSpace->colorDepthId().id().contains("F")) {
+            if (channel == 0) {
+                color = Qt::red;
+            } else if (channel == 1) {
+                color = Qt::green;
+            } else if (channel == 2) {
+                color = Qt::blue;
+            }
+        } else if (colorSpace->colorModelId() == XYZAColorModelID) {
+            if (channel == 0) {
+                color = Qt::red;
+            } else if (channel == 1) {
+                color = Qt::green;
+            } else if (channel == 2) {
+                color = Qt::blue;
+            }
+        } else if (colorSpace->colorModelId() == CMYKAColorModelID) {
+            if (channel == 0) {
+                color = Qt::cyan;
+            } else if (channel == 1) {
+                color = Qt::magenta;
+            } else if (channel == 2) {
+                color = Qt::yellow;
+            } else if (channel == 3) {
+                color = Qt::black;
+            }
+            if (channel != 4) {
+                color = KoColor(color, KoColorSpaceRegistry::instance()->rgb8())
+                        .convertedTo(colorSpace,
+                                    KoColorConversionTransformation::IntentSaturation,
+                                    KoColorConversionTransformation::Empty)
+                        .toQColor();
+                compositionMode = QPainter::CompositionMode_Multiply;
+            }
         }
     }
 
@@ -306,10 +313,9 @@ KisHistogramPainter::~KisHistogramPainter()
 void KisHistogramPainter::setup(KisHistogram *histogram, const KoColorSpace *colorSpace, QVector<int> channels)
 {
     Q_ASSERT(histogram);
-    Q_ASSERT(colorSpace);
 
-    const int nChannels = static_cast<int>(colorSpace->channelCount());
-    
+    const int nChannels = static_cast<int>(histogram->producer()->channels().size());
+
     if (channels.size() == 0) {
         for (int i = 0; i < nChannels; ++i) {
             channels.append(i);
