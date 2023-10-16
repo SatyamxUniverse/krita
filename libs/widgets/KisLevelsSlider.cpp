@@ -12,6 +12,12 @@
 #include <algorithm>
 #include <cmath>
 
+#include <KoColor.h>
+#include <KoMixColorsOp.h>
+#include <KoColorSpaceMaths.h>
+#include <KoColorConversions.h>
+#include <KoColorSpaceRegistry.h>
+
 #include <kis_painting_tweaks.h>
 
 #include "KisLevelsSlider.h"
@@ -68,18 +74,24 @@ void KisLevelsSlider::setHandlePosition(int handleIndex, qreal newPosition)
     emit handlePositionChanged(handleIndex, newPosition);
 }
 
-void KisLevelsSlider::setHandleColor(int handleIndex, const QColor &newColor)
+void KisLevelsSlider::setHandleColor(int handleIndex, const QColor &newColor, const KoColorSpace *newColorSpace)
 {
     Q_ASSERT(handleIndex >= 0 && handleIndex < m_handles.size());
 
-    if (newColor == m_handles[handleIndex].color) {
+    if (newColor == m_handles[handleIndex].color && newColorSpace == m_handles[handleIndex].colorSpace) {
         return;
     }
 
-    m_handles[handleIndex].color = newColor;
-    
+    if (newColor != m_handles[handleIndex].color) {
+        m_handles[handleIndex].color = newColor;
+    }
+
+    if (newColorSpace != m_handles[handleIndex].colorSpace) {
+        m_handles[handleIndex].colorSpace = newColorSpace;
+    }
+
     update();
-    emit handleColorChanged(handleIndex, newColor);
+    emit handleColorChanged(handleIndex, newColor, newColorSpace);
 }
 
 QSize KisLevelsSlider::sizeHint() const
@@ -397,13 +409,65 @@ void KisInputLevelsSlider::paintBottomGradientMiddleSection(QImage &gradientImag
     const int startPos = static_cast<int>(qRound(sortedHandles_.first().position * static_cast<qreal>(gradientImage.width() - 1))) + 1;
     const int endPos = static_cast<int>(qRound(sortedHandles_.last().position * static_cast<qreal>(gradientImage.width() - 1))) + 1;
     QRgb *pixel = reinterpret_cast<QRgb*>(gradientImage.bits()) + startPos;
-    for (int x = startPos; x < endPos; ++x, ++pixel) {
-        const qreal t = static_cast<qreal>(x - startPos) / static_cast<qreal>(endPos - startPos);
-        *pixel =KisPaintingTweaks::blendColors(
-                    sortedHandles_.last().color,
-                    sortedHandles_.first().color,
-                    t
-                ).rgba();
+
+    const KoColorSpace* lastCS = sortedHandles_.last().colorSpace;
+    const KoColorSpace* firstCS = sortedHandles_.first().colorSpace;
+    if (lastCS && firstCS) {
+        if (lastCS != firstCS) {
+            lastCS = KoColorSpaceRegistry::instance()->graya8();
+        }
+
+        KoColor lastKoColor(sortedHandles_.last().color, lastCS);
+        KoColor firstKoColor(sortedHandles_.first().color, lastCS);
+        const quint8 *handleColors[2];
+        handleColors[0] = lastKoColor.data();
+        handleColors[1] = firstKoColor.data();
+        KoColor pixelKoColor(lastCS);
+
+        for (int x = startPos; x < endPos; ++x, ++pixel) {
+            const qreal t = 1.0 - static_cast<qreal>(x - startPos) / static_cast<qreal>(endPos - startPos);
+            const int weight = (int)(t * 255 + 0.5);
+            const qint16 weights[2] = { (qint16)(255 - weight), (qint16)weight };
+
+            lastCS->mixColorsOp()->mixColors(handleColors, weights, 2, pixelKoColor.data());
+
+            *pixel = pixelKoColor.toQColor().rgba();
+        }
+    } else {
+        lastCS = KoColorSpaceRegistry::instance()->rgb16();
+
+        qreal HSY[2][3];
+        QVector<qreal> lumaCoeff = lastCS->lumaCoefficients();
+        QVector<KoColor> handleColors({KoColor(sortedHandles_.last().color, lastCS), KoColor(sortedHandles_.first().color, lastCS)});
+        qreal r, g, b;
+
+        for (int i = 0;i < 2; i++){
+            quint16* rgba = reinterpret_cast<quint16*>(handleColors[i].data());
+            r = KoColorSpaceMaths<quint16, qreal>::scaleToA(rgba[2]);
+            g = KoColorSpaceMaths<quint16, qreal>::scaleToA(rgba[1]);
+            b = KoColorSpaceMaths<quint16, qreal>::scaleToA(rgba[0]);
+
+            RGBToHSY(r, g, b, &HSY[i][0], &HSY[i][1], &HSY[i][2], lumaCoeff[0], lumaCoeff[1], lumaCoeff[2]);
+        }
+
+        KoColor pixelKoColor(lastCS);
+        quint16* rgba = reinterpret_cast<quint16*>(pixelKoColor.data());
+
+        for (int x = startPos; x < endPos; ++x, ++pixel) {
+            const qreal t = static_cast<qreal>(x - startPos) / static_cast<qreal>(endPos - startPos);
+            qreal hue = HSY[0][0] * t + HSY[1][0] * (1.0 - t);
+            qreal sat = HSY[0][1] * t + HSY[1][1] * (1.0 - t);
+            qreal luma = pow(HSY[0][2], 1.0 / 2.2) * t + pow(HSY[1][2], 1.0 / 2.2) * (1.0 - t);
+
+            HSYToRGB(hue, sat, pow(luma, 2.2), &r, &g, &b, lumaCoeff[0], lumaCoeff[1], lumaCoeff[2]);
+
+            rgba[0] = KoColorSpaceMaths<qreal, quint16>::scaleToA(b);
+            rgba[1] = KoColorSpaceMaths<qreal, quint16>::scaleToA(g);
+            rgba[2] = KoColorSpaceMaths<qreal, quint16>::scaleToA(r);
+            rgba[3] = KoColorSpaceMaths<qreal, quint16>::scaleToA(1.0);
+
+            *pixel = pixelKoColor.toQColor().rgba();
+        }
     }
 }
 
@@ -423,9 +487,65 @@ void KisInputLevelsSlider::paintGradient(QPainter &painter, const QRect &rect)
     // Top gradient
     {
         QRgb *pixel = reinterpret_cast<QRgb*>(gradientImage.bits());
-        for (int x = 0; x < gradientImage.width(); ++x, ++pixel) {
-            const qreal t = static_cast<qreal>(x) / static_cast<qreal>(gradientImage.width() - 1);
-            *pixel =KisPaintingTweaks::blendColors(m_handles.last().color, m_handles.first().color, t).rgba();
+
+        const KoColorSpace* lastCS = m_handles.last().colorSpace;
+        const KoColorSpace* firstCS = m_handles.first().colorSpace;
+        if (lastCS && firstCS) {
+            if (lastCS != firstCS) {
+                lastCS = KoColorSpaceRegistry::instance()->graya8();
+            }
+
+            KoColor lastKoColor(m_handles.last().color, lastCS);
+            KoColor firstKoColor(m_handles.first().color, lastCS);
+            const quint8 *handleColors[2];
+            handleColors[0] = lastKoColor.data();
+            handleColors[1] = firstKoColor.data();
+            KoColor pixelKoColor(lastCS);
+
+            for (int x = 0; x < gradientImage.width(); ++x, ++pixel) {
+                const qreal t = 1.0 - static_cast<qreal>(x) / static_cast<qreal>(gradientImage.width() - 1);
+                const int weight = (int)(t * 255 + 0.5);
+                const qint16 weights[2] = { (qint16)(255 - weight), (qint16)weight };
+
+                lastCS->mixColorsOp()->mixColors(handleColors, weights, 2, pixelKoColor.data());
+
+                *pixel = pixelKoColor.toQColor().rgba();
+            }
+        } else {
+            lastCS = KoColorSpaceRegistry::instance()->rgb16();
+
+            qreal HSY[2][3];
+            QVector<qreal> lumaCoeff = lastCS->lumaCoefficients();
+            QVector<KoColor> handleColors({KoColor(m_handles.last().color, lastCS), KoColor(m_handles.first().color, lastCS)});
+            qreal r, g, b;
+
+            for (int i = 0;i < 2; i++){
+                quint16* rgba = reinterpret_cast<quint16*>(handleColors[i].data());
+                r = KoColorSpaceMaths<quint16, qreal>::scaleToA(rgba[2]);
+                g = KoColorSpaceMaths<quint16, qreal>::scaleToA(rgba[1]);
+                b = KoColorSpaceMaths<quint16, qreal>::scaleToA(rgba[0]);
+
+                RGBToHSY(r, g, b, &HSY[i][0], &HSY[i][1], &HSY[i][2], lumaCoeff[0], lumaCoeff[1], lumaCoeff[2]);
+            }
+
+            KoColor pixelKoColor(lastCS);
+            quint16* rgba = reinterpret_cast<quint16*>(pixelKoColor.data());
+
+            for (int x = 0; x < gradientImage.width(); ++x, ++pixel) {
+                const qreal t = static_cast<qreal>(x) / static_cast<qreal>(gradientImage.width() - 1);
+                qreal hue = HSY[0][0] * t + HSY[1][0] * (1.0 - t);
+                qreal sat = HSY[0][1] * t + HSY[1][1] * (1.0 - t);
+                qreal luma = pow(HSY[0][2], 1.0 / 2.2) * t + pow(HSY[1][2], 1.0 / 2.2) * (1.0 - t);
+
+                HSYToRGB(hue, sat, pow(luma, 2.2), &r, &g, &b, lumaCoeff[0], lumaCoeff[1], lumaCoeff[2]);
+
+                rgba[0] = KoColorSpaceMaths<qreal, quint16>::scaleToA(b);
+                rgba[1] = KoColorSpaceMaths<qreal, quint16>::scaleToA(g);
+                rgba[2] = KoColorSpaceMaths<qreal, quint16>::scaleToA(r);
+                rgba[3] = KoColorSpaceMaths<qreal, quint16>::scaleToA(1.0);
+
+                *pixel = pixelKoColor.toQColor().rgba();
+            }
         }
     }
     painter.drawImage(rect.adjusted(0, 0, 0, -(halfGradientHeight + (rect.height() & 1 ? 1 : 0))), gradientImage);
@@ -456,7 +576,7 @@ KisInputLevelsSliderWithGamma::KisInputLevelsSliderWithGamma(QWidget *parent)
     , m_gamma(1.0)
 {
     m_handles.last().index = 2;
-    m_handles.insert(1, {1, 0.5, Qt::gray});
+    m_handles.insert(1, {1, 0.5, Qt::gray, KoColorSpaceRegistry::instance()->graya8()});
 }
 
 KisInputLevelsSliderWithGamma::~KisInputLevelsSliderWithGamma()
@@ -537,13 +657,65 @@ void KisInputLevelsSliderWithGamma::paintBottomGradientMiddleSection(QImage &gra
     const int startPos = static_cast<int>(qRound(sortedHandles_.first().position * static_cast<qreal>(gradientImage.width() - 1)));
     const int endPos = static_cast<int>(qRound(sortedHandles_.last().position * static_cast<qreal>(gradientImage.width() - 1))) + 1;
     QRgb *pixel = reinterpret_cast<QRgb*>(gradientImage.bits()) + startPos;
-    for (int x = startPos; x < endPos; ++x, ++pixel) {
-        const qreal t = static_cast<qreal>(x - startPos) / static_cast<qreal>(endPos - startPos);
-        *pixel =KisPaintingTweaks::blendColors(
-                    sortedHandles_.last().color,
-                    sortedHandles_.first().color,
-                    std::pow(t, inverseGamma)
-                ).rgba();
+
+    const KoColorSpace* lastCS = sortedHandles_.last().colorSpace;
+    const KoColorSpace* firstCS = sortedHandles_.first().colorSpace;
+    if (lastCS && firstCS) {
+        if (lastCS != firstCS) {
+            lastCS = KoColorSpaceRegistry::instance()->graya8();
+        }
+
+        KoColor lastKoColor(sortedHandles_.last().color, lastCS);
+        KoColor firstKoColor(sortedHandles_.first().color, lastCS);
+        const quint8 *handleColors[2];
+        handleColors[0] = lastKoColor.data();
+        handleColors[1] = firstKoColor.data();
+        KoColor pixelKoColor(lastCS);
+
+        for (int x = startPos; x < endPos; ++x, ++pixel) {
+            const qreal t = 1.0 - std::pow(static_cast<qreal>(x - startPos) / static_cast<qreal>(endPos - startPos), inverseGamma);
+            const int weight = (int)(t * 255 + 0.5);
+            const qint16 weights[2] = { (qint16)(255 - weight), (qint16)weight };
+
+            lastCS->mixColorsOp()->mixColors(handleColors, weights, 2, pixelKoColor.data());
+
+            *pixel = pixelKoColor.toQColor().rgba();
+        }
+    } else {
+        lastCS = KoColorSpaceRegistry::instance()->rgb16();
+
+        qreal HSY[2][3];
+        QVector<qreal> lumaCoeff = lastCS->lumaCoefficients();
+        QVector<KoColor> handleColors({KoColor(sortedHandles_.last().color, lastCS), KoColor(sortedHandles_.first().color, lastCS)});
+        qreal r, g, b;
+
+        for (int i = 0;i < 2; i++){
+            quint16* rgba = reinterpret_cast<quint16*>(handleColors[i].data());
+            r = KoColorSpaceMaths<quint16, qreal>::scaleToA(rgba[2]);
+            g = KoColorSpaceMaths<quint16, qreal>::scaleToA(rgba[1]);
+            b = KoColorSpaceMaths<quint16, qreal>::scaleToA(rgba[0]);
+
+            RGBToHSY(r, g, b, &HSY[i][0], &HSY[i][1], &HSY[i][2], lumaCoeff[0], lumaCoeff[1], lumaCoeff[2]);
+        }
+
+        KoColor pixelKoColor(lastCS);
+        quint16* rgba = reinterpret_cast<quint16*>(pixelKoColor.data());
+
+        for (int x = startPos; x < endPos; ++x, ++pixel) {
+            const qreal t = std::pow(static_cast<qreal>(x - startPos) / static_cast<qreal>(endPos - startPos), inverseGamma);
+            qreal hue = HSY[0][0] * t + HSY[1][0] * (1.0 - t);
+            qreal sat = HSY[0][1] * t + HSY[1][1] * (1.0 - t);
+            qreal luma = pow(HSY[0][2], 1.0 / 2.2) * t + pow(HSY[1][2], 1.0 / 2.2) * (1.0 - t);
+
+            HSYToRGB(hue, sat, pow(luma, 2.2), &r, &g, &b, lumaCoeff[0], lumaCoeff[1], lumaCoeff[2]);
+
+            rgba[0] = KoColorSpaceMaths<qreal, quint16>::scaleToA(b);
+            rgba[1] = KoColorSpaceMaths<qreal, quint16>::scaleToA(g);
+            rgba[2] = KoColorSpaceMaths<qreal, quint16>::scaleToA(r);
+            rgba[3] = KoColorSpaceMaths<qreal, quint16>::scaleToA(1.0);
+
+            *pixel = pixelKoColor.toQColor().rgba();
+        }
     }
 }
 
@@ -597,6 +769,8 @@ KisThresholdSlider::KisThresholdSlider(QWidget *parent)
     : KisInputLevelsSlider(parent)
 {
     m_constrainPositions = false;
+    m_handles.last().colorSpace = KoColorSpaceRegistry::instance()->lab16();
+    m_handles.first().colorSpace = KoColorSpaceRegistry::instance()->lab16();
 }
 
 KisThresholdSlider::~KisThresholdSlider()

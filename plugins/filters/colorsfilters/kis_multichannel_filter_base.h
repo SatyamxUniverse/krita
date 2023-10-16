@@ -148,8 +148,9 @@ protected:
 
     KisPaintDeviceSP m_dev;
     WdgPerChannel * m_page {nullptr};
-    KisHistogram *m_histogram {nullptr};
     KisHistogramPainter m_histogramPainter;
+    QScopedPointer<KisHistogram> m_hslHistogram;
+    QScopedPointer<KisHistogram> m_channelsHistogram;
 };
 
 #endif

@@ -12,6 +12,7 @@
 #include <QWidget>
 #include <QVector>
 
+#include "KoColorSpace.h"
 #include "kritawidgets_export.h"
 
 /**
@@ -50,7 +51,7 @@ public Q_SLOTS:
     /**
      * @brief Sets the color associated with the given handle
      */
-    virtual void setHandleColor(int handleIndex, const QColor &newColor);
+    virtual void setHandleColor(int handleIndex, const QColor &newColor, const KoColorSpace *colorSpace);
 
 Q_SIGNALS:
     /**
@@ -60,7 +61,7 @@ Q_SIGNALS:
     /**
      * @brief Signal emitted when the color associated with a handle changes
      */
-    void handleColorChanged(int handleIndex, const QColor &color);
+    void handleColorChanged(int handleIndex, const QColor &color, const KoColorSpace *colorSpace);
 
 protected:
     struct Handle
@@ -68,6 +69,7 @@ protected:
         int index;
         qreal position;
         QColor color;
+        const KoColorSpace *colorSpace;
     };
 
     static constexpr int handleWidth{11};

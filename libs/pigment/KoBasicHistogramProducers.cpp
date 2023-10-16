@@ -17,7 +17,9 @@
 // #include "Ko_global.h"
 #include "KoIntegerMaths.h"
 #include "KoChannelInfo.h"
+#include "KoColorSpaceMaths.h"
 #include "KoColorModelStandardIds.h"
+#include "KoColorConversions.h"
 
 static const KoColorSpace* m_labCs = 0;
 
@@ -575,25 +577,19 @@ void KoGenericHSLHistogramProducer::addRegionToBin(const quint8 * pixels, const 
     quint8 *dstPixels = new quint8[nPixels * dstPixelSize];
     cs->convertPixelsTo(pixels, dstPixels, m_colorSpace, nPixels, KoColorConversionTransformation::IntentAbsoluteColorimetric, KoColorConversionTransformation::Empty);
     qint32 pSize = cs->pixelSize();
-    int channelCount = m_colorSpace->channelCount();
+    QVector<qreal> lumaCoeff = m_colorSpace->lumaCoefficients();
 
     if (selectionMask) {
         while (nPixels > 0) {
             if (!((m_skipUnselected  && *selectionMask == 0) || (m_skipTransparent && cs->opacityU8(pixels) == OPACITY_TRANSPARENT_U8))) {
                 quint8 *dst = dstPixels;
-
-                QVector<float> channelValuesF(channelCount);
-                m_colorSpace->normalisedChannelsValue(dst, channelValuesF);
-
-                QVector <double> channelValues(channelCount);
-                for (int i = 0;i < channelCount; i++){
-                    channelValues[i] = channelValuesF[i];
-                }
-
-                std::swap(channelValues[0], channelValues[2]);
+                quint16* rgba = reinterpret_cast<quint16*>(dst);
+                qreal r = KoColorSpaceMaths<quint16, qreal>::scaleToA(rgba[2]);
+                qreal g = KoColorSpaceMaths<quint16, qreal>::scaleToA(rgba[1]);
+                qreal b = KoColorSpaceMaths<quint16, qreal>::scaleToA(rgba[0]);
 
                 qreal hue, sat, luma;
-                m_colorSpace->toHSY(channelValues, &hue, &sat, &luma);
+                RGBToHSY(r, g, b, &hue, &sat, &luma, lumaCoeff[0], lumaCoeff[1], lumaCoeff[2]);
                 luma = pow(luma, 1.0 / 2.2);
 
                 m_bins[0][qBound(0, static_cast<int>(hue * 360.0 + 0.5), 360)]++;
@@ -611,18 +607,13 @@ void KoGenericHSLHistogramProducer::addRegionToBin(const quint8 * pixels, const 
         while (nPixels > 0) {
             if (!(m_skipTransparent && cs->opacityU8(pixels) == OPACITY_TRANSPARENT_U8)) {
                 quint8 *dst = dstPixels;
-                QVector<float> channelValuesF(channelCount);
-                m_colorSpace->normalisedChannelsValue(dst, channelValuesF);
-
-                QVector <double> channelValues(channelCount);
-                for (int i=0;i < channelCount; i++){
-                    channelValues[i] = channelValuesF[i];
-                }
-
-                std::swap(channelValues[0], channelValues[2]);
+                quint16* rgba = reinterpret_cast<quint16*>(dst);
+                qreal r = KoColorSpaceMaths<quint16, qreal>::scaleToA(rgba[2]);
+                qreal g = KoColorSpaceMaths<quint16, qreal>::scaleToA(rgba[1]);
+                qreal b = KoColorSpaceMaths<quint16, qreal>::scaleToA(rgba[0]);
 
                 qreal hue, sat, luma;
-                m_colorSpace->toHSY(channelValues, &hue, &sat, &luma);
+                RGBToHSY(r, g, b, &hue, &sat, &luma, lumaCoeff[0], lumaCoeff[1], lumaCoeff[2]);
                 luma = pow(luma, 1.0 / 2.2);
 
                 m_bins[0][qBound(0, static_cast<int>(hue * 360.0 + 0.5), 360)]++;

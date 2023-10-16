@@ -22,6 +22,8 @@
 #include "KoBasicHistogramProducers.h"
 #include "KoColorModelStandardIds.h"
 #include "KoColorSpace.h"
+#include "KoMixColorsOp.h"
+#include "KoColorConversions.h"
 #include "KoColorTransformation.h"
 #include "KoCompositeColorTransformation.h"
 #include "KoCompositeOp.h"
@@ -36,7 +38,6 @@
 #include <kis_selection.h>
 #include <kis_paint_device.h>
 #include <kis_processing_information.h>
-#include <resources/KoStopGradient.h>
 
 #include "kis_histogram.h"
 #include "kis_painter.h"
@@ -350,6 +351,8 @@ KisMultiChannelConfigWidget::KisMultiChannelConfigWidget(QWidget * parent, KisPa
         : KisConfigWidget(parent, f)
         , m_dev(dev)
         , m_page(new WdgPerChannel(this))
+        , m_hslHistogram(nullptr)
+        , m_channelsHistogram(nullptr)
 {
     Q_ASSERT(m_dev);
 
@@ -410,8 +413,6 @@ void KisMultiChannelConfigWidget::init() {
 
 KisMultiChannelConfigWidget::~KisMultiChannelConfigWidget()
 {
-    KIS_ASSERT(m_histogram);
-    delete m_histogram;
 }
 
 void KisMultiChannelConfigWidget::resetCurves()
@@ -483,7 +484,13 @@ inline QPixmap KisMultiChannelConfigWidget::createGradient(Qt::Orientation orien
     int *i, inc, col;
     int x = 0, y = 0;
 
-    int maxsize = m_histogram->producer()->numberOfBins(m_histogramPainter.channels().at(0));
+    const VirtualChannelInfo &info = (!m_page->cmbDriverChannel->isHidden() && orient == Qt::Horizontal)
+        ? m_virtualChannels[m_activeVDriverChannel] : m_virtualChannels[m_activeVChannel];
+    const bool isRealChannel = (info.type() == VirtualChannelInfo::ALL_COLORS || info.type() == VirtualChannelInfo::REAL);
+
+    const int maxsize = isRealChannel
+        ? m_channelsHistogram->producer()->numberOfBins(m_histogramPainter.channels().at(0))
+        : m_hslHistogram->producer()->numberOfBins(m_histogramPainter.channels().at(0));
 
     if (orient == Qt::Horizontal) {
         i = &x; inc = 1; col = 0;
@@ -497,12 +504,9 @@ inline QPixmap KisMultiChannelConfigWidget::createGradient(Qt::Orientation orien
     QPainter p(&gradientpix);
     p.setPen(QPen(QColor(0, 0, 0), 1, Qt::SolidLine));
 
-    const VirtualChannelInfo &info = (!m_page->cmbDriverChannel->isHidden() && orient == Qt::Horizontal)
-        ? m_virtualChannels[m_activeVDriverChannel] : m_virtualChannels[m_activeVChannel];
-
-    if ((info.type() == VirtualChannelInfo::ALL_COLORS || info.type() == VirtualChannelInfo::REAL)) {
+    if (isRealChannel) {
         QColor leftColor, rightColor;
-        int channelIndex = info.pixelIndex();
+        const int channelIndex = info.pixelIndex();
         const KoColorSpace *colorSpace = m_dev->compositionSourceColorSpace();
         if (colorSpace->colorModelId() == GrayAColorModelID || info.type() == VirtualChannelInfo::ALL_COLORS || info.isAlpha()) {
             if (info.type() != VirtualChannelInfo::ALL_COLORS) {
@@ -525,52 +529,52 @@ inline QPixmap KisMultiChannelConfigWidget::createGradient(Qt::Orientation orien
             rightColor = Qt::white;
         }
 
-        QList<KoGradientStop> stops;
-        KoStopGradientSP gradient(new KoStopGradient());
-        gradient->setType(QGradient::LinearGradient);
-        stops << KoGradientStop(0.0, KoColor(leftColor, colorSpace), COLORSTOP);
-        stops << KoGradientStop(1.0, KoColor(rightColor, colorSpace), COLORSTOP);
-        gradient->setStops(stops);
-
+        int weightSum = maxsize - 1;
+        KoColor leftKoColor(leftColor, colorSpace);
+        KoColor rightKoColor(rightColor, colorSpace);
+        const quint8 *colors[2];
+        colors[0] = leftKoColor.data();
+        colors[1] = rightKoColor.data();
+        qint16 weights[2];
         KoColor penColor(colorSpace);
+
         for (; *i < maxsize; (*i)++, col += inc) {
-            gradient->colorAt(penColor, col / qreal(maxsize - 1));
+            weights[0] = weightSum - col;
+            weights[1] = col;
+
+            colorSpace->mixColorsOp()->mixColors(colors, weights, 2, penColor.data(), weightSum);
             p.setPen(penColor.toQColor());
             p.drawPoint(x, y);
         }
     } else {
         const KoColorSpace *colorSpace = KoColorSpaceRegistry::instance()->rgb16();
-
+        QVector<qreal> lumaCoeff = colorSpace->lumaCoefficients();
         KoColor penColor(colorSpace);
-        int channelCount = colorSpace->channelCount();
+        quint16* rgba = reinterpret_cast<quint16*>(penColor.data());
+        qreal hue, sat, luma, r, g, b;
+
         for (; *i < maxsize; (*i)++, col += inc) {
-            qreal c = col / qreal(maxsize - 1);
-            qreal hue, sat, luma;
+            qreal t = col / qreal(maxsize - 1);
             if (info.type() == VirtualChannelInfo::HUE) {
-                hue = c;
+                hue = t;
                 sat = 1.0;
                 luma = pow(0.5, 2.2);
             } else if (info.type() == VirtualChannelInfo::SATURATION) {
                 hue = 0.0;
-                sat = c;
+                sat = t;
                 luma = pow(0.5, 2.2);
             } else {
                 hue = 0.0;
                 sat = 0.0;
-                luma = pow(c, 2.2);
+                luma = pow(t, 2.2);
             }
 
-            QVector <double> channelValues(channelCount);
-            channelValues = colorSpace->fromHSY(&hue, &sat, &luma);
+            HSYToRGB(hue, sat, luma, &r, &g, &b, lumaCoeff[0], lumaCoeff[1], lumaCoeff[2]);
 
-            std::swap(channelValues[0], channelValues[2]);
-
-            QVector <float> channelValuesF(channelCount);
-            for (int i = 0;i < channelCount; i++){
-                channelValuesF[i] = channelValues[i];
-            }
-
-            colorSpace->fromNormalisedChannelsValue(penColor.data(), channelValuesF);
+            rgba[0] = KoColorSpaceMaths<qreal, quint16>::scaleToA(b);
+            rgba[1] = KoColorSpaceMaths<qreal, quint16>::scaleToA(g);
+            rgba[2] = KoColorSpaceMaths<qreal, quint16>::scaleToA(r);
+            rgba[3] = KoColorSpaceMaths<qreal, quint16>::scaleToA(1.0);
 
             p.setPen(penColor.toQColor());
             p.drawPoint(x, y);
@@ -584,7 +588,6 @@ inline QPixmap KisMultiChannelConfigWidget::getHistogram()
 {
     int height = 256;
     QPixmap pix(256, height);
-    KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(m_histogram, pix);
 
     QPalette appPalette = QApplication::palette();
 
@@ -668,21 +671,25 @@ void KisMultiChannelConfigWidget::initHistogramCalculator()
     const VirtualChannelInfo &info = m_page->cmbDriverChannel->isHidden() ? m_virtualChannels[m_activeVChannel] : m_virtualChannels[m_activeVDriverChannel];
 
     if (info.type() == VirtualChannelInfo::ALL_COLORS || info.type() == VirtualChannelInfo::REAL) {
-        QList<QString> keys = KoHistogramProducerFactoryRegistry::instance()->keysCompatibleWith(targetColorSpace);
+        if (!m_channelsHistogram) {
+            QList<QString> keys = KoHistogramProducerFactoryRegistry::instance()->keysCompatibleWith(targetColorSpace);
 
-        if (keys.size() > 0) {
-            KoHistogramProducerFactory *hpf;
-            hpf = KoHistogramProducerFactoryRegistry::instance()->get(keys.at(0));
-            m_histogram = new KisHistogram(m_dev, m_dev->exactBounds(), hpf->generate(), LINEAR);
-            m_histogramPainter.setup(m_histogram, targetColorSpace);
+            if (keys.size() > 0) {
+                KoHistogramProducerFactory *hpf = KoHistogramProducerFactoryRegistry::instance()->get(keys.at(0));
+                m_channelsHistogram.reset(new KisHistogram(m_dev, m_dev->exactBounds(), hpf->generate(), LINEAR));
+            }
         }
+
+        m_histogramPainter.setup(m_channelsHistogram.data(), targetColorSpace);
     } else {
-        KoHistogramProducer *HSLHistogramProducer = new KoGenericHSLHistogramProducer();
-        m_histogram = new KisHistogram(m_dev, m_dev->exactBounds(), HSLHistogramProducer, LINEAR);
-        m_histogramPainter.setup(m_histogram, 0, QVector<int>({0, 1, 2}));
+        if (!m_hslHistogram) {
+            KoHistogramProducer *HSLHistogramProducer = new KoGenericHSLHistogramProducer();
+            m_hslHistogram.reset(new KisHistogram(m_dev, m_dev->exactBounds(), HSLHistogramProducer, LINEAR));
+        }
+
+        m_histogramPainter.setup(m_hslHistogram.data(), 0, QVector<int>({0, 1, 2}));
     }
 }
-
 
 void KisMultiChannelConfigWidget::slot_buttonGroupHistogramMode_buttonToggled(QAbstractButton *button, bool checked)
 {

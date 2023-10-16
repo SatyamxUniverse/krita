@@ -19,6 +19,8 @@
 #include <QPainter>
 #include <QCheckBox>
 
+#include <KoMixColorsOp.h>
+#include <KoColorConversions.h>
 #include <KoBasicHistogramProducers.h>
 #include <kis_paint_device.h>
 #include <kis_histogram.h>
@@ -32,7 +34,6 @@
 #include <kis_signals_blocker.h>
 #include <kis_icon_utils.h>
 #include <KoColorModelStandardIds.h>
-#include <kis_painting_tweaks.h>
 #include <KoDialog.h>
 #include <KisAutoLevels.h>
 #include <KisAutoLevelsWidget.h>
@@ -58,6 +59,7 @@ KisLevelsConfigWidget::KisLevelsConfigWidget(QWidget * parent, KisPaintDeviceSP 
     , m_colorSpace(colorSpace)
     , m_activeChannel(0)
     , m_activeLevelsCurve(nullptr)
+    , m_hslHistogram(nullptr)
     , m_channelsHistogram(nullptr)
     , m_lightnessHistogram(nullptr)
 {
@@ -313,35 +315,94 @@ void KisLevelsConfigWidget::updateWidgets()
     m_page.sliderOutputLevels->reset(m_activeLevelsCurve->outputBlackPoint(),
                                      m_activeLevelsCurve->outputWhitePoint());
     {
-        QColor leftColor(Qt::black), rightColor(Qt::white);
-        if (m_page.buttonAllChannelsMode->isChecked() &&
-            (m_colorSpace->colorModelId() == RGBAColorModelID || m_colorSpace->colorModelId() == CMYKAColorModelID) &&
-            m_virtualChannels[m_activeChannel].type() == VirtualChannelInfo::REAL &&
-            !m_virtualChannels[m_activeChannel].isAlpha()) {
-            const int channelIndex = m_virtualChannels[m_activeChannel].pixelIndex();
-            if (m_colorSpace->colorModelId() == RGBAColorModelID) {
-                leftColor = Qt::black;
-                rightColor = channelIndex == 0 ? Qt::blue : (channelIndex == 1 ? Qt::green : Qt::red);
+        QColor leftColor, middleColor, rightColor;
+        const KoColorSpace *colorSpace = m_colorSpace;
+        const VirtualChannelInfo &info = m_virtualChannels[m_activeChannel];
+
+        if ((m_page.buttonAllChannelsMode->isChecked() &&
+            (info.type() == VirtualChannelInfo::ALL_COLORS || info.type() == VirtualChannelInfo::REAL)) ||
+            m_page.buttonLightnessMode->isChecked()) {
+            if (m_page.buttonAllChannelsMode->isChecked()) {
+                const int channelIndex = info.pixelIndex();
+                if (colorSpace->colorModelId() == GrayAColorModelID || info.type() == VirtualChannelInfo::ALL_COLORS || info.isAlpha()) {
+                    if (info.type() != VirtualChannelInfo::ALL_COLORS) {
+                        colorSpace = KoColorSpaceRegistry::instance()->graya8();
+                    }
+
+                    leftColor = Qt::black;
+                    rightColor = Qt::white;
+                } else if (colorSpace->colorModelId() == RGBAColorModelID && colorSpace->colorDepthId().id().contains("U")) {
+                    leftColor = Qt::black;
+                    rightColor = channelIndex == 0 ? Qt::blue : (channelIndex == 1 ? Qt::green : Qt::red);
+                } else if (colorSpace->colorModelId() == RGBAColorModelID && colorSpace->colorDepthId().id().contains("F")) {
+                    leftColor = Qt::black;
+                    rightColor = channelIndex == 0 ? Qt::red : (channelIndex == 1 ? Qt::green : Qt::blue);
+                } else if (colorSpace->colorModelId() == CMYKAColorModelID) {
+                    leftColor = Qt::white;
+                    rightColor = channelIndex == 0 ? Qt::cyan : (channelIndex == 1 ? Qt::magenta : (channelIndex == 2 ? Qt::yellow : Qt::black));
+                } else {
+                    leftColor = Qt::black;
+                    rightColor = Qt::white;
+                }
             } else {
-                leftColor = Qt::white;
-                rightColor = channelIndex == 0 ? Qt::cyan : (channelIndex == 1 ? Qt::magenta : (channelIndex == 2 ? Qt::yellow : Qt::black));
-                rightColor = KoColor(rightColor, KoColorSpaceRegistry::instance()->rgb8())
-                             .convertedTo(m_colorSpace,
-                                          KoColorConversionTransformation::IntentSaturation,
-                                          KoColorConversionTransformation::Empty)
-                             .toQColor();
+                 colorSpace = KoColorSpaceRegistry::instance()->lab16();
+
+                 leftColor = Qt::black;
+                 rightColor = Qt::white;
             }
-        } else if (m_page.buttonAllChannelsMode->isChecked() &&
-                   m_colorSpace->colorModelId() == CMYKAColorModelID &&
-                   m_virtualChannels[m_activeChannel].type() == VirtualChannelInfo::ALL_COLORS) {
-            leftColor = Qt::white;
-            rightColor = Qt::black;
+
+            KoColor leftKoColor(leftColor, colorSpace);
+            KoColor rightKoColor(rightColor, colorSpace);
+            const quint8 *colors[2];
+            colors[0] = leftKoColor.data();
+            colors[1] = rightKoColor.data();
+            const qint16 weights[2] = {(qint16)127, (qint16)128};
+
+            KoColor middleKoColor(colorSpace);
+            colorSpace->mixColorsOp()->mixColors(colors, weights, 2, middleKoColor.data());
+
+            middleColor = middleKoColor.toQColor();
+        } else {
+            colorSpace = KoColorSpaceRegistry::instance()->rgb16();
+
+            qreal rgb[3][3];
+            QVector<qreal> lumaCoeff = colorSpace->lumaCoefficients();
+            if (info.type() == VirtualChannelInfo::HUE) {
+                qreal luma = pow(0.5, 2.2);
+                HSYToRGB(1.0 / 360.0, 1.0, luma, &rgb[0][0], &rgb[0][1], &rgb[0][2], lumaCoeff[0], lumaCoeff[1], lumaCoeff[2]);
+                HSYToRGB(0.5 , 1.0, luma, &rgb[1][0], &rgb[1][1], &rgb[1][2], lumaCoeff[0], lumaCoeff[1], lumaCoeff[2]);
+                HSYToRGB(359.0 / 360.0, 1.0, luma, &rgb[2][0], &rgb[2][1], &rgb[2][2], lumaCoeff[0], lumaCoeff[1], lumaCoeff[2]);
+            } else if (info.type() == VirtualChannelInfo::SATURATION) {
+                qreal luma = pow(0.5, 2.2);
+                for (int i = 0;i < 3; i++){
+                    HSYToRGB(0.0, 0.5 * i, luma, &rgb[i][0], &rgb[i][1], &rgb[i][2], lumaCoeff[0], lumaCoeff[1], lumaCoeff[2]);
+                }
+            } else {
+                for (int i = 0;i < 3; i++){
+                    HSYToRGB(0.0, 0.0, pow(0.5 * i, 2.2), &rgb[i][0], &rgb[i][1], &rgb[i][2], lumaCoeff[0], lumaCoeff[1], lumaCoeff[2]);
+                }
+            }
+
+            QVector<KoColor> handleColors(3, KoColor(colorSpace));
+            for (int i = 0;i < 3; i++){
+                quint16* rgba = reinterpret_cast<quint16*>(handleColors[i].data());
+                rgba[0] = KoColorSpaceMaths<qreal, quint16>::scaleToA(rgb[i][2]);
+                rgba[1] = KoColorSpaceMaths<qreal, quint16>::scaleToA(rgb[i][1]);
+                rgba[2] = KoColorSpaceMaths<qreal, quint16>::scaleToA(rgb[i][0]);
+                rgba[3] = KoColorSpaceMaths<qreal, quint16>::scaleToA(1.0);
+            }
+
+            leftColor = handleColors[0].toQColor();
+            middleColor = handleColors[1].toQColor();
+            rightColor = handleColors[2].toQColor();
+            colorSpace = 0;
         }
-        m_page.sliderInputLevels->setHandleColor(0, leftColor);
-        m_page.sliderInputLevels->setHandleColor(1, KisPaintingTweaks::blendColors(leftColor, rightColor, 0.5));
-        m_page.sliderInputLevels->setHandleColor(2, rightColor);
-        m_page.sliderOutputLevels->setHandleColor(0, leftColor);
-        m_page.sliderOutputLevels->setHandleColor(1, rightColor);
+
+        m_page.sliderInputLevels->setHandleColor(0, leftColor, colorSpace);
+        m_page.sliderInputLevels->setHandleColor(1, middleColor, colorSpace);
+        m_page.sliderInputLevels->setHandleColor(2, rightColor, colorSpace);
+        m_page.sliderOutputLevels->setHandleColor(0, leftColor, colorSpace);
+        m_page.sliderOutputLevels->setHandleColor(1, rightColor, colorSpace);
     }
 
     m_page.spinBoxInputBlackPoint->setRange(m_activeChannelMin, m_activeChannelMax);
@@ -354,14 +415,15 @@ void KisLevelsConfigWidget::updateWidgets()
     m_page.spinBoxOutputBlackPoint->setValue(deNormalizeValue(m_activeLevelsCurve->outputBlackPoint(), m_activeChannelMin, m_activeChannelMax));
     m_page.spinBoxOutputWhitePoint->setValue(deNormalizeValue(m_activeLevelsCurve->outputWhitePoint(), m_activeChannelMin, m_activeChannelMax));
 
-    if ((m_page.buttonLightnessMode->isChecked() ||
-        m_virtualChannels[m_activeChannel].type() == VirtualChannelInfo::LIGHTNESS) &&
-        m_lightnessHistogram) {
-
+    if (m_page.buttonLightnessMode->isChecked() && m_lightnessHistogram) {
         m_page.buttonAutoLevels->setEnabled(true);
-
     } else if (m_virtualChannels[m_activeChannel].type() == VirtualChannelInfo::REAL &&
                m_channelsHistogram) {
+        m_page.buttonAutoLevels->setEnabled(true);
+    } else if ((m_virtualChannels[m_activeChannel].type() == VirtualChannelInfo::HUE ||
+                m_virtualChannels[m_activeChannel].type() == VirtualChannelInfo::SATURATION ||
+                m_virtualChannels[m_activeChannel].type() == VirtualChannelInfo::LIGHTNESS) &&
+               m_hslHistogram) {
         m_page.buttonAutoLevels->setEnabled(true);
     } else {
         m_page.buttonAutoLevels->setEnabled(false);
@@ -380,7 +442,7 @@ void KisLevelsConfigWidget::updateHistograms()
         KoHistogramProducer *lightnessHistogramProducer = new KoGenericLabHistogramProducer();
         m_lightnessHistogram.reset(new KisHistogram(m_dev, m_dev->exactBounds(), lightnessHistogramProducer, LINEAR));
         histograms.append(m_lightnessHistogram.data());
-        colorSpaces.append(KoColorSpaceRegistry::instance()->lab16());
+        colorSpaces.append(0);
         channels.append(QVector<int>({0}));
     }
     // Init channels histogram
@@ -395,6 +457,15 @@ void KisLevelsConfigWidget::updateHistograms()
             channels.append(QVector<int>());
         }
     }
+    // Init hsl histogram
+    // This is used in the simple mode and if the hsl virtual channel is selected
+    if (!m_hslHistogram) {
+        KoHistogramProducer *HSLHistogramProducer = new KoGenericHSLHistogramProducer();
+        m_hslHistogram.reset(new KisHistogram(m_dev, m_dev->exactBounds(), HSLHistogramProducer, LINEAR));
+        histograms.append(m_hslHistogram.data());
+        colorSpaces.append(0);
+        channels.append(QVector<int>({0, 1, 2}));
+    }
 
     if (histograms.size() > 0) {
         m_page.widgetHistogram->setup(histograms, colorSpaces, channels);
@@ -407,8 +478,7 @@ void KisLevelsConfigWidget::updateHistogramViewChannels()
 {
     m_page.widgetHistogram->clearChannels();
 
-    if (m_page.buttonLightnessMode->isChecked() ||
-        m_virtualChannels[m_activeChannel].type() == VirtualChannelInfo::LIGHTNESS) {
+    if (m_page.buttonLightnessMode->isChecked()) {
         if (m_lightnessHistogram) {
             m_page.widgetHistogram->setChannel(0, 0);
         }
@@ -426,8 +496,16 @@ void KisLevelsConfigWidget::updateHistogramViewChannels()
                 }
                 m_page.widgetHistogram->setChannels(channels, 1);
 
-            } else if (channelType == VirtualChannelInfo::REAL) {
+            } else /*if (channelType == VirtualChannelInfo::REAL)*/ {
                 m_page.widgetHistogram->setChannel(m_virtualChannels[m_activeChannel].pixelIndex(), 1);
+            }
+        } else {
+            if (channelType == VirtualChannelInfo::HUE) {
+                m_page.widgetHistogram->setChannel(0, 2);
+            } else if (channelType == VirtualChannelInfo::SATURATION) {
+                m_page.widgetHistogram->setChannel(1, 2);
+            } else {
+                m_page.widgetHistogram->setChannel(2, 2);
             }
         }
     }
@@ -590,7 +668,6 @@ void KisLevelsConfigWidget::slot_buttonAutoLevels_clicked()
     // Set some default parameters based on the selected channel. These were
     // selected empirically, there is no strong reason why they should be like this
     if (m_page.buttonLightnessMode->isChecked() ||
-        m_virtualChannels[m_activeChannel].type() == VirtualChannelInfo::LIGHTNESS ||
         (m_colorSpace->colorModelId() == LABAColorModelID && m_virtualChannels[m_activeChannel].pixelIndex() == 0) ||
         (m_colorSpace->colorModelId() == CMYKAColorModelID && m_virtualChannels[m_activeChannel].pixelIndex() == 3) ||
         (m_colorSpace->colorModelId() == GrayAColorModelID && m_virtualChannels[m_activeChannel].pixelIndex() == 0)) {
@@ -710,14 +787,25 @@ void KisLevelsConfigWidget::slot_autoLevelsWidget_parametersChanged()
     int channel;
     bool isCMYK = false;
 
-    if (m_page.buttonLightnessMode->isChecked() ||
-        m_virtualChannels[m_activeChannel].type() == VirtualChannelInfo::LIGHTNESS) {
+    if (m_page.buttonLightnessMode->isChecked()) {
         histogram = m_lightnessHistogram.data();
         channel = 0;
     } else {
-        histogram = m_channelsHistogram.data();
-        channel = m_virtualChannels[m_activeChannel].pixelIndex();
-        isCMYK = m_colorSpace->colorModelId() == CMYKAColorModelID;
+        const VirtualChannelInfo &info = m_virtualChannels[m_activeChannel];
+        if (info.type() == VirtualChannelInfo::HUE) {
+            histogram = m_hslHistogram.data();
+            channel = 0;
+        } else if (info.type() == VirtualChannelInfo::SATURATION) {
+            histogram = m_hslHistogram.data();
+            channel = 1;
+        } else if (info.type() == VirtualChannelInfo::LIGHTNESS) {
+            histogram = m_hslHistogram.data();
+            channel = 2;
+        } else {
+            histogram = m_channelsHistogram.data();
+            channel = m_virtualChannels[m_activeChannel].pixelIndex();
+            isCMYK = m_colorSpace->colorModelId() == CMYKAColorModelID;
+        }
     }
 
     // Output colors
