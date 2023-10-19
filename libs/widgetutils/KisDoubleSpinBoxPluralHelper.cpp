@@ -7,7 +7,7 @@
 #include "KisDoubleSpinBoxPluralHelper.h"
 
 #include <QDebug>
-#include <QSpinBox>
+#include <QDoubleSpinBox>
 
 namespace KisDoubleSpinBoxPluralHelper
 {
@@ -34,10 +34,9 @@ Q_DECLARE_METATYPE(KisDoubleSpinBoxPluralHelper::HandlerWrapper)
 
 namespace KisDoubleSpinBoxPluralHelper
 {
-    void install(QSpinBox *spinBox, std::function<QString(double)> messageFn)
+    void install(QDoubleSpinBox *spinBox, std::function<QString(double)> messageFn)
     {
-        const auto changeHandler = [messageFn, spinBox](int intValue) {
-            double doubleValue = static_cast<double>(intValue);
+        const auto changeHandler = [messageFn, spinBox](double doubleValue) {
             const QString text = messageFn(doubleValue);
             const QString placeholder = QStringLiteral("{n}");
             const int idx = text.indexOf(placeholder);
@@ -50,13 +49,13 @@ namespace KisDoubleSpinBoxPluralHelper
             }
         };
 
-        // Apply prefix/suffix with existing value immediately.
+        // Apply prefix/suffix with the existing value immediately.
         changeHandler(spinBox->value());
-        QObject::connect(spinBox, QOverload<int>::of(&QSpinBox::valueChanged), changeHandler);
+        QObject::connect(spinBox, QOverload<double>::of(&QDoubleSpinBox::valueChanged), changeHandler);
         spinBox->setProperty(HANDLER_PROPERTY_NAME, QVariant::fromValue(HandlerWrapper(changeHandler)));
     }
 
-    bool update(QSpinBox *spinBox)
+    bool update(QDoubleSpinBox *spinBox)
     {
         const QVariant handlerVariant = spinBox->property(HANDLER_PROPERTY_NAME);
         if (!handlerVariant.isValid()) {

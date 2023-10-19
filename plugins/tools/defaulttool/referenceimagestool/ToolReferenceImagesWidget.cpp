@@ -16,7 +16,7 @@
 #include <kis_signals_blocker.h>
 #include <kis_signal_compressor.h>
 #include <KisReferenceImage.h>
-#include <KisSpinBoxPluralHelper.h>
+#include <KisDoubleSpinBoxPluralHelper.h>
 #include <kis_clipboard.h>
 
 #include <QApplication>
@@ -42,7 +42,7 @@ ToolReferenceImagesWidget::ToolReferenceImagesWidget(ToolReferenceImages *tool, 
     d->ui->setupUi(this);
 
     d->ui->opacitySlider->setRange(0, 100);
-    KisSpinBoxPluralHelper::install(d->ui->opacitySlider, [](double value) {
+    KisDoubleSpinBoxPluralHelper::install(d->ui->opacitySlider, [](double value) {
         return i18nc("{n} is the number value, % is the percent sign", "Opacity: {n}%", value);
     });
     d->ui->opacitySlider->setValueGetter(
@@ -50,7 +50,7 @@ ToolReferenceImagesWidget::ToolReferenceImagesWidget(ToolReferenceImages *tool, 
     );
 
     d->ui->saturationSlider->setRange(0, 100);
-    KisSpinBoxPluralHelper::install(d->ui->saturationSlider, [](double value) {
+    KisDoubleSpinBoxPluralHelper::install(d->ui->saturationSlider, [](double value) {
         return i18nc("{n} is the number value, % is the percent sign", "Saturation: {n}%", value);
     });
     d->ui->saturationSlider->setValueGetter(

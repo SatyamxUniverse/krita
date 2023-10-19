@@ -4,14 +4,14 @@
  * SPDX-License-Identifier: GPL-3.0-or-later
  */
 
-#ifndef KIS_SPIN_BOX_PLURAL_HELPER_H
-#define KIS_SPIN_BOX_PLURAL_HELPER_H
+#ifndef KIS_DOUBLE_SPIN_BOX_PLURAL_HELPER_H
+#define KIS_DOUBLE_SPIN_BOX_PLURAL_HELPER_H
 
 #include <functional>
 
 #include "kritawidgetutils_export.h"
 
-class QSpinBox;
+class QDoubleSpinBox;
 class QString;
 
 namespace KisDoubleSpinBoxPluralHelper
@@ -30,7 +30,7 @@ namespace KisDoubleSpinBoxPluralHelper
      *                  `QString` in the form of `prefix {n} suffix`. The
      *                  prefix and suffix of `spinBox` will be set accordingly.
      */
-    KRITAWIDGETUTILS_EXPORT void install(QSpinBox *spinBox, std::function<QString(double)> messageFn);
+    KRITAWIDGETUTILS_EXPORT void install(QDoubleSpinBox *spinBox, std::function<QString(double)> messageFn);
 
     /**
      * Manually updates the prefix/suffix of a spinbox with its current value,
@@ -39,7 +39,7 @@ namespace KisDoubleSpinBoxPluralHelper
      *
      * @param spinBox The QSpinBox to update.
      */
-    KRITAWIDGETUTILS_EXPORT bool update(QSpinBox *spinBox);
+    KRITAWIDGETUTILS_EXPORT bool update(QDoubleSpinBox *spinBox);
 
 } /* namespace KisDoubleSpinBoxPluralHelper */
 
