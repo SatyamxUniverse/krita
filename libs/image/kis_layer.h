@@ -121,6 +121,7 @@ public:
      * set/unset the channel flag for the alpha channel of this layer
      */
     void disableAlphaChannel(bool disable);
+    void disableAlpha(bool disable);
 
     /**
      * returns true if the channel flag for the alpha channel
@@ -128,6 +129,8 @@ public:
      * returns false otherwise.
      */
     bool alphaChannelDisabled() const;
+    bool alphaDisabled() const;
+
 
     /**
      * set the channelflags for this layer to the specified bit array.

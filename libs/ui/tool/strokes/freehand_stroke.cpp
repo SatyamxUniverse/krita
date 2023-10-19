@@ -13,6 +13,7 @@
 #include "kis_canvas_resource_provider.h"
 #include <brushengine/kis_paintop_preset.h>
 #include <brushengine/kis_paintop_settings.h>
+#include "kis_layer.h"
 #include "kis_painter.h"
 #include "kis_paintop.h"
 
@@ -316,6 +317,22 @@ void FreehandStrokeStrategy::issueSetDirtySignals()
         KritaUtils::addJobSequential(jobs,
             [this, dirtyRects] () {
                 this->targetNode()->setDirty(dirtyRects);
+
+                KisNodeSP base = targetNode();
+                KisLayerSP prevLayer = qobject_cast<KisLayer*>(base.data());
+                if (!prevLayer) { return; }
+                if (!prevLayer->alphaChannelDisabled()){ return; }
+
+                while (true){
+                    base = base->prevSibling();
+                    if (!base) { return; }
+                    KisLayerSP prevLayer = qobject_cast<KisLayer*>(base.data());
+                    if (!prevLayer) { return; }
+                    if (!prevLayer->alphaChannelDisabled()){
+                        base->setDirty(dirtyRects);
+                        return;
+                    }
+                }
             }
         );
 
@@ -323,6 +340,24 @@ void FreehandStrokeStrategy::issueSetDirtySignals()
 
     } else {
         targetNode()->setDirty(dirtyRects);
+
+        //if current layer is clipped we also find base layer
+        //and set it dirty to avoid visual artifacts
+        KisNodeSP base = targetNode();
+        KisLayerSP prevLayer = qobject_cast<KisLayer*>(base.data());
+        if (!prevLayer) { return; }
+        if (!prevLayer->alphaChannelDisabled()){ return; }
+
+        while (true){
+            base = base->prevSibling();
+            if (!base) { return; }
+            KisLayerSP prevLayer = qobject_cast<KisLayer*>(base.data());
+            if (!prevLayer) { return; }
+            if (!prevLayer->alphaChannelDisabled()){
+                base->setDirty(dirtyRects);
+                return;
+            }
+        }
     }
 
     //KisUpdateTimeMonitor::instance()->reportJobFinished(data, dirtyRects);

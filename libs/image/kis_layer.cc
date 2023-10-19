@@ -168,6 +168,7 @@ struct Q_DECL_HIDDEN KisLayer::Private
     QBitArray channelFlags;
     KisMetaData::Store* metaDataStore {nullptr};
     KisCloneLayersList clonesList;
+    bool clipping {false};
 
     KisPSDLayerStyleSP layerStyle;
     KisLayerStyleProjectionPlaneSP layerStyleProjectionPlane;
@@ -312,28 +313,59 @@ void KisLayer::setSectionModelProperties(const KisBaseNode::PropertyList &proper
     }
 }
 
+//copy of original disableAlphaChannel, will remove later
+void KisLayer::disableAlpha(bool disable)
+{
+        QBitArray newChannelFlags = m_d->channelFlags;
+
+        if(newChannelFlags.isEmpty())
+            newChannelFlags = colorSpace()->channelFlags(true, true);
+
+        if(disable)
+            newChannelFlags &= colorSpace()->channelFlags(true, false);
+        else
+            newChannelFlags |= colorSpace()->channelFlags(false, true);
+
+        setChannelFlags(newChannelFlags);
+}
+
 void KisLayer::disableAlphaChannel(bool disable)
 {
-    QBitArray newChannelFlags = m_d->channelFlags;
+//    QBitArray newChannelFlags = m_d->channelFlags;
 
-    if(newChannelFlags.isEmpty())
-        newChannelFlags = colorSpace()->channelFlags(true, true);
+//    if(newChannelFlags.isEmpty())
+//        newChannelFlags = colorSpace()->channelFlags(true, true);
 
-    if(disable)
-        newChannelFlags &= colorSpace()->channelFlags(true, false);
-    else
-        newChannelFlags |= colorSpace()->channelFlags(false, true);
+//    if(disable)
+//        newChannelFlags &= colorSpace()->channelFlags(true, false);
+//    else
+//        newChannelFlags |= colorSpace()->channelFlags(false, true);
 
-    setChannelFlags(newChannelFlags);
+//    setChannelFlags(newChannelFlags);
+
+
+    //technically I could just use original function instead of this
+    //but I'd like to have both alpha inherit and clipping later
+    m_d->clipping = disable;
+    //lil hack to make merge layers correct
+    disableAlpha(disable);
 }
 
 bool KisLayer::alphaChannelDisabled() const
+{
+//    KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(colorSpace(), false);
+//    QBitArray flags = colorSpace()->channelFlags(false, true) & m_d->channelFlags;
+//    return flags.count(true) == 0 && !m_d->channelFlags.isEmpty();
+    return m_d->clipping;
+}
+
+//copy of original alphaChannelDisabled, will remove later
+bool KisLayer::alphaDisabled() const
 {
     KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(colorSpace(), false);
     QBitArray flags = colorSpace()->channelFlags(false, true) & m_d->channelFlags;
     return flags.count(true) == 0 && !m_d->channelFlags.isEmpty();
 }
-
 
 void KisLayer::setChannelFlags(const QBitArray & channelFlags)
 {
@@ -428,6 +460,22 @@ void KisLayer::fillMergedLayerTemplate(KisLayerSP dstLayer, KisLayerSP prevLayer
             return;
         }
 
+        //check if layer above have clipping
+        bool clipping = false;
+        KisNodeSP node = this->nextSibling();
+        KisLayerSP nextLayer;
+        if(node){
+            nextLayer = qobject_cast<KisLayer*>(node.data());
+            if (nextLayer){
+                clipping = nextLayer->alphaChannelDisabled();
+            }
+        }
+
+        //disable clipping for correct merge
+        if (clipping) {
+            nextLayer->disableAlphaChannel(false);
+        }
+
         //Copy the pixels of previous layer with their actual alpha value
         prevLayer->disableAlphaChannel(false);
 
@@ -445,6 +493,10 @@ void KisLayer::fillMergedLayerTemplate(KisLayerSP dstLayer, KisLayerSP prevLayer
 
         //Restore the layer disableAlpha status for correct undo/redo
         this->disableAlphaChannel(alphaDisabled);
+
+        if (clipping) {
+            nextLayer->disableAlphaChannel(true);
+        }
     }
     else {
         //Copy prevLayer
