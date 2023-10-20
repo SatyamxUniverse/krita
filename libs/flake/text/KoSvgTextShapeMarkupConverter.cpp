@@ -1277,6 +1277,7 @@ QString stylesForPSDStyleSheet(QVariantHash PSDStyleSheet, QMap<int, font_info_p
     QStringList baselineShift;
     QStringList fontVariantLigatures;
     QStringList fontVariantNumeric;
+    QStringList fontVariantCaps;
     QStringList fontFeatureSettings;
     for (int i=0; i < PSDStyleSheet.keys().size(); i++) {
         const QString key = PSDStyleSheet.keys().at(i);
@@ -1351,7 +1352,7 @@ QString stylesForPSDStyleSheet(QVariantHash PSDStyleSheet, QMap<int, font_info_p
             case 0:
                 break;
             case 1:
-                styles.append("font-variant-caps:all-small-caps");
+                fontVariantCaps.append("all-small-caps");
                 break;
             case 2:
                 styles.append("text-transform:uppercase");
@@ -1441,7 +1442,7 @@ QString stylesForPSDStyleSheet(QVariantHash PSDStyleSheet, QMap<int, font_info_p
             continue;
         } else if (key == "/Titling") {
             if (PSDStyleSheet.value(key).toBool()) {
-                fontFeatureSettings.append("'titl' 1");
+                fontVariantCaps.append("titling-caps");
             }
             continue;
         } else if (key == "/StylisticAlternates") {
@@ -1454,7 +1455,7 @@ QString stylesForPSDStyleSheet(QVariantHash PSDStyleSheet, QMap<int, font_info_p
                 fontFeatureSettings.append("'ornm' 1");
             }
             continue;
-        }  else if (key == "/FigureStyle") {
+        } else if (key == "/FigureStyle") {
             switch (PSDStyleSheet.value(key).toInt()) {
             case 0:
                 break;
@@ -1536,6 +1537,14 @@ QString stylesForPSDStyleSheet(QVariantHash PSDStyleSheet, QMap<int, font_info_p
                 styles.append("word-break: keep-all");
             }
             continue;
+        }else if (key == "/DirOverride") {
+            QString dir = PSDStyleSheet.value(key).toBool()? "rtl": "ltr";
+            // Prevents word from breaking... I guess word-break???
+            if (PSDStyleSheet.value(key).toBool()) {
+                styles.append("direction: "+dir);
+                styles.append("unicode-bidi: isolate");
+            }
+            continue;
         }  else if (key == "/FillColor") {
             bool fill = true;
             if (PSDStyleSheet.keys().contains("/FillFlag")) {
@@ -1614,6 +1623,34 @@ QString stylesForPSDStyleSheet(QVariantHash PSDStyleSheet, QMap<int, font_info_p
             // TODO: extend till ss20.
 
             continue;
+        } else if (key == "/LineCap") {
+            switch (PSDStyleSheet.value(key).toInt()) {
+            case 0:
+                styles.append("stroke-linecap: butt");
+                break;
+            case 1:
+                styles.append("stroke-linecap: round");
+                break;
+            case 2:
+                styles.append("stroke-linecap: square");
+                break;
+            default:
+                styles.append("stroke-linecap: butt");
+            }
+        } else if (key == "/LineJoin") {
+            switch (PSDStyleSheet.value(key).toInt()) {
+            case 0:
+                styles.append("stroke-linejoin: miter");
+                break;
+            case 1:
+                styles.append("stroke-linejoin: round");
+                break;
+            case 2:
+                styles.append("stroke-linejoin: bevel");
+                break;
+            default:
+                styles.append("stroke-linejoin: miter");
+            }
         } else {
             if (key != "/FillFlag" && key != "/StrokeFlag" && key != "/AutoLeading") {
                 qWarning() << "Unknown PSD character stylesheet style key" << key << PSDStyleSheet.value(key);
@@ -1637,6 +1674,9 @@ QString stylesForPSDStyleSheet(QVariantHash PSDStyleSheet, QMap<int, font_info_p
     }
     if (!fontVariantNumeric.isEmpty()) {
         styles.append("font-variant-numeric:"+fontVariantNumeric.join(" "));
+    }
+    if (!fontVariantCaps.isEmpty()) {
+        styles.append("font-variant-caps:"+fontVariantCaps.join(" "));
     }
     if (!fontFeatureSettings.isEmpty()) {
         styles.append("font-feature-settings:"+fontFeatureSettings.join(", "));
@@ -2031,8 +2071,6 @@ QVariantHash styleToPSDStylesheet(const QMap<QString, QString> cssStyles,
                                  QVariantHash parentStyle, QTransform scaleToPx) {
     QVariantHash styleSheet = parentStyle;
 
-
-
     Q_FOREACH(QString key, cssStyles.keys()) {
         QString val = cssStyles.value(key);
 
@@ -2049,9 +2087,20 @@ QVariantHash styleToPSDStylesheet(const QMap<QString, QString> cssStyles,
             double space = val.toDouble();
             double size = styleSheet["/FontSize"].toDouble();
             styleSheet["/Leading"] = (space*size);
+            styleSheet["/AutoLeading"] = false;
         } else if (key == "font-kerning") {
             if (val == "none") {
-                styleSheet["AutoKern"] = 0;
+                styleSheet["/AutoKern"] = 0;
+            }
+        } else if (key == "baseline-shift") {
+            if (val == "super") {
+                styleSheet["/FontBaseline"] = 1;
+            } else if (val == "super") {
+                styleSheet["/FontBaseline"] = 2;
+            } else {
+                double offset = val.toDouble();
+                offset = scaleToPx.map(QPointF(offset, offset)).y();
+                styleSheet["/BaselineShift"] = offset;
             }
         } else if (key == "text-decoration") {
             QStringList decor = val.split(" ");
@@ -2069,6 +2118,8 @@ QVariantHash styleToPSDStylesheet(const QMap<QString, QString> cssStyles,
             Q_FOREACH(QString param, params) {
                 if (param == "small-caps" || param == "all-small-caps") {
                     styleSheet["/FontCaps"] = 1;
+                } else if (param == "titling-caps") {
+                    styleSheet["/Titling"] = true;
                 } else if (param == "no-common-ligatures"){
                     styleSheet["/Ligatures"] = false;
                 } else if (param == "discretionary-ligatures"){
@@ -2081,6 +2132,10 @@ QVariantHash styleToPSDStylesheet(const QMap<QString, QString> cssStyles,
                     styleSheet["/Ordinals"] = true;
                 } else if (param == "slashed-zero"){
                     styleSheet["/SlashedZero"] = true;
+                } else if (param == "super") {
+                    styleSheet["/FontOTPosition"] = 1;
+                } else if (param == "sub") {
+                    styleSheet["/FontOTPosition"] = 2;
                 }
             }
             if (tab && old) {
@@ -2103,6 +2158,10 @@ QVariantHash styleToPSDStylesheet(const QMap<QString, QString> cssStyles,
                     styleSheet["/Ornaments"] = true;
                 } else if (param.trimmed() == "'ital' 1") {
                     styleSheet["/Italics"] = true;
+                } else if (param.trimmed() == "'numr' 1") {
+                    styleSheet["/FontOTPosition"] = 3;
+                } else if (param.trimmed() == "'dnum' 1") {
+                    styleSheet["/FontOTPosition"] = 4;
                 }
             }
         } else if (key == "text-orientation") {
@@ -2112,6 +2171,9 @@ QVariantHash styleToPSDStylesheet(const QMap<QString, QString> cssStyles,
                 styleSheet["/BaselineDirection"] = 2;
             }
         } else if (key == "word-break") {
+            styleSheet["/NoBreak"] = val == "keep-all";
+        } else if (key == "direction") {
+            styleSheet["/DirOverride"] = val == "ltr"? 0 :1;
         } else {
             qDebug() << "Unsupported css-style:" << key << val;
         }
@@ -2264,20 +2326,21 @@ QVariantHash gatherParagraphStyle(QDomElement el,
             if (val == "justify center") {alignVal = 4;}
             if (val == "justify end") {alignVal = 5;}
             if (val == "justify") {alignVal = 6;}
-        }
-        if (key == "text-anchor") {
+        } else if (key == "text-anchor") {
             if (val == "start") {anchorVal = 0;}
             if (val == "middle") {anchorVal = 2;}
             if (val == "end") {anchorVal = 1;}
-        }
-        if (key == "writing-mode") {
+        } else if (key == "writing-mode") {
             if (val == "horizontal-tb") {
                 isHorizontal = true;
             } else {
                 isHorizontal = false;
             }
-        }
-        if (key == "inline-size") {
+        } else if (key == "direction") {
+            paragraphStyleSheet["/ParagraphDirection"] = val == "ltr"? 0 :1;
+        } else if (key == "line-height") {
+            paragraphStyleSheet["/AutoLeading"] = val.toDouble();
+        } else if (key == "inline-size") {
             *inlineSize = val;
         }
     }
