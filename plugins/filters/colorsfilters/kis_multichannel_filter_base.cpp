@@ -708,10 +708,9 @@ void KisMultiChannelConfigWidget::resetCurve()
     KIS_SAFE_ASSERT_RECOVER_RETURN(defaults);
 
     auto defaultCurves = defaults->curves();
-    int currentVChannel = m_page->cmbDriverChannel->isHidden() ? m_activeVChannel : m_activeVDriverChannel;
-    KIS_SAFE_ASSERT_RECOVER_RETURN(defaultCurves.size() > currentVChannel);
+    KIS_SAFE_ASSERT_RECOVER_RETURN(defaultCurves.size() > m_activeVChannel);
 
-    m_page->curveWidget->setCurve(defaultCurves[currentVChannel]);
+    m_page->curveWidget->setCurve(defaultCurves[m_activeVChannel]);
 }
 
 void KisMultiChannelConfigWidget::setButtonsIcons()

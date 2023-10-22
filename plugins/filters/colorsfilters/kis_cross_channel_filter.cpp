@@ -209,7 +209,7 @@ void KisCrossChannelConfigWidget::updateChannelControls()
     m_curveControlsManager.reset(new KisCurveWidgetControlsManagerInt(m_page->curveWidget,
                                                                       m_page->intIn, m_page->intOut, 0, 100, -100, 100));
 
-    const int index = m_page->cmbDriverChannel->findData(m_driverChannels[m_activeVDriverChannel]);
+    const int index = m_page->cmbDriverChannel->findData(m_activeVDriverChannel);
     m_page->cmbDriverChannel->setCurrentIndex(index);
 }
 
@@ -225,7 +225,7 @@ void KisCrossChannelConfigWidget::slotDriverChannelSelected(int index)
 
     KIS_SAFE_ASSERT_RECOVER_RETURN(0 <= channel && channel < m_virtualChannels.size());
     m_activeVDriverChannel = channel;
-    m_driverChannels[m_activeVDriverChannel] = channel;
+    m_driverChannels[m_activeVChannel] = m_activeVDriverChannel;
 
     setActiveChannel(false, true);
     Q_EMIT sigConfigurationItemChanged();
