@@ -36,6 +36,7 @@
 #include "KisView.h"
 #include "kis_selection_mask.h"
 #include <KisPart.h>
+#include <KisScreenMigrationTracker.h>
 
 static const unsigned int ANT_LENGTH = 4;
 static const unsigned int ANT_SPACE = 4;
@@ -46,20 +47,12 @@ KisSelectionDecoration::KisSelectionDecoration(QPointer<KisView>_view)
       m_signalCompressor(50 /*ms*/, KisSignalCompressor::FIRST_ACTIVE),
       m_mask(0),
       m_offset(0),
-      m_mode(Ants)
+      m_mode(Ants),
+      m_migrationTracker(new KisScreenMigrationTracker(_view->mainWindow(), this))
 {
-    Q_ASSERT(view());
-    Q_ASSERT(view()->mainWindow());
-    Q_ASSERT(view()->mainWindow()->windowHandle());
-
-    m_window = view()->mainWindow()->windowHandle();
-    connect(m_window, SIGNAL(screenChanged(QScreen*)), this, SLOT(screenChanged(QScreen*)));
-
-    m_screen = m_window->screen();
-    initializePens();
-
-    connect(m_screen, SIGNAL(logicalDotsPerInchChanged(qreal)),
-            this, SLOT(initializePens()));
+    connect(m_migrationTracker, &KisScreenMigrationTracker::sigScreenOrResolutionChanged,
+            this, &KisSelectionDecoration::initializePens);
+    initializePens(m_migrationTracker->currentScreen());
 
     connect(KisConfigNotifier::instance(), SIGNAL(configChanged()), SLOT(slotConfigChanged()));
     connect(KisImageConfigNotifier::instance(), SIGNAL(configChanged()), SLOT(slotConfigChanged()));
@@ -99,12 +92,13 @@ bool KisSelectionDecoration::selectionIsActive()
             selection->isVisible();
 }
 
-void KisSelectionDecoration::initializePens()
+void KisSelectionDecoration::initializePens(QScreen *screen)
 {
     KisPaintingTweaks::initAntsPen(&m_antsPen, &m_outlinePen,
                                    ANT_LENGTH, ANT_SPACE);
 
-    int penWidth = qRound(m_screen->devicePixelRatio());
+    int penWidth = qRound(screen->devicePixelRatio());
+
     if (penWidth > 1) {
         m_antsPen.setWidth(penWidth);
         m_outlinePen.setWidth(penWidth);
@@ -124,31 +118,35 @@ void KisSelectionDecoration::selectionChanged()
 
     if (!view()->isCurrent() ||
         view()->viewManager()->mainWindow() == KisPart::instance()->currentMainwindow()) {
-
         view()->image()->setOverlaySelectionMask(m_mask);
     }
 
     KisSelectionSP selection = view()->selection();
-
     if (m_mask || (selection && selectionIsActive())) {
         if ((!m_mask && m_mode == Ants && selection->outlineCacheValid()) ||
-            ((m_mask || m_mode == Mask) && selection->thumbnailImageValid())) {
+            (!m_mask && m_mode == Mask && selection->thumbnailImageValid()) ||
+            m_mask) {
             m_signalCompressor.stop();
 
             if (m_mask || m_mode == Mask) {
-                m_thumbnailImage = selection->thumbnailImage();
-                m_thumbnailImageTransform = selection->thumbnailImageTransform();
+                if (m_mask) {
+                    m_thumbnailImage = m_mask->thumbnailImage();
+                    m_thumbnailImageTransform = m_mask->thumbnailImageTransform();
+                } else {
+                    m_thumbnailImage = selection->thumbnailImage();
+                    m_thumbnailImageTransform = selection->thumbnailImageTransform();
+                }
                 m_antsTimer->stop();
             } else {
                 m_outlinePath = selection->outlineCache();
                 m_antsTimer->start();
             }
+
             if (view() && view()->canvasBase()) {
                 view()->canvasBase()->updateCanvas();
             }
-
         } else {
-            m_signalCompressor.start();
+            if (!m_mask) m_signalCompressor.start();
         }
     } else {
         m_signalCompressor.stop();
@@ -162,22 +160,10 @@ void KisSelectionDecoration::selectionChanged()
 
 void KisSelectionDecoration::slotStartUpdateSelection()
 {
-    m_mask = qobject_cast<KisSelectionMask*>(view()->currentNode().data());
-    if (!m_mask || !m_mask->active() || !m_mask->visible(true)) {
-        m_mask = 0;
-    }
-
-    if (!view()->isCurrent() ||
-        view()->viewManager()->mainWindow() == KisPart::instance()->currentMainwindow()) {
-
-        view()->image()->setOverlaySelectionMask(m_mask);
-    }
-
     KisSelectionSP selection = view()->selection();
+    if (!selection) return;
 
-    if (!m_mask && !selection) return;
-
-    view()->image()->addSpontaneousJob(new KisUpdateOutlineJob(selection, m_mask || m_mode == Mask, m_maskColor1, m_maskColor2));
+    view()->image()->addSpontaneousJob(new KisUpdateOutlineJob(selection, m_mode == Mask, m_maskColor1, m_maskColor2));
 }
 
 void KisSelectionDecoration::slotConfigChanged()
@@ -189,12 +175,6 @@ void KisSelectionDecoration::slotConfigChanged()
     m_maskColor1 = imageConfig.selectionOverlayMaskColorSelected();
     m_maskColor2 = imageConfig.selectionOverlayMaskColor();
     m_antialiasSelectionOutline = cfg.antialiasSelectionOutline();
-}
-
-void KisSelectionDecoration::screenChanged(QScreen *screen)
-{
-    m_screen = screen;
-    initializePens();
 }
 
 void KisSelectionDecoration::antsAttackEvent()
@@ -214,7 +194,9 @@ void KisSelectionDecoration::drawDecoration(QPainter& gc, const QRectF& updateRe
     Q_UNUSED(updateRect);
     Q_UNUSED(canvas);
 
-    if (!m_mask && ((m_mode == Ants && m_outlinePath.isEmpty()) || (m_mode == Mask && m_thumbnailImage.isNull()))) return;
+    if (!selectionIsActive() && !m_mask) return;
+    if (((m_mode == Ants && m_outlinePath.isEmpty()) || (m_mode == Mask && m_thumbnailImage.isNull())) &&
+        !m_mask) return;
 
     QTransform transform = converter->imageToWidgetTransform();
 

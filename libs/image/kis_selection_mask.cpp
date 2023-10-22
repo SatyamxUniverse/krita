@@ -19,11 +19,14 @@
 #include "kis_processing_visitor.h"
 #include "kis_pixel_selection.h"
 #include "kis_undo_adapter.h"
+#include "kis_iterator_ng.h"
 #include <KoIcon.h>
 #include <kis_icon.h>
 #include "kis_thread_safe_signal_compressor.h"
 #include "kis_layer_properties_icons.h"
 #include "kis_cached_paint_device.h"
+#include "kis_image_config.h"
+#include "KisImageConfigNotifier.h"
 
 struct Q_DECL_HIDDEN KisSelectionMask::Private
 {
@@ -31,13 +34,19 @@ public:
     Private(KisSelectionMask *_q)
         : q(_q)
         , updatesCompressor(0)
+        , maskColor1(Qt::transparent)
+        , maskColor2(Qt::green)
     {}
     KisSelectionMask *q;
-    KisCachedPaintDevice paintDeviceCache;
-    KisCachedSelection cachedSelection;
     KisThreadSafeSignalCompressor *updatesCompressor;
+    QColor maskColor1;
+    QColor maskColor2;
+    QImage thumbnailImage;
+    QTransform thumbnailImageTransform;
 
     void slotSelectionChangedCompressed();
+    void slotConfigChangedImpl(bool blockUpdates);
+    void slotConfigChanged();
 };
 
 KisSelectionMask::KisSelectionMask(KisImageWSP image, const QString &name)
@@ -51,6 +60,8 @@ KisSelectionMask::KisSelectionMask(KisImageWSP image, const QString &name)
             new KisThreadSafeSignalCompressor(50, KisSignalCompressor::FIRST_ACTIVE);
 
     connect(m_d->updatesCompressor, SIGNAL(timeout()), SLOT(slotSelectionChangedCompressed()));
+    connect(KisImageConfigNotifier::instance(), SIGNAL(configChanged()), SLOT(slotConfigChanged()));
+    m_d->slotConfigChangedImpl(false);
 }
 
 KisSelectionMask::KisSelectionMask(const KisSelectionMask& rhs)
@@ -61,6 +72,8 @@ KisSelectionMask::KisSelectionMask(const KisSelectionMask& rhs)
             new KisThreadSafeSignalCompressor(300, KisSignalCompressor::POSTPONE);
 
     connect(m_d->updatesCompressor, SIGNAL(timeout()), SLOT(slotSelectionChangedCompressed()));
+    connect(KisImageConfigNotifier::instance(), SIGNAL(configChanged()), SLOT(slotConfigChanged()));
+    m_d->slotConfigChangedImpl(false);
 }
 
 KisSelectionMask::~KisSelectionMask()
@@ -73,6 +86,16 @@ QIcon KisSelectionMask::icon() const {
     return KisIconUtils::loadIcon("selectionMask");
 }
 
+QImage KisSelectionMask::thumbnailImage() const
+{
+    return m_d->thumbnailImage;
+}
+
+QTransform KisSelectionMask::thumbnailImageTransform() const
+{
+    return m_d->thumbnailImageTransform;
+}
+
 void KisSelectionMask::mergeInMaskInternal(KisPaintDeviceSP projection,
                                            KisSelectionSP effectiveSelection,
                                            const QRect &applyRect,
@@ -80,10 +103,77 @@ void KisSelectionMask::mergeInMaskInternal(KisPaintDeviceSP projection,
                                            KisNode::PositionToFilthy maskPos) const
 {
     Q_UNUSED(projection);
-    Q_UNUSED(effectiveSelection);
     Q_UNUSED(applyRect);
     Q_UNUSED(preparedNeedRect);
     Q_UNUSED(maskPos);
+
+    if (!effectiveSelection) return;
+
+    {
+        KisSelectionSP mainMaskSelection = this->selection();
+        if (mainMaskSelection &&
+            (!mainMaskSelection->isVisible() ||
+             mainMaskSelection->pixelSelection()->defaultBounds()->externalFrameActive())) {
+
+            return;
+        }
+    }
+
+    KisImageSP image = this->image();
+    if (image && image->overlaySelectionMask() == this) {
+        const QRect selectionExtent = effectiveSelection->selectedRect();
+        m_d->thumbnailImageTransform = QTransform::fromTranslate(selectionExtent.x(), selectionExtent.y());
+
+        KisPixelSelectionSP pixelSelection = effectiveSelection->pixelSelection();
+        KisSequentialConstIterator it(pixelSelection, selectionExtent);
+
+        QImage thumbnailImage(selectionExtent.size(), QImage::Format_ARGB32);
+        QRgb *imageScanlineBegin = reinterpret_cast<QRgb*>(thumbnailImage.bits());
+        QRgb *imageScanlineEnd = reinterpret_cast<QRgb*>(thumbnailImage.bits()) + thumbnailImage.width();
+        QRgb *imagePixel = imageScanlineBegin;
+
+        const qint32 a1 = m_d->maskColor1.alpha();
+        const qint32 r1 = m_d->maskColor1.red() * a1;
+        const qint32 g1 = m_d->maskColor1.green() * a1;
+        const qint32 b1 = m_d->maskColor1.blue() * a1;
+        const qint32 a2 = m_d->maskColor2.alpha();
+        const qint32 r2 = m_d->maskColor2.red() * a2;
+        const qint32 g2 = m_d->maskColor2.green() * a2;
+        const qint32 b2 = m_d->maskColor2.blue() * a2;
+
+        while(it.nextPixel()) {
+            const qint32 t = *it.rawDataConst();
+            const qint32 oneMinusT = MAX_SELECTED - t;
+
+            const qint32 a = t * a1 + oneMinusT * a2;
+            QRgb resultColor;
+            if (a > 0) {
+                resultColor = qRgba((t * r1 + oneMinusT * r2) / a,
+                                    (t * g1 + oneMinusT * g2) / a,
+                                    (t * b1 + oneMinusT * b2) / a,
+                                    a / 0xFF);
+            } else {
+                resultColor = 0;
+            }
+
+            *imagePixel = resultColor;
+
+            ++imagePixel;
+            if (imagePixel == imageScanlineEnd) {
+                // NOTE: Using 'width' instead of 'bytesPerLine' because the format
+                // of the thumbnailImage if ARGB32. Consider using 'bytesPerLine' if the format changes
+                imageScanlineBegin += thumbnailImage.width();
+                imageScanlineEnd += thumbnailImage.width();
+                imagePixel = imageScanlineBegin;
+            }
+        }
+
+        m_d->thumbnailImage = thumbnailImage;
+
+        if (graphListener()) {
+            image->undoAdapter()->emitSelectionChanged();
+        }
+    }
 }
 
 bool KisSelectionMask::paintsOutsideSelection() const
@@ -264,6 +354,23 @@ void KisSelectionMask::Private::slotSelectionChangedCompressed()
     if (!currentSelection) return;
 
     currentSelection->notifySelectionChanged();
+}
+
+void KisSelectionMask::Private::slotConfigChangedImpl(bool doUpdates)
+{
+    KisImageConfig cfg(true);
+    maskColor1 = cfg.selectionOverlayMaskColorSelected();
+    maskColor2 = cfg.selectionOverlayMaskColor();
+
+    KisImageSP image = q->image();
+    if (doUpdates && image && image->overlaySelectionMask() == q) {
+        q->setDirty();
+    }
+}
+
+void KisSelectionMask::Private::slotConfigChanged()
+{
+    slotConfigChangedImpl(true);
 }
 
 #include "moc_kis_selection_mask.cpp"

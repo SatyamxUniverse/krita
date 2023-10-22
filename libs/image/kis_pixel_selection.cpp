@@ -574,7 +574,6 @@ void KisPixelSelection::recalculateThumbnailImage(const QColor &maskColor1, cons
     if (rc.isEmpty()) {
         m_d->thumbnailImageTransform = QTransform();
         m_d->thumbnailImage = QImage();
-        m_d->thumbnailImageValid = true;
         return;
     }
  
