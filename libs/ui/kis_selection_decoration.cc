@@ -45,6 +45,7 @@ static const unsigned int ANT_ADVANCE_WIDTH = ANT_LENGTH + ANT_SPACE;
 KisSelectionDecoration::KisSelectionDecoration(QPointer<KisView>_view)
     : KisCanvasDecoration("selection", _view),
       m_signalCompressor(50 /*ms*/, KisSignalCompressor::FIRST_ACTIVE),
+      m_mask(0),
       m_offset(0),
       m_mode(Ants),
       m_migrationTracker(new KisScreenMigrationTracker(_view->mainWindow(), this))
@@ -110,39 +111,42 @@ void KisSelectionDecoration::initializePens(QScreen *screen)
 
 void KisSelectionDecoration::selectionChanged()
 {
-    KisSelectionMaskSP mask = qobject_cast<KisSelectionMask*>(view()->currentNode().data());
-    if (!mask || !mask->active() || !mask->visible(true)) {
-        mask = 0;
+    m_mask = qobject_cast<KisSelectionMask*>(view()->currentNode().data());
+    if (!m_mask || !m_mask->active() || !m_mask->visible(true)) {
+        m_mask = 0;
     }
 
     if (!view()->isCurrent() ||
         view()->viewManager()->mainWindow() == KisPart::instance()->currentMainwindow()) {
-
-        view()->image()->setOverlaySelectionMask(mask);
+        view()->image()->setOverlaySelectionMask(m_mask);
     }
 
     KisSelectionSP selection = view()->selection();
-
-    if (!mask && selection && selectionIsActive()) {
-        if ((m_mode == Ants && selection->outlineCacheValid()) ||
-            (m_mode == Mask && selection->thumbnailImageValid())) {
-
+    if (m_mask || (selection && selectionIsActive())) {
+        if ((!m_mask && m_mode == Ants && selection->outlineCacheValid()) ||
+            (!m_mask && m_mode == Mask && selection->thumbnailImageValid()) ||
+            m_mask) {
             m_signalCompressor.stop();
 
-            if (m_mode == Ants) {
+            if (m_mask || m_mode == Mask) {
+                if (m_mask) {
+                    m_thumbnailImage = m_mask->thumbnailImage();
+                    m_thumbnailImageTransform = m_mask->thumbnailImageTransform();
+                } else {
+                    m_thumbnailImage = selection->thumbnailImage();
+                    m_thumbnailImageTransform = selection->thumbnailImageTransform();
+                }
+                m_antsTimer->stop();
+            } else {
                 m_outlinePath = selection->outlineCache();
                 m_antsTimer->start();
-            } else {
-                m_thumbnailImage = selection->thumbnailImage();
-                m_thumbnailImageTransform = selection->thumbnailImageTransform();
-                m_antsTimer->stop();
             }
+
             if (view() && view()->canvasBase()) {
                 view()->canvasBase()->updateCanvas();
             }
-
         } else {
-            m_signalCompressor.start();
+            if (!m_mask) m_signalCompressor.start();
         }
     } else {
         m_signalCompressor.stop();
@@ -159,7 +163,7 @@ void KisSelectionDecoration::slotStartUpdateSelection()
     KisSelectionSP selection = view()->selection();
     if (!selection) return;
 
-    view()->image()->addSpontaneousJob(new KisUpdateOutlineJob(selection, m_mode == Mask, m_maskColor));
+    view()->image()->addSpontaneousJob(new KisUpdateOutlineJob(selection, m_mode == Mask, m_maskColor1, m_maskColor2));
 }
 
 void KisSelectionDecoration::slotConfigChanged()
@@ -168,7 +172,8 @@ void KisSelectionDecoration::slotConfigChanged()
     KisConfig cfg(true);
 
     m_opacity = imageConfig.selectionOutlineOpacity();
-    m_maskColor = imageConfig.selectionOverlayMaskColor();
+    m_maskColor1 = imageConfig.selectionOverlayMaskColorSelected();
+    m_maskColor2 = imageConfig.selectionOverlayMaskColor();
     m_antialiasSelectionOutline = cfg.antialiasSelectionOutline();
 }
 
@@ -189,35 +194,37 @@ void KisSelectionDecoration::drawDecoration(QPainter& gc, const QRectF& updateRe
     Q_UNUSED(updateRect);
     Q_UNUSED(canvas);
 
-    if (!selectionIsActive()) return;
-    if ((m_mode == Ants && m_outlinePath.isEmpty()) ||
-        (m_mode == Mask && m_thumbnailImage.isNull())) return;
+    if (!selectionIsActive() && !m_mask) return;
+    if (((m_mode == Ants && m_outlinePath.isEmpty()) || (m_mode == Mask && m_thumbnailImage.isNull())) &&
+        !m_mask) return;
 
     QTransform transform = converter->imageToWidgetTransform();
 
     gc.save();
     gc.setTransform(transform, false);
 
-    if (m_mode == Mask) {
-        gc.setRenderHints(QPainter::SmoothPixmapTransform |
-                          QPainter::Antialiasing, false);
-
-        gc.setTransform(m_thumbnailImageTransform, true);
-        gc.drawImage(QPoint(), m_thumbnailImage);
-
+    if (m_mask || m_mode == Mask) {
         QRect r1 = m_thumbnailImageTransform.inverted().mapRect(view()->image()->bounds());
-        QRect r2 = m_thumbnailImage.rect();
-
         QPainterPath p1;
         p1.addRect(r1);
 
-        QPainterPath p2;
-        p2.addRect(r2);
+        if (!m_thumbnailImage.isNull()) {
+            gc.setRenderHints(QPainter::SmoothPixmapTransform |
+                              QPainter::Antialiasing, false);
 
-        gc.setBrush(m_maskColor);
+            gc.setTransform(m_thumbnailImageTransform, true);
+            gc.drawImage(QPoint(), m_thumbnailImage);
+
+            QRect r2 = m_thumbnailImage.rect();
+            QPainterPath p2;
+            p2.addRect(r2);
+
+            p1 -= p2;
+        }
+
+        gc.setBrush(m_maskColor2);
         gc.setPen(Qt::NoPen);
-        gc.drawPath(p1 - p2);
-
+        gc.drawPath(p1);
     } else /* if (m_mode == Ants) */ {
         gc.setRenderHints(QPainter::Antialiasing | QPainter::Antialiasing, m_antialiasSelectionOutline);
 

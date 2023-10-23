@@ -35,6 +35,9 @@ public:
 
     QIcon icon() const override;
 
+    QImage thumbnailImage() const;
+    QTransform thumbnailImageTransform() const;
+
     KisNodeSP clone() const override {
         return KisNodeSP(new KisSelectionMask(*this));
     }
@@ -81,7 +84,6 @@ protected:
                              KisNode::PositionToFilthy maskPos) const override;
 
     bool paintsOutsideSelection() const override;
-
 
 private:
     Q_PRIVATE_SLOT(m_d, void slotSelectionChangedCompressed())

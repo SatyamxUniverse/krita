@@ -452,7 +452,7 @@ void KisSelectionToVectorActionFactory::run(KisViewManager *view)
     }
 
     if (!selection->outlineCacheValid()) {
-        view->image()->addSpontaneousJob(new KisUpdateOutlineJob(selection, false, Qt::transparent));
+        view->image()->addSpontaneousJob(new KisUpdateOutlineJob(selection, false, Qt::transparent, Qt::transparent));
         if (!view->blockUntilOperationsFinished(view->image())) {
             return;
         }

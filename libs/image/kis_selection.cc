@@ -386,9 +386,9 @@ bool KisSelection::thumbnailImageValid() const
     return m_d->pixelSelection->thumbnailImageValid();
 }
 
-void KisSelection::recalculateThumbnailImage(const QColor &maskColor)
+void KisSelection::recalculateThumbnailImage(const QColor &maskColor1, const QColor &maskColor2)
 {
-    m_d->pixelSelection->recalculateThumbnailImage(maskColor);
+    m_d->pixelSelection->recalculateThumbnailImage(maskColor1, maskColor2);
 }
 
 QImage KisSelection::thumbnailImage() const

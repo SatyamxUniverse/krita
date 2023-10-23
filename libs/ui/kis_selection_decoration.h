@@ -55,6 +55,7 @@ private:
 private:
 
     KisSignalCompressor m_signalCompressor;
+    KisSelectionMaskSP m_mask;
     QPainterPath m_outlinePath;
     QImage m_thumbnailImage;
     QTransform m_thumbnailImageTransform;
@@ -67,7 +68,8 @@ private:
 
     qreal m_opacity;
 
-    QColor m_maskColor;
+    QColor m_maskColor1;
+    QColor m_maskColor2;
     bool m_antialiasSelectionOutline;
 
     KisScreenMigrationTracker *m_migrationTracker {nullptr};

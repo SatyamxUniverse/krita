@@ -7,10 +7,11 @@
 #include "kis_update_outline_job.h"
 
 
-KisUpdateOutlineJob::KisUpdateOutlineJob(KisSelectionSP selection, bool updateThumbnail, const QColor &maskColor)
+KisUpdateOutlineJob::KisUpdateOutlineJob(KisSelectionSP selection, bool updateThumbnail, const QColor &maskColor1, const QColor &maskColor2)
     : m_selection(selection),
       m_updateThumbnail(updateThumbnail),
-      m_maskColor(maskColor)
+      m_maskColor1(maskColor1),
+      m_maskColor2(maskColor2)
 {
 }
 
@@ -23,7 +24,7 @@ void KisUpdateOutlineJob::run()
 {
     m_selection->recalculateOutlineCache();
     if (m_updateThumbnail) {
-        m_selection->recalculateThumbnailImage(m_maskColor);
+        m_selection->recalculateThumbnailImage(m_maskColor1, m_maskColor2);
     }
     m_selection->notifySelectionChanged();
 }

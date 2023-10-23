@@ -517,28 +517,56 @@ QTransform KisPixelSelection::thumbnailImageTransform() const
 
 QImage deviceToQImage(KisPaintDeviceSP device,
                       const QRect &rc,
-                      const QColor &maskColor)
+                      const QColor &maskColor1,
+                      const QColor &maskColor2)
 {
     QImage image(rc.size(), QImage::Format_ARGB32);
 
-    QColor color = maskColor;
-    const qreal alphaScale = maskColor.alphaF();
-
     KisSequentialConstIterator it(device, rc);
+    QRgb *imageScanlineBegin = reinterpret_cast<QRgb*>(image.bits());
+    QRgb *imageScanlineEnd = reinterpret_cast<QRgb*>(image.bits()) + image.width();
+    QRgb *imagePixel = imageScanlineBegin;
+
+    const qint32 a1 = maskColor1.alpha();
+    const qint32 r1 = maskColor1.red() * a1;
+    const qint32 g1 = maskColor1.green() * a1;
+    const qint32 b1 = maskColor1.blue() * a1;
+    const qint32 a2 = maskColor2.alpha();
+    const qint32 r2 = maskColor2.red() * a2;
+    const qint32 g2 = maskColor2.green() * a2;
+    const qint32 b2 = maskColor2.blue() * a2;
+
     while(it.nextPixel()) {
-        quint8 value = (MAX_SELECTED - *(it.rawDataConst())) * alphaScale;
-        color.setAlpha(value);
+        const qint32 t = *it.rawDataConst();
+        const qint32 oneMinusT = MAX_SELECTED - t;
 
-        QPoint pt(it.x(), it.y());
-        pt -= rc.topLeft();
+        const qint32 a = t * a1 + oneMinusT * a2;
+        QRgb resultColor;
+        if (a > 0) {
+            resultColor = qRgba((t * r1 + oneMinusT * r2) / a,
+                                (t * g1 + oneMinusT * g2) / a,
+                                (t * b1 + oneMinusT * b2) / a,
+                                a / 0xFF);
+        } else {
+            resultColor = 0;
+        }
 
-        image.setPixel(pt.x(), pt.y(), color.rgba());
+        *imagePixel = resultColor;
+
+        ++imagePixel;
+        if (imagePixel == imageScanlineEnd) {
+            // NOTE: Using 'width' instead of 'bytesPerLine' because the format
+            // of the image if ARGB32. Consider using 'bytesPerLine' if the format changes
+            imageScanlineBegin += image.width();
+            imageScanlineEnd += image.width();
+            imagePixel = imageScanlineBegin;
+        }
     }
 
     return image;
 }
 
-void KisPixelSelection::recalculateThumbnailImage(const QColor &maskColor)
+void KisPixelSelection::recalculateThumbnailImage(const QColor &maskColor1, const QColor &maskColor2)
 {
     QRect rc = selectedExactRect();
     const int maxPreviewSize = 2000;
@@ -548,8 +576,7 @@ void KisPixelSelection::recalculateThumbnailImage(const QColor &maskColor)
         m_d->thumbnailImage = QImage();
         return;
     }
-
-
+ 
     if (rc.width() > maxPreviewSize ||
         rc.height() > maxPreviewSize) {
 
@@ -573,11 +600,11 @@ void KisPixelSelection::recalculateThumbnailImage(const QColor &maskColor)
             createThumbnailDevice(newWidth, newHeight, rc);
 
         QRect thumbRect(0, 0, newWidth, newHeight);
-        m_d->thumbnailImage = deviceToQImage(thumbDevice, thumbRect, maskColor);
+        m_d->thumbnailImage = deviceToQImage(thumbDevice, thumbRect, maskColor1, maskColor2);
 
     } else {
         m_d->thumbnailImageTransform = QTransform::fromTranslate(rc.x(), rc.y());
-        m_d->thumbnailImage = deviceToQImage(this, rc, maskColor);
+        m_d->thumbnailImage = deviceToQImage(this, rc, maskColor1, maskColor2);
     }
 
     m_d->thumbnailImageValid = true;

@@ -135,6 +135,9 @@ public:
     qreal selectionOutlineOpacity(bool defaultValue = false) const;
     void setSelectionOutlineOpacity(qreal value);
 
+    QColor selectionOverlayMaskColorSelected(bool defaultValue = false) const;
+    void setSelectionOverlayMaskColorSelected(const QColor &color);
+
     QColor selectionOverlayMaskColor(bool defaultValue = false) const;
     void setSelectionOverlayMaskColor(const QColor &color);
 

@@ -669,6 +669,17 @@ void KisImageConfig::setSelectionOutlineOpacity(qreal value)
     m_config.writeEntry("selectionOutlineOpacity", value);
 }
 
+QColor KisImageConfig::selectionOverlayMaskColorSelected(bool defaultValue) const
+{
+    QColor def(0, 0, 0, 0);
+    return (defaultValue ? def : m_config.readEntry("selectionOverlayMaskColorSelected", def));
+}
+
+void KisImageConfig::setSelectionOverlayMaskColorSelected(const QColor &color)
+{
+    m_config.writeEntry("selectionOverlayMaskColorSelected", color);
+}
+
 QColor KisImageConfig::selectionOverlayMaskColor(bool defaultValue) const
 {
     QColor def(255, 0, 0, 128);
