@@ -119,60 +119,14 @@ void KisSelectionMask::mergeInMaskInternal(KisPaintDeviceSP projection,
         }
     }
 
+    effectiveSelection->recalculateThumbnailImage(m_d->maskColor1, m_d->maskColor2);
+
+    m_d->thumbnailImage = effectiveSelection->thumbnailImage();
+    m_d->thumbnailImageTransform = effectiveSelection->thumbnailImageTransform();
+
     KisImageSP image = this->image();
-    if (image && image->overlaySelectionMask() == this) {
-        const QRect selectionExtent = effectiveSelection->selectedRect();
-        m_d->thumbnailImageTransform = QTransform::fromTranslate(selectionExtent.x(), selectionExtent.y());
-
-        KisPixelSelectionSP pixelSelection = effectiveSelection->pixelSelection();
-        KisSequentialConstIterator it(pixelSelection, selectionExtent);
-
-        QImage thumbnailImage(selectionExtent.size(), QImage::Format_ARGB32);
-        QRgb *imageScanlineBegin = reinterpret_cast<QRgb*>(thumbnailImage.bits());
-        QRgb *imageScanlineEnd = reinterpret_cast<QRgb*>(thumbnailImage.bits()) + thumbnailImage.width();
-        QRgb *imagePixel = imageScanlineBegin;
-
-        const qint32 a1 = m_d->maskColor1.alpha();
-        const qint32 r1 = m_d->maskColor1.red() * a1;
-        const qint32 g1 = m_d->maskColor1.green() * a1;
-        const qint32 b1 = m_d->maskColor1.blue() * a1;
-        const qint32 a2 = m_d->maskColor2.alpha();
-        const qint32 r2 = m_d->maskColor2.red() * a2;
-        const qint32 g2 = m_d->maskColor2.green() * a2;
-        const qint32 b2 = m_d->maskColor2.blue() * a2;
-
-        while(it.nextPixel()) {
-            const qint32 t = *it.rawDataConst();
-            const qint32 oneMinusT = MAX_SELECTED - t;
-
-            const qint32 a = t * a1 + oneMinusT * a2;
-            QRgb resultColor;
-            if (a > 0) {
-                resultColor = qRgba((t * r1 + oneMinusT * r2) / a,
-                                    (t * g1 + oneMinusT * g2) / a,
-                                    (t * b1 + oneMinusT * b2) / a,
-                                    a / 0xFF);
-            } else {
-                resultColor = 0;
-            }
-
-            *imagePixel = resultColor;
-
-            ++imagePixel;
-            if (imagePixel == imageScanlineEnd) {
-                // NOTE: Using 'width' instead of 'bytesPerLine' because the format
-                // of the thumbnailImage if ARGB32. Consider using 'bytesPerLine' if the format changes
-                imageScanlineBegin += thumbnailImage.width();
-                imageScanlineEnd += thumbnailImage.width();
-                imagePixel = imageScanlineBegin;
-            }
-        }
-
-        m_d->thumbnailImage = thumbnailImage;
-
-        if (graphListener()) {
-            image->undoAdapter()->emitSelectionChanged();
-        }
+    if (image && graphListener()) {
+        image->undoAdapter()->emitSelectionChanged();
     }
 }
 

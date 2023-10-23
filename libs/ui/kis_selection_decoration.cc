@@ -204,24 +204,27 @@ void KisSelectionDecoration::drawDecoration(QPainter& gc, const QRectF& updateRe
     gc.setTransform(transform, false);
 
     if (m_mask || m_mode == Mask) {
-        gc.setRenderHints(QPainter::SmoothPixmapTransform |
-                          QPainter::Antialiasing, false);
-
-        gc.setTransform(m_thumbnailImageTransform, true);
-        gc.drawImage(QPoint(), m_thumbnailImage);
-
         QRect r1 = m_thumbnailImageTransform.inverted().mapRect(view()->image()->bounds());
-        QRect r2 = m_thumbnailImage.rect();
-
         QPainterPath p1;
         p1.addRect(r1);
 
-        QPainterPath p2;
-        p2.addRect(r2);
+        if (!m_thumbnailImage.isNull()) {
+            gc.setRenderHints(QPainter::SmoothPixmapTransform |
+                              QPainter::Antialiasing, false);
+
+            gc.setTransform(m_thumbnailImageTransform, true);
+            gc.drawImage(QPoint(), m_thumbnailImage);
+
+            QRect r2 = m_thumbnailImage.rect();
+            QPainterPath p2;
+            p2.addRect(r2);
+
+            p1 -= p2;
+        }
 
         gc.setBrush(m_maskColor2);
         gc.setPen(Qt::NoPen);
-        gc.drawPath(p1 - p2);
+        gc.drawPath(p1);
     } else /* if (m_mode == Ants) */ {
         gc.setRenderHints(QPainter::Antialiasing | QPainter::Antialiasing, m_antialiasSelectionOutline);
 
