@@ -25,6 +25,24 @@
 
 #include <kis_assert.h>
 
+struct SinglePressEventEater : public QObject
+{
+    bool eventFilter(QObject *, QEvent *event) override {
+        if (hungry && event->type() == QEvent::MouseButtonPress) {
+            hungry = false;
+            return true;
+        }
+
+        return false;
+    }
+
+private:
+    bool hungry = true;
+};
+
+
+//=================================================================
+
 class KisSelectLayerAction::Private
 {
 public:
@@ -156,6 +174,8 @@ void KisSelectLayerAction::deactivate(int shortcut)
 
 void KisSelectLayerAction::begin(int shortcut, QEvent *event)
 {
+    if (!event) return;
+
     KisAbstractInputAction::begin(shortcut, event);
 
     d->shortcut = shortcut;
@@ -164,13 +184,6 @@ void KisSelectLayerAction::begin(int shortcut, QEvent *event)
 
 void KisSelectLayerAction::inputEvent(QEvent *event)
 {
-    // Event not recognized
-    if (!event || (event->type() != QEvent::MouseMove && event->type() != QEvent::TabletMove &&
-                   event->type() != QTouchEvent::TouchUpdate && event->type() != QEvent::MouseButtonPress &&
-                   event->type() != QEvent::TabletPress && event->type() != QTouchEvent::TouchBegin)) {
-        return;
-    }
-
     const int layerSelectionMode = d->layerSelectionMode(d->shortcut);
     const int selectionOverrideMode = d->selectionOverrideMode(d->shortcut);
 
@@ -211,6 +224,7 @@ void KisSelectLayerAction::inputEvent(QEvent *event)
         } else { //LayerSelectionMode_Ask
             QWidget *canvasWidget = inputManager()->canvas()->canvasWidget();
             QMenu *menu = new QMenu(canvasWidget);
+
             menu->setAttribute(Qt::WA_DeleteOnClose);
             int numberOfLayers = 0;
 
@@ -254,7 +268,22 @@ void KisSelectLayerAction::inputEvent(QEvent *event)
                 );
             }
 
-            menu->popup(canvasWidget->mapToGlobal(eventPos(event)));
+            bool requestedWithStylus = event && event->type() == QEvent::TabletPress;
+
+            QTimer::singleShot(0, [this, menu, event, canvasWidget, requestedWithStylus](){
+                if (menu) {
+                    QScopedPointer<SinglePressEventEater> eventEater;
+
+                    if (requestedWithStylus) {
+                        eventEater.reset(new SinglePressEventEater());
+                        menu->installEventFilter(eventEater.data());
+                    }
+
+                    menu->exec(canvasWidget->mapToGlobal(eventPos(event)));
+                    menu->clear();
+                }
+            });
+
             return;
         }
     }
