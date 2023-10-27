@@ -34,19 +34,27 @@ public:
     Private(KisSelectionMask *_q)
         : q(_q)
         , updatesCompressor(0)
+        , updateMergeCompressor(0)
         , maskColor1(Qt::transparent)
         , maskColor2(Qt::green)
     {}
     KisSelectionMask *q;
     KisThreadSafeSignalCompressor *updatesCompressor;
+    KisThreadSafeSignalCompressor *updateMergeCompressor;
     QColor maskColor1;
     QColor maskColor2;
     QImage thumbnailImage;
     QTransform thumbnailImageTransform;
+    KisCachedSelection cachedSelection;
 
     void slotSelectionChangedCompressed();
+    void slotMergeSelectionChangedCompressed();
     void slotConfigChangedImpl(bool blockUpdates);
     void slotConfigChanged();
+    void invalidateThumbnailImage() {
+        thumbnailImage = QImage();
+        thumbnailImageTransform = QTransform();
+    }
 };
 
 KisSelectionMask::KisSelectionMask(KisImageWSP image, const QString &name)
@@ -55,11 +63,18 @@ KisSelectionMask::KisSelectionMask(KisImageWSP image, const QString &name)
 {
     setActive(false);
     setSupportsLodMoves(false);
+    m_d->invalidateThumbnailImage();
 
     m_d->updatesCompressor =
             new KisThreadSafeSignalCompressor(50, KisSignalCompressor::FIRST_ACTIVE);
 
     connect(m_d->updatesCompressor, SIGNAL(timeout()), SLOT(slotSelectionChangedCompressed()));
+
+    m_d->updateMergeCompressor =
+            new KisThreadSafeSignalCompressor(100, KisSignalCompressor::FIRST_ACTIVE);
+
+    connect(m_d->updateMergeCompressor, SIGNAL(timeout()), SLOT(slotMergeSelectionChangedCompressed()));
+
     connect(KisImageConfigNotifier::instance(), SIGNAL(configChanged()), SLOT(slotConfigChanged()));
     m_d->slotConfigChangedImpl(false);
 }
@@ -68,10 +83,18 @@ KisSelectionMask::KisSelectionMask(const KisSelectionMask& rhs)
     : KisEffectMask(rhs)
     , m_d(new Private(this))
 {
+    m_d->invalidateThumbnailImage();
+
     m_d->updatesCompressor =
             new KisThreadSafeSignalCompressor(300, KisSignalCompressor::POSTPONE);
 
     connect(m_d->updatesCompressor, SIGNAL(timeout()), SLOT(slotSelectionChangedCompressed()));
+
+    m_d->updateMergeCompressor =
+            new KisThreadSafeSignalCompressor(600, KisSignalCompressor::POSTPONE);
+
+    connect(m_d->updateMergeCompressor, SIGNAL(timeout()), SLOT(slotMergeSelectionChangedCompressed()));
+
     connect(KisImageConfigNotifier::instance(), SIGNAL(configChanged()), SLOT(slotConfigChanged()));
     m_d->slotConfigChangedImpl(false);
 }
@@ -79,6 +102,7 @@ KisSelectionMask::KisSelectionMask(const KisSelectionMask& rhs)
 KisSelectionMask::~KisSelectionMask()
 {
     m_d->updatesCompressor->deleteLater();
+    m_d->updateMergeCompressor->deleteLater();
     delete m_d;
 }
 
@@ -103,31 +127,70 @@ void KisSelectionMask::mergeInMaskInternal(KisPaintDeviceSP projection,
                                            KisNode::PositionToFilthy maskPos) const
 {
     Q_UNUSED(projection);
-    Q_UNUSED(applyRect);
     Q_UNUSED(preparedNeedRect);
     Q_UNUSED(maskPos);
 
-    if (!effectiveSelection) return;
+    if (!effectiveSelection) {
+        m_d->invalidateThumbnailImage();
+        return;
+    }
 
-    {
-        KisSelectionSP mainMaskSelection = this->selection();
-        if (mainMaskSelection &&
-            (!mainMaskSelection->isVisible() ||
-             mainMaskSelection->pixelSelection()->defaultBounds()->externalFrameActive())) {
+    KisSelectionSP mainMaskSelection = this->selection();
+    if (mainMaskSelection &&
+        (!mainMaskSelection->isVisible() ||
+         mainMaskSelection->pixelSelection()->defaultBounds()->externalFrameActive())) {
 
-            return;
+        m_d->invalidateThumbnailImage();
+        return;
+    }
+
+    const QRect thumbnailRect = m_d->thumbnailImage.rect();
+    const QRect effectiveRect = effectiveSelection->selectedExactRect();
+    if (effectiveRect.contains(thumbnailRect) || effectiveRect.intersects(thumbnailRect)) {
+        const QTransform effectiveTransform = QTransform::fromTranslate(effectiveRect.x(), effectiveRect.y());
+
+        QImage effectiveImage(effectiveRect.size(), QImage::Format_ARGB32);
+        effectiveImage.fill(m_d->maskColor2);
+
+        QPainter effectivePainter;
+        effectivePainter.begin(&effectiveImage);
+        effectivePainter.setCompositionMode(QPainter::CompositionMode_Source);
+        effectivePainter.setRenderHints(QPainter::SmoothPixmapTransform | QPainter::Antialiasing, false);
+        effectivePainter.setTransform(effectiveTransform.inverted(), false);
+        effectivePainter.save();
+
+        effectivePainter.setTransform(m_d->thumbnailImageTransform, true);
+        effectivePainter.drawImage(QPoint(), m_d->thumbnailImage);
+        effectivePainter.restore();
+
+        if (effectiveRect.contains(applyRect) || effectiveRect.intersects(applyRect)) {
+            KisCachedSelection::Guard s1(m_d->cachedSelection);
+            KisSelectionSP applySelection = s1.selection();
+
+            applySelection->pixelSelection()->makeCloneFromRough(effectiveSelection->pixelSelection(), applyRect);
+            applySelection->recalculateThumbnailImage(m_d->maskColor1, m_d->maskColor2);
+
+            if (applySelection->thumbnailImageValid()) {
+                effectivePainter.setTransform(applySelection->thumbnailImageTransform(), true);
+                effectivePainter.drawImage(QPoint(), applySelection->thumbnailImage());
+                effectivePainter.restore();
+            }
+        }
+
+        effectivePainter.end();
+
+        m_d->thumbnailImage = effectiveImage;
+        m_d->thumbnailImageTransform = effectiveTransform;
+    } else {
+        effectiveSelection->recalculateThumbnailImage(m_d->maskColor1, m_d->maskColor2);
+
+        if (effectiveSelection->thumbnailImageValid()) {
+            m_d->thumbnailImage = effectiveSelection->thumbnailImage();
+            m_d->thumbnailImageTransform = effectiveSelection->thumbnailImageTransform();
         }
     }
 
-    effectiveSelection->recalculateThumbnailImage(m_d->maskColor1, m_d->maskColor2);
-
-    m_d->thumbnailImage = effectiveSelection->thumbnailImage();
-    m_d->thumbnailImageTransform = effectiveSelection->thumbnailImageTransform();
-
-    KisImageSP image = this->image();
-    if (image && graphListener()) {
-        image->undoAdapter()->emitSelectionChanged();
-    }
+    m_d->updateMergeCompressor->start();
 }
 
 bool KisSelectionMask::paintsOutsideSelection() const
@@ -203,7 +266,6 @@ void KisSelectionMask::setActive(bool active)
 
     const bool oldActive = this->active();
     setNodeProperty("active", active);
-
 
     /**
      * WARNING: we have a direct link to the image here, but we
@@ -308,6 +370,16 @@ void KisSelectionMask::Private::slotSelectionChangedCompressed()
     if (!currentSelection) return;
 
     currentSelection->notifySelectionChanged();
+}
+
+void KisSelectionMask::Private::slotMergeSelectionChangedCompressed()
+{
+    updateMergeCompressor->stop();
+
+    KisImageSP image = q->image();
+    if (image && q->graphListener()) {
+        image->undoAdapter()->emitSelectionChanged();
+    }
 }
 
 void KisSelectionMask::Private::slotConfigChangedImpl(bool doUpdates)
