@@ -9,6 +9,7 @@
 #include <kis_debug.h>
 #include <QMouseEvent>
 #include <QApplication>
+#include <QCursor>
 #include <QMenu>
 
 #include <klocalizedstring.h>
@@ -174,7 +175,12 @@ void KisSelectLayerAction::deactivate(int shortcut)
 
 void KisSelectLayerAction::begin(int shortcut, QEvent *event)
 {
-    if (!event) return;
+    // Event not recognized
+    if (!event || (event->type() != QEvent::MouseButtonPress &&
+                   event->type() != QEvent::TabletPress &&
+                   event->type() != QTouchEvent::TouchBegin)) {
+        return;
+    }
 
     KisAbstractInputAction::begin(shortcut, event);
 
@@ -223,8 +229,16 @@ void KisSelectLayerAction::inputEvent(QEvent *event)
             nodesToSelect = foundNodes;
         } else { //LayerSelectionMode_Ask
             QWidget *canvasWidget = inputManager()->canvas()->canvasWidget();
-            QMenu *menu = new QMenu(canvasWidget);
 
+            //Check if a select layer menu already exists to avoid creating
+            //multiple menus when using a tablet
+            Q_FOREACH (QMenu* menu, canvasWidget->findChildren<QMenu*>()) {
+                if (menu->title() == "Select Layer") {
+                    return;
+                }
+            }
+
+            QMenu *menu = new QMenu("Select Layer", canvasWidget);
             menu->setAttribute(Qt::WA_DeleteOnClose);
             int numberOfLayers = 0;
 
@@ -268,9 +282,11 @@ void KisSelectLayerAction::inputEvent(QEvent *event)
                 );
             }
 
-            bool requestedWithStylus = event && event->type() == QEvent::TabletPress;
+            bool requestedWithStylus = event->type() == QEvent::TabletPress;
 
-            QTimer::singleShot(0, [this, menu, event, canvasWidget, requestedWithStylus](){
+            //Avoid quickly closing already created menu by receiving two input events
+            //in a short period of time when using the tablet
+            QTimer::singleShot(0, [menu, requestedWithStylus](){
                 if (menu) {
                     QScopedPointer<SinglePressEventEater> eventEater;
 
@@ -279,7 +295,7 @@ void KisSelectLayerAction::inputEvent(QEvent *event)
                         menu->installEventFilter(eventEater.data());
                     }
 
-                    menu->exec(canvasWidget->mapToGlobal(eventPos(event)));
+                    menu->exec(QCursor::pos());
                     menu->clear();
                 }
             });
