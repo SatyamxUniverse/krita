@@ -87,6 +87,7 @@ protected:
 
 private:
     Q_PRIVATE_SLOT(m_d, void slotSelectionChangedCompressed())
+    Q_PRIVATE_SLOT(m_d, void slotMergeSelectionChangedCompressed())
     Q_PRIVATE_SLOT(m_d, void slotConfigChanged())
 
     struct Private;
