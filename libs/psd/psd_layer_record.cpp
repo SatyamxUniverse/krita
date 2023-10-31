@@ -700,6 +700,10 @@ void PSDLayerRecord::writeImpl(QIODevice &io,
                 additionalInfoBlock.writeVectorStrokeDataEx(io, vectorStroke);
             }
 
+            if (!vectorOriginationData.isNull()) {
+                additionalInfoBlock.writeVectorOriginationDataEx(io, vectorOriginationData);
+            }
+
         }
     } catch (KisAslWriterUtils::ASLWriteException &e) {
         throw KisAslWriterUtils::ASLWriteException(PREPEND_METHOD(e.what()));
