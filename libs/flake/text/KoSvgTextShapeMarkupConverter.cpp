@@ -2028,7 +2028,7 @@ bool KoSvgTextShapeMarkupConverter::convertPSDTextEngineDataToSVG(const QVariant
                             if (i < segment) {
                                 length += l;
                             } else if (i == segment) {
-                                length += (l*t);
+                                length += textShape->segmentByIndex(KoPathPointIndex(0, i)).lengthAt(t);
                             }
                         }
                         textPathStartOffset = (length/totalLength) * 100.0;
