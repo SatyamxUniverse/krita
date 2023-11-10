@@ -31,8 +31,7 @@ void KisColorSmudgeStrategyBase::DabColoringStrategyMask::blendInFusedBackground
     KIS_SAFE_ASSERT_RECOVER_RETURN(*paintColor.colorSpace() == *colorRateOp->colorSpace());
     colorRateOp->composite(dullingFillColor.data(), 1, paintColor.data(), 1, 0, 0, 1, 1, colorRateOpacity);
 
-    if (smearOp->id() == COMPOSITE_COPY && smudgeRateOpacity == OPACITY_OPAQUE_U8) {
-        dst->fill(dst->bounds(), dullingFillColor);
+    if ((smearOp->id() == COMPOSITE_COPY || smearOp->id() == COMPOSITE_COPY_SPECTRAL) && smudgeRateOpacity == OPACITY_OPAQUE_U8) {        dst->fill(dst->bounds(), dullingFillColor);
     } else {
         src->readBytes(dst->data(), dstRect);
         smearOp->composite(dst->data(), dstRect.width() * dst->pixelSize(),
@@ -134,13 +133,13 @@ const KoColorSpace *KisColorSmudgeStrategyBase::preciseColorSpace() const
 
 QString KisColorSmudgeStrategyBase::smearCompositeOp(bool smearAlpha) const
 {
-    return smearAlpha ? COMPOSITE_COPY : COMPOSITE_OVER;
+    return smearAlpha ? COMPOSITE_COPY_SPECTRAL : COMPOSITE_OVER_SPECTRAL;
 }
 
 QString KisColorSmudgeStrategyBase::finalCompositeOp(bool smearAlpha) const
 {
     Q_UNUSED(smearAlpha);
-    return COMPOSITE_COPY;
+    return COMPOSITE_COPY_SPECTRAL;
 }
 
 quint8 KisColorSmudgeStrategyBase::finalPainterOpacity(qreal opacity, qreal smudgeRateValue)
@@ -210,11 +209,10 @@ KisColorSmudgeStrategyBase::blendBrush(const QVector<KisPainter *> dstPainters, 
     if (colorRateOpacity > 0 &&
         m_useDullingMode &&
         coloringStrategy.supportsFusedDullingBlending() &&
-        ((m_smearOp->id() == COMPOSITE_OVER &&
-          m_colorRateOp->id() == COMPOSITE_OVER) ||
-         (m_smearOp->id() == COMPOSITE_COPY &&
-          dullingRateOpacity == OPACITY_OPAQUE_U8))) {
-
+       ((m_smearOp->id() == COMPOSITE_OVER && m_colorRateOp->id() == COMPOSITE_OVER) ||
+       (m_smearOp->id() == COMPOSITE_OVER_SPECTRAL && m_colorRateOp->id() == COMPOSITE_OVER_SPECTRAL) ||
+       ((m_smearOp->id() == COMPOSITE_COPY || m_smearOp->id() == COMPOSITE_COPY_SPECTRAL) &&
+         dullingRateOpacity == OPACITY_OPAQUE_U8))) {
         coloringStrategy.blendInFusedBackgroundAndColorRateWithDulling(m_blendDevice,
                                                                        srcSampleDevice,
                                                                        dstRect,
@@ -265,7 +263,7 @@ void KisColorSmudgeStrategyBase::blendInBackgroundWithSmearing(KisFixedPaintDevi
                                                                const QRect &srcRect, const QRect &dstRect,
                                                                const quint8 smudgeRateOpacity)
 {
-    if (m_smearOp->id() == COMPOSITE_COPY && smudgeRateOpacity == OPACITY_OPAQUE_U8) {
+    if ((m_smearOp->id() == COMPOSITE_COPY || m_smearOp->id() == COMPOSITE_COPY_SPECTRAL) && smudgeRateOpacity == OPACITY_OPAQUE_U8) {
         src->readBytes(dst->data(), srcRect);
     } else {
         src->readBytes(dst->data(), dstRect);
@@ -289,7 +287,7 @@ void KisColorSmudgeStrategyBase::blendInBackgroundWithDulling(KisFixedPaintDevic
 {
     Q_UNUSED(preparedDullingColor);
 
-    if (m_smearOp->id() == COMPOSITE_COPY && smudgeRateOpacity == OPACITY_OPAQUE_U8) {
+    if ((m_smearOp->id() == COMPOSITE_COPY || m_smearOp->id() == COMPOSITE_COPY_SPECTRAL) && smudgeRateOpacity == OPACITY_OPAQUE_U8) {
         dst->fill(dst->bounds(), m_preparedDullingColor);
     } else {
         src->readBytes(dst->data(), dstRect);
