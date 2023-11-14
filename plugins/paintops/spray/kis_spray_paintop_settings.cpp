@@ -13,6 +13,7 @@
 #include "KisSprayShapeOptionData.h"
 #include <KisOptimizedBrushOutline.h>
 #include <KisSprayOpOptionData.h>
+#include <KisDoubleSpinBoxPluralHelper.h>
 
 struct KisSprayPaintOpSettings::Private
 {
@@ -173,7 +174,9 @@ QList<KisUniformPaintOpPropertySP> KisSprayPaintOpSettings::uniformProperties(Ki
             prop->setSingleStep(0.01);
             prop->setDecimals(2);
             prop->setExponentRatio(3);
-            prop->setSuffix(i18n("%"));
+            KisDoubleSpinBoxPluralHelper::install(prop, [](double value) {
+                return i18nc("{n} is the number value, % is the percent sign", "{n}%", value);
+            });
 
             prop->setReadCallback(
                 [](KisUniformPaintOpProperty *prop) {
