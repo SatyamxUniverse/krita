@@ -275,7 +275,7 @@ public:
             if(allChannelFlags || channelFlags.testBit(blue_pos))
                 dst[blue_pos] = src[blue_pos];
         } else {
-            channels_type factor = div(srcAlpha, (alphaLocked) ? unionShapeOpacity(srcAlpha, unitValue<channels_type>()) : newDstAlpha);
+            const float factor = float(srcAlpha) / newDstAlpha;
 
             float srcR = scale<float>(src[red_pos]);
             float srcG = scale<float>(src[green_pos]);
@@ -285,10 +285,7 @@ public:
             float dstG = scale<float>(dst[green_pos]);
             float dstB = scale<float>(dst[blue_pos]);
 
-            // float f = scale<float>(factor);
-            float f = 0.5;
-
-            compositeFunc(srcR, srcG, srcB, f, dstR, dstG, dstB);
+            compositeFunc(srcR, srcG, srcB, 1.0f - factor, dstR, dstG, dstB);
 
             if(allChannelFlags || channelFlags.testBit(red_pos))
                 dst[red_pos] = scale<channels_type>(dstR);
@@ -342,7 +339,11 @@ public:
             if(allChannelFlags || channelFlags.testBit(blue_pos))
                 dst[blue_pos] = src[blue_pos];
         } else {
-            channels_type factor = div(mul(srcAlpha, opacity), (alphaLocked) ? lerp(unitValue<channels_type>(), srcAlpha, opacity) : newDstAlpha);
+            /**
+             * TODO: think about premultiplying the color channels before
+             *       starting the blend (most probably, we don't need that,
+             *       but who knows)
+             */
 
             float srcR = scale<float>(src[red_pos]);
             float srcG = scale<float>(src[green_pos]);
@@ -352,10 +353,7 @@ public:
             float dstG = scale<float>(dst[green_pos]);
             float dstB = scale<float>(dst[blue_pos]);
 
-            // float f = scale<float>(factor);
-            float f = 0.5;
-
-            compositeFunc(srcR, srcG, srcB, f, dstR, dstG, dstB);
+            compositeFunc(srcR, srcG, srcB, 1.0f - opacity, dstR, dstG, dstB);
 
             if(allChannelFlags || channelFlags.testBit(red_pos))
                 dst[red_pos] = scale<channels_type>(dstR);
