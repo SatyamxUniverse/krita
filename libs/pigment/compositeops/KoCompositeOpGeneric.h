@@ -275,7 +275,7 @@ public:
             if(allChannelFlags || channelFlags.testBit(blue_pos))
                 dst[blue_pos] = src[blue_pos];
         } else {
-            channels_type srcWeight = div(srcAlpha, (alphaLocked) ? unionShapeOpacity(srcAlpha, unitValue<channels_type>()) : newDstAlpha);
+            float srcWeight = float(srcAlpha) / newDstAlpha;
 
             float srcR = scale<float>(src[red_pos]);
             float srcG = scale<float>(src[green_pos]);
@@ -285,9 +285,7 @@ public:
             float dstG = scale<float>(dst[green_pos]);
             float dstB = scale<float>(dst[blue_pos]);
 
-            float srcW = scale<float>(srcWeight);
-
-            compositeFunc(srcR, srcG, srcB, srcW, dstR, dstG, dstB);
+            compositeFunc(srcR, srcG, srcB, srcWeight, dstR, dstG, dstB);
 
             if(allChannelFlags || channelFlags.testBit(red_pos))
                 dst[red_pos] = scale<channels_type>(dstR);
@@ -341,8 +339,6 @@ public:
             if(allChannelFlags || channelFlags.testBit(blue_pos))
                 dst[blue_pos] = src[blue_pos];
         } else {
-            channels_type srcWeight = div(mul(srcAlpha, opacity), (alphaLocked) ? lerp(unitValue<channels_type>(), srcAlpha, opacity) : newDstAlpha);
-
             float srcR = scale<float>(src[red_pos]);
             float srcG = scale<float>(src[green_pos]);
             float srcB = scale<float>(src[blue_pos]);
@@ -351,9 +347,7 @@ public:
             float dstG = scale<float>(dst[green_pos]);
             float dstB = scale<float>(dst[blue_pos]);
 
-            float srcW = scale<float>(srcWeight);
-
-            compositeFunc(srcR, srcG, srcB, srcW, dstR, dstG, dstB);
+            compositeFunc(srcR, srcG, srcB, opacity, dstR, dstG, dstB);
 
             if(allChannelFlags || channelFlags.testBit(red_pos))
                 dst[red_pos] = scale<channels_type>(dstR);

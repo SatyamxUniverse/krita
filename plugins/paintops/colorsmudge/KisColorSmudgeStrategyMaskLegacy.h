@@ -22,8 +22,8 @@ public:
     void sampleDullingColor(const QRect &srcRect, qreal sampleRadiusValue, KisColorSmudgeSourceSP sourceDevice,
                             KisFixedPaintDeviceSP tempFixedDevice, KisFixedPaintDeviceSP maskDab,
                             KoColor *resultColor) override;
-    QString smearCompositeOp(bool smearAlpha) const override;
-    QString finalCompositeOp(bool smearAlpha) const override;
+    QString smearCompositeOp(bool smearAlpha, const QString &colorRateCompositeOp) const override;
+    QString finalCompositeOp(bool smearAlpha, const QString &colorRateCompositeOp) const override;
     quint8 finalPainterOpacity(qreal opacity, qreal smudgeRateValue) override;
     quint8 colorRateOpacity(qreal opacity, qreal smudgeRateValue, qreal colorRateValue, qreal maxPossibleSmudgeRateValue) override;
     quint8 dullingRateOpacity(qreal opacity, qreal smudgeRateValue) override;
