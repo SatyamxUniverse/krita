@@ -31,7 +31,8 @@ void KisColorSmudgeStrategyBase::DabColoringStrategyMask::blendInFusedBackground
     KIS_SAFE_ASSERT_RECOVER_RETURN(*paintColor.colorSpace() == *colorRateOp->colorSpace());
     colorRateOp->composite(dullingFillColor.data(), 1, paintColor.data(), 1, 0, 0, 1, 1, colorRateOpacity);
 
-    if ((smearOp->id() == COMPOSITE_COPY || smearOp->id() == COMPOSITE_COPY_SPECTRAL) && smudgeRateOpacity == OPACITY_OPAQUE_U8) {        dst->fill(dst->bounds(), dullingFillColor);
+    if ((smearOp->id() == COMPOSITE_COPY || smearOp->id() == COMPOSITE_COPY_SPECTRAL) && smudgeRateOpacity == OPACITY_OPAQUE_U8) {
+        dst->fill(dst->bounds(), dullingFillColor);
     } else {
         src->readBytes(dst->data(), dstRect);
         smearOp->composite(dst->data(), dstRect.width() * dst->pixelSize(),
@@ -118,7 +119,7 @@ void KisColorSmudgeStrategyBase::initializePaintingImpl(const KoColorSpace *dstC
                                                         const QString &colorRateCompositeOpId)
 {
     m_blendDevice = new KisFixedPaintDevice(dstColorSpace, m_memoryAllocator);
-    m_smearOp = dstColorSpace->compositeOp(smearCompositeOp(smearAlpha));
+    m_smearOp = dstColorSpace->compositeOp(smearCompositeOp(smearAlpha, colorRateCompositeOpId));
     m_colorRateOp = dstColorSpace->compositeOp(colorRateCompositeOpId);
     m_preparedDullingColor.convertTo(dstColorSpace);
 }
@@ -131,15 +132,23 @@ const KoColorSpace *KisColorSmudgeStrategyBase::preciseColorSpace() const
     return m_smearOp->colorSpace();
 }
 
-QString KisColorSmudgeStrategyBase::smearCompositeOp(bool smearAlpha) const
+QString KisColorSmudgeStrategyBase::smearCompositeOp(bool smearAlpha, const QString &colorRateCompositeOp) const
 {
-    return smearAlpha ? COMPOSITE_COPY_SPECTRAL : COMPOSITE_OVER_SPECTRAL;
+    if (colorRateCompositeOp == COMPOSITE_OVER_SPECTRAL) {
+        return smearAlpha ? COMPOSITE_COPY_SPECTRAL : COMPOSITE_OVER_SPECTRAL;
+    } else {
+        return smearAlpha ? COMPOSITE_COPY : COMPOSITE_OVER;
+    }
 }
 
-QString KisColorSmudgeStrategyBase::finalCompositeOp(bool smearAlpha) const
+QString KisColorSmudgeStrategyBase::finalCompositeOp(bool smearAlpha, const QString &colorRateCompositeOp) const
 {
     Q_UNUSED(smearAlpha);
-    return COMPOSITE_COPY_SPECTRAL;
+    if (colorRateCompositeOp == COMPOSITE_OVER_SPECTRAL) {
+        return COMPOSITE_COPY_SPECTRAL;
+    } else {
+        return COMPOSITE_COPY;
+    }
 }
 
 quint8 KisColorSmudgeStrategyBase::finalPainterOpacity(qreal opacity, qreal smudgeRateValue)
