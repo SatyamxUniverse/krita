@@ -59,7 +59,7 @@ void spectralMix(float srcR, float srcG, float srcB, float factor, float* dstR, 
 
     reflectanceToXYZ(R, &X, &Y, &Z);
 
-    XYZToLinear(X, Y, Z, dstR, dstG, dstB);
+    XYZToLinear(roundf(X * 1000) / 1000, roundf(Y * 1000) / 1000, roundf(Z * 1000) / 1000, dstR, dstG, dstB);
 }
 
 //function for creating a SPD out of the red, green and blue SPD's
