@@ -27,6 +27,12 @@ public:
 
     virtual bool snap(const QPointF &mousePosition, KoSnapProxy * proxy, qreal maxSnapDistance) = 0;
 
+    virtual bool snapWithLine(const QPointF &mousePosition,
+                              const bool &p1,
+                              const QLineF &line,
+                              KoSnapProxy * proxy,
+                              qreal maxSnapDistance);
+
     /// returns the strategies type
     KoSnapGuide::Strategy type() const;
 
@@ -54,6 +60,7 @@ class KRITAFLAKE_EXPORT OrthogonalSnapStrategy : public KoSnapStrategy
 public:
     OrthogonalSnapStrategy();
     bool snap(const QPointF &mousePosition, KoSnapProxy * proxy, qreal maxSnapDistance) override;
+    bool snapWithLine(const QPointF &mousePosition, const bool &p1, const QLineF &line, KoSnapProxy *proxy, qreal maxSnapDistance) override;
     QPainterPath decoration(const KoViewConverter &converter) const override;
 private:
     QLineF m_hLine;
@@ -99,6 +106,7 @@ class KRITAFLAKE_EXPORT GridSnapStrategy : public KoSnapStrategy
 public:
     GridSnapStrategy();
     bool snap(const QPointF &mousePosition, KoSnapProxy * proxy, qreal maxSnapDistance) override;
+    bool snapWithLine(const QPointF &mousePosition, const bool &p1, const QLineF &line, KoSnapProxy *proxy, qreal maxSnapDistance) override;
     QPainterPath decoration(const KoViewConverter &converter) const override;
 };
 
@@ -109,6 +117,7 @@ class KRITAFLAKE_EXPORT BoundingBoxSnapStrategy : public KoSnapStrategy
 public:
     BoundingBoxSnapStrategy();
     bool snap(const QPointF &mousePosition, KoSnapProxy * proxy, qreal maxSnapDistance) override;
+    bool snapWithLine(const QPointF &mousePosition, const bool &p1, const QLineF &line, KoSnapProxy *proxy, qreal maxSnapDistance) override;
     QPainterPath decoration(const KoViewConverter &converter) const override;
 private:
     qreal squareDistanceToLine(const QPointF &lineA, const QPointF &lineB, const QPointF &point, QPointF &pointOnLine);

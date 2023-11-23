@@ -20,6 +20,7 @@ class KoViewConverter;
 class KoCanvasBase;
 class QPainter;
 class QPointF;
+class QLineF;
 class QRectF;
 
 /**
@@ -70,6 +71,21 @@ public:
     QPointF snap(const QPointF &mousePosition, Qt::KeyboardModifiers modifiers);
 
     QPointF snap(const QPointF &mousePosition, const QPointF &dragOffset, Qt::KeyboardModifiers modifiers);
+
+    /**
+     * Some of the snap() strategies will only test the vertical or horizontal components,
+     * which may not be desirable for snapping rotated lines. This will test the side of the
+     * line as defined by p1.
+     *
+     * @param mousePosition -- the current mouse pos
+     * @param p1 -- whether to use p1, if not it will use p2.
+     * @param line -- the line.
+     * @return the mousePos relative to the snapped line end per the param p1.
+     */
+    QPointF snapWithLine( const QPointF &mousePosition,
+                          const bool &p1,
+                          const QLineF &line,
+                          Qt::KeyboardModifiers modifiers);
 
     /// paints the guide
     void paint(QPainter &painter, const KoViewConverter &converter);

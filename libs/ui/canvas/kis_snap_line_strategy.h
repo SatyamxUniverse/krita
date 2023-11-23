@@ -19,6 +19,7 @@ public:
     ~KisSnapLineStrategy() override;
 
     bool snap(const QPointF &mousePosition, KoSnapProxy * proxy, qreal maxSnapDistance) override;
+    bool snapWithLine(const QPointF &mousePosition, const bool &p1, const QLineF &line, KoSnapProxy *proxy, qreal maxSnapDistance) override;
     QPainterPath decoration(const KoViewConverter &converter) const override;
 
     void addLine(Qt::Orientation orientation, qreal pos);

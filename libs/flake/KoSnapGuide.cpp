@@ -154,6 +154,48 @@ QPointF KoSnapGuide::snap(const QPointF &mousePosition, const QPointF &dragOffse
     return pos - dragOffset;
 }
 
+QPointF KoSnapGuide::snapWithLine(const QPointF &mousePosition,
+                                  const bool &p1,
+                                  const QLineF &line,
+                                  Qt::KeyboardModifiers modifiers)
+{
+    d->currentStrategy.clear();
+
+    if (! d->active || (modifiers & Qt::ShiftModifier))
+        return mousePosition;
+
+    KoSnapProxy proxy(this);
+
+    qreal minDistance = HUGE_VAL;
+
+    const QPointF diffToLine = p1? mousePosition - line.p1()
+                                 : mousePosition - line.p2();
+
+    qreal maxSnapDistance = d->canvas->viewConverter()->viewToDocument(QSizeF(d->snapDistance,
+                d->snapDistance)).width();
+    foreach (Private::KoSnapStrategySP strategy, d->strategies) {
+        if (d->usedStrategies & strategy->type() ||
+            strategy->type() == GridSnapping ||
+            strategy->type() == CustomSnapping) {
+
+            if (! strategy->snapWithLine(mousePosition, p1, line, &proxy, maxSnapDistance))
+                continue;
+
+            QPointF snapCandidate = strategy->snappedPosition();
+            qreal distance = KoSnapStrategy::squareDistance(snapCandidate, line.p1());
+            if (distance < minDistance) {
+                d->currentStrategy = strategy;
+                minDistance = distance;
+            }
+        }
+    }
+
+    if (! d->currentStrategy)
+        return mousePosition;
+
+    return d->currentStrategy->snappedPosition() + diffToLine;
+}
+
 QPointF KoSnapGuide::snap(const QPointF &mousePosition, Qt::KeyboardModifiers modifiers)
 {
     d->currentStrategy.clear();

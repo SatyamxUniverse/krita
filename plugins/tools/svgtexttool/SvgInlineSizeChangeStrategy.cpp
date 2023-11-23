@@ -37,14 +37,14 @@ SvgInlineSizeChangeStrategy::SvgInlineSizeChangeStrategy(KoToolBase *tool,
     this->tool()->canvas()->snapGuide()->setIgnoredShapes(KoShape::linearizeSubtree({shape}));
     m_originalAnchor = m_finalAnchor =
         KoSvgText::TextAnchor(shape->textProperties().propertyOrDefault(KoSvgTextProperties::TextAnchorId).toInt());
+    bool m_rtl = KoSvgText::Direction(shape->textProperties().propertyOrDefault(KoSvgTextProperties::DirectionId).toInt()) == KoSvgText::DirectionRightToLeft;
     if (std::optional<InlineSizeInfo> info = InlineSizeInfo::fromShape(shape)) {
         m_initialInlineSize = m_finalInlineSize = info->inlineSize;
         m_anchor = info->anchor;
         m_handleSide = m_startHandle? info->startLineSide(): info->endLineSide();
-        QPointF handleLocation = m_startHandle? info->startLine().p1(): info->endLine().p1();
-        QTransform invTransform = (info->editorTransform * info->shapeTransform).inverted();
-        QPointF initPos = info->editorTransform.inverted().map(m_shape->initialTextPosition());
-        m_snapDelta = invTransform.inverted().map(QPointF(invTransform.map(handleLocation).x(), initPos.y())) - m_dragStart;
+        QLineF baseline = m_rtl? QLineF(info->baselineLine().p2(), info->baselineLine().p1()): info->baselineLine();
+        QPointF handleLocation = m_startHandle? baseline.p1(): baseline.p2();
+        m_snapDelta = handleLocation - m_dragStart;
     } else {
         // We cannot bail out, so just pretend to be doing something :(
         m_initialInlineSize = m_finalInlineSize = SvgInlineSizeHelper::getInlineSizePt(shape);
@@ -57,15 +57,19 @@ void SvgInlineSizeChangeStrategy::handleMouseMove(const QPointF &mouseLocation, 
 {
     QTransform invTransform{};
     QPointF initPos;
+    QLineF baseline;
     if (std::optional<InlineSizeInfo> info = InlineSizeInfo::fromShape(m_shape)) {
         invTransform = (info->editorTransform * info->shapeTransform).inverted();
-        initPos = info->editorTransform.inverted().map(m_shape->initialTextPosition());
+        baseline = m_rtl? QLineF(info->baselineLine().p2(), info->baselineLine().p1()): info->baselineLine();
+        initPos = m_startHandle? baseline.p1(): baseline.p2();
     }
 
     double newInlineSize = 0.0;
 
-    QPointF snapDelta = invTransform.inverted().map(QPointF(invTransform.map(mouseLocation + m_snapDelta).x(), initPos.y())) - mouseLocation;
-    QPointF snappedLocation = tool()->canvas()->snapGuide()->snap(mouseLocation + snapDelta, modifiers) - snapDelta;
+    QPointF snapDelta = invTransform.inverted().map(QPointF(invTransform.map(mouseLocation + m_snapDelta).x(),
+                                                            invTransform.map(initPos).y())) - mouseLocation;
+    baseline = m_startHandle? QLineF(mouseLocation + snapDelta, baseline.p2()): QLineF(baseline.p1(), mouseLocation + snapDelta);
+    QPointF snappedLocation = tool()->canvas()->snapGuide()->snapWithLine(mouseLocation, m_startHandle, baseline, modifiers);
     const double mouseDelta = invTransform.map(QLineF(m_dragStart, snappedLocation)).dx();
     QPointF newPosition = m_shape->absolutePosition(KoFlake::TopLeft);
 
