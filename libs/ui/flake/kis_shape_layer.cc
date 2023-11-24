@@ -112,6 +112,16 @@ public:
         }
     }
 
+    void shapeHasBeenAddedToHierarchy(KoShape *shape, KoShapeContainer *addedToSubtree) override {
+        SimpleShapeContainerModel::shapeHasBeenAddedToHierarchy(shape, addedToSubtree);
+        emit q->sigShapeHasBeenAddedToHierarchy(shape, addedToSubtree);
+    }
+
+    void shapeToBeRemovedFromHierarchy(KoShape *shape, KoShapeContainer *removedFromSubtree) override {
+        SimpleShapeContainerModel::shapeToBeRemovedFromHierarchy(shape, removedFromSubtree);
+        emit q->sigShapeToBeRemovedFromHierarchy(shape, removedFromSubtree);
+    }
+
 private:
     KisShapeLayer *q;
     qreal m_xRes{72.0};
