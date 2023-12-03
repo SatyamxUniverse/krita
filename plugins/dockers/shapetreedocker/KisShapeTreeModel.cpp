@@ -51,6 +51,11 @@ std::vector<std::unique_ptr<KisShapeTreeModel::Node>> &KisShapeTreeModel::Node::
     return *m_children;
 }
 
+void KisShapeTreeModel::Node::reset()
+{
+    m_children = {};
+}
+
 KisShapeTreeModel::Node *KisShapeTreeModel::Node::findNodeForShape(KoShape *shape)
 {
     if (m_shape == shape) {
@@ -102,6 +107,9 @@ void KisShapeTreeModel::slotShapeHasBeenAddedToHierarchy(KoShape *shape, KoShape
         parentIndex = indexForShape(parentShape);
         if (Q_UNLIKELY(!parentIndex.isValid())) {
             qWarning() << __PRETTY_FUNCTION__ << "Failed to get index for parent shape" << parentShape << parentShape->shapeId() << parentShape->name();
+            beginResetModel();
+            m_rootNode.reset();
+            endResetModel();
             return;
         }
         parentNode = nodeForIndex(parentIndex);
@@ -109,6 +117,9 @@ void KisShapeTreeModel::slotShapeHasBeenAddedToHierarchy(KoShape *shape, KoShape
     const int idx = parentShape->shapes().lastIndexOf(shape);
     if (Q_UNLIKELY(idx < 0)) {
         qWarning() << __PRETTY_FUNCTION__ << "Shape not found in its parent";
+        beginResetModel();
+        m_rootNode.reset();
+        endResetModel();
         return;
     }
     beginInsertRows(parentIndex, idx, idx);
@@ -123,10 +134,22 @@ void KisShapeTreeModel::slotShapeToBeRemovedFromHierarchy(KoShape *shape, KoShap
     QModelIndex parentIndex;
     if (parentShape == m_shapeLayer) {
         parentNode = &m_rootNode;
+    } else if (!parentShape) {
+        // The shape might have been removed from the parent on a worker thread.
+        // Let's just reset the model.
+        // TODO: Iterate to find the parent node instead?
+        qWarning() << __PRETTY_FUNCTION__ << "Parent shape is null";
+        beginResetModel();
+        m_rootNode.reset();
+        endResetModel();
+        return;
     } else {
         parentIndex = indexForShape(parentShape);
         if (Q_UNLIKELY(!parentIndex.isValid())) {
             qWarning() << __PRETTY_FUNCTION__ << "Failed to get index for parent shape" << parentShape << parentShape->shapeId() << parentShape->name();
+            beginResetModel();
+            m_rootNode.reset();
+            endResetModel();
             return;
         }
         parentNode = nodeForIndex(parentIndex);
@@ -134,6 +157,9 @@ void KisShapeTreeModel::slotShapeToBeRemovedFromHierarchy(KoShape *shape, KoShap
     const int idx = parentShape->shapes().indexOf(shape);
     if (Q_UNLIKELY(idx < 0)) {
         qWarning() << __PRETTY_FUNCTION__ << "Shape not found in its parent";
+        beginResetModel();
+        m_rootNode.reset();
+        endResetModel();
         return;
     }
     beginRemoveRows(parentIndex, idx, idx);

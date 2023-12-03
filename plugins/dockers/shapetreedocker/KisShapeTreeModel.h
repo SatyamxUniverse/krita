@@ -55,6 +55,7 @@ private:
         [[nodiscard]] KoShape *shape() const;
         [[nodiscard]] bool isInitialized() const;
         [[nodiscard]] std::vector<std::unique_ptr<Node>> &children();
+        void reset();
         [[nodiscard]] Node *findNodeForShape(KoShape *shape);
 
     private:
