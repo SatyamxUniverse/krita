@@ -11,6 +11,8 @@
 #include <QRectF>
 #include <QTimer>
 
+#include <memory>
+
 #include "KisHandlePainterHelper.h"
 #include "KoCanvasBase.h"
 #include "KoProperties.h"
@@ -18,6 +20,7 @@
 #include "KoShapeController.h"
 #include "KoShapeFactoryBase.h"
 #include "KoShapeRegistry.h"
+#include "KoSvgTextProperties.h"
 #include "KoToolBase.h"
 #include "KoViewConverter.h"
 #include "KoSnapGuide.h"
@@ -29,15 +32,25 @@ SvgCreateTextStrategy::SvgCreateTextStrategy(SvgTextTool *tool, const QPointF &c
     : KoInteractionStrategy(tool)
     , m_dragStart(clicked)
     , m_dragEnd(clicked)
+    , m_previewTextShape(createTextShape())
 {
     const QFontMetrics fontMetrics = QFontMetrics(tool->defaultFont());
     double lineHeight = (fontMetrics.lineSpacing() / fontMetrics.fontDpi()) * 72.0;
     m_minSizeInline = {lineHeight, lineHeight};
+    m_previewTextShape->setPosition(m_dragStart);
 }
 
 void SvgCreateTextStrategy::paint(QPainter &painter, const KoViewConverter &converter)
 {
     const QTransform originalPainterTransform = painter.transform();
+
+    // Paint the preview shape directly on the view.
+    painter.setTransform(m_previewTextShape->absoluteTransformation() * converter.documentToView(), true);
+    m_previewTextShape->paint(painter);
+    painter.setTransform(originalPainterTransform, false);
+
+    // Paint a rubberband rect for the drag outline:
+
     painter.setTransform(converter.documentToView(), true);
     KisHandlePainterHelper handlePainter(&painter, originalPainterTransform, 0.0);
 
@@ -50,16 +63,20 @@ void SvgCreateTextStrategy::handleMouseMove(const QPointF &mouseLocation, Qt::Ke
 {
     m_dragEnd = this->tool()->canvas()->snapGuide()->snap(mouseLocation, modifiers);
     m_modifiers = modifiers;
-    const QRectF updateRect = QRectF(m_dragStart, m_dragEnd).normalized();
-    tool()->canvas()->updateCanvas(kisGrowRect(updateRect, 100));
-}
+    QRectF updateRect = QRectF(m_dragStart, m_dragEnd).normalized();
 
-KUndo2Command *SvgCreateTextStrategy::createCommand()
-{
+    // Resize and reposition the preview text shape according to the drag area:
+    // TODO: Consider compressing updates?
+
+    updateRect |= m_previewTextShape->boundingRect();
+
     SvgTextTool *const tool = qobject_cast<SvgTextTool *>(this->tool());
 
     QRectF rectangle = QRectF(m_dragStart, m_dragEnd).normalized();
 
+    // TODO: Consider caching these metrics.
+    // FIXME: We should get the metrics directly from the text shape and avoid
+    //        using Qt's font engine.
     const QFontMetrics fontMetrics = QFontMetrics(tool->defaultFont());
     double ascender = fontMetrics.ascent();
     ascender += fontMetrics.leading()/2;
@@ -71,17 +88,22 @@ KUndo2Command *SvgCreateTextStrategy::createCommand()
     if (rectangle.width() < m_minSizeInline.width() && rectangle.height() < m_minSizeInline.height()) {
         unwrappedText = true;
     }
-    QString extraProperties;
+    KoSvgText::AutoValue newInlineSize; // default is auto
     if (!unwrappedText) {
+        double inlineSize{};
         if (writingMode == KoSvgText::HorizontalTB) {
-            extraProperties = QLatin1String("inline-size:%1;").arg(QString::number(rectangle.width()));
+            inlineSize = rectangle.width();
         } else {
-            extraProperties = QLatin1String("inline-size:%1;").arg(QString::number(rectangle.height()));
+            inlineSize = rectangle.height();
         }
+        newInlineSize = qRound(inlineSize * 100.) / 100.;
     }
-    KoShapeFactoryBase *factory = KoShapeRegistry::instance()->value("KoSvgTextShapeID");
-    KoProperties *params = new KoProperties();//Fill these with "svgText", "defs" and "shapeRect"
-    params->setProperty("defs", QVariant(tool->generateDefs(extraProperties)));
+    // Set inline-size:
+    {
+        KoSvgTextProperties properties = m_previewTextShape->propertiesForPos(-1);
+        properties.setProperty(KoSvgTextProperties::InlineSizeId, KoSvgText::fromAutoValue(newInlineSize));
+        m_previewTextShape->setPropertiesAtPos(-1, properties);
+    }
 
     QPointF origin = rectangle.topLeft();
 
@@ -113,15 +135,41 @@ KUndo2Command *SvgCreateTextStrategy::createCommand()
     if (!rectangle.contains(origin) && unwrappedText) {
         origin = writingMode == KoSvgText::HorizontalTB? QPointF(origin.x(), rectangle.bottom()): QPointF(rectangle.center().x(), origin.y());
     }
-    params->setProperty("shapeRect", QVariant(rectangle));
-    params->setProperty("origin", QVariant(origin));
 
-    KoShape *textShape = factory->createShape( params, tool->canvas()->shapeController()->resourceManager());
+    m_previewTextShape->setPosition(origin);
+    updateRect |= m_previewTextShape->boundingRect();
+
+    tool->canvas()->updateCanvas(kisGrowRect(updateRect, 100));
+}
+
+KoSvgTextShape *SvgCreateTextStrategy::createTextShape()
+{
+    SvgTextTool *const tool = qobject_cast<SvgTextTool *>(this->tool());
+
+    KoShapeFactoryBase *factory = KoShapeRegistry::instance()->value("KoSvgTextShapeID");
+    KoProperties *params = new KoProperties();
+    params->setProperty("defs", QVariant(tool->generateDefs()));
+    // No need to set "shapeRect" and "origin" because we will reposition the
+    // shape in the interaction strategy.
+
+    std::unique_ptr<KoShape> shape{factory->createShape( params, tool->canvas()->shapeController()->resourceManager())};
+    KoSvgTextShape *textShape = dynamic_cast<KoSvgTextShape *>(shape.get());
+    KIS_ASSERT_RECOVER_RETURN_VALUE(textShape, nullptr);
+    (void)shape.release();
+    return textShape;
+}
+
+KUndo2Command *SvgCreateTextStrategy::createCommand()
+{
+    SvgTextTool *const tool = qobject_cast<SvgTextTool *>(this->tool());
+
+    // We just reuse the preview shape directly.
 
     KUndo2Command *parentCommand = new KUndo2Command();
 
     new KoKeepShapesSelectedCommand(tool->koSelection()->selectedShapes(), {}, tool->canvas()->selectedShapesProxy(), false, parentCommand);
 
+    KoShape *textShape = m_previewTextShape.release();
     KUndo2Command *cmd = tool->canvas()->shapeController()->addShape(textShape, 0, parentCommand);
     parentCommand->setText(cmd->text());
 
