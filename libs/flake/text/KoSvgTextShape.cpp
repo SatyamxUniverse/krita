@@ -1082,7 +1082,7 @@ KoShape *KoSvgTextShapeFactory::createDefaultShape(KoDocumentResourceManager *do
     shape->setShapeId(KoSvgTextShape_SHAPEID);
 
     KoSvgTextShapeMarkupConverter converter(shape);
-    converter.convertFromSvg(i18nc("Default text for the text shape", "<text>Placeholder Text</text>"),
+    converter.convertFromSvg(QLatin1String("<text>%1</text>").arg(KoSvgTextShape::defaultPlaceholderText()),
                              "<defs/>",
                              QRectF(0, 0, 200, 60),
                              documentResources->documentResolution());
@@ -1097,7 +1097,7 @@ KoShape *KoSvgTextShapeFactory::createShape(const KoProperties *params, KoDocume
     KoSvgTextShape *shape = new KoSvgTextShape();
     shape->setShapeId(KoSvgTextShape_SHAPEID);
 
-    QString svgText = params->stringProperty("svgText", i18nc("Default text for the text shape", "<text>Placeholder Text</text>"));
+    QString svgText = params->stringProperty("svgText", QLatin1String("<text>%1</text>").arg(KoSvgTextShape::defaultPlaceholderText()));
     QString defs = params->stringProperty("defs" , "<defs/>");
     QRectF shapeRect = QRectF(0, 0, 200, 60);
     QVariant rect = params->property("shapeRect");

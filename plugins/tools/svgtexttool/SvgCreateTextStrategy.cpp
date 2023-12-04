@@ -33,8 +33,12 @@ SvgCreateTextStrategy::SvgCreateTextStrategy(SvgTextTool *tool, const QPointF &c
     , m_dragEnd(clicked)
     , m_previewTextShape(createTextShape())
 {
-    // FIXME: This may be incorrect if the first character in the preview text
-    //        is using a fallback font.
+    const bool isHorizontal = tool->writingMode() == KoSvgText::HorizontalTB;
+    setPreviewText(QLatin1String(" "));
+    const double spaceSize =
+        isHorizontal ? m_previewTextShape->outlineRect().width() : m_previewTextShape->outlineRect().height();
+
+    // Check the ascender and line height with a space, which should always work.
     double ascender{};
     double descender{};
     double halfLeading{};
@@ -45,6 +49,7 @@ SvgCreateTextStrategy::SvgCreateTextStrategy(SvgTextTool *tool, const QPointF &c
     m_minSizeInline = {m_lineHeight, m_lineHeight};
 
     m_previewTextShape->setPosition(m_dragStart);
+    initPreviewText(spaceSize, isHorizontal);
 }
 
 void SvgCreateTextStrategy::paint(QPainter &painter, const KoViewConverter &converter)
@@ -103,6 +108,8 @@ void SvgCreateTextStrategy::handleMouseMove(const QPointF &mouseLocation, Qt::Ke
         properties.setProperty(KoSvgTextProperties::InlineSizeId, KoSvgText::fromAutoValue(newInlineSize));
         m_previewTextShape->setPropertiesAtPos(-1, properties);
     }
+
+    generatePreviewText(newInlineSize.isAuto ? -1 : newInlineSize.customValue);
 
     QPointF origin = rectangle.topLeft();
 
@@ -163,6 +170,7 @@ KUndo2Command *SvgCreateTextStrategy::createCommand()
     SvgTextTool *const tool = qobject_cast<SvgTextTool *>(this->tool());
 
     // We just reuse the preview shape directly.
+    setPreviewText(KoSvgTextShape::defaultPlaceholderText());
 
     KUndo2Command *parentCommand = new KUndo2Command();
 
@@ -194,4 +202,61 @@ bool SvgCreateTextStrategy::draggingInlineSize()
 {
     QRectF rectangle = QRectF(m_dragStart, m_dragEnd).normalized();
     return (rectangle.width() >= m_minSizeInline.width() || rectangle.height() >= m_minSizeInline.height()) && !m_modifiers.testFlag(Qt::ControlModifier);
+}
+
+void SvgCreateTextStrategy::initPreviewText(const double spaceSize, const bool isHorizontal)
+{
+    // FIXME: i18n
+    m_previewTextSegments = QStringList{
+        "The ",
+        "quick ",
+        "brown ",
+        "fox ",
+        "jumps ",
+        "over ",
+        "the ",
+        "lazy ",
+        "dog. ",
+    };
+    QString checkStr;
+    Q_FOREACH (const QString &seg, m_previewTextSegments) {
+        // Surround the string with spaces to try to account for glyphs poking out of the box.
+        checkStr = " ";
+        checkStr.append(seg);
+        checkStr.append(" ");
+        setPreviewText(checkStr);
+        const double size =
+            isHorizontal ? m_previewTextShape->outlineRect().width() : m_previewTextShape->outlineRect().height();
+        m_previewTextLengths.append(size - spaceSize * 2.);
+    }
+    generatePreviewText(-1);
+    tool()->canvas()->updateCanvas(kisGrowRect(m_previewTextShape->boundingRect(), 100));
+}
+
+void SvgCreateTextStrategy::generatePreviewText(double inlineSize)
+{
+    if (inlineSize <= 0) {
+        setPreviewText(m_previewTextSegments.join(QString()));
+        return;
+    }
+    QString text;
+    while (true) {
+        for (int i = 0; i < m_previewTextSegments.length(); i++) {
+            text.append(m_previewTextSegments.at(i));
+            if (inlineSize < 0.) {
+                setPreviewText(text);
+                return;
+            }
+            inlineSize -= m_previewTextLengths.at(i);
+        }
+    }
+}
+
+void SvgCreateTextStrategy::setPreviewText(QString text)
+{
+    if (m_previewTextShape->plainText() == text) {
+        return;
+    }
+    m_previewTextShape->removeText(0, m_previewTextShape->plainText().length());
+    m_previewTextShape->insertText(0, std::move(text));
 }
