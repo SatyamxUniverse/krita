@@ -41,6 +41,8 @@ private:
     QSizeF m_minSizeInline;
     Qt::KeyboardModifiers m_modifiers;
     std::unique_ptr<KoSvgTextShape> m_previewTextShape;
+    double m_ascender;
+    double m_lineHeight;
 };
 
 #endif /* SVG_CREATE_TEXT_STRATEGY_H */

@@ -15,6 +15,8 @@
 
 #include <QFlags>
 
+#include <tuple>
+
 class KoSvgTextProperties;
 
 #define KoSvgTextShape_SHAPEID "KoSvgTextShapeID"
@@ -330,6 +332,16 @@ public:
      * @return the writing mode of this text.
      */
     KoSvgText::WritingMode writingMode() const;
+
+    /**
+     * @brief Get the line metrics of the grapheme cluster at cursor position.
+     *
+     * For horizontal text, the ascender is usually negative. For vertical
+     * text, the descender is usually negative.
+     * @param pos The cursor position
+     * @return double A tuple of [ascender, descender, halfLeading] in pt.
+     */
+    std::tuple<double, double, double> lineMetricsAtPos(int pos) const;
 
     /// ShapeChangeListener so we can inform any text cursors that the cursor needs updating.
     struct KRITAFLAKE_EXPORT TextCursorChangeListener : public ShapeChangeListener {

@@ -854,6 +854,16 @@ KoSvgText::WritingMode KoSvgTextShape::writingMode() const
     return KoSvgText::WritingMode(this->textProperties().propertyOrDefault(KoSvgTextProperties::WritingModeId).toInt());
 }
 
+std::tuple<double, double, double> KoSvgTextShape::lineMetricsAtPos(int pos) const
+{
+    if (d->result.isEmpty() || d->cursorPos.isEmpty() || pos < 0 || pos >= d->cursorPos.size()) {
+        return {};
+    }
+    const CursorPos &cursorPos = d->cursorPos.at(pos);
+    const CharacterResult &res = d->result.at(cursorPos.cluster);
+    return {res.scaledAscent, res.scaledDescent, res.scaledHalfLeading};
+}
+
 void KoSvgTextShape::notifyCursorPosChanged(int pos, int anchor)
 {
     Q_FOREACH (KoShape::ShapeChangeListener *listener, listeners()) {

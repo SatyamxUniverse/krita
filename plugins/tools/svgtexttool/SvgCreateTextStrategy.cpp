@@ -7,7 +7,6 @@
 #include "SvgCreateTextStrategy.h"
 #include "SvgTextTool.h"
 
-#include <QFontDatabase>
 #include <QRectF>
 #include <QTimer>
 
@@ -34,9 +33,17 @@ SvgCreateTextStrategy::SvgCreateTextStrategy(SvgTextTool *tool, const QPointF &c
     , m_dragEnd(clicked)
     , m_previewTextShape(createTextShape())
 {
-    const QFontMetrics fontMetrics = QFontMetrics(tool->defaultFont());
-    double lineHeight = (fontMetrics.lineSpacing() / fontMetrics.fontDpi()) * 72.0;
-    m_minSizeInline = {lineHeight, lineHeight};
+    // FIXME: This may be incorrect if the first character in the preview text
+    //        is using a fallback font.
+    double ascender{};
+    double descender{};
+    double halfLeading{};
+    std::tie(ascender, descender, halfLeading) = m_previewTextShape->lineMetricsAtPos(0);
+    m_ascender = -ascender;
+    m_lineHeight = qAbs(descender - ascender);
+
+    m_minSizeInline = {m_lineHeight, m_lineHeight};
+
     m_previewTextShape->setPosition(m_dragStart);
 }
 
@@ -74,14 +81,6 @@ void SvgCreateTextStrategy::handleMouseMove(const QPointF &mouseLocation, Qt::Ke
 
     QRectF rectangle = QRectF(m_dragStart, m_dragEnd).normalized();
 
-    // TODO: Consider caching these metrics.
-    // FIXME: We should get the metrics directly from the text shape and avoid
-    //        using Qt's font engine.
-    const QFontMetrics fontMetrics = QFontMetrics(tool->defaultFont());
-    double ascender = fontMetrics.ascent();
-    ascender += fontMetrics.leading()/2;
-    ascender = (ascender / fontMetrics.fontDpi()) * 72.0; // 72 points in an inch.
-    double lineHeight = (fontMetrics.lineSpacing() / fontMetrics.fontDpi()) * 72.0;
     const KoSvgText::WritingMode writingMode = KoSvgText::WritingMode(tool->writingMode());
 
     bool unwrappedText = m_modifiers.testFlag(Qt::ControlModifier);
@@ -112,7 +111,7 @@ void SvgCreateTextStrategy::handleMouseMove(const QPointF &mouseLocation, Qt::Ke
         const bool isRtl = tool->isRtl();
 
         if (writingMode == KoSvgText::HorizontalTB) {
-            origin.setY(rectangle.top() + ascender);
+            origin.setY(rectangle.top() + m_ascender);
             if (halign & Qt::AlignCenter) {
                 origin.setX(rectangle.center().x());
             } else if ((halign & Qt::AlignRight && !isRtl) || (halign & Qt::AlignLeft && isRtl)) {
@@ -120,9 +119,9 @@ void SvgCreateTextStrategy::handleMouseMove(const QPointF &mouseLocation, Qt::Ke
             }
         } else {
             if (writingMode == KoSvgText::VerticalRL) {
-                origin.setX(rectangle.right() - (lineHeight*0.5));
+                origin.setX(rectangle.right() - (m_lineHeight * 0.5));
             } else {
-                origin.setX(rectangle.left() + (lineHeight*0.5));
+                origin.setX(rectangle.left() + (m_lineHeight * 0.5));
             }
 
             if (halign & Qt::AlignCenter) {
