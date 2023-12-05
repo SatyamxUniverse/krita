@@ -468,6 +468,12 @@ void KisLayerManager::convertGroupToAnimated()
 
     if (!m_view->nodeManager()->canModifyLayer(group)) return;
 
+    KisNodeSP activeNode = group->firstChild();
+    KisLayerSP tempLayer = addPaintLayer(activeNode);
+    KisImageSP image = m_view->image();
+    const KisMetaData::MergeStrategy* strategy = KisMetaDataMergeStrategyChooserWidget::showDialog(m_view->mainWindow());
+    image->mergeDown(tempLayer, strategy);
+
     KisPaintLayerSP animatedLayer = new KisPaintLayer(m_view->image(), group->name(), OPACITY_OPAQUE_U8);
     animatedLayer->enableAnimation();
     KisRasterKeyframeChannel *contentChannel = dynamic_cast<KisRasterKeyframeChannel*>(
