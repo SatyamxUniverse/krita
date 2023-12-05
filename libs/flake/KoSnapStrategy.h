@@ -33,6 +33,11 @@ public:
                               KoSnapProxy * proxy,
                               qreal maxSnapDistance);
 
+    virtual bool snapWithPolygon(QPointF &snapDiff,
+                                 const QPolygonF &polygon,
+                                 KoSnapProxy * proxy,
+                                 qreal maxSnapDistance);
+
     /// returns the strategies type
     KoSnapGuide::Strategy type() const;
 

@@ -42,6 +42,37 @@ bool KoSnapStrategy::snapWithLine(const QPointF &mousePosition,
     return snapped;
 }
 
+bool KoSnapStrategy::snapWithPolygon(QPointF &snapDiff, const QPolygonF &polygon, KoSnapProxy *proxy, qreal maxSnapDistance)
+{
+    QPointF nearest;
+    int index = -1;
+    bool snapped = false;
+    qreal nDist = 0;
+
+    for(int i = 0; i < polygon.size(); i++) {
+        const QPointF p = polygon.at(i);
+        bool isSnapped = snap(p, proxy, maxSnapDistance);
+        if (isSnapped) {
+            const QPointF diff = snappedPosition() - p;
+            qreal dist = squareDistance(QPointF(), diff);
+            if (snapped == false || (snapped == true && nDist > dist )) {
+                nearest = diff;
+                nDist = dist;
+                index = i;
+            }
+            snapped = true;
+        }
+    }
+
+    if (snapped) {
+        const QPointF p = polygon.at(index);
+        snap(p, proxy, maxSnapDistance);
+        snapDiff = nearest;
+    }
+
+    return snapped;
+}
+
 QPointF KoSnapStrategy::snappedPosition() const
 {
     return m_snappedPosition;

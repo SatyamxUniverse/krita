@@ -14,6 +14,9 @@
 #include "KoSnapGuide.h"
 #include "KoToolBase.h"
 #include "kis_algebra_2d.h"
+#include <QPainter>
+#include <KisHandlePainterHelper.h>
+#include <KoViewConverter.h>
 
 SvgMoveTextStrategy::SvgMoveTextStrategy(KoToolBase *tool, KoSvgTextShape *shape, const QPointF &clicked)
     : KoInteractionStrategy(tool)
@@ -21,9 +24,22 @@ SvgMoveTextStrategy::SvgMoveTextStrategy(KoToolBase *tool, KoSvgTextShape *shape
     , m_dragStart(clicked)
     , m_initialPosition(shape->absolutePosition())
     , m_finalPosition(m_initialPosition)
-    , m_anchorOffset(m_shape->absoluteTransformation().map(QPointF()) - m_initialPosition)
+    , m_mouseOffset(m_dragStart - m_initialPosition)
 {
     this->tool()->canvas()->snapGuide()->setIgnoredShapes(KoShape::linearizeSubtree({shape}));
+    m_bounds = m_shape->absoluteTransformation().map(m_shape->outlineRect());
+    m_bounds << m_shape->absoluteTransformation().map(m_shape->initialTextPosition());
+}
+
+void SvgMoveTextStrategy::paint(QPainter &painter, const KoViewConverter &converter)
+{
+    QPolygonF points = m_shape->absoluteTransformation().map(m_shape->outlineRect());
+    const QTransform originalPainterTransform = painter.transform();
+    painter.setTransform(converter.documentToView(), true);
+    KisHandlePainterHelper handlePainter(&painter, originalPainterTransform, 1.0);
+
+    handlePainter.setHandleStyle(KisHandleStyle::primarySelection());
+    handlePainter.drawRubberLine(points);
 }
 
 void SvgMoveTextStrategy::handleMouseMove(const QPointF &mouseLocation, Qt::KeyboardModifiers modifiers)
@@ -34,7 +50,8 @@ void SvgMoveTextStrategy::handleMouseMove(const QPointF &mouseLocation, Qt::Keyb
         m_finalPosition = m_initialPosition+ snapToClosestAxis(delta);
     } else {
         m_finalPosition =
-            tool()->canvas()->snapGuide()->snap(m_initialPosition + m_anchorOffset + delta, modifiers) - m_anchorOffset;
+                tool()->canvas()->snapGuide()->snapWithPolygon(m_initialPosition + m_mouseOffset + delta,
+                                                               m_bounds.translated(delta.x(), delta.y()), modifiers) - m_mouseOffset;
     }
 
     SvgMoveTextCommand(m_shape, m_finalPosition, m_initialPosition).redo();

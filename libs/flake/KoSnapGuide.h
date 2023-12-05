@@ -22,6 +22,7 @@ class QPainter;
 class QPointF;
 class QLineF;
 class QRectF;
+class QPolygonF;
 
 /**
  * This class is the place where all the snapping (i.e. snap to grid) is handled.
@@ -86,6 +87,19 @@ public:
                           const bool &p1,
                           const QLineF &line,
                           Qt::KeyboardModifiers modifiers);
+    /**
+     * @brief snapWithPolygon
+     * This snaps with a given polygon.
+     * The polygon will first be sorted by how close they
+     * are to the given mouse pos and then individually evaluated.
+     * @param mousePosition -- the mousepos to snap.
+     * @param polygon -- the polygon to evaluate with.
+     * @param modifiers
+     * @return returns the mousePos, adjusted by the delta of the closest snapping point on the polygon.
+     */
+    QPointF snapWithPolygon(const QPointF &mousePosition,
+                            const QPolygonF &polygon,
+                            Qt::KeyboardModifiers modifiers);
 
     /// paints the guide
     void paint(QPainter &painter, const KoViewConverter &converter);

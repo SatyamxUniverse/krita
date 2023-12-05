@@ -533,7 +533,7 @@ void SvgTextTool::paint(QPainter &gc, const KoViewConverter &converter)
 {
     if (!isActivated()) return;
 
-    if (m_dragging == DragMode::Create) {
+    if (m_dragging == DragMode::Create || m_dragging == DragMode::Move) {
         m_interactionStrategy->paint(gc, converter);
     }
 
@@ -578,7 +578,6 @@ void SvgTextTool::paint(QPainter &gc, const KoViewConverter &converter)
         } else {
             handlePainter.setHandleStyle(KisHandleStyle::primarySelection());
         }
-        handlePainter.drawHandleCircle(QPointF(), KoToolBase::handleRadius() * 0.75);
     }
 
     gc.setTransform(converter.documentToView(), true);

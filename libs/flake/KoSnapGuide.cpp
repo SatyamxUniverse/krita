@@ -196,6 +196,48 @@ QPointF KoSnapGuide::snapWithLine(const QPointF &mousePosition,
     return d->currentStrategy->snappedPosition() + diffToLine;
 }
 
+QPointF KoSnapGuide::snapWithPolygon(const QPointF &mousePosition, const QPolygonF &polygon, Qt::KeyboardModifiers modifiers)
+{
+    d->currentStrategy.clear();
+
+    if (! d->active || (modifiers & Qt::ShiftModifier))
+        return mousePosition;
+
+    KoSnapProxy proxy(this);
+
+    qreal minDistance = HUGE_VAL;
+    qreal maxSnapDistance = d->canvas->viewConverter()->viewToDocument(QSizeF(d->snapDistance,
+                d->snapDistance)).width();
+    QPointF snapDiff;
+    QPointF finalDiff;
+
+    QPolygonF sortedPolygon(polygon);
+    std::sort(sortedPolygon.begin(), sortedPolygon.end(), [mousePosition](const QPointF &lhs, const QPointF &rhs) {
+        return KoSnapStrategy::squareDistance(lhs, mousePosition) < KoSnapStrategy::squareDistance(rhs, mousePosition); });
+
+    foreach (Private::KoSnapStrategySP strategy, d->strategies) {
+        if (d->usedStrategies & strategy->type() ||
+            strategy->type() == GridSnapping ||
+            strategy->type() == CustomSnapping) {
+
+            if (! strategy->snapWithPolygon(snapDiff, sortedPolygon, &proxy, maxSnapDistance))
+                continue;
+
+            qreal distance = KoSnapStrategy::squareDistance(QPointF(), snapDiff);
+            if (distance < minDistance) {
+                d->currentStrategy = strategy;
+                finalDiff = snapDiff;
+                minDistance = distance;
+            }
+        }
+    }
+
+    if (! d->currentStrategy)
+        return mousePosition;
+
+    return mousePosition + finalDiff;
+}
+
 QPointF KoSnapGuide::snap(const QPointF &mousePosition, Qt::KeyboardModifiers modifiers)
 {
     d->currentStrategy.clear();
