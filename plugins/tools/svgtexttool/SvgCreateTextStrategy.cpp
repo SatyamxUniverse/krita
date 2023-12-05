@@ -7,6 +7,7 @@
 #include "SvgCreateTextStrategy.h"
 #include "SvgTextTool.h"
 
+#include <KLocalizedString>
 #include <QRectF>
 #include <QTimer>
 
@@ -206,18 +207,19 @@ bool SvgCreateTextStrategy::draggingInlineSize()
 
 void SvgCreateTextStrategy::initPreviewText(const double spaceSize, const bool isHorizontal)
 {
-    // FIXME: i18n
-    m_previewTextSegments = QStringList{
-        "The ",
-        "quick ",
-        "brown ",
-        "fox ",
-        "jumps ",
-        "over ",
-        "the ",
-        "lazy ",
-        "dog. ",
-    };
+    static const KLocalizedString s_previewTextI18n =
+        ki18nc("text tool: preview text segments (see comment)",
+               // i18n: This message is a sentence split into short segments.
+               //       Each segment must be separated by a pipe (U+007C `|`)
+               //       character. If your language separates each word by a
+               //       space, place a pipe after each space and end the message
+               //       with a trailing space; otherwise just split it
+               //       logically, for example: `AB|CD,|EF|GH.`
+               "The |quick |brown |fox |jumps |over |the |lazy |dog. ");
+
+    // TODO: Detect language
+    m_previewTextSegments = s_previewTextI18n.toString().split('|');
+
     QString checkStr;
     Q_FOREACH (const QString &seg, m_previewTextSegments) {
         // Surround the string with spaces to try to account for glyphs poking out of the box.
