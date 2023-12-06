@@ -344,6 +344,7 @@ void KisViewManager::initializeResourceManager(KoCanvasResourceProvider *resourc
     resourceManager->addDerivedResourceConverter(toQShared(new KisFadeResourceConverter));
     resourceManager->addDerivedResourceConverter(toQShared(new KisScatterResourceConverter));
     resourceManager->addDerivedResourceConverter(toQShared(new KisSizeResourceConverter));
+    resourceManager->addDerivedResourceConverter(toQShared(new KisBrushRotationResourceConverter));
     resourceManager->addDerivedResourceConverter(toQShared(new KisLodAvailabilityResourceConverter));
     resourceManager->addDerivedResourceConverter(toQShared(new KisLodSizeThresholdResourceConverter));
     resourceManager->addDerivedResourceConverter(toQShared(new KisLodSizeThresholdSupportedResourceConverter));
@@ -1068,11 +1069,6 @@ void KisViewManager::slotSaveIncremental()
     document()->setFileBatchMode(false);
     KisPart::instance()->queueAddRecentURLToAllMainWindowsOnFileSaved(QUrl::fromLocalFile(newFilePath),
                                                                       QUrl::fromLocalFile(document()->path()));
-
-    if (mainWindow()) {
-        mainWindow()->updateCaption();
-    }
-
 }
 
 void KisViewManager::slotSaveIncrementalBackup()
@@ -1145,8 +1141,6 @@ void KisViewManager::slotSaveIncrementalBackup()
         }
         QFile::copy(path + '/' + fileName, path + '/' + backupFileName);
         document()->saveAs(path + '/' + fileName, document()->mimeType(), true);
-
-        if (mainWindow()) mainWindow()->updateCaption();
     }
     else { // if NOT working on a backup...
         // Navigate directory searching for latest backup version, ignore letters
@@ -1184,8 +1178,6 @@ void KisViewManager::slotSaveIncrementalBackup()
         QFile::copy(path + '/' + fileName, path + '/' + backupFileName);
         document()->saveAs(path + '/' + fileName, document()->mimeType(), true);
         document()->setFileBatchMode(false);
-
-        if (mainWindow()) mainWindow()->updateCaption();
     }
 }
 

@@ -104,13 +104,13 @@ endif()
 
 # define common versions of Krita applications, used to generate kritaversion.h
 # update these version for every release:
-set(KRITA_VERSION_STRING "5.2.0")
+set(KRITA_VERSION_STRING "5.2.2")
 # Major version: 3 for 3.x, 4 for 4.x, etc.
 set(KRITA_STABLE_VERSION_MAJOR 5)
 # Minor version: 0 for 4.0, 1 for 4.1, etc.
 set(KRITA_STABLE_VERSION_MINOR 2)
 # Bugfix release version, or 0 for before the first stable release
-set(KRITA_VERSION_RELEASE 0)
+set(KRITA_VERSION_RELEASE 2)
 # the 4th digit, really only used for the Windows installer:
 # - [Pre-]Alpha: Starts from 0, increment 1 per release
 # - Beta: Starts from 50, increment 1 per release
@@ -118,7 +118,7 @@ set(KRITA_VERSION_RELEASE 0)
 set(KRITA_VERSION_REVISION 100)
 # Uncomment the following if this is currently in the "stable" branch.
 # Do not uncomment for master branch.
-#set(KRITA_STABLE_BRANCH 1)
+set(KRITA_STABLE_BRANCH 1)
 #set(KRITA_ALPHA 1) # uncomment only for Alpha
 #set(KRITA_BETA 1) # uncomment only for Beta
 #set(KRITA_RC 1) # uncomment only for RC
@@ -451,9 +451,8 @@ QCoreApplication::setAttribute(Qt::AA_MSWindowsUseWinTabAPI);
     configure_file(config_use_qt_tablet_windows.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config_use_qt_tablet_windows.h)
 endif ()     
 
-
-set(CMAKE_REQUIRED_INCLUDES ${Qt5Core_INCLUDE_DIRS} ${Qt5Gui_INCLUDE_DIRS})
-set(CMAKE_REQUIRED_LIBRARIES ${Qt5Core_LIBRARIES} ${Qt5Gui_LIBRARIES})
+set(CMAKE_REQUIRED_INCLUDES ${Qt5Core_INCLUDE_DIRS} ${Qt5Gui_INCLUDE_DIRS} ${Qt5Widgets_INCLUDE_DIRS})
+set(CMAKE_REQUIRED_LIBRARIES ${Qt5Core_LIBRARIES} ${Qt5Gui_LIBRARIES} ${Qt5Widgets_LIBRARIES})
 
 CHECK_CXX_SOURCE_COMPILES("
 #include <QSurfaceFormat>
@@ -479,6 +478,17 @@ HAVE_HIGH_DPI_SCALE_FACTOR_ROUNDING_POLICY
 )
 configure_file(config-high-dpi-scale-factor-rounding-policy.h.in ${CMAKE_CURRENT_BINARY_DIR}/config-high-dpi-scale-factor-rounding-policy.h)
 
+CHECK_CXX_SOURCE_COMPILES("
+#include <QMdiArea>
+int main(int argc, char *argv[]) {
+QMdiArea area;
+area.setOption(QMdiArea::AlwaysShowSubwindowNameInTitleBar);
+}
+"
+HAVE_QMDIAREA_ALWAYS_SHOW_SUBWINDOW_TITLE
+)
+configure_file(config-qmdiarea-always-show-subwindow-title.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config-qmdiarea-always-show-subwindow-title.h)
+
 if (WIN32)
     CHECK_CXX_SOURCE_COMPILES("
 #include <QtPlatformHeaders/QWindowsWindowFunctions>
@@ -489,6 +499,7 @@ QWindowsWindowFunctions::setHasBorderInFullScreenDefault(true);
     HAVE_SET_HAS_BORDER_IN_FULL_SCREEN_DEFAULT
     )
     configure_file(config-set-has-border-in-full-screen-default.h.in ${CMAKE_CURRENT_BINARY_DIR}/config-set-has-border-in-full-screen-default.h)
+
 endif (WIN32)
 
 unset(CMAKE_REQUIRED_INCLUDES)

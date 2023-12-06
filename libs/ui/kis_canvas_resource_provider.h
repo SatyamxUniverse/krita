@@ -115,6 +115,9 @@ public:
     void setSize(qreal size);
     qreal size() const;
 
+    void setBrushRotation(qreal rotation);
+    qreal brushRotation() const;
+
     void setPatternSize(qreal size);
     qreal patternSize() const;
 
@@ -167,7 +170,7 @@ Q_SIGNALS:
     void sigDisplayProfileChanged(const KoColorProfile *);
     void sigFGColorUsed(const KoColor&);
     void sigOnScreenResolutionChanged(qreal scaleX, qreal scaleY);
-    void sigEraserModeToggled(bool);
+    void sigEffectiveCompositeOpChanged();
     void sigOpacityChanged(qreal);
     void sigSavingWorkspace(KisWorkspaceResourceSP workspace);
     void sigLoadingWorkspace(KisWorkspaceResourceSP workspace);
