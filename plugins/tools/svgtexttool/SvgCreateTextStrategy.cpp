@@ -25,6 +25,7 @@
 #include "KoViewConverter.h"
 #include "KoSnapGuide.h"
 #include "commands/KoKeepShapesSelectedCommand.h"
+#include "kis_canvas2.h"
 #include "kis_global.h"
 #include "kundo2command.h"
 
@@ -163,6 +164,9 @@ KoSvgTextShape *SvgCreateTextStrategy::createTextShape()
     KoSvgTextShape *textShape = dynamic_cast<KoSvgTextShape *>(shape.get());
     KIS_ASSERT_RECOVER_RETURN_VALUE(textShape, nullptr);
     (void)shape.release();
+    if (KisCanvas2 *canvas = qobject_cast<KisCanvas2 *>(tool->canvas())) {
+        textShape->setResolution(canvas->image()->xRes() * 72.0, canvas->image()->yRes() * 72.0);
+    }
     return textShape;
 }
 
