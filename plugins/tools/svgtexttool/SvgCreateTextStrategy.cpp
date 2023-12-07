@@ -170,8 +170,13 @@ KUndo2Command *SvgCreateTextStrategy::createCommand()
 {
     SvgTextTool *const tool = qobject_cast<SvgTextTool *>(this->tool());
 
+    QRectF updateRect = QRectF(m_dragStart, m_dragEnd).normalized();
+    updateRect |= m_previewTextShape->boundingRect();
+
     // We just reuse the preview shape directly.
     setPreviewText(KoSvgTextShape::defaultPlaceholderText());
+    updateRect |= m_previewTextShape->boundingRect();
+    tool->canvas()->updateCanvas(kisGrowRect(updateRect, 100));
 
     KUndo2Command *parentCommand = new KUndo2Command();
 
@@ -190,7 +195,8 @@ KUndo2Command *SvgCreateTextStrategy::createCommand()
 void SvgCreateTextStrategy::cancelInteraction()
 {
     tool()->canvas()->snapGuide()->reset();
-    const QRectF updateRect = QRectF(m_dragStart, m_dragEnd).normalized();
+    QRectF updateRect = QRectF(m_dragStart, m_dragEnd).normalized();
+    updateRect |= m_previewTextShape->boundingRect();
     tool()->canvas()->updateCanvas(updateRect);
 }
 
