@@ -60,6 +60,9 @@ void SvgCreateTextStrategy::paint(QPainter &painter, const KoViewConverter &conv
 
     // Paint the preview shape directly on the view.
     painter.setTransform(m_previewTextShape->absoluteTransformation() * converter.documentToView(), true);
+    painter.setPen(QPen(Qt::NoPen));
+    painter.setBrush(Qt::SolidPattern);
+    painter.setOpacity(1.0);
     m_previewTextShape->paint(painter);
     painter.setTransform(originalPainterTransform, false);
 
