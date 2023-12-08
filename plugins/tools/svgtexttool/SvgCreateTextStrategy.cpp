@@ -222,12 +222,18 @@ void SvgCreateTextStrategy::initPreviewText(const double spaceSize, const bool i
 {
     static const KLocalizedString s_previewTextI18n =
         ki18nc("text tool: preview text segments (see comment)",
-               // i18n: This message is a sentence split into short segments.
-               //       Each segment must be separated by a pipe (U+007C `|`)
-               //       character. If your language separates each word by a
-               //       space, place a pipe after each space and end the message
-               //       with a trailing space; otherwise just split it
-               //       logically, for example: `AB|CD,|EF|GH.`
+               // i18n: This message is sample sentence split into short
+               // segments. It is for showing the text alignment and word
+               // wrapping as well as previewing the font settings when adding
+               // text. Tips to localizing this:
+               // (1.) Do not translate word to word. Use a typography sample, a
+               //      line from a famous poem, or something that makes sense.
+               // (2.) Try to use short words in the sentence.
+               // (3.) Split into segments by a pipe (U+007C `|`) character.
+               //  (*) If words are separated by spaces, put a pipe after the
+               //      space and end the message with a trailing space.
+               //  (*) There are no spaces, split the words logically, for
+               //      example: `AB|CD,|EF|GH.`
                "The |quick |brown |fox |jumps |over |the |lazy |dog. ");
 
     // TODO: Detect language
