@@ -57,6 +57,7 @@ KisToolMove::KisToolMove(KoCanvasBase *canvas)
     , m_updateCursorCompressor(100, KisSignalCompressor::FIRST_ACTIVE)
 {
     setObjectName("tool_move");
+    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
 
     m_showCoordinatesAction = action("movetool-show-coordinates");
     m_showCoordinatesAction = action("movetool-show-coordinates");

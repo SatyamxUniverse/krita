@@ -100,6 +100,7 @@ KisToolCrop::KisToolCrop(KoCanvasBase * canvas)
         : KisTool(canvas, KisCursor::load("tool_crop_cursor.png", 6, 6))
 {
     setObjectName("tool_crop");
+    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
     m_handleSize = 13;
     m_haveCropSelection = false;
     m_cropTypeSelectable = false;

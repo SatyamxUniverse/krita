@@ -80,6 +80,7 @@ SvgTextTool::SvgTextTool(KoCanvasBase *canvas)
     : KoToolBase(canvas)
     , m_textCursor(canvas)
 {
+    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
      // TODO: figure out whether we should use system config for this, Windows and GTK have values for it, but Qt and MacOS don't(?).
     int cursorFlashLimit = 5000;
     m_textCursor.setCaretSetting(QApplication::style()->pixelMetric(QStyle::PM_TextCursorWidth)
@@ -404,8 +405,10 @@ void SvgTextTool::slotShapeSelectionChanged()
         m_textCursor.setShape(shape);
         if (shape) {
             setTextMode(true);
+            setDisableTouch(false);
         } else {
             setTextMode(false);
+            setDisableTouch(KisConfig(true).disableTouchOnCanvas());
         }
     }
 }

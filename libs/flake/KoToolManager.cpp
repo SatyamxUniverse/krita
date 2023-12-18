@@ -442,6 +442,8 @@ void KoToolManager::Private::connectActiveTool()
                 q, SIGNAL(changedStatusText(QString)));
         connect(canvasData->activeTool, SIGNAL(textModeChanged(bool)),
                 q, SIGNAL(textModeChanged(bool)));
+        connect(canvasData->activeTool, SIGNAL(disableTouchChanged(bool)),
+                q, SIGNAL(disableTouchChanged(bool)));
     }
 
     // we expect the tool to emit a cursor on activation.
@@ -466,6 +468,8 @@ void KoToolManager::Private::disconnectActiveTool()
                    q, SIGNAL(changedStatusText(QString)));
         disconnect(canvasData->activeTool, SIGNAL(textModeChanged(bool)),
                    q, SIGNAL(textModeChanged(bool)));
+        disconnect(canvasData->activeTool, SIGNAL(disableTouchChanged(bool)),
+                q, SIGNAL(disableTouchChanged(bool)));
     }
 
     // emit a empty status text to clear status text from last active tool

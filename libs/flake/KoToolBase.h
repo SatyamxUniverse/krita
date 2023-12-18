@@ -221,14 +221,9 @@ public:
     virtual void customMoveEvent(KoPointerEvent *event);
 
     /**
-     * @return true if synthetic mouse events on the canvas should be eaten.
-     *
-     * For example, the guides tool should allow click and drag with touch,
-     * while the same touch events should be rejected by the freehand tool.
-     *
-     * These events are sent by the OS in Windows
+     * Specifies whether the tool currently blocks touch events.
      */
-    bool maskSyntheticEvents() const;
+    bool disableTouch() const;
 
     /**
      * get the identifier code from the KoToolFactoryBase that created this tool.
@@ -472,6 +467,11 @@ Q_SIGNALS:
      */
     void textModeChanged(bool inTextMode);
 
+    /**
+     * Emitted when the tool changes whether it allows touch.
+     */
+    void disableTouchChanged(bool disableTouch);
+
 protected:
     /**
      * Classes inheriting from this one can call this method to signify which cursor
@@ -526,9 +526,9 @@ protected:
     void setTextMode(bool value);
 
     /**
-     * Allows subclasses to specify whether synthetic mouse events should be accepted.
+     * Allows subclasses to specify whether they allow touch interaction.
      */
-    void setMaskSyntheticEvents(bool value);
+    void setDisableTouch(bool value);
 
     /**
      * Returns true if activate() has been called (more times than deactivate :) )

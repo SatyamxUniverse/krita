@@ -29,6 +29,8 @@
 #include <klocalizedstring.h>
 #include <QPainter>
 
+#include "kis_config.h"
+
 #include <cmath>
 
 #undef M_PI
@@ -48,6 +50,7 @@ KarbonCalligraphyTool::KarbonCalligraphyTool(KoCanvasBase *canvas)
     connect(canvas->selectedShapesProxy(), SIGNAL(selectionChanged()), SLOT(updateSelectedPath()));
 
     updateSelectedPath();
+    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
 }
 
 KarbonCalligraphyTool::~KarbonCalligraphyTool()

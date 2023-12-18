@@ -98,6 +98,7 @@ private Q_SLOTS:
     void slotAboutToChangeTool();
     void slotToolChanged();
     void slotTextModeChanged();
+    void slotDisableTouchChanged();
     void profileChanged();
     void slotCompressedMoveEvent();
     void deregisterPopupWidget();

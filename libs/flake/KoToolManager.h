@@ -289,6 +289,12 @@ Q_SIGNALS:
      * @param inTextMode whether it is now in text mode.
      */
     void textModeChanged(bool text);
+
+    /**
+     * @brief disableTouchChanged
+     * Emitted when disable touch is changed in the tool.
+     */
+    void disableTouchChanged(bool touch);
 private:
     KoToolManager(const KoToolManager&);
     KoToolManager operator=(const KoToolManager&);

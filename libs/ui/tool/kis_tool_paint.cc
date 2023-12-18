@@ -97,6 +97,8 @@ KisToolPaint::KisToolPaint(KoCanvasBase *canvas, const QCursor &cursor)
         m_standardBrushSizes.push_back(maxSize);
     }
 
+    setDisableTouch(KisConfig(true).disableTouchOnCanvas()); // Allow touch painting if configured as such.
+
     KisCanvas2 *kiscanvas = dynamic_cast<KisCanvas2*>(canvas);
     KIS_ASSERT(kiscanvas);
     connect(this, SIGNAL(sigPaintingFinished()), kiscanvas->viewManager()->canvasResourceProvider(), SLOT(slotPainting()));

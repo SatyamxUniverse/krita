@@ -17,6 +17,7 @@
 KisToolPan::KisToolPan(KoCanvasBase *canvas)
     : KisTool(canvas, KisCursor::openHandCursor())
 {
+    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
 }
 
 KisToolPan::~KisToolPan()

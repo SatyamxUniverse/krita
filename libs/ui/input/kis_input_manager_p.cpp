@@ -190,6 +190,7 @@ bool KisInputManager::Private::ignoringQtCursorEvents()
 void KisInputManager::Private::setMaskSyntheticEvents(bool value)
 {
     eventEater.eatSyntheticEvents = value;
+    disableTouchOnCanvas = value;
 }
 
 KisInputManager::Private::Private(KisInputManager *qq)

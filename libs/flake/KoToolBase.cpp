@@ -430,16 +430,17 @@ void KoToolBase::requestStrokeEnd()
 {
 }
 
-bool KoToolBase::maskSyntheticEvents() const
+bool KoToolBase::disableTouch() const
 {
     Q_D(const KoToolBase);
-    return d->maskSyntheticEvents;
+    return d->disableTouch;
 }
 
-void KoToolBase::setMaskSyntheticEvents(bool value)
+void KoToolBase::setDisableTouch(bool value)
 {
     Q_D(KoToolBase);
-    d->maskSyntheticEvents = value;
+    d->disableTouch = value;
+    emit disableTouchChanged(d->disableTouch);
 }
 
 void KoToolBase::updateOptionsWidgetIcons()

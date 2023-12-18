@@ -99,6 +99,7 @@ void KisToolMeasureOptionsWidget::updateDistance()
 KisToolMeasure::KisToolMeasure(KoCanvasBase * canvas)
     : KisTool(canvas, KisCursor::crossCursor())
 {
+    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
 }
 
 KisToolMeasure::~KisToolMeasure()

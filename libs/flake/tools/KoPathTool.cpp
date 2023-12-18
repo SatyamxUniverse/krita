@@ -57,6 +57,8 @@
 #include <QPainterPath>
 #include <QBitmap>
 #include <QTabWidget>
+#include <KSharedConfig>
+#include <KConfigGroup>
 
 #include <math.h>
 
@@ -87,6 +89,7 @@ KoPathTool::KoPathTool(KoCanvasBase *canvas)
     : KoToolBase(canvas)
     , m_pointSelection(this)
 {
+    setDisableTouch(KSharedConfig::openConfig()->group("").readEntry("disableTouchOnCanvas", false));
     m_actionPathPointCorner = action("pathpoint-corner");
     m_actionPathPointSmooth = action("pathpoint-smooth");
     m_actionPathPointSymmetric = action("pathpoint-symmetric");

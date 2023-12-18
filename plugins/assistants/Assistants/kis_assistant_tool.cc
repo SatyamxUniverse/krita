@@ -57,6 +57,7 @@ KisAssistantTool::KisAssistantTool(KoCanvasBase * canvas)
 {
     Q_ASSERT(m_canvas);
     setObjectName("tool_assistanttool");
+    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
 }
 
 KisAssistantTool::~KisAssistantTool()

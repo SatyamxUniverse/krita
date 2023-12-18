@@ -68,7 +68,7 @@ public:
     KoToolFactoryBase *factory {0};
     KoCanvasBase *canvas; ///< the canvas interface this tool will work for.
     bool isInTextMode;
-    bool maskSyntheticEvents{false}; ///< Whether this tool masks synthetic events
+    bool disableTouch{true};
     bool isActivated;
     QRectF lastDecorationsRect;
 };

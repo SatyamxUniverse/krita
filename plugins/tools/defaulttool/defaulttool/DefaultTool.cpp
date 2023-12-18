@@ -416,6 +416,7 @@ DefaultTool::DefaultTool(KoCanvasBase *canvas, bool connectToSelectedShapesProxy
     , m_tabbedOptionWidget(0)
 {
     setupActions();
+    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
 
     QPixmap rotatePixmap, shearPixmap;
     rotatePixmap.load(":/cursor_rotate.png");

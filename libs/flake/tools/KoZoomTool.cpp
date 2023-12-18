@@ -13,6 +13,8 @@
 #include "KoPointerEvent.h"
 #include "KoCanvasBase.h"
 #include "KoCanvasController.h"
+#include <KSharedConfig>
+#include <KConfigGroup>
 
 #include <FlakeDebug.h>
 
@@ -21,6 +23,7 @@ KoZoomTool::KoZoomTool(KoCanvasBase *canvas)
         , m_controller(nullptr)
         , m_zoomInMode(true)
 {
+    setDisableTouch(KSharedConfig::openConfig()->group("").readEntry("disableTouchOnCanvas", false));
     QPixmap inPixmap, outPixmap;
     inPixmap.load(":/zoom_in_cursor.png");
     outPixmap.load(":/zoom_out_cursor.png");
