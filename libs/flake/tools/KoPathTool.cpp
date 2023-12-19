@@ -57,9 +57,7 @@
 #include <QPainterPath>
 #include <QBitmap>
 #include <QTabWidget>
-#include <KSharedConfig>
-#include <KConfigGroup>
-
+#include <kis_config_notifier.h>
 #include <math.h>
 
 // helper function to calculate the squared distance between two points
@@ -110,6 +108,8 @@ KoPathTool::KoPathTool(KoCanvasBase *canvas)
     m_moveCursor = QCursor(QIcon(":/cursor-needle-move.svg").pixmap(32), 0, 0);
 
     connect(&m_pointSelection, SIGNAL(selectionChanged()), SLOT(repaintDecorations()));
+    updateDisableTouchFromConfig();
+    connect(KisConfigNotifier::instance(), SIGNAL(touchPaintingChanged()), this, SLOT(updateDisableTouchFromConfig()));
 }
 
 KoPathTool::~KoPathTool()
@@ -861,7 +861,6 @@ KoPathTool::PathSegment* KoPathTool::segmentAtPoint(const QPointF &point)
 
 void KoPathTool::activate(const QSet<KoShape*> &shapes)
 {
-    setDisableTouch(KSharedConfig::openConfig()->group("").readEntry("disableTouchOnCanvas", false));
     KoToolBase::activate(shapes);
 
     Q_D(KoToolBase);

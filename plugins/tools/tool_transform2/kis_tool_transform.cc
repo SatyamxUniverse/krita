@@ -161,6 +161,8 @@ KisToolTransform::KisToolTransform(KoCanvasBase * canvas)
             this, SLOT(slotTrackerChangedConfig(KisToolChangesTrackerDataSP)));
 
     connect(KisConfigNotifier::instance(), SIGNAL(configChanged()), SLOT(slotGlobalConfigChanged()));
+    updateDisableTouchFromConfig();
+    connect(KisConfigNotifier::instance(), SIGNAL(touchPaintingChanged()), this, SLOT(updateDisableTouchFromConfig()));
 }
 
 KisToolTransform::~KisToolTransform()
@@ -745,7 +747,6 @@ void KisToolTransform::newActivationWithExternalSource(KisPaintDeviceSP external
 
 void KisToolTransform::activate(const QSet<KoShape*> &shapes)
 {
-    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
     KisTool::activate(shapes);
 
     /// we cannot initialize the setting in the constructor, because

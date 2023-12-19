@@ -43,6 +43,7 @@
 
 #include <kundo2command.h>
 #include <kis_crop_saved_extra_data.h>
+#include <kis_config_notifier.h>
 
 
 struct DecorationLine
@@ -127,6 +128,8 @@ KisToolCrop::KisToolCrop(KoCanvasBase * canvas)
     
     lockRatioToggleOption = new KisAction(i18n("Lock Ratio"));
     lockRatioToggleOption->setCheckable(true);
+    updateDisableTouchFromConfig();
+    connect(KisConfigNotifier::instance(), SIGNAL(touchPaintingChanged()), this, SLOT(updateDisableTouchFromConfig()));
 }
 
 KisToolCrop::~KisToolCrop()
@@ -141,7 +144,6 @@ KisToolCrop::~KisToolCrop()
 
 void KisToolCrop::activate(const QSet<KoShape*> &shapes)
 {
-    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
     KisTool::activate(shapes);
     configGroup =  KSharedConfig::openConfig()->group(toolId()); // save settings to kritarc
 

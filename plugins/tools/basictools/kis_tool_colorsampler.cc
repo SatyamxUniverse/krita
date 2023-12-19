@@ -20,6 +20,7 @@
 #include <KisViewManager.h>
 #include "kis_display_color_converter.h"
 #include "kis_tool_utils.h"
+#include "kis_config_notifier.h"
 
 
 namespace
@@ -39,6 +40,8 @@ KisToolColorSampler::KisToolColorSampler(KoCanvasBase *canvas)
     connect(&m_helper, SIGNAL(sigRequestUpdateOutline()), this, SLOT(slotColorPickerRequestedOutlineUpdate()));
     connect(&m_helper, SIGNAL(sigRawColorSelected(KoColor)), this, SLOT(slotColorPickerSelectedColor(KoColor)));
     connect(&m_helper, SIGNAL(sigFinalColorSelected(KoColor)), this, SLOT(slotColorPickerSelectionFinished(KoColor)));
+    updateDisableTouchFromConfig();
+    connect(KisConfigNotifier::instance(), SIGNAL(touchPaintingChanged()), this, SLOT(updateDisableTouchFromConfig()));
 }
 
 KisToolColorSampler::~KisToolColorSampler()
@@ -109,7 +112,6 @@ void KisToolColorSampler::paint(QPainter &gc, const KoViewConverter &converter)
 
 void KisToolColorSampler::activate(const QSet<KoShape*> &shapes)
 {
-    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
     m_isActivated = true;
     m_config->load();
 

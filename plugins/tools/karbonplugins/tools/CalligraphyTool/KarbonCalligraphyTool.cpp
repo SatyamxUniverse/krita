@@ -29,7 +29,7 @@
 #include <klocalizedstring.h>
 #include <QPainter>
 
-#include "kis_config.h"
+#include "kis_config_notifier.h"
 
 #include <cmath>
 
@@ -48,7 +48,8 @@ KarbonCalligraphyTool::KarbonCalligraphyTool(KoCanvasBase *canvas)
     , m_lastShape(0)
 {
     connect(canvas->selectedShapesProxy(), SIGNAL(selectionChanged()), SLOT(updateSelectedPath()));
-
+    updateDisableTouchFromConfig();
+    connect(KisConfigNotifier::instance(), SIGNAL(touchPaintingChanged()), this, SLOT(updateDisableTouchFromConfig()));
     updateSelectedPath();
 }
 
@@ -333,7 +334,6 @@ qreal KarbonCalligraphyTool::calculateAngle(const QPointF &oldSpeed, const QPoin
 
 void KarbonCalligraphyTool::activate(const QSet<KoShape*> &shapes)
 {
-    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
     KoToolBase::activate(shapes);
 
     if (!m_widget) {

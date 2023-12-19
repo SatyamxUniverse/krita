@@ -13,8 +13,7 @@
 #include "KoPointerEvent.h"
 #include "KoCanvasBase.h"
 #include "KoCanvasController.h"
-#include <KSharedConfig>
-#include <KConfigGroup>
+#include "kis_config_notifier.h"
 
 #include <FlakeDebug.h>
 
@@ -28,6 +27,9 @@ KoZoomTool::KoZoomTool(KoCanvasBase *canvas)
     outPixmap.load(":/zoom_out_cursor.png");
     m_inCursor = QCursor(inPixmap, 4, 4);
     m_outCursor = QCursor(outPixmap, 4, 4);
+
+    updateDisableTouchFromConfig();
+    connect(KisConfigNotifier::instance(), SIGNAL(touchPaintingChanged()), this, SLOT(updateDisableTouchFromConfig()));
 }
 
 void KoZoomTool::mouseReleaseEvent(KoPointerEvent *event)
@@ -60,7 +62,6 @@ void KoZoomTool::keyReleaseEvent(QKeyEvent *event)
 
 void KoZoomTool::activate(const QSet<KoShape*> &)
 {
-    setDisableTouch(KSharedConfig::openConfig()->group("").readEntry("disableTouchOnCanvas", false));
     updateCursor(false);
 }
 

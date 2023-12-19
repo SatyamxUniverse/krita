@@ -433,6 +433,11 @@ public Q_SLOTS:
      */
     void updateOptionsWidgetIcons();
 
+    /**
+     * use this slot to update the disable touch from the current config.
+     */
+    void updateDisableTouchFromConfig();
+
 Q_SIGNALS:
 
     /**

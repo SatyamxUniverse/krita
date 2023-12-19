@@ -26,6 +26,10 @@
 
 #include <klocalizedstring.h>
 #include <kactioncollection.h>
+
+#include <KSharedConfig>
+#include <KConfigGroup>
+
 #include <QWidget>
 #include <QFile>
 #include <QDomDocument>
@@ -457,4 +461,9 @@ void KoToolBase::updateOptionsWidgetIcons()
             KisIconUtils::updateIconCommon(object);
         }
     }
+}
+
+void KoToolBase::updateDisableTouchFromConfig()
+{
+    setDisableTouch(KSharedConfig::openConfig()->group("").readEntry("disableTouchOnCanvas", false));
 }

@@ -50,6 +50,7 @@
 #include <KoInteractionStrategyFactory.h>
 
 #include "kis_document_aware_spin_box_unit_manager.h"
+#include "kis_config_notifier.h"
 
 #include <KoIcon.h>
 
@@ -464,6 +465,8 @@ DefaultTool::DefaultTool(KoCanvasBase *canvas, bool connectToSelectedShapesProxy
         connect(canvas->selectedShapesProxy(), SIGNAL(selectionChanged()), this, SLOT(repaintDecorations()));
         connect(canvas->selectedShapesProxy(), SIGNAL(selectionContentChanged()), this, SLOT(repaintDecorations()));
     }
+    updateDisableTouchFromConfig();
+    connect(KisConfigNotifier::instance(), SIGNAL(touchPaintingChanged()), this, SLOT(updateDisableTouchFromConfig()));
 }
 
 DefaultTool::~DefaultTool()
@@ -1161,7 +1164,6 @@ void DefaultTool::recalcSelectionBox(KoSelection *selection)
 
 void DefaultTool::activate(const QSet<KoShape *> &shapes)
 {
-    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
     KoToolBase::activate(shapes);
 
     QAction *actionBringToFront = action("object_order_front");
