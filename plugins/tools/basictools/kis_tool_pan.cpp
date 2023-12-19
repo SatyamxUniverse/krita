@@ -17,11 +17,16 @@
 KisToolPan::KisToolPan(KoCanvasBase *canvas)
     : KisTool(canvas, KisCursor::openHandCursor())
 {
-    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
 }
 
 KisToolPan::~KisToolPan()
 {
+}
+
+void KisToolPan::activate(const QSet<KoShape *> &shapes)
+{
+    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
+    KisTool::activate(shapes);
 }
 
 void KisToolPan::beginPrimaryAction(KoPointerEvent *event)

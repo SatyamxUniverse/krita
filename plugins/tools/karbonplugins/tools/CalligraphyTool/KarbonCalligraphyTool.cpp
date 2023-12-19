@@ -50,7 +50,6 @@ KarbonCalligraphyTool::KarbonCalligraphyTool(KoCanvasBase *canvas)
     connect(canvas->selectedShapesProxy(), SIGNAL(selectionChanged()), SLOT(updateSelectedPath()));
 
     updateSelectedPath();
-    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
 }
 
 KarbonCalligraphyTool::~KarbonCalligraphyTool()
@@ -334,6 +333,7 @@ qreal KarbonCalligraphyTool::calculateAngle(const QPointF &oldSpeed, const QPoin
 
 void KarbonCalligraphyTool::activate(const QSet<KoShape*> &shapes)
 {
+    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
     KoToolBase::activate(shapes);
 
     if (!m_widget) {

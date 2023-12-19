@@ -34,7 +34,6 @@ KisToolColorSampler::KisToolColorSampler(KoCanvasBase *canvas)
       m_helper(dynamic_cast<KisCanvas2*>(canvas))
 {
     setObjectName("tool_colorsampler");
-    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
     connect(&m_helper, SIGNAL(sigRequestCursor(QCursor)), this, SLOT(slotColorPickerRequestedCursor(QCursor)));
     connect(&m_helper, SIGNAL(sigRequestCursorReset()), this, SLOT(slotColorPickerRequestedCursorReset()));
     connect(&m_helper, SIGNAL(sigRequestUpdateOutline()), this, SLOT(slotColorPickerRequestedOutlineUpdate()));
@@ -110,7 +109,7 @@ void KisToolColorSampler::paint(QPainter &gc, const KoViewConverter &converter)
 
 void KisToolColorSampler::activate(const QSet<KoShape*> &shapes)
 {
-
+    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
     m_isActivated = true;
     m_config->load();
 

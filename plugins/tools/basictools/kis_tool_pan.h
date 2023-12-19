@@ -17,6 +17,7 @@ public:
     KisToolPan(KoCanvasBase *canvas);
     ~KisToolPan() override;
 
+    void activate(const QSet<KoShape *> &shapes) override;
     void beginPrimaryAction(KoPointerEvent *event) override;
     void continuePrimaryAction(KoPointerEvent *event) override;
     void endPrimaryAction(KoPointerEvent *event) override;

@@ -89,7 +89,6 @@ KoPathTool::KoPathTool(KoCanvasBase *canvas)
     : KoToolBase(canvas)
     , m_pointSelection(this)
 {
-    setDisableTouch(KSharedConfig::openConfig()->group("").readEntry("disableTouchOnCanvas", false));
     m_actionPathPointCorner = action("pathpoint-corner");
     m_actionPathPointSmooth = action("pathpoint-smooth");
     m_actionPathPointSymmetric = action("pathpoint-symmetric");
@@ -862,6 +861,7 @@ KoPathTool::PathSegment* KoPathTool::segmentAtPoint(const QPointF &point)
 
 void KoPathTool::activate(const QSet<KoShape*> &shapes)
 {
+    setDisableTouch(KSharedConfig::openConfig()->group("").readEntry("disableTouchOnCanvas", false));
     KoToolBase::activate(shapes);
 
     Q_D(KoToolBase);

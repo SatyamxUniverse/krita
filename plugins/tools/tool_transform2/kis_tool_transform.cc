@@ -119,7 +119,6 @@ KisToolTransform::KisToolTransform(KoCanvasBase * canvas)
     Q_ASSERT(m_canvas);
 
     setObjectName("tool_transform");
-    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
     m_optionsWidget = 0;
 
     warpAction = new KisAction(i18nc("Warp Transform Tab Label", "Warp"));
@@ -746,6 +745,7 @@ void KisToolTransform::newActivationWithExternalSource(KisPaintDeviceSP external
 
 void KisToolTransform::activate(const QSet<KoShape*> &shapes)
 {
+    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
     KisTool::activate(shapes);
 
     /// we cannot initialize the setting in the constructor, because

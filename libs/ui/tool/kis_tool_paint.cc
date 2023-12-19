@@ -97,8 +97,6 @@ KisToolPaint::KisToolPaint(KoCanvasBase *canvas, const QCursor &cursor)
         m_standardBrushSizes.push_back(maxSize);
     }
 
-    setDisableTouch(KisConfig(true).disableTouchOnCanvas()); // Allow touch painting if configured as such.
-
     KisCanvas2 *kiscanvas = dynamic_cast<KisCanvas2*>(canvas);
     KIS_ASSERT(kiscanvas);
     connect(this, SIGNAL(sigPaintingFinished()), kiscanvas->viewManager()->canvasResourceProvider(), SLOT(slotPainting()));
@@ -187,6 +185,7 @@ void KisToolPaint::tryRestoreOpacitySnapshot()
 
 void KisToolPaint::activate(const QSet<KoShape*> &shapes)
 {
+    setDisableTouch(KisConfig(true).disableTouchOnCanvas()); // Allow touch painting if configured as such.
     if (currentPaintOpPreset()) {
         const QString formattedBrushName = currentPaintOpPreset() ? currentPaintOpPreset()->name().replace("_", " ") : QString();
         emit statusTextChanged(formattedBrushName);

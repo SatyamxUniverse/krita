@@ -416,7 +416,6 @@ DefaultTool::DefaultTool(KoCanvasBase *canvas, bool connectToSelectedShapesProxy
     , m_tabbedOptionWidget(0)
 {
     setupActions();
-    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
 
     QPixmap rotatePixmap, shearPixmap;
     rotatePixmap.load(":/cursor_rotate.png");
@@ -1162,6 +1161,7 @@ void DefaultTool::recalcSelectionBox(KoSelection *selection)
 
 void DefaultTool::activate(const QSet<KoShape *> &shapes)
 {
+    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
     KoToolBase::activate(shapes);
 
     QAction *actionBringToFront = action("object_order_front");

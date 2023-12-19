@@ -57,7 +57,6 @@ KisAssistantTool::KisAssistantTool(KoCanvasBase * canvas)
 {
     Q_ASSERT(m_canvas);
     setObjectName("tool_assistanttool");
-    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
 }
 
 KisAssistantTool::~KisAssistantTool()
@@ -66,7 +65,7 @@ KisAssistantTool::~KisAssistantTool()
 
 void KisAssistantTool::activate(const QSet<KoShape*> &shapes)
 {
-
+    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
     KisTool::activate(shapes);
 
     m_canvas->paintingAssistantsDecoration()->activateAssistantsEditor();

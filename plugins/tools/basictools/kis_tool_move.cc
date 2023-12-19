@@ -57,7 +57,6 @@ KisToolMove::KisToolMove(KoCanvasBase *canvas)
     , m_updateCursorCompressor(100, KisSignalCompressor::FIRST_ACTIVE)
 {
     setObjectName("tool_move");
-    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
 
     m_showCoordinatesAction = action("movetool-show-coordinates");
     m_showCoordinatesAction = action("movetool-show-coordinates");
@@ -391,6 +390,7 @@ void KisToolMove::moveDiscrete(MoveDirection direction, bool big)
 
 void KisToolMove::activate(const QSet<KoShape*> &shapes)
 {
+    setDisableTouch(KisConfig(true).disableTouchOnCanvas());
     KisTool::activate(shapes);
 
     m_actionConnections.addConnection(action("movetool-move-up"), SIGNAL(triggered(bool)),
