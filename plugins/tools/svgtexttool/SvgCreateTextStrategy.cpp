@@ -278,6 +278,8 @@ void SvgCreateTextStrategy::setPreviewText(QString text)
     if (m_previewTextShape->plainText() == text) {
         return;
     }
-    m_previewTextShape->removeText(0, m_previewTextShape->plainText().length());
+    int start = 0;
+    int length = m_previewTextShape->plainText().length();
+    m_previewTextShape->removeText(start, length);
     m_previewTextShape->insertText(0, std::move(text));
 }
