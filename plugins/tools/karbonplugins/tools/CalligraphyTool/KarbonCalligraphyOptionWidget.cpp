@@ -215,9 +215,16 @@ void KarbonCalligraphyOptionWidget::saveProfileAs()
         }
 
         if (name.isEmpty() || name == i18n("Current")) {
-            KMessageBox::error(this,
-                               i18n("Sorry, the name you entered is invalid."),
-                               i18nc("invalid profile name", "Invalid name."));
+#if KWIDGETSADDONS_VERSION_MAJOR > 5 ||
+            (KWIDGETSADDONS_VERSION_MAJOR == 5 &&
+             KWIDGETSADDONS_VERSION_MINOR >= 97)
+            KMessageBox::error(
+#else
+            KMessageBox::sorry(
+#endif
+                this,
+                i18n("Sorry, the name you entered is invalid."),
+                i18nc("invalid profile name", "Invalid name."));
 
             continue; // ask again
         }
