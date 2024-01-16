@@ -37,7 +37,6 @@
 #include <boost/operators.hpp>
 #include "KisMoveBoundsCalculationJob.h"
 #include <KisOptimizedBrushOutline.h>
-#include "kis_config_notifier.h"
 
 
 struct KisToolMoveState : KisToolChangesTrackerData, boost::equality_comparable<KisToolMoveState>
@@ -78,8 +77,6 @@ KisToolMove::KisToolMove(KoCanvasBase *canvas)
     m_optionsWidget->slotSetTranslate(m_handlesRect.topLeft() + currentOffset());
 
     connect(this, SIGNAL(moveInNewPosition(QPoint)), m_optionsWidget, SLOT(slotSetTranslate(QPoint)), Qt::UniqueConnection);
-    updateDisableTouchFromConfig();
-    connect(KisConfigNotifier::instance(), SIGNAL(touchPaintingChanged()), this, SLOT(updateDisableTouchFromConfig()));
 }
 
 KisToolMove::~KisToolMove()

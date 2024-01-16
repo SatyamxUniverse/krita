@@ -36,11 +36,12 @@
 #include <QDomElement>
 #include <QApplication>
 
-KoToolBase::KoToolBase(KoCanvasBase *canvas)
-    : d_ptr(new KoToolBasePrivate(this, canvas))
+KoToolBase::KoToolBase(KoCanvasBase *canvas, TouchSupport touch)
+    : d_ptr(new KoToolBasePrivate(this, canvas, int(touch)))
 {
     Q_D(KoToolBase);
     d->connectSignals();
+    connectTouchConfigSignals(touch);
 }
 
 KoToolBase::KoToolBase(KoToolBasePrivate &dd)
@@ -48,6 +49,7 @@ KoToolBase::KoToolBase(KoToolBasePrivate &dd)
 {
     Q_D(KoToolBase);
     d->connectSignals();
+    connectTouchConfigSignals(TouchSupport(d_ptr->touchMode));
 }
 
 KoToolBase::~KoToolBase()
@@ -227,6 +229,17 @@ void KoToolBase::setFactory(KoToolFactoryBase *factory)
 {
     Q_D(KoToolBase);
     d->factory = factory;
+}
+
+void KoToolBase::connectTouchConfigSignals(KoToolBase::TouchSupport touchMode)
+{
+    Q_D(KoToolBase);
+    if (touchMode == TouchDefault) {
+        updateDisableTouchFromConfig();
+        connect(KisConfigNotifier::instance(), SIGNAL(touchPaintingChanged()), SLOT(updateDisableTouchFromConfig()));
+    } else {
+        d->disableTouch = (touchMode == TouchAlwaysOff);
+    }
 }
 
 KoToolFactoryBase* KoToolBase::factory() const
@@ -440,13 +453,6 @@ bool KoToolBase::disableTouch() const
     return d->disableTouch;
 }
 
-void KoToolBase::setDisableTouch(bool value)
-{
-    Q_D(KoToolBase);
-    d->disableTouch = value;
-    emit disableTouchChanged(d->disableTouch);
-}
-
 void KoToolBase::updateOptionsWidgetIcons()
 {
     Q_D(KoToolBase);
@@ -465,5 +471,7 @@ void KoToolBase::updateOptionsWidgetIcons()
 
 void KoToolBase::updateDisableTouchFromConfig()
 {
-    setDisableTouch(KSharedConfig::openConfig()->group("").readEntry("disableTouchOnCanvas", false));
+    Q_D(KoToolBase);
+    d->disableTouch = KSharedConfig::openConfig()->group("").readEntry("disableTouchOnCanvas", false);
+    emit disableTouchChanged(d->disableTouch);
 }

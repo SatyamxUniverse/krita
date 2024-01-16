@@ -39,7 +39,6 @@
 #include <KSharedConfig>
 #include "kis_assert.h"
 #include <kis_coordinates_converter.h>
-#include <kis_config_notifier.h>
 
 #include <KoFileDialog.h>
 #include <KoIcon.h>
@@ -78,7 +77,7 @@ static bool debugEnabled()
 }
 
 SvgTextTool::SvgTextTool(KoCanvasBase *canvas)
-    : KoToolBase(canvas)
+    : KoToolBase(canvas, KoToolBase::TouchAlwaysOn)
     , m_textCursor(canvas)
 {
      // TODO: figure out whether we should use system config for this, Windows and GTK have values for it, but Qt and MacOS don't(?).
@@ -96,9 +95,6 @@ SvgTextTool::SvgTextTool(KoCanvasBase *canvas)
     m_ibeam_horizontal = QCursor(QPixmap(":/tool_text_i_beam_horizontal.xpm"), 11, 11);
     m_ibeam_vertical = QCursor(QPixmap(":/tool_text_i_beam_vertical.xpm"), 11, 11);
     m_ibeam_horizontal_done = QCursor(QPixmap(":/tool_text_i_beam_horizontal_done.xpm"), 5, 11);
-
-    updateDisableTouchFromConfig();
-    connect(KisConfigNotifier::instance(), SIGNAL(touchPaintingChanged()), this, SLOT(updateDisableTouchFromConfig()));
 }
 
 SvgTextTool::~SvgTextTool()
@@ -408,10 +404,8 @@ void SvgTextTool::slotShapeSelectionChanged()
         m_textCursor.setShape(shape);
         if (shape) {
             setTextMode(true);
-            setDisableTouch(false);
         } else {
             setTextMode(false);
-            setDisableTouch(KisConfig(true).disableTouchOnCanvas());
         }
     }
 }

@@ -55,11 +55,18 @@ class KRITAFLAKE_EXPORT KoToolBase : public QObject
 {
     Q_OBJECT
 public:
+
+    enum TouchSupport {
+        TouchDefault,  ///< Touch will follow the touch painting toggle in the settings.
+        TouchAlwaysOn,
+        TouchAlwaysOff
+    };
+
     /**
      * Constructor, normally only called by the factory (see KoToolFactoryBase)
      * @param canvas the canvas interface this tool will work for.
      */
-    explicit KoToolBase(KoCanvasBase *canvas);
+    explicit KoToolBase(KoCanvasBase *canvas, TouchSupport touch = TouchDefault);
     ~KoToolBase() override;
 
     /**
@@ -529,12 +536,6 @@ protected:
       * are able to type. If you don't set it, then single key shortcuts will get the key event and not this tool.
       */
     void setTextMode(bool value);
-
-    /**
-     * Allows subclasses to specify whether they allow touch interaction.
-     */
-    void setDisableTouch(bool value);
-
     /**
      * Returns true if activate() has been called (more times than deactivate :) )
      */
@@ -563,6 +564,8 @@ private:
      * @see KoToolFactoryBase
      */
     void setFactory(KoToolFactoryBase *factory);
+
+    void connectTouchConfigSignals(TouchSupport touchMode);
 
     KoToolBase();
     KoToolBase(const KoToolBase&);

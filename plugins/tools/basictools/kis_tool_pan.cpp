@@ -12,14 +12,12 @@
 
 #include <KoIcon.h>
 #include <klocalizedstring.h>
-#include "kis_config_notifier.h"
 
 
 KisToolPan::KisToolPan(KoCanvasBase *canvas)
     : KisTool(canvas, KisCursor::openHandCursor())
 {
     updateDisableTouchFromConfig();
-    connect(KisConfigNotifier::instance(), SIGNAL(touchPaintingChanged()), this, SLOT(updateDisableTouchFromConfig()));
 }
 
 KisToolPan::~KisToolPan()

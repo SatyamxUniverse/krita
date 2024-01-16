@@ -30,7 +30,6 @@
 #include "kis_canvas2.h"
 #include "KisViewManager.h"
 #include <KisOptimizedBrushOutline.h>
-#include "kis_config_notifier.h"
 
 #define INNER_RADIUS 50
 
@@ -101,7 +100,6 @@ KisToolMeasure::KisToolMeasure(KoCanvasBase * canvas)
     : KisTool(canvas, KisCursor::crossCursor())
 {
     updateDisableTouchFromConfig();
-    connect(KisConfigNotifier::instance(), SIGNAL(touchPaintingChanged()), this, SLOT(updateDisableTouchFromConfig()));
 }
 
 KisToolMeasure::~KisToolMeasure()

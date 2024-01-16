@@ -49,7 +49,7 @@ public:
      * and handled by interaction strategies of type KoInteractionStrategy.
      * @param canvas the canvas this tool will be working for.
      */
-    explicit KoInteractionTool(KoCanvasBase *canvas);
+    explicit KoInteractionTool(KoCanvasBase *canvas, KoToolBase::TouchSupport touch = TouchDefault);
     ~KoInteractionTool() override;
 
 public:

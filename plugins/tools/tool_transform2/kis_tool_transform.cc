@@ -161,8 +161,6 @@ KisToolTransform::KisToolTransform(KoCanvasBase * canvas)
             this, SLOT(slotTrackerChangedConfig(KisToolChangesTrackerDataSP)));
 
     connect(KisConfigNotifier::instance(), SIGNAL(configChanged()), SLOT(slotGlobalConfigChanged()));
-    updateDisableTouchFromConfig();
-    connect(KisConfigNotifier::instance(), SIGNAL(touchPaintingChanged()), this, SLOT(updateDisableTouchFromConfig()));
 }
 
 KisToolTransform::~KisToolTransform()

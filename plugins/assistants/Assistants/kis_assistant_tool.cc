@@ -36,7 +36,6 @@
 #include <kis_image.h>
 #include <kis_painting_assistants_decoration.h>
 #include <kis_undo_adapter.h>
-#include <kis_config_notifier.h>
 
 #include <KisViewManager.h>
 
@@ -58,8 +57,6 @@ KisAssistantTool::KisAssistantTool(KoCanvasBase * canvas)
 {
     Q_ASSERT(m_canvas);
     setObjectName("tool_assistanttool");
-    updateDisableTouchFromConfig();
-    connect(KisConfigNotifier::instance(), SIGNAL(touchPaintingChanged()), this, SLOT(updateDisableTouchFromConfig()));
 }
 
 KisAssistantTool::~KisAssistantTool()
