@@ -65,6 +65,7 @@ KisAssistantTool::~KisAssistantTool()
 
 void KisAssistantTool::activate(const QSet<KoShape*> &shapes)
 {
+
     KisTool::activate(shapes);
 
     m_canvas->paintingAssistantsDecoration()->activateAssistantsEditor();

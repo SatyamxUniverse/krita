@@ -46,6 +46,7 @@ KarbonCalligraphyTool::KarbonCalligraphyTool(KoCanvasBase *canvas)
     , m_lastShape(0)
 {
     connect(canvas->selectedShapesProxy(), SIGNAL(selectionChanged()), SLOT(updateSelectedPath()));
+
     updateSelectedPath();
 }
 

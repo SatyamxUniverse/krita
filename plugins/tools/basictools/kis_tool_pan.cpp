@@ -17,7 +17,6 @@
 KisToolPan::KisToolPan(KoCanvasBase *canvas)
     : KisTool(canvas, KisCursor::openHandCursor())
 {
-    updateDisableTouchFromConfig();
 }
 
 KisToolPan::~KisToolPan()

@@ -109,6 +109,7 @@ void KisToolColorSampler::paint(QPainter &gc, const KoViewConverter &converter)
 
 void KisToolColorSampler::activate(const QSet<KoShape*> &shapes)
 {
+
     m_isActivated = true;
     m_config->load();
 

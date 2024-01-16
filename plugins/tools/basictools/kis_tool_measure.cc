@@ -99,13 +99,11 @@ void KisToolMeasureOptionsWidget::updateDistance()
 KisToolMeasure::KisToolMeasure(KoCanvasBase * canvas)
     : KisTool(canvas, KisCursor::crossCursor())
 {
-    updateDisableTouchFromConfig();
 }
 
 KisToolMeasure::~KisToolMeasure()
 {
 }
-
 QPointF KisToolMeasure::lockedAngle(QPointF pos)
 {
     const QPointF lineVector = pos - m_startPos;
