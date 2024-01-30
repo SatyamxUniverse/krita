@@ -108,8 +108,6 @@ KoPathTool::KoPathTool(KoCanvasBase *canvas)
     m_moveCursor = QCursor(QIcon(":/cursor-needle-move.svg").pixmap(32), 0, 0);
 
     connect(&m_pointSelection, SIGNAL(selectionChanged()), SLOT(repaintDecorations()));
-    updateDisableTouchFromConfig();
-    connect(KisConfigNotifier::instance(), SIGNAL(touchPaintingChanged()), this, SLOT(updateDisableTouchFromConfig()));
 }
 
 KoPathTool::~KoPathTool()
