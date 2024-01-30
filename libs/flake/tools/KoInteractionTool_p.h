@@ -15,7 +15,7 @@
 class KoInteractionToolPrivate : public KoToolBasePrivate
 {
 public:
-    KoInteractionToolPrivate(KoToolBase *qq, KoCanvasBase *canvas, int touchMode)
+    KoInteractionToolPrivate(KoToolBase *qq, KoCanvasBase *canvas, KoToolBase::TouchSupport touchMode)
         : KoToolBasePrivate(qq, canvas, touchMode),
         currentStrategy(0)
     {

@@ -37,7 +37,7 @@
 #include <QApplication>
 
 KoToolBase::KoToolBase(KoCanvasBase *canvas, TouchSupport touch)
-    : d_ptr(new KoToolBasePrivate(this, canvas, int(touch)))
+    : d_ptr(new KoToolBasePrivate(this, canvas, touch))
 {
     Q_D(KoToolBase);
     d->connectSignals();
@@ -49,7 +49,7 @@ KoToolBase::KoToolBase(KoToolBasePrivate &dd)
 {
     Q_D(KoToolBase);
     d->connectSignals();
-    connectTouchConfigSignals(TouchSupport(d_ptr->touchMode));
+    connectTouchConfigSignals(d_ptr->touchMode);
 }
 
 KoToolBase::~KoToolBase()

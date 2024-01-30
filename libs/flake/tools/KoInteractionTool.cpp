@@ -16,7 +16,7 @@
 
 
 KoInteractionTool::KoInteractionTool(KoCanvasBase *canvas, TouchSupport touch)
-    : KoToolBase(*(new KoInteractionToolPrivate(this, canvas, int(touch))))
+    : KoToolBase(*(new KoInteractionToolPrivate(this, canvas, touch)))
 {
 }
 
