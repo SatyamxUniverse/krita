@@ -22,6 +22,14 @@ extern const int MAX_PSD_SIZE;
 
 class KisDocument;
 
+struct KisWdgPSDOptions {
+    KisWdgPSDOptions()
+        : forceStoreLayerInfo(false)
+    {}
+
+    bool forceStoreLayerInfo;
+};
+
 class PSDSaver : public QObject {
 
     Q_OBJECT
@@ -32,7 +40,7 @@ public:
     ~PSDSaver() override;
 
 public:
-    KisImportExportErrorCode buildFile(QIODevice &io);
+    KisImportExportErrorCode buildFile(QIODevice &io, KisWdgPSDOptions options);
 
     KisImageSP image();
 

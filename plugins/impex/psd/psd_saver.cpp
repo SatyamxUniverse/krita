@@ -89,7 +89,7 @@ KisImageSP PSDSaver::image()
     return m_image;
 }
 
-KisImportExportErrorCode PSDSaver::buildFile(QIODevice &io)
+KisImportExportErrorCode PSDSaver::buildFile(QIODevice &io, KisWdgPSDOptions options)
 {
     KIS_ASSERT_RECOVER_RETURN_VALUE(m_image, ImportExportCodes::InternalError);
 
@@ -101,6 +101,7 @@ KisImportExportErrorCode PSDSaver::buildFile(QIODevice &io)
         m_image->rootLayer()->firstChild()->childCount() > 0 ||
         // check if "oblige child" mechanism is in action, then forbid collapsing
         m_image->rootLayer()->projection() != m_image->rootLayer()->firstChild()->projection() ||
+        options.forceStoreLayerInfo ||
         KisPainter::checkDeviceHasTransparency(
                 m_image->rootLayer()->firstChild()->projection());
 

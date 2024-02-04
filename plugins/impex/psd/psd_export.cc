@@ -20,6 +20,7 @@
 
 #include <KisDocument.h>
 #include <kis_image.h>
+#include <kis_config.h>
 #include <kis_group_layer.h>
 #include <kis_paint_layer.h>
 #include <kis_paint_device.h>
@@ -38,10 +39,27 @@ psdExport::~psdExport()
 {
 }
 
-KisImportExportErrorCode psdExport::convert(KisDocument *document, QIODevice *io,  KisPropertiesConfigurationSP /*configuration*/)
+KisImportExportErrorCode psdExport::convert(KisDocument *document, QIODevice *io,  KisPropertiesConfigurationSP configuration)
 {
     PSDSaver psdSaver(document);
-    return psdSaver.buildFile(*io);
+
+    KisWdgPSDOptions options;
+
+    options.forceStoreLayerInfo = configuration->getBool("forceStoreLayerInfo", false);
+
+    return psdSaver.buildFile(*io, options);
+}
+
+KisPropertiesConfigurationSP psdExport::defaultConfiguration(const QByteArray &, const QByteArray &) const
+{
+    KisPropertiesConfigurationSP cfg = new KisPropertiesConfiguration();
+    cfg->setProperty("forceStoreLayerInfo", false);
+    return cfg;
+}
+
+KisConfigWidget *psdExport::createConfigurationWidget(QWidget *parent, const QByteArray &, const QByteArray &) const
+{
+    return new KisOptionsPSD(parent);
 }
 
 void psdExport::initializeCapabilities()
@@ -78,6 +96,34 @@ void psdExport::initializeCapabilities()
     addCapability(KisExportCheckRegistry::instance()->get("FillLayerTypeCheck/color")->create(KisExportCheckBase::SUPPORTED));
     addCapability(KisExportCheckRegistry::instance()->get("FillLayerTypeCheck/pattern")->create(KisExportCheckBase::SUPPORTED));
     addCapability(KisExportCheckRegistry::instance()->get("FillLayerTypeCheck/gradient")->create(KisExportCheckBase::SUPPORTED));
+}
+
+KisOptionsPSD::KisOptionsPSD(QWidget *parent)
+    : KisConfigWidget(parent)
+{
+    setupUi(this);
+}
+
+void KisOptionsPSD::setConfiguration(const KisPropertiesConfigurationSP cfg)
+{
+    // the export manager should have prepared some info for us!
+    KIS_SAFE_ASSERT_RECOVER_NOOP(cfg->hasProperty(KisImportExportFilter::ImageContainsTransparencyTag));
+
+    const bool isThereAlpha = cfg->getBool(KisImportExportFilter::ImageContainsTransparencyTag);
+
+    chkForceStoreLayerInfo->setVisible(!isThereAlpha);
+}
+
+KisPropertiesConfigurationSP KisOptionsPSD::configuration() const
+{
+
+    KisPropertiesConfigurationSP cfg(new KisPropertiesConfiguration());
+
+    bool forceStoreLayerInfo = this->chkForceStoreLayerInfo->isChecked();
+
+
+    cfg->setProperty("forceStoreLayerInfo", forceStoreLayerInfo);
+    return cfg;
 }
 
 #include <psd_export.moc>
