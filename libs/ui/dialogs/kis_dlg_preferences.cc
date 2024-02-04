@@ -43,6 +43,7 @@
 #include <KisDocument.h>
 #include <kis_icon.h>
 #include <KisPart.h>
+#include <KisSpinBoxI18nHelper.h>
 #include <KoColorModelStandardIds.h>
 #include <KoColorProfile.h>
 #include <KoColorSpaceEngine.h>
@@ -51,7 +52,6 @@
 #include <KoFileDialog.h>
 #include "KoID.h"
 #include <KoVBox.h>
-#include <KisSpinBoxPluralHelper.h>
 
 #include <KTitleWidget>
 #include <KoResourcePaths.h>
@@ -1311,7 +1311,7 @@ TabletSettingsTab::TabletSettingsTab(QWidget* parent, const char* name): QWidget
 
     m_page->intMaxAllowedBrushSpeed->setRange(1, 100);
     m_page->intMaxAllowedBrushSpeed->setValue(cfg.readEntry("maxAllowedSpeedValue", 30));
-    KisSpinBoxPluralHelper::install(m_page->intMaxAllowedBrushSpeed, [](int value) {
+    KisSpinBoxI18nHelper::install(m_page->intMaxAllowedBrushSpeed, [](int value) {
         // i18n: This is meant to be used in a spinbox so keep the {n} in the text
         //       and it will be substituted by the number. The text before will be
         //       used as the prefix and the text after as the suffix
@@ -1320,7 +1320,7 @@ TabletSettingsTab::TabletSettingsTab(QWidget* parent, const char* name): QWidget
 
     m_page->intBrushSpeedSmoothing->setRange(3, 100);
     m_page->intBrushSpeedSmoothing->setValue(cfg.readEntry("speedValueSmoothing", 3));
-    KisSpinBoxPluralHelper::install(m_page->intBrushSpeedSmoothing, [](int value) {
+    KisSpinBoxI18nHelper::install(m_page->intBrushSpeedSmoothing, [](int value) {
         // i18n: This is meant to be used in a spinbox so keep the {n} in the text
         //       and it will be substituted by the number. The text before will be
         //       used as the prefix and the text after as the suffix
@@ -1367,15 +1367,15 @@ PerformanceTab::PerformanceTab(QWidget *parent, const char *name)
     const double totalRAM = cfg.totalRAM();
     lblTotalMemory->setText(KFormat().formatByteSize(totalRAM * 1024 * 1024, 0, KFormat::IECBinaryDialect, KFormat::UnitMegaByte));
 
-    sliderMemoryLimit->setSuffix(i18n(" %"));
+    KisSpinBoxI18nHelper::setText(sliderMemoryLimit, i18nc("{n} is the number value, % is the percent sign", "{n}%"));
     sliderMemoryLimit->setRange(1, 100, 2);
     sliderMemoryLimit->setSingleStep(0.01);
 
-    sliderPoolLimit->setSuffix(i18n(" %"));
+    KisSpinBoxI18nHelper::setText(sliderPoolLimit, i18nc("{n} is the number value, % is the percent sign", "{n}%"));
     sliderPoolLimit->setRange(0, 20, 2);
     sliderPoolLimit->setSingleStep(0.01);
 
-    sliderUndoLimit->setSuffix(i18n(" %"));
+    KisSpinBoxI18nHelper::setText(sliderUndoLimit, i18nc("{n} is the number value, % is the percent sign", "{n}%"));
     sliderUndoLimit->setRange(0, 50, 2);
     sliderUndoLimit->setSingleStep(0.01);
 
@@ -1457,7 +1457,8 @@ PerformanceTab::PerformanceTab(QWidget *parent, const char *name)
     intCachedFramesSizeLimit->setPageStep(1000);
 
     intRegionOfInterestMargin->setRange(1, 100);
-    intRegionOfInterestMargin->setSuffix(i18n(" %"));
+    KisSpinBoxI18nHelper::setText(intRegionOfInterestMargin,
+                                  i18nc("{n} is the number value, % is the percent sign", "{n}%"));
     intRegionOfInterestMargin->setSingleStep(1);
     intRegionOfInterestMargin->setPageStep(10);
 
@@ -1623,6 +1624,8 @@ void PerformanceTab::slotFrameClonesLimitChanged(int value)
 #include <QOpenGLContext>
 #include <QScreen>
 
+namespace {
+
 QString colorSpaceString(KisSurfaceColorSpace cs, int depth)
 {
     const QString csString =
@@ -1650,6 +1653,22 @@ KisConfig::RootSurfaceFormat indexToFormat(int value)
            value == 2 ? KisConfig::BT709_G10 :
            KisConfig::BT709_G22;
 }
+
+int assistantDrawModeToIndex(KisConfig::AssistantsDrawMode mode)
+{
+    return mode == KisConfig::ASSISTANTS_DRAW_MODE_PIXMAP_CACHE ? 1 :
+           mode == KisConfig::ASSISTANTS_DRAW_MODE_LARGE_PIXMAP_CACHE ? 2 :
+           0;
+}
+
+KisConfig::AssistantsDrawMode indexToAssistantDrawMode(int value)
+{
+    return value == 1 ? KisConfig::ASSISTANTS_DRAW_MODE_PIXMAP_CACHE :
+           value == 2 ? KisConfig::ASSISTANTS_DRAW_MODE_LARGE_PIXMAP_CACHE :
+           KisConfig::ASSISTANTS_DRAW_MODE_DIRECT;
+}
+
+} // anonymous namespace
 
 DisplaySettingsTab::DisplaySettingsTab(QWidget *parent, const char *name)
     : WdgDisplaySettings(parent, name)
@@ -1723,16 +1742,15 @@ DisplaySettingsTab::DisplaySettingsTab(QWidget *parent, const char *name)
         grpOpenGL->setEnabled(false);
         grpOpenGL->setChecked(false);
         chkUseTextureBuffer->setEnabled(false);
-        chkLargePixmapCache->setEnabled(false);
+        cmbAssistantsDrawMode->setEnabled(false);
         cmbFilterMode->setEnabled(false);
     } else {
         grpOpenGL->setEnabled(true);
         grpOpenGL->setChecked(cfg.useOpenGL());
         chkUseTextureBuffer->setEnabled(cfg.useOpenGL());
         chkUseTextureBuffer->setChecked(cfg.useOpenGLTextureBuffer());
-        chkLargePixmapCache->setEnabled(cfg.useOpenGL());
-        chkLargePixmapCache->setChecked(
-            cfg.readEntry("needsPixmapCacheWorkaround", KisOpenGL::needsPixmapCacheWorkaround()));
+        cmbAssistantsDrawMode->setEnabled(cfg.useOpenGL());
+        cmbAssistantsDrawMode->setCurrentIndex(assistantDrawModeToIndex(cfg.assistantsDrawMode()));
         cmbFilterMode->setEnabled(cfg.useOpenGL());
         cmbFilterMode->setCurrentIndex(cfg.openGLFilteringMode());
         // Don't show the high quality filtering mode if it's not available
@@ -1879,7 +1897,7 @@ void DisplaySettingsTab::setDefault()
         grpOpenGL->setEnabled(false);
         grpOpenGL->setChecked(false);
         chkUseTextureBuffer->setEnabled(false);
-        chkLargePixmapCache->setEnabled(false);
+        cmbAssistantsDrawMode->setEnabled(false);
         cmbFilterMode->setEnabled(false);
     }
     else {
@@ -1887,9 +1905,8 @@ void DisplaySettingsTab::setDefault()
         grpOpenGL->setChecked(cfg.useOpenGL(true));
         chkUseTextureBuffer->setChecked(cfg.useOpenGLTextureBuffer(true));
         chkUseTextureBuffer->setEnabled(true);
-        chkLargePixmapCache->setEnabled(true);
-        chkLargePixmapCache->setChecked(
-            cfg.readEntry("needsPixmapCacheWorkaround", KisOpenGL::needsPixmapCacheWorkaround()));
+        cmbAssistantsDrawMode->setEnabled(true);
+        cmbAssistantsDrawMode->setCurrentIndex(assistantDrawModeToIndex(cfg.assistantsDrawMode(true)));
         cmbFilterMode->setEnabled(true);
         cmbFilterMode->setCurrentIndex(cfg.openGLFilteringMode(true));
     }
@@ -1935,7 +1952,7 @@ void DisplaySettingsTab::slotUseOpenGLToggled(bool isChecked)
 {
     chkUseTextureBuffer->setEnabled(isChecked);
     cmbFilterMode->setEnabled(isChecked);
-    chkLargePixmapCache->setEnabled(isChecked);
+    cmbAssistantsDrawMode->setEnabled(isChecked);
 }
 
 void DisplaySettingsTab::slotPreferredSurfaceFormatChanged(int index)
@@ -2425,7 +2442,7 @@ bool KisDlgPreferences::editPreferences()
         cfg.setUseOpenGLTextureBuffer(m_displaySettings->chkUseTextureBuffer->isChecked());
         cfg.setOpenGLFilteringMode(m_displaySettings->cmbFilterMode->currentIndex());
         cfg.setRootSurfaceFormat(&kritarc, indexToFormat(m_displaySettings->cmbPreferedRootSurfaceFormat->currentIndex()));
-        cfg.writeEntry("needsPixmapCacheWorkaround", m_displaySettings->chkLargePixmapCache->isChecked());
+        cfg.setAssistantsDrawMode(indexToAssistantDrawMode(m_displaySettings->cmbAssistantsDrawMode->currentIndex()));
 
         cfg.setCheckSize(m_displaySettings->intCheckSize->value());
         cfg.setScrollingCheckers(m_displaySettings->chkMoving->isChecked());

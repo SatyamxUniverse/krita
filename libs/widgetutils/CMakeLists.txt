@@ -46,7 +46,8 @@ set(kritawidgetutils_LIB_SRCS
     KisOptionButtonStrip.cpp
     KisRepaintDebugger.cpp
     KisMenuStyleDontCloseOnAlt.cpp
-    KisSpinBoxPluralHelper.cpp
+    KisSpinBoxI18nHelper.cpp
+    KisScreenMigrationTracker.cpp
 
     config/kcolorscheme.cpp
     config/kcolorschememanager.cpp
@@ -82,6 +83,7 @@ set(kritawidgetutils_LIB_SRCS
     xmlgui/ktoggletoolbaraction.cpp
     xmlgui/ktoolbar.cpp
     xmlgui/ktoolbarhandler.cpp
+    xmlgui/KisToolBarStateModel.cpp
     xmlgui/kundoactions.cpp
     xmlgui/kxmlguibuilder.cpp
     xmlgui/kxmlguiclient.cpp
@@ -115,6 +117,8 @@ target_include_directories(kritawidgetutils
     PUBLIC
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/config>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/xmlgui>
+    PRIVATE
+    ${Qt5Gui_PRIVATE_INCLUDE_DIRS}
 )
 
 generate_export_header(kritawidgetutils BASE_NAME kritawidgetutils)

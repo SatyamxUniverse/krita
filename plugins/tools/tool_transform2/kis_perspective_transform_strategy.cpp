@@ -23,7 +23,7 @@
 #include "kis_transform_utils.h"
 #include "kis_free_transform_strategy_gsl_helpers.h"
 
-
+namespace {
 enum StrokeFunction {
     DRAG_HANDLE = 0,
     DRAG_X_VANISHING_POINT,
@@ -43,6 +43,7 @@ enum HandleIndexes {
     HANDLE_MIDDLE_RIGHT,
     HANDLE_COUNT,
 };
+}
 
 struct KisPerspectiveTransformStrategy::Private
 {
@@ -272,8 +273,10 @@ void KisPerspectiveTransformStrategy::paint(QPainter &gc)
     QPainterPath mappedHandles = m_d->handlesTransform.map(handles);
 
     QPen pen[2];
-    pen[0].setWidth(1);
-    pen[1].setWidth(2);
+    pen[0].setWidth(decorationThickness());
+    pen[0].setCosmetic(true);
+    pen[1].setWidth(decorationThickness() * 2);
+    pen[1].setCosmetic(true);
     pen[1].setColor(Qt::lightGray);
 
     for (int i = 1; i >= 0; --i) {

@@ -710,7 +710,7 @@ xcopy /Y /S /I %DEPS_INSTALL_DIR%\share\mime %pkg_root%\share\mime
 xcopy /Y /S /I %DEPS_INSTALL_DIR%\share\krita\pykrita %pkg_root%\share\krita\pykrita
 robocopy %DEPS_INSTALL_DIR%\lib\site-packages %pkg_root%\lib\site-packages /S /E ^
     /XF "setuptools.pth" "easy-install.pth" ^
-    /XD "packaging*" "pip*" "ply*" "pyparsing*" "PyQt_builder*" "sip*" "toml*"
+    /XD "packaging*" "pip*" "ply*" "pyparsing*" "PyQt_builder*" "sip*" "toml*" "meson*"
 :: Not useful on Windows it seems
 rem xcopy /Y /S /I %KRITA_INSTALL_DIR%\share\appdata %pkg_root%\share\appdata
 rem xcopy /Y /S /I %KRITA_INSTALL_DIR%\share\applications %pkg_root%\share\applications
@@ -822,11 +822,13 @@ echo Packaging stripped binaries...
 "%SEVENZIP_EXE%" a -tzip %pkg_name%.zip %pkg_root%\ "-xr^!.debug"
 echo --------
 
-echo.
-echo Packaging debug info...
-:: (note that the top-level package dir is not included)
-"%SEVENZIP_EXE%" a -tzip %pkg_name%-dbg.zip -r %pkg_root%\*.debug
-echo --------
+if "%KRITA_SKIP_DEBUG_PACKAGE%" == "" (
+    echo.
+    echo Packaging debug info...
+    :: (note that the top-level package dir is not included)
+    "%SEVENZIP_EXE%" a -tzip %pkg_name%-dbg.zip -r %pkg_root%\*.debug
+    echo --------
+)
 
 echo.
 echo.

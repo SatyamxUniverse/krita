@@ -292,6 +292,9 @@ public:
     bool saveSessionOnQuit(bool defaultValue) const;
     void setSaveSessionOnQuit(bool value);
 
+    bool hideDevFundBanner(bool defaultValue = false) const;
+    void setHideDevFundBanner(bool value = true);
+
     qreal outlineSizeMinimum(bool defaultValue = false) const;
     void setOutlineSizeMinimum(qreal outlineSizeMinimum) const;
 
@@ -527,6 +530,9 @@ public:
     bool useEraserBrushOpacity(bool defaultValue = false) const;
     void setUseEraserBrushOpacity(bool value);
 
+    QPoint getDefaultGridSpacing(bool defaultValue = false) const;
+    void setDefaultGridSpacing(QPoint gridSpacing);
+
     QString getMDIBackgroundColor(bool defaultValue = false) const;
     void setMDIBackgroundColor(const QString & v) const;
 
@@ -677,6 +683,14 @@ public:
 
     bool useLayerSelectionCheckbox(bool defaultValue = false) const;
     void setUseLayerSelectionCheckbox(bool value);
+
+    enum AssistantsDrawMode {
+        ASSISTANTS_DRAW_MODE_DIRECT = 0,             // no caching, draw directly on canvas
+        ASSISTANTS_DRAW_MODE_PIXMAP_CACHE = 1,
+        ASSISTANTS_DRAW_MODE_LARGE_PIXMAP_CACHE = 2,
+    };
+    AssistantsDrawMode assistantsDrawMode(bool defaultValue = false) const;
+    void setAssistantsDrawMode(AssistantsDrawMode value);
 
     template<class T>
     void writeEntry(const QString& name, const T& value) {

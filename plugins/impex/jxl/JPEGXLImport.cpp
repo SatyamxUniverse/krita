@@ -494,7 +494,10 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
                 d.m_depthID_target = d.m_depthID;
                 d.m_colorID_target = d.m_colorID;
                 d.m_depthID = Float32BitsColorDepthID;
-                d.m_colorID = RGBAColorModelID;
+
+                if (d.m_colorID != GrayAColorModelID) {
+                    d.m_colorID = RGBAColorModelID;
+                }
             }
         } else if (status == JXL_DEC_COLOR_ENCODING) {
             // Determine color space information
@@ -508,7 +511,9 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
             JxlColorEncoding colorEncoding{};
             if (JXL_DEC_SUCCESS
                 == JxlDecoderGetColorAsEncodedProfile(dec.get(),
+#if JPEGXL_NUMERIC_VERSION < JPEGXL_COMPUTE_NUMERIC_VERSION(0, 9, 0)
                                                       nullptr,
+#endif
                                                       JXL_COLOR_PROFILE_TARGET_DATA,
                                                       &colorEncoding)) {
                 const TransferCharacteristics transferFunction = [&]() {
@@ -632,7 +637,12 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
                 size_t iccSize = 0;
                 QByteArray iccProfile;
                 if (JXL_DEC_SUCCESS
-                    != JxlDecoderGetICCProfileSize(dec.get(), nullptr, JXL_COLOR_PROFILE_TARGET_DATA, &iccSize)) {
+                    != JxlDecoderGetICCProfileSize(dec.get(),
+#if JPEGXL_NUMERIC_VERSION < JPEGXL_COMPUTE_NUMERIC_VERSION(0,9,0)
+                                                   nullptr,
+#endif
+                                                   JXL_COLOR_PROFILE_TARGET_DATA,
+                                                   &iccSize)) {
                     errFile << "ICC profile size retrieval failed";
                     document->setErrorMessage(i18nc("JPEG-XL errors", "Unable to read the image profile."));
                     return ImportExportCodes::ErrorWhileReading;
@@ -640,7 +650,9 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
                 iccProfile.resize(static_cast<int>(iccSize));
                 if (JXL_DEC_SUCCESS
                     != JxlDecoderGetColorAsICCProfile(dec.get(),
+#if JPEGXL_NUMERIC_VERSION < JPEGXL_COMPUTE_NUMERIC_VERSION(0,9,0)
                                                       nullptr,
+#endif
                                                       JXL_COLOR_PROFILE_TARGET_DATA,
                                                       reinterpret_cast<uint8_t *>(iccProfile.data()),
                                                       static_cast<size_t>(iccProfile.size()))) {
@@ -654,7 +666,9 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
                 if (!d.m_info.uses_original_profile) {
                     if (JXL_DEC_SUCCESS
                         != JxlDecoderGetICCProfileSize(dec.get(),
+#if JPEGXL_NUMERIC_VERSION < JPEGXL_COMPUTE_NUMERIC_VERSION(0,9,0)
                                                        nullptr,
+#endif
                                                        JXL_COLOR_PROFILE_TARGET_ORIGINAL,
                                                        &iccTargetSize)) {
                         errFile << "ICC profile size retrieval failed";
@@ -664,7 +678,9 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
                     iccTargetProfile.resize(static_cast<int>(iccTargetSize));
                     if (JXL_DEC_SUCCESS
                         != JxlDecoderGetColorAsICCProfile(dec.get(),
+#if JPEGXL_NUMERIC_VERSION < JPEGXL_COMPUTE_NUMERIC_VERSION(0,9,0)
                                                           nullptr,
+#endif
                                                           JXL_COLOR_PROFILE_TARGET_ORIGINAL,
                                                           reinterpret_cast<uint8_t *>(iccTargetProfile.data()),
                                                           static_cast<size_t>(iccTargetProfile.size()))) {
@@ -738,6 +754,8 @@ JPEGXLImport::convert(KisDocument *document, QIODevice *io, KisPropertiesConfigu
             }
 
             if (d.cs_target) {
+                dbgFile << "Source profile:" << d.cs->profile()->name();
+                dbgFile << "Source space:" << d.cs->name() << d.cs->colorModelId() << d.cs->colorDepthId();
                 dbgFile << "Target profile:" << d.cs_target->profile()->name();
                 dbgFile << "Color space:" << d.cs_target->name() << d.cs_target->colorModelId()
                         << d.cs_target->colorDepthId();

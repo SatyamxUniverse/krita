@@ -31,6 +31,7 @@
 #include <KoColorSpace.h>
 #include <KisHsvColorSlider.h>
 #include <KoColorConversions.h>
+#include <KisSpinBoxI18nHelper.h>
 
 #include "kis_double_parse_spin_box.h"
 #include "kis_int_parse_spin_box.h"
@@ -145,9 +146,7 @@ QWidget* KisIntegerColorInput::createInput()
     m_colorSlider->setMinimum(0);
 
     if (m_usePercentage) {
-        m_intNumInput->setSuffix(i18n("%"));
-    } else {
-        m_intNumInput->setSuffix("");
+        KisSpinBoxI18nHelper::setText(m_intNumInput, i18nc("{n} is the number value, % is the percent sign", "{n}%"));
     }
 
     switch (m_channelInfo->channelValueType()) {
@@ -188,8 +187,9 @@ void KisIntegerColorInput::setPercentageWise(bool val)
     m_usePercentage = val;
 
     if (m_usePercentage) {
-        m_intNumInput->setSuffix(i18n("%"));
+        KisSpinBoxI18nHelper::setText(m_intNumInput, i18nc("{n} is the number value, % is the percent sign", "{n}%"));
     } else {
+        m_intNumInput->setPrefix("");
         m_intNumInput->setSuffix("");
     }
 }

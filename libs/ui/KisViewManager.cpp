@@ -99,7 +99,6 @@
 #include <brushengine/kis_paintop_preset.h>
 #include "KisPart.h"
 #include <KoUpdater.h>
-#include "KisResourceServerProvider.h"
 #include "kis_selection.h"
 #include "kis_selection_mask.h"
 #include "kis_selection_manager.h"
@@ -238,10 +237,35 @@ public:
     KSelectAction *actionAuthor {nullptr}; // Select action for author profile.
     KisAction *showPixelGrid {nullptr};
 
-    QByteArray canvasState;
-#if QT_VERSION < QT_VERSION_CHECK(5, 10, 0)
-    QFlags<Qt::WindowState> windowFlags;
-#endif
+    QByteArray canvasStateInNormalMode;
+    QByteArray canvasStateInCanvasOnlyMode;
+
+    struct CanvasOnlyOptions : boost::equality_comparable<CanvasOnlyOptions>
+    {
+        CanvasOnlyOptions(const KisConfig &cfg)
+            : hideStatusbarFullscreen(cfg.hideStatusbarFullscreen())
+            , hideDockersFullscreen(cfg.hideDockersFullscreen())
+            , hideTitlebarFullscreen(cfg.hideTitlebarFullscreen())
+            , hideMenuFullscreen(cfg.hideMenuFullscreen())
+            , hideToolbarFullscreen(cfg.hideToolbarFullscreen())
+        {
+        }
+
+        bool hideStatusbarFullscreen = false;
+        bool hideDockersFullscreen = false;
+        bool hideTitlebarFullscreen = false;
+        bool hideMenuFullscreen = false;
+        bool hideToolbarFullscreen = false;
+
+        bool operator==(const CanvasOnlyOptions &rhs) {
+            return hideStatusbarFullscreen == rhs.hideStatusbarFullscreen &&
+                hideDockersFullscreen == rhs.hideDockersFullscreen &&
+                hideTitlebarFullscreen == rhs.hideTitlebarFullscreen &&
+                hideMenuFullscreen == rhs.hideMenuFullscreen &&
+                hideToolbarFullscreen == rhs.hideToolbarFullscreen;
+        }
+    };
+    std::optional<CanvasOnlyOptions> canvasOnlyOptions;
 
     bool blockUntilOperationsFinishedImpl(KisImageSP image, bool force);
 };
@@ -301,6 +325,8 @@ KisViewManager::KisViewManager(QWidget *parent, KisKActionCollection *_actionCol
 
     connect(KisPart::instance(), SIGNAL(sigViewAdded(KisView*)), SLOT(slotViewAdded(KisView*)));
     connect(KisPart::instance(), SIGNAL(sigViewRemoved(KisView*)), SLOT(slotViewRemoved(KisView*)));
+    connect(KisPart::instance(), SIGNAL(sigViewRemoved(KisView*)),
+            d->controlFrame.paintopBox(), SLOT(updatePresetConfig()));
 
     connect(KisConfigNotifier::instance(), SIGNAL(configChanged()), SLOT(slotUpdateAuthorProfileActions()));
     connect(KisConfigNotifier::instance(), SIGNAL(pixelGridModeChanged()), SLOT(slotUpdatePixelGridAction()));
@@ -344,6 +370,7 @@ void KisViewManager::initializeResourceManager(KoCanvasResourceProvider *resourc
     resourceManager->addDerivedResourceConverter(toQShared(new KisFadeResourceConverter));
     resourceManager->addDerivedResourceConverter(toQShared(new KisScatterResourceConverter));
     resourceManager->addDerivedResourceConverter(toQShared(new KisSizeResourceConverter));
+    resourceManager->addDerivedResourceConverter(toQShared(new KisBrushRotationResourceConverter));
     resourceManager->addDerivedResourceConverter(toQShared(new KisLodAvailabilityResourceConverter));
     resourceManager->addDerivedResourceConverter(toQShared(new KisLodSizeThresholdResourceConverter));
     resourceManager->addDerivedResourceConverter(toQShared(new KisLodSizeThresholdSupportedResourceConverter));
@@ -366,6 +393,11 @@ void KisViewManager::initializeResourceManager(KoCanvasResourceProvider *resourc
         toQShared(new KoActiveCanvasResourceDependencyKoResource<KoAbstractGradient>(
                       KoCanvasResource::CurrentGradient,
                       KoCanvasResource::BackgroundColor)));
+
+    KSharedConfigPtr config =  KSharedConfig::openConfig();
+    KConfigGroup miscGroup = config->group("Misc");
+    const uint handleRadius = miscGroup.readEntry("HandleRadius", 5);
+    resourceManager->setHandleRadius(handleRadius);
 }
 
 KisKActionCollection *KisViewManager::actionCollection() const
@@ -391,21 +423,14 @@ void KisViewManager::slotViewRemoved(KisView *view)
     if (view->viewManager() == this && viewCount() == 0) {
         d->statusBar.hideAllStatusBarItems();
     }
-
-    KisConfig cfg(false);
-    if (canvasResourceProvider() && canvasResourceProvider()->currentPreset()) {
-        cfg.writeEntry("LastPreset", canvasResourceProvider()->currentPreset()->name());
-    }
 }
 
 void KisViewManager::setCurrentView(KisView *view)
 {
-    bool first = true;
     if (d->currentImageView) {
         d->currentImageView->notifyCurrentStateChanged(false);
 
         d->currentImageView->canvasBase()->setCursor(QCursor(Qt::ArrowCursor));
-        first = false;
         KisDocument* doc = d->currentImageView->document();
         if (doc) {
             doc->image()->compositeProgressProxy()->removeProxy(d->persistentImageProgressUpdater);
@@ -436,42 +461,6 @@ void KisViewManager::setCurrentView(KisView *view)
                     SIGNAL(documentMousePositionChanged(QPointF)),
                     &d->statusBar,
                     SLOT(documentMousePositionChanged(QPointF)));
-        }
-
-        // Restore the last used brush preset, color and background color.
-        if (first) {
-            KisPaintOpPresetResourceServer * rserver = KisResourceServerProvider::instance()->paintOpPresetServer();
-            const QString defaultPresetName = "b) Basic-5 Size Opacity";
-
-            KisConfig cfg(true);
-            QString lastPreset = cfg.readEntry("LastPreset", defaultPresetName);
-
-            KisPaintOpPresetSP preset = rserver->resource("", "", lastPreset);
-            if (!preset) {
-                preset = rserver->resource("", "", defaultPresetName);
-            }
-
-            if (!preset && rserver->resourceCount() > 0) {
-                KisResourceModel *resourceModel = rserver->resourceModel();
-                for (int i = 0; i < resourceModel->rowCount(); i++) {
-
-                    QModelIndex idx = resourceModel->index(i, 0);
-
-                    QString resourceName = idx.data(Qt::UserRole + KisAbstractResourceModel::Name).toString();
-                    QString fileName = idx.data(Qt::UserRole + KisAbstractResourceModel::Filename).toString();
-
-                    if (resourceName.toLower().contains("default") || fileName.toLower().contains("default")) {
-                        preset = resourceModel->resourceForIndex(idx).dynamicCast<KisPaintOpPreset>();
-                        break;
-                    }
-                }
-            }
-
-            if (preset) {
-
-                paintOpBox()->restoreResource(preset);
-                canvasResourceProvider()->setCurrentCompositeOp(preset->settings()->paintOpCompositeOp());
-            }
         }
 
         KisCanvasController *canvasController = dynamic_cast<KisCanvasController*>(d->currentImageView->canvasController());
@@ -1068,11 +1057,6 @@ void KisViewManager::slotSaveIncremental()
     document()->setFileBatchMode(false);
     KisPart::instance()->queueAddRecentURLToAllMainWindowsOnFileSaved(QUrl::fromLocalFile(newFilePath),
                                                                       QUrl::fromLocalFile(document()->path()));
-
-    if (mainWindow()) {
-        mainWindow()->updateCaption();
-    }
-
 }
 
 void KisViewManager::slotSaveIncrementalBackup()
@@ -1145,8 +1129,6 @@ void KisViewManager::slotSaveIncrementalBackup()
         }
         QFile::copy(path + '/' + fileName, path + '/' + backupFileName);
         document()->saveAs(path + '/' + fileName, document()->mimeType(), true);
-
-        if (mainWindow()) mainWindow()->updateCaption();
     }
     else { // if NOT working on a backup...
         // Navigate directory searching for latest backup version, ignore letters
@@ -1184,8 +1166,6 @@ void KisViewManager::slotSaveIncrementalBackup()
         QFile::copy(path + '/' + fileName, path + '/' + backupFileName);
         document()->saveAs(path + '/' + fileName, document()->mimeType(), true);
         document()->setFileBatchMode(false);
-
-        if (mainWindow()) mainWindow()->updateCaption();
     }
 }
 
@@ -1219,6 +1199,13 @@ void KisViewManager::showStatusBar(bool toggled)
     }
 }
 
+void KisViewManager::notifyWorkspaceLoaded()
+{
+    d->canvasStateInNormalMode.clear();
+    d->canvasStateInCanvasOnlyMode.clear();
+    d->canvasOnlyOptions = std::nullopt;
+}
+
 void KisViewManager::switchCanvasOnly(bool toggled)
 {
     KisConfig cfg(false);
@@ -1231,14 +1218,16 @@ void KisViewManager::switchCanvasOnly(bool toggled)
 
     cfg.writeEntry("CanvasOnlyActive", toggled);
 
+    KisViewManagerPrivate::CanvasOnlyOptions options(cfg);
+
     if (toggled) {
-        d->canvasState = qtMainWindow()->saveState();
-#if QT_VERSION < QT_VERSION_CHECK(5, 10, 0)
-        d->windowFlags = main->windowState();
-#endif
+        d->canvasStateInNormalMode = qtMainWindow()->saveState();
+    } else {
+        d->canvasStateInCanvasOnlyMode = qtMainWindow()->saveState();
+        d->canvasOnlyOptions = options;
     }
 
-    if (cfg.hideStatusbarFullscreen()) {
+    if (options.hideStatusbarFullscreen) {
         if (main->statusBar()) {
             if (!toggled) {
                 if (main->statusBar()->dynamicPropertyNames().contains("wasvisible")) {
@@ -1254,7 +1243,7 @@ void KisViewManager::switchCanvasOnly(bool toggled)
         }
     }
 
-    if (cfg.hideDockersFullscreen()) {
+    if (options.hideDockersFullscreen) {
         KisAction* action = qobject_cast<KisAction*>(main->actionCollection()->action("view_toggledockers"));
         if (action) {
             action->setCheckable(true);
@@ -1273,21 +1262,15 @@ void KisViewManager::switchCanvasOnly(bool toggled)
 
     // QT in windows does not return to maximized upon 4th tab in a row
     // https://bugreports.qt.io/browse/QTBUG-57882, https://bugreports.qt.io/browse/QTBUG-52555, https://codereview.qt-project.org/#/c/185016/
-    if (cfg.hideTitlebarFullscreen() && !cfg.fullscreenMode()) {
+    if (options.hideTitlebarFullscreen && !cfg.fullscreenMode()) {
         if(toggled) {
             main->setWindowState( main->windowState() | Qt::WindowFullScreen);
         } else {
             main->setWindowState( main->windowState() & ~Qt::WindowFullScreen);
-#if QT_VERSION < QT_VERSION_CHECK(5, 10, 0)
-            // If window was maximized prior to fullscreen, restore that
-            if (d->windowFlags & Qt::WindowMaximized) {
-                main->setWindowState( main->windowState() | Qt::WindowMaximized);
-            }
-#endif
         }
     }
 
-    if (cfg.hideMenuFullscreen()) {
+    if (options.hideMenuFullscreen) {
         if (!toggled) {
             if (main->menuBar()->dynamicPropertyNames().contains("wasvisible")) {
                 if (main->menuBar()->property("wasvisible").toBool()) {
@@ -1301,7 +1284,7 @@ void KisViewManager::switchCanvasOnly(bool toggled)
         }
     }
 
-    if (cfg.hideToolbarFullscreen()) {
+    if (options.hideToolbarFullscreen) {
         QList<QToolBar*> toolBars = main->findChildren<QToolBar*>();
         Q_FOREACH (QToolBar* toolbar, toolBars) {
             if (!toggled) {
@@ -1321,15 +1304,34 @@ void KisViewManager::switchCanvasOnly(bool toggled)
     showHideScrollbars();
 
     if (toggled) {
-        // show a fading heads-up display about the shortcut to go back
+        if (!d->canvasStateInCanvasOnlyMode.isEmpty() &&
+            d->canvasOnlyOptions &&
+            *d->canvasOnlyOptions == options) {
 
+            /**
+             * Restore state uses the current layout state of the window,
+             * but removal of the menu will be backed into this state after
+             * receiving of some events in the event queue. Hence we cannot
+             * apply the application of the saved state directly. We need to
+             * postpone that via the events queue.
+             *
+             * See https://bugs.kde.org/show_bug.cgi?id=475973
+             */
+            QTimer::singleShot(0, this, [this] () {
+                this->mainWindow()->restoreState(d->canvasStateInCanvasOnlyMode);
+            });
+        }
+
+               // show a fading heads-up display about the shortcut to go back
         showFloatingMessage(i18n("Going into Canvas-Only mode.\nPress %1 to go back.",
                                  actionCollection()->action("view_show_canvas_only")->shortcut().toString(QKeySequence::NativeText)), QIcon(),
                             2000,
                             KisFloatingMessage::Low);
     }
     else {
-        main->restoreState(d->canvasState);
+        if (!d->canvasStateInNormalMode.isEmpty()) {
+            main->restoreState(d->canvasStateInNormalMode);
+        }
     }
 
 }

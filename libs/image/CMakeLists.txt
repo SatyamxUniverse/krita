@@ -79,6 +79,7 @@ set(kritaimage_LIB_SRCS
    brushengine/KisStrokeSpeedMeasurer.cpp
    brushengine/KisPaintopSettingsIds.cpp
    brushengine/KisOptimizedBrushOutline.cpp
+   brushengine/kis_paintop_lod_limitations.cpp
    commands/kis_deselect_global_selection_command.cpp
    commands/KisDeselectActiveSelectionCommand.cpp
    commands/kis_image_change_layers_command.cpp
@@ -96,6 +97,8 @@ set(kritaimage_LIB_SRCS
    commands/KisReselectActiveSelectionCommand.cpp
    commands/kis_set_global_selection_command.cpp
    commands/KisNodeRenameCommand.cpp
+   commands/KisChangeDeselectedMaskCommand.cpp
+   commands/KisNotifySelectionChangedCommand.cpp
    commands_new/kis_saved_commands.cpp
    commands_new/kis_processing_command.cpp
    commands_new/kis_image_resize_command.cpp
@@ -117,6 +120,7 @@ set(kritaimage_LIB_SRCS
    commands_new/KisUpdateCommandEx.cpp
    commands_new/KisDisableDirtyRequestsCommand.cpp
    commands_new/KisResetGroupLayerCacheCommand.cpp
+   commands_new/KisLazyCreateTransformMaskKeyframesCommand.cpp
    processing/kis_do_nothing_processing_visitor.cpp
    processing/kis_simple_processing_visitor.cpp
    processing/kis_convert_color_space_processing_visitor.cpp
@@ -144,6 +148,7 @@ set(kritaimage_LIB_SRCS
    lazybrush/KisWatershedWorker.cpp
    lazybrush/kis_colorize_mask.cpp
    lazybrush/kis_colorize_stroke_strategy.cpp
+   KisFrameChangeUpdateRecipe.cpp
    KisAnimAutoKey.cpp
    KisDelayedUpdateNodeInterface.cpp
    KisCroppedOriginalLayerInterface.cpp

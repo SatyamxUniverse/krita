@@ -111,13 +111,12 @@ static bool getFirstPosition(QPointF &firstPoint,
 
     /// Precision of fitting the word box into the polygon to account for
     /// floating-point precision error.
-    constexpr qreal precision = 1e-6;
 
     QVector<QPointF> candidatePositions;
     QRectF word = wordBox.normalized();
     word.translate(-wordBox.topLeft());
     // Slightly shrink the box to account for precision error.
-    word.adjust(precision, precision, -precision, -precision);
+    word.adjust(SHAPE_PRECISION, SHAPE_PRECISION, -SHAPE_PRECISION, -SHAPE_PRECISION);
 
     QPointF terminatorAdjusted = terminator;
     Q_FOREACH(const QPolygonF polygon, p.toFillPolygons()) {
@@ -193,11 +192,11 @@ static bool getFirstPosition(QPointF &firstPoint,
     QPointF firstPointC = writingMode == KoSvgText::VerticalRL? p.boundingRect().bottomLeft(): p.boundingRect().bottomRight();
     Q_FOREACH(const QPointF candidate, candidatePositions) {
         if (writingMode == KoSvgText::HorizontalTB) {
-            if (terminatorAdjusted.y() - candidate.y() < precision) {
+            if (terminatorAdjusted.y() - candidate.y() < SHAPE_PRECISION) {
 
-                if (firstPointC.y() - candidate.y() > precision) {
+                if (firstPointC.y() - candidate.y() > SHAPE_PRECISION) {
                     firstPointC = candidate;
-                } else if (firstPointC.y() - candidate.y() > -precision) {
+                } else if (firstPointC.y() - candidate.y() > -SHAPE_PRECISION) {
                     if (ltr) {
                         if (candidate.x() < firstPointC.x()) {
                             firstPointC = candidate;
@@ -210,11 +209,11 @@ static bool getFirstPosition(QPointF &firstPoint,
                 }
             }
         } else if (writingMode == KoSvgText::VerticalRL) {
-            if (terminatorAdjusted.x() - candidate.x() >= -precision) {
+            if (terminatorAdjusted.x() - candidate.x() >= -SHAPE_PRECISION) {
 
-                if (firstPointC.x() - candidate.x() < -precision) {
+                if (firstPointC.x() - candidate.x() < -SHAPE_PRECISION) {
                     firstPointC = candidate;
-                } else if (firstPointC.x() - candidate.x() < precision) {
+                } else if (firstPointC.x() - candidate.x() < SHAPE_PRECISION) {
                     if (ltr) {
                         if (candidate.y() < firstPointC.y()) {
                             firstPointC = candidate;
@@ -227,11 +226,11 @@ static bool getFirstPosition(QPointF &firstPoint,
                 }
             }
         } else {
-            if (terminatorAdjusted.x() - candidate.x() < precision) {
+            if (terminatorAdjusted.x() - candidate.x() < SHAPE_PRECISION) {
 
-                if (firstPointC.x() - candidate.x() > precision) {
+                if (firstPointC.x() - candidate.x() > SHAPE_PRECISION) {
                     firstPointC = candidate;
-                } else if (firstPointC.x() - candidate.x() > -precision) {
+                } else if (firstPointC.x() - candidate.x() > -SHAPE_PRECISION) {
                     if (ltr) {
                         if (candidate.y() < firstPointC.y()) {
                             firstPointC = candidate;
@@ -273,19 +272,21 @@ findLineBoxesForFirstPos(QPainterPath shape, QPointF firstPos, QRectF wordBox, K
     QLineF baseLine;
     QPointF lineTop;
     QPointF lineBottom;
+    QRectF word = wordBox.normalized();
+    word.adjust(SHAPE_PRECISION, SHAPE_PRECISION, -SHAPE_PRECISION, -SHAPE_PRECISION);
 
     if (writingMode == KoSvgText::HorizontalTB) {
         baseLine = QLineF(shape.boundingRect().left()-5, firstPos.y(), shape.boundingRect().right()+5, firstPos.y());
-        lineTop = QPointF(0, wordBox.top());
-        lineBottom = QPointF(0, wordBox.bottom());
+        lineTop = QPointF(0, word.top());
+        lineBottom = QPointF(0, word.bottom());
     } else {
         baseLine = QLineF(firstPos.x(), shape.boundingRect().top()-5, firstPos.x(), shape.boundingRect().bottom()+5);
         if (writingMode == KoSvgText::VerticalRL) {
-            lineTop = QPointF(wordBox.left(), 0);
-            lineBottom = QPointF(wordBox.right(), 0);
+            lineTop = QPointF(word.left(), 0);
+            lineBottom = QPointF(word.right(), 0);
         } else {
-            lineTop = QPointF(wordBox.right(), 0);
-            lineBottom = QPointF(wordBox.left(), 0);
+            lineTop = QPointF(word.right(), 0);
+            lineBottom = QPointF(word.left(), 0);
         }
     }
 
@@ -452,7 +453,8 @@ textAnchorForTextAlign(KoSvgText::TextAlign align, KoSvgText::TextAlign alignLas
 QVector<LineBox> flowTextInShapes(const KoSvgTextProperties &properties,
                                   const QMap<int, int> &logicalToVisual,
                                   QVector<CharacterResult> &result,
-                                  QList<QPainterPath> shapes)
+                                  QList<QPainterPath> shapes,
+                                  QPointF &startPos)
 {
     QVector<LineBox> lineBoxes;
     KoSvgText::WritingMode writingMode = KoSvgText::WritingMode(properties.propertyOrDefault(KoSvgTextProperties::WritingModeId).toInt());
@@ -483,6 +485,13 @@ QVector<LineBox> flowTextInShapes(const KoSvgTextProperties &properties,
     QListIterator<QPainterPath> shapesIt(shapes);
     if (shapes.isEmpty()) {
         return lineBoxes;
+    }
+    {
+        // Calculate the default pos.
+        qreal fontSize = properties.propertyOrDefault(KoSvgTextProperties::FontSizeId).toReal();
+        QRectF wordBox = isHorizontal? QRectF(0, fontSize * -0.8, SHAPE_PRECISION, fontSize)
+                                     : QRectF(fontSize * -0.5, 0, fontSize, SHAPE_PRECISION);
+        getFirstPosition(startPos, shapes.first(), wordBox, currentPos, writingMode, ltr);
     }
     QPainterPath currentShape;
     while (it.hasNext()) {
@@ -603,7 +612,7 @@ QVector<LineBox> flowTextInShapes(const KoSvgTextProperties &properties,
                 }
                 bool ind = textIndentInfo.hanging? !indentLine: indentLine;
                 indent = ind? textIndent: QPointF();
-                currentPos = writingMode == KoSvgText::VerticalRL? currentShape.boundingRect().topRight():currentShape.boundingRect().topLeft();
+                currentPos = writingMode == KoSvgText::VerticalRL? currentShape.boundingRect().topRight(): currentShape.boundingRect().topLeft();
                 lineOffset = currentPos;
             }
 
@@ -633,12 +642,13 @@ QVector<LineBox> flowTextInShapes(const KoSvgTextProperties &properties,
                 if (lastDitch) {
                     QVector<int> wordNew;
                     QPointF advance = currentPos;
-                    Q_FOREACH(int i, wordIndices) {
+                    Q_FOREACH(const int i, wordIndices) {
                         advance += result[i].advance;
                         if (currentShape.contains(advance)) {
                             wordNew.append(i);
                         } else {
                             result[i].hidden = true;
+                            result[i].cssPosition = advance-result[i].advance;
                         }
                         wordIndices = wordNew;
                     }
@@ -646,7 +656,10 @@ QVector<LineBox> flowTextInShapes(const KoSvgTextProperties &properties,
                 addWordToLine(result, currentPos, wordIndices, currentLine, ltr, isHorizontal);
             } else {
                 currentLine = LineBox();
+                QPointF advance = currentPos;
                 Q_FOREACH (const int j, wordIndices) {
+                    result[j].cssPosition = advance;
+                    advance += result[j].advance;
                     result[j].hidden = true;
                 }
             }

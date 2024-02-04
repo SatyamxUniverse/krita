@@ -49,6 +49,16 @@ qreal KisSprayPaintOpSettings::paintOpSize() const
     return option.diameter;
 }
 
+void KisSprayPaintOpSettings::setPaintOpAngle(qreal value)
+{
+    Q_UNUSED(value);
+}
+
+qreal KisSprayPaintOpSettings::paintOpAngle() const
+{
+    return 0.0;
+}
+
 bool KisSprayPaintOpSettings::paintIncremental()
 {
     KisPaintingModeOptionData data;
@@ -163,8 +173,7 @@ QList<KisUniformPaintOpPropertySP> KisSprayPaintOpSettings::uniformProperties(Ki
             prop->setSingleStep(0.01);
             prop->setDecimals(2);
             prop->setExponentRatio(3);
-            prop->setSuffix(i18n("%"));
-
+            prop->setSuffix("%");
             prop->setReadCallback(
                 [](KisUniformPaintOpProperty *prop) {
                     KisSprayOpOptionData option;

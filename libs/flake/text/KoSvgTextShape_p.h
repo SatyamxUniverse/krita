@@ -27,6 +27,8 @@
 #include <ft2build.h>
 #include FT_FREETYPE_H
 
+constexpr qreal SHAPE_PRECISION = 1e-6; ///< Value that indcates the precision for testing coordinates for text-in-shape layout.
+
 class KoPathShape;
 struct raqm_glyph_t;
 
@@ -41,6 +43,22 @@ enum class LineEdgeBehaviour {
     Collapse, ///< Collapse if first or last in line.
     ForceHang, ///< Force hanging at the start or end of a line, never measured for justfication.
     ConditionallyHang ///< Only hang if no space otherwise, only measured for justification if not hanging.
+};
+
+struct CursorInfo {
+    QLineF caret; ///< Caret for this characterResult
+    QVector<int> graphemeIndices; ///< The text-string indices of graphemes starting here, starting grapheme is not present.
+    QVector<QPointF> offsets; ///< The advance offsets for each grapheme index.
+    bool rtl = false; ///< Whether the current glyph is right-to-left, as opposed to the markup.
+    bool isWordBoundary = false;
+    QColor color; ///< Which color the current position has.
+};
+
+struct CursorPos {
+    int cluster; ///< Which character result this position belongs in.
+    int index; ///< Which grapheme this position belongs with.
+    int offset; ///< Which offset this position belongs with.
+    bool synthetic = false; ///< Whether this position was inserted to have a visual indicator.
 };
 
 namespace Glyph {
@@ -82,6 +100,7 @@ struct CharacterResult {
 
     QRectF boundingBox;
     int visualIndex = -1;
+    int plaintTextIndex = -1;
     QPointF cssPosition = QPointF(); ///< the position in accordance with the CSS specs, as opossed to the SVG spec.
     QPointF baselineOffset = QPointF(); ///< The computed baseline offset, will be applied
                                         ///< when calculating the line-offset during line breaking.
@@ -104,6 +123,8 @@ struct CharacterResult {
     QRectF lineHeightBox; ///< The box representing the line height of this char
     QFont::Style fontStyle = QFont::StyleNormal;
     int fontWeight = 400;
+
+    CursorInfo cursorInfo;
 
     KoSvgText::TextAnchor anchor = KoSvgText::AnchorStart;
     KoSvgText::Direction direction = KoSvgText::DirectionLeftToRight;
@@ -224,16 +245,20 @@ struct LineBox {
         for (int i=0; i<chunks.size(); i++) {
             LineChunk chunk = chunks.at(i);
             if (isHorizontal) {
-                if ((pos.x() < qMax(chunk.length.p1().x(), chunk.length.p2().x())) &&
-                        (pos.x() >= qMin(chunk.length.p1().x(), chunk.length.p2().x()))) {
+                qreal min = qMin(chunk.length.p1().x(), chunk.length.p2().x()) - SHAPE_PRECISION;
+                qreal max = qMax(chunk.length.p1().x(), chunk.length.p2().x()) + SHAPE_PRECISION;
+                if ((pos.x() < max) &&
+                        (pos.x() >= min)) {
                         currentChunk = i;
                         break;
                 }
             } else {
-                if ((pos.y() < qMax(chunk.length.p1().y(), chunk.length.p2().y())) &&
-                        (pos.y() >= qMin(chunk.length.p1().y(), chunk.length.p2().y()))) {
-                        currentChunk = i;
-                        break;
+                qreal min = qMin(chunk.length.p1().y(), chunk.length.p2().y()) - SHAPE_PRECISION;
+                qreal max = qMax(chunk.length.p1().y(), chunk.length.p2().y()) + SHAPE_PRECISION;
+                if ((pos.y() < max) &&
+                        (pos.y() >= min)) {
+                    currentChunk = i;
+                    break;
                 }
             }
         }
@@ -283,17 +308,29 @@ public:
     QVector<CharacterResult> result;
     QVector<LineBox> lineBoxes;
 
+    QVector<CursorPos> cursorPos;
+    QMap<int, int> logicalToVisualCursorPos;
+
+    QString plainText;
+    bool isBidi = false;
+    QPointF initialTextPosition = QPointF();
+
     void relayout(const KoSvgTextShape *q);
 
     bool loadGlyph(const QTransform &ftTF,
                    const QMap<int, KoSvgText::TabSizeInfo> &tabSizeInfo,
                    FT_Int32 faceLoadFlags,
                    bool isHorizontal,
-                   int i,
+                   char32_t firstCodepoint,
                    raqm_glyph_t &currentGlyph,
-                   QMap<int, int> &logicalToVisual,
                    CharacterResult &charResult,
                    QPointF &totalAdvanceFTFontCoordinates) const;
+
+    std::pair<QTransform, qreal> loadGlyphOnly(const QTransform &ftTF,
+                                               FT_Int32 faceLoadFlags,
+                                               bool isHorizontal,
+                                               raqm_glyph_t &currentGlyph,
+                                               CharacterResult &charResult) const;
 
     void clearAssociatedOutlines(const KoShape *rootShape);
     void resolveTransforms(const KoShape *rootShape, QString text, QVector<CharacterResult> &result, int &currentIndex, bool isHorizontal, bool wrapped, bool textInPath, QVector<KoSvgText::CharTransformation> &resolved, QVector<bool> collapsedChars);
@@ -307,7 +344,7 @@ public:
                                            bool isHorizontal,
                                            qreal offset,
                                            bool isClosed);
-    static void applyTextPath(const KoShape *rootShape, QVector<CharacterResult> &result, bool isHorizontal);
+    static void applyTextPath(const KoShape *rootShape, QVector<CharacterResult> &result, bool isHorizontal, QPointF &startPos);
     void computeFontMetrics(const KoShape *rootShape,
                             const QMap<int, int> &parentBaselineTable,
                             qreal parentFontSize,
@@ -332,6 +369,20 @@ public:
                                 bool isHorizontal,
                                 bool ltr,
                                 bool wrapping);
+    QMap<KoSvgText::TextDecoration, QPainterPath> generateDecorationPaths(const KoSvgTextChunkShape *chunkShape,
+                                                                          const int &start, const int &end,
+                                                                          const QVector<CharacterResult> &result,
+                                                                          QPainterPathStroker &stroker,
+                                                                          const bool isHorizontal,
+                                                                          const KoSvgText::TextDecorations &decor,
+                                                                          const qreal &minimumDecorationThickness,
+                                                                          const KoSvgText::TextDecorationStyle style = KoSvgText::TextDecorationStyle::Solid,
+                                                                          const bool textDecorationSkipInset = false,
+                                                                          const KoPathShape *currentTextPath = nullptr,
+                                                                          const qreal currentTextPathOffset = 0.0,
+                                                                          const bool textPathSide = false,
+                                                                          const KoSvgText::TextDecorationUnderlinePosition underlinePosH = KoSvgText::TextDecorationUnderlinePosition::UnderlineAuto,
+                                                                          const KoSvgText::TextDecorationUnderlinePosition underlinePosV = KoSvgText::TextDecorationUnderlinePosition::UnderlineAuto);
     void paintPaths(QPainter &painter,
                     const QPainterPath &outlineRect,
                     const KoShape *rootShape,

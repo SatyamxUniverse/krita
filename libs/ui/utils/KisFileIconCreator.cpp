@@ -19,18 +19,14 @@
 
 #include <kis_painting_tweaks.h>
 #include <kis_debug.h>
+#include <KisStaticInitializer.h>
 
 namespace
 {
 
-struct KisFileIconRegistrar {
-    KisFileIconRegistrar() {
-        KisPreviewFileDialog::s_iconCreator = new KisFileIconCreator();
-    }
-};
-
-
-static KisFileIconRegistrar s_registrar;
+KIS_DECLARE_STATIC_INITIALIZER {
+    KisPreviewFileDialog::s_iconCreator = new KisFileIconCreator();
+}
 
 
 QIcon createIcon(const QImage &source, const QSize &iconSize)
@@ -66,6 +62,7 @@ QIcon createIcon(const QImage &source, const QSize &iconSize)
     QColor blendedColor = KisPaintingTweaks::blendColors(textColor, backgroundColor, 0.2);
     painter.setPen(blendedColor);
     painter.drawRect(result.rect().adjusted(0, 0, -1, -1));
+    painter.end(); // Otherwise there will always be a copy
 
     return QIcon(QPixmap::fromImage(result));
 }
@@ -111,8 +108,9 @@ bool KisFileIconCreator::createFileIcon(QString path, QIcon &icon, qreal deviceP
             } else {
                 return false;
             }
-        } else if (mimeType == "image/tiff" || mimeType == "image/x-tiff") {
+        } else if (mimeType == "image/tiff" || mimeType == "image/x-tiff" || mimeType == "image/jxl") {
             // Workaround for a bug in Qt tiff QImageIO plugin
+            // XXX: Also for JPEG-XL if KImageFormats haven't updated to accomodate libjxl >= v0.9.0 API changes.
             QScopedPointer<KisDocument> doc(KisPart::instance()->createTemporaryDocument());
             doc->setFileBatchMode(true);
             bool r = doc->openPath(path, KisDocument::DontAddToRecent);

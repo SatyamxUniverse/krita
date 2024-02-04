@@ -146,6 +146,10 @@ void KisSelectAllActionFactory::run(KisViewManager *view)
     KisImageWSP image = view->image();
     if (!image) return;
 
+    if (view->canvasBase()->toolProxy()->selectAll()) {
+        return;
+    }
+
     KisProcessingApplicator *ap = beginAction(view, kundo2_i18n("Select All"));
 
     ap->applyCommand(new KisCommandUtils::LambdaCommand(
@@ -179,6 +183,15 @@ void KisDeselectActionFactory::run(KisViewManager *view)
 {
     KisImageWSP image = view->image();
     if (!image) return;
+
+    if (view->canvasBase()->toolProxy()->hasSelection()) {
+        // see KisCutCopyActionFactory::run
+        KisImageBarrierLock lock(image, std::try_to_lock);
+        if (!lock.owns_lock()) return;
+
+        view->canvasBase()->toolProxy()->deselect();
+        return;
+    }
 
     KUndo2Command *cmd = new KisDeselectActiveSelectionCommand(view->selection(), image);
 
@@ -285,9 +298,15 @@ void KisCutCopyActionFactory::run(bool willCut, bool makeSharpClip, KisViewManag
     KisSelectionSP selection = view->selection();
 
     if (!makeSharpClip && (haveShapesSelected || currentToolHasSelection)) {
-        // XXX: "Add saving of XML data for Cut/Copy of shapes"
+        /**
+         * Make sure that we use tryBarrierLock() here becasue it does **not**
+         * cause requestStrokeEnd() to be called in the tools, hence does not
+         * prevent disruptions in the text tool.
+         */
+        KisImageBarrierLock lock(image, std::try_to_lock);
+        if (!lock.owns_lock()) return;
 
-        KisImageBarrierLock lock(image);
+        // XXX: "Add saving of XML data for Cut/Copy of shapes"
         if (willCut) {
             view->canvasBase()->toolProxy()->cut();
         } else {
@@ -526,7 +545,8 @@ void KisShapesToVectorSelectionActionFactory::run(KisViewManager* view)
             hasSelectionShapes = true;
             continue;
         }
-        clonedShapes << shape->cloneShape();
+
+        clonedShapes << shape->cloneShapeAndBakeAbsoluteTransform();
     }
 
     if (clonedShapes.isEmpty()) {

@@ -37,6 +37,7 @@
 #include <QPainter>
 #include <QPainterPath>
 #include <QTimer>
+#include <QThread>
 #include <FlakeDebug.h>
 
 #include "kis_painting_tweaks.h"
@@ -226,8 +227,15 @@ void renderShapes(typename KisForest<KoShape*>::child_iterator beginIt,
 
         renderShapes(childBegin(it), childEnd(it), *shapePainter);
 
-        shape->paint(*shapePainter);
-        shape->paintStroke(*shapePainter);
+        Q_FOREACH(const KoShape::PaintOrder p, shape->paintOrder()) {
+            if (p == KoShape::Fill) {
+                shape->paint(*shapePainter);
+            } else if (p == KoShape::Stroke) {
+                shape->paintStroke(*shapePainter);
+            } else if (p == KoShape::Markers)  {
+                shape->paintMarkers(*shapePainter);
+            }
+        }
 
         KIS_SAFE_ASSERT_RECOVER(shapePainter->transform() == sanityCheckTransformSaved) {
             shapePainter->setTransform(sanityCheckTransformSaved);
@@ -316,12 +324,11 @@ KoShapeManager::KoShapeManager(KoCanvasBase *canvas, const QList<KoShape *> &sha
     setShapes(shapes);
 
     /**
-     * Shape manager uses signal compressors with timers, therefore
-     * it might handle queued signals, therefore it should belong
+     * Shape manager uses uses queued signals, therefore it should belong
      * to the GUI thread.
      */
     this->moveToThread(qApp->thread());
-    connect(&d->updateCompressor, SIGNAL(timeout()), this, SLOT(forwardCompressedUpdate()));
+    connect(this, SIGNAL(forwardUpdate()), this, SLOT(forwardCompressedUpdate()));
 }
 
 KoShapeManager::KoShapeManager(KoCanvasBase *canvas)
@@ -332,7 +339,7 @@ KoShapeManager::KoShapeManager(KoCanvasBase *canvas)
 
     // see a comment in another constructor
     this->moveToThread(qApp->thread());
-    connect(&d->updateCompressor, SIGNAL(timeout()), this, SLOT(forwardCompressedUpdate()));
+    connect(this, SIGNAL(forwardUpdate()), this, SLOT(forwardCompressedUpdate()));
 }
 
 void KoShapeManager::Private::unlinkFromShapesRecursively(const QList<KoShape*> &shapes)
@@ -701,7 +708,7 @@ void KoShapeManager::update(const QRectF &rect, const KoShape *shape, bool selec
         }
     }
 
-    d->updateCompressor.start();
+    emit(forwardUpdate());
 }
 
 void KoShapeManager::setUpdatesBlocked(bool value)

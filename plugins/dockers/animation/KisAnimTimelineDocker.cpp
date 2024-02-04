@@ -51,6 +51,8 @@
 #include "KisMainWindow.h"
 #include "KisAnimationPlaybackControlsModel.h"
 #include "KisWidgetConnectionUtils.h"
+#include "KisImageConfigNotifier.h"
+#include <KisSpinBoxI18nHelper.h>
 
 
 KisAnimTimelineDockerTitlebar::KisAnimTimelineDockerTitlebar(QWidget* parent) :
@@ -143,8 +145,9 @@ KisAnimTimelineDockerTitlebar::KisAnimTimelineDockerTitlebar(QWidget* parent) :
 
             volumeSlider = new KisSliderSpinBox(audioMenu);
             volumeSlider->setRange(0, 100);
-            volumeSlider->setSuffix(i18n("%"));
-            volumeSlider->setPrefix(i18nc("@item:inmenu Volume slider", "Volume: "));
+            KisSpinBoxI18nHelper::setText(
+                volumeSlider,
+                i18nc("@item:inmenu Volume slider; {n} is the number value, % is the percent sign", "Volume: {n}%"));
             volumeSlider->setSingleStep(1);
             volumeSlider->setPageStep(10);
             volumeSlider->setSizePolicy(QSizePolicy::Ignored, QSizePolicy::Fixed);
@@ -216,14 +219,17 @@ KisAnimTimelineDockerTitlebar::KisAnimTimelineDockerTitlebar(QWidget* parent) :
                 autoKeyModes->addAction(autoKeyDuplicate);
                 autoKeyModes->setExclusive(true);
 
-                connect(autoKeyModes, &QActionGroup::triggered, [this](QAction* modeAction){
+                connect(autoKeyModes, &QActionGroup::triggered, this, [this](QAction* modeAction){
                     if (!modeAction) return;
-                    KisImageConfig  imageCfg(false);
-                    if (modeAction == autoKeyBlank) {
-                        imageCfg.setAutoKeyModeDuplicate(false);
-                    } else if (modeAction == autoKeyDuplicate) {
-                        imageCfg.setAutoKeyModeDuplicate(true);
+                    {
+                        KisImageConfig  imageCfg(false);
+                        if (modeAction == autoKeyBlank) {
+                            imageCfg.setAutoKeyModeDuplicate(false);
+                        } else if (modeAction == autoKeyDuplicate) {
+                            imageCfg.setAutoKeyModeDuplicate(true);
+                        }
                     }
+                    KisImageConfigNotifier::instance()->notifyAutoKeyFrameConfigurationChanged();
                 });
 
                 // AutoKey Mode Menu..
@@ -566,11 +572,6 @@ void KisAnimTimelineDocker::setViewManager(KisViewManager *view)
     titleBar->btnRemoveKeyframe->setDefaultAction(action);
     titleBar->btnRemoveKeyframe->setIconSize(QSize(22, 22));
 
-    action = actionManager->createAction("auto_key");
-    m_d->titlebar->btnAutoKey->setDefaultAction(action);
-    m_d->titlebar->btnAutoKey->setIconSize(QSize(22, 22));
-    connect(action, SIGNAL(triggered(bool)), SLOT(setAutoKey(bool)));
-
     // Connect playback-related actions..
     action = actionManager->createAction("toggle_playback");
     action->setActivationFlags(KisAction::ACTIVE_IMAGE);
@@ -649,6 +650,11 @@ void KisAnimTimelineDocker::setViewManager(KisViewManager *view)
     });
 
     {
+        action = actionManager->createAction("auto_key");
+        m_d->titlebar->btnAutoKey->setDefaultAction(action);
+        m_d->titlebar->btnAutoKey->setIconSize(QSize(22, 22));
+        connect(action, SIGNAL(triggered(bool)), SLOT(setAutoKey(bool)));
+
         KisImageConfig config(true);
         action->setChecked(config.autoKeyEnabled());
         action->setIcon(config.autoKeyEnabled() ? KisIconUtils::loadIcon("auto-key-on") : KisIconUtils::loadIcon("auto-key-off"));
@@ -689,13 +695,16 @@ void KisAnimTimelineDocker::setPlaybackEngine(KisPlaybackEngine *playbackEngine)
 
 void KisAnimTimelineDocker::setAutoKey(bool value)
 {
-    KisImageConfig cfg(false);
-    if (value != cfg.autoKeyEnabled()) {
-        cfg.setAutoKeyEnabled(value);
-        const QIcon icon = cfg.autoKeyEnabled() ? KisIconUtils::loadIcon("auto-key-on") : KisIconUtils::loadIcon("auto-key-off");
-        QAction* action = m_d->titlebar->btnAutoKey->defaultAction();
-        action->setIcon(icon);
+    {
+        KisImageConfig cfg(false);
+        if (value != cfg.autoKeyEnabled()) {
+            cfg.setAutoKeyEnabled(value);
+            const QIcon icon = cfg.autoKeyEnabled() ? KisIconUtils::loadIcon("auto-key-on") : KisIconUtils::loadIcon("auto-key-off");
+            QAction* action = m_d->titlebar->btnAutoKey->defaultAction();
+            action->setIcon(icon);
+        }
     }
+    KisImageConfigNotifier::instance()->notifyAutoKeyFrameConfigurationChanged();
 }
 
 void KisAnimTimelineDocker::handleFrameRateChange()

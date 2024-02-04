@@ -2109,18 +2109,19 @@ void TestSvgText::testCssTextTransform()
     QString capitalize = "Aaa Bbb Ccc Ddd Eee Fff Ggg Hhh Iii Jjj Kkk Lll Mmm Nnn Ooo Ppp Qqq Rrr Sss Ttt Uuu Vvv Www Xxx Yyy Zzz";
     QString uppercase = "AAA BBB CCC DDD EEE FFF GGG HHH III JJJ KKK LLL MMM NNN OOO PPP QQQ RRR SSS TTT UUU VVV WWW XXX YYY ZZZ";
 
-    QVERIFY2(KoCssTextUtils::transformTextToLowerCase(capitalize, "") == lower, QString("Transform to lower case does not match lowercase string").toLatin1());
-    QVERIFY2(KoCssTextUtils::transformTextToUpperCase(capitalize, "") == uppercase,
+    QVector<QPair<int, int>> positions;
+    QVERIFY2(KoCssTextUtils::transformTextToLowerCase(capitalize, "", positions) == lower, QString("Transform to lower case does not match lowercase string").toLatin1());
+    QVERIFY2(KoCssTextUtils::transformTextToUpperCase(capitalize, "", positions) == uppercase,
              QString("Transform to upper case does not match uppercase string").toLatin1());
-    QVERIFY2(KoCssTextUtils::transformTextCapitalize(lower, "") == capitalize,
+    QVERIFY2(KoCssTextUtils::transformTextCapitalize(lower, "", positions) == capitalize,
              QString("Capitalization transform does not match capitalized string").toLatin1());
-    QVERIFY2(KoCssTextUtils::transformTextCapitalize(uppercase, "") == uppercase,
+    QVERIFY2(KoCssTextUtils::transformTextCapitalize(uppercase, "", positions) == uppercase,
              QString("Capitalization transform on uppercase string does not match uppercase string").toLatin1());
 
     // Turkish differentiates between İ and I, little details like these are why we use QLocale, and in effect, this tests whether the QLocale support is
     // lacking on whichever system we're building for.
     QString uppercaseTurkish = "AAA BBB CCC DDD EEE FFF GGG HHH Iİİ JJJ KKK LLL MMM NNN OOO PPP QQQ RRR SSS TTT UUU VVV WWW XXX YYY ZZZ";
-    QVERIFY2(KoCssTextUtils::transformTextToUpperCase(capitalize, "tr") == uppercaseTurkish,
+    QVERIFY2(KoCssTextUtils::transformTextToUpperCase(capitalize, "tr", positions) == uppercaseTurkish,
              QString("Transform to upper case in Turkish locale does not match reference string, QLocale might not be able to provide good text transforms")
                  .toLatin1());
 
@@ -2151,25 +2152,25 @@ void TestSvgText::testCssTextTransform()
     QString ijDigraphTest = "ijsland";
     QString ijDigraphRef = "IJsland";
 
-    QVERIFY2(KoCssTextUtils::transformTextCapitalize(ijDigraphTest, "nl") == ijDigraphRef, QString("IJ disgraph tailor test is failing").toLatin1());
+    QVERIFY2(KoCssTextUtils::transformTextCapitalize(ijDigraphTest, "nl", positions) == ijDigraphRef, QString("IJ disgraph tailor test is failing").toLatin1());
 
     // Adapted from web platform test text-transform-tailoring-002.html
     QString greekTonosTest = "καλημέρα αύριο";
     QString greekTonosRef = "ΚΑΛΗΜΕΡΑ ΑΥΡΙΟ";
-    QVERIFY2(KoCssTextUtils::transformTextToUpperCase(greekTonosTest, "el") == greekTonosRef, QString("Greek tonos tailor test is failing").toLatin1());
+    QVERIFY2(KoCssTextUtils::transformTextToUpperCase(greekTonosTest, "el", positions) == greekTonosRef, QString("Greek tonos tailor test is failing").toLatin1());
 
     // Adapted from web platform test text-transform-tailoring-002a.html
     greekTonosTest = "θεϊκό";
     greekTonosRef = "ΘΕΪΚΟ";
 
-    QVERIFY2(KoCssTextUtils::transformTextToUpperCase(greekTonosTest, "el") == greekTonosRef,
+    QVERIFY2(KoCssTextUtils::transformTextToUpperCase(greekTonosTest, "el", positions) == greekTonosRef,
              QString("Greek tonos tailor test for dialytika is failing").toLatin1());
 
     // Adapted from web platform test text-transform-tailoring-003.html
     greekTonosTest = "ευφυΐα Νεράιδα";
     greekTonosRef = "ΕΥΦΥΪΑ ΝΕΡΑΪΔΑ";
 
-    QVERIFY2(KoCssTextUtils::transformTextToUpperCase(greekTonosTest, "el") == greekTonosRef,
+    QVERIFY2(KoCssTextUtils::transformTextToUpperCase(greekTonosTest, "el", positions) == greekTonosRef,
              QString("Greek tonos tailor test number 3 is failing.").toLatin1());
 
     // Adapted from web platform test text-transform-tailoring-004.html
@@ -2187,8 +2188,18 @@ void TestSvgText::testCssTextTransform()
 
     greekTonosTest = "ήσουν ή εγώ ή εσύ";
     greekTonosRef = "ΗΣΟΥΝ Ή ΕΓΩ Ή ΕΣΥ";
-    QVERIFY2(KoCssTextUtils::transformTextToUpperCase(greekTonosTest, "el") == greekTonosRef,
+    positions.clear();
+    QVERIFY2(KoCssTextUtils::transformTextToUpperCase(greekTonosTest, "el", positions) == greekTonosRef,
              QString("Greek tonos tailor test number 5 is failing").toLatin1());
+    // This particular transformation also has a difference in characters between the before and after,
+    // so let's test the positions too.
+    QVector<QPair<int, int>> refPositions;
+    refPositions << QPair(0,0) << QPair(1,1) << QPair(2,2) << QPair(3,3) << QPair(4,4) << QPair(5,5)
+                 << QPair(6,6) << QPair(-1,7) << QPair(7,8) << QPair(8,9) << QPair(9,10)
+                 << QPair(10,11) << QPair(11,12) << QPair(12,13) << QPair(-1,14) << QPair(13,15)
+                 << QPair(14,16) << QPair(15,17) <<  QPair(16,18);
+    QVERIFY2(positions == refPositions,
+             QString("positions returned by Greek Tonos test number 5 are incorrect.").toLatin1());
 }
 
 /*
@@ -2356,6 +2367,187 @@ void TestSvgText::testShapeInsideRender()
         t.setFuzzyThreshold(5);
         t.test_standard(testFile, testFiles.value(testFile).size(), 72.0);
     }
+}
+/**
+ * Test text insertion.
+ * This tests basic text insertion and inserting text at end.
+ */
+void TestSvgText::testTextInsertion()
+{
+    // Insert some text.
+    KoSvgTextShape *textShape = new KoSvgTextShape();
+    QString ref ("The quick brown fox");
+    textShape->insertText(0, ref);
+    QVERIFY2(ref == textShape->plainText(), QString("Text shape plain text does not match inserted text.").toLatin1());
+
+    // Append at end.
+    QString ref2(" jumps over the lazy dog.");
+    textShape->insertText(19, ref2);
+    ref.insert(19, ref2);
+    QVERIFY2(ref == textShape->plainText(), QString("Text shape plain text does not match reference text.").toLatin1());
+}
+
+void TestSvgText::testTextDeletion_data()
+{
+    QTest::addColumn<QString>("text");
+    QTest::addColumn<int>("start");
+    QTest::addColumn<int>("length");
+    QTest::addColumn<int>("start2");
+    QTest::addColumn<int>("length2");
+    QTest::addColumn<QString>("finalText");
+
+    QTest::addRow("basic") << QString("The quick brown fox jumps over the lazy dog.")
+                           << 15 << 10 << 15 << 10
+                           << QString("The quick brown over the lazy dog.");
+    QTest::addRow("backspace-hindi") << QString("क्रिता")
+                           << 5 << 1 << 5 << 1
+                           << QString("क्रित");
+    QTest::addRow("backspace-zwj") << QString("\U0001F469\U0001F3FF\u200D\U0001F692")
+                           << 6 << 1 << 4 << 3
+                           << QString("\U0001F469\U0001F3FF");
+    QTest::addRow("backspace-emoji-vs") << QString("\U0001F469\U0001F3FF\u200D\U0001F692\U0001F469\U0001F3FF")
+                           << 10 << 1 << 7 << 4
+                           << QString("\U0001F469\U0001F3FF\u200D\U0001F692");
+    QTest::addRow("backspace-regular-vs") << QString("Ashi:\u82A6\uFE03")
+                           << 6 << 1 << 5 << 2
+                           << QString("Ashi:");
+    QTest::addRow("backspace-regional") << QString("US:\U0001F1FA\U0001F1F8")
+                           << 6 << 1 << 3 << 4
+                           << QString("US:");
+    QTest::addRow("delete-zwj") << QString("\U0001F469\U0001F3FF\u200D\U0001F692")
+                           << 0 << 1 << 0 << 5
+                           << QString("\U0001F692");
+    QTest::addRow("delete-regular-vs") << QString("\u82A6\uFE03:Ashi")
+                           << 0 << 1 << 0 << 2
+                           << QString(":Ashi");
+    QTest::addRow("delete-regional") << QString("\U0001F1FA\U0001F1F8\U0001F1FA\U0001F1F8:US")
+                           << 0 << 1 << 0 << 4
+                           << QString("\U0001F1FA\U0001F1F8:US");
+}
+/**
+ * This tests basic text deletion.
+ */
+void TestSvgText::testTextDeletion()
+{
+    KoSvgTextShape *textShape = new KoSvgTextShape();
+    QFETCH(QString, text);
+    textShape->insertText(0, text);
+
+    QFETCH(int, start);
+    QFETCH(int, length);
+
+    QFETCH(QString, finalText);
+    QFETCH(int, start2);
+    QFETCH(int, length2);
+
+    textShape->removeText(start, length);
+
+    QCOMPARE(start2, start);
+    QCOMPARE(length2, length);
+    QVERIFY2(finalText == textShape->plainText(),
+             QString("Mismatch between textShape plain text and reference for text-removal.").toLatin1());
+}
+/**
+ * Test the cursor navigation. In particular we're
+ * testing the logic for the up/down/left/right pos
+ */
+void TestSvgText::testNavigation()
+{
+    // Test basic left-to-right horizontal.
+    KoSvgTextShape *textShape = new KoSvgTextShape();
+    QString ref ("<text style=\"inline-size:50.0; font-size:10.0;font-family:Deja Vu Sans\">The quick brown fox jumps over the lazy dog.</text>");
+    KoSvgTextShapeMarkupConverter converter(textShape);
+    converter.convertFromSvg(ref, QString(), QRectF(0, 0, 300, 300), 72.0);
+
+    int cursorPos = 0;
+    for (int i=0; i<4; i++) {
+        cursorPos = textShape->posRight(cursorPos);
+    }
+    QVERIFY(cursorPos == 4);
+    for (int i=0; i<5; i++) {
+        cursorPos = textShape->posLeft(cursorPos);
+    }
+    QVERIFY(cursorPos == 0);
+    for (int i=0; i<8; i++) {
+        cursorPos = textShape->posRight(cursorPos);
+    }
+    cursorPos = textShape->posDown(cursorPos);
+    QVERIFY(cursorPos == 19);
+    QVERIFY(textShape->lineStart(cursorPos) == 10);
+    QVERIFY(textShape->lineEnd(cursorPos) == 19);
+
+    // Test right-to-left horizontal.
+    QString rtlRef ("<text style=\"inline-size:50.0; font-size:10.0; direction:rtl; font-family:Deja Vu Sans\">داستان SVG 1.1 SE طولا ني است.</text>");
+    converter.convertFromSvg(rtlRef, QString(), QRectF(0, 0, 300, 300), 72.0);
+
+    cursorPos = 0;
+    for (int i=0; i<10; i++) {
+        cursorPos = textShape->posLeft(cursorPos, false);
+    }
+    QVERIFY(cursorPos == 10);
+    for (int i=0; i<11; i++) {
+        cursorPos = textShape->posRight(cursorPos, false);
+    }
+    QVERIFY(cursorPos == 0);
+
+
+    // Test right-to-left bidi with visual.
+    for (int i=0; i<10; i++) {
+        cursorPos = textShape->posLeft(cursorPos, true);
+    }
+    QVERIFY(cursorPos == 11);
+    for (int i=0; i<10; i++) {
+        cursorPos = textShape->posLeft(cursorPos, true);
+    }
+    QVERIFY(cursorPos == 20);
+
+    // Test top-to-bottom.
+    QString ttbRef ("<text style=\"inline-size:50.0; font-size:10.0; writing-mode:vertical-rl; font-family:Deja Vu Sans\">A B C D E F G H I J K L M N O P</text>");
+    converter.convertFromSvg(ttbRef, QString(), QRectF(0, 0, 300, 300), 72.0);
+    cursorPos = 0;
+    for (int i=0; i<5; i++) {
+        cursorPos = textShape->posDown(cursorPos);
+    }
+    QVERIFY(cursorPos == 5);
+    for (int i=0; i<10; i++) {
+        cursorPos = textShape->posUp(cursorPos);
+    }
+    QVERIFY(cursorPos == 0);
+    for (int i=0; i<5; i++) {
+        cursorPos = textShape->posDown(cursorPos);
+    }
+    cursorPos = textShape->posLeft(cursorPos);
+    QVERIFY(cursorPos == 11);
+    QVERIFY(textShape->lineStart(cursorPos) == 6);
+    QVERIFY(textShape->lineEnd(cursorPos) == 11);
+
+    cursorPos = textShape->posRight(cursorPos);
+    cursorPos = textShape->posRight(cursorPos);
+    QVERIFY(cursorPos == 0);
+
+    // Test vertical left-to-right.
+    QString ttbRef2 ("<text style=\"inline-size:50.0; font-size:10.0; writing-mode:vertical-lr; font-family:Deja Vu Sans\">A B C D E F G H I J K L M N O P</text>");
+    converter.convertFromSvg(ttbRef2, QString(), QRectF(0, 0, 300, 300), 72.0);
+    cursorPos = 0;
+    for (int i=0; i<5; i++) {
+        cursorPos = textShape->posDown(cursorPos);
+    }
+    QVERIFY(cursorPos == 5);
+    for (int i=0; i<10; i++) {
+        cursorPos = textShape->posUp(cursorPos);
+    }
+    QVERIFY(cursorPos == 0);
+    for (int i=0; i<5; i++) {
+        cursorPos = textShape->posDown(cursorPos);
+    }
+    cursorPos = textShape->posRight(cursorPos);
+    QVERIFY(cursorPos == 11);
+    QVERIFY(textShape->lineStart(cursorPos) == 6);
+    QVERIFY(textShape->lineEnd(cursorPos) == 11);
+
+    cursorPos = textShape->posLeft(cursorPos);
+    cursorPos = textShape->posLeft(cursorPos);
+    QVERIFY(cursorPos == 0);
 }
 
 #include "kistest.h"

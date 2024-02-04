@@ -98,6 +98,8 @@
 #include "KisRunnableStrokeJobsInterface.h"
 
 #include "KisBusyWaitBroker.h"
+#include <KisStaticInitializer.h>
+#include "KisImageGlobalSelectionManagementInterface.h"
 
 
 // #define SANITY_CHECKS
@@ -111,13 +113,9 @@
 #define SANITY_CHECK_LOCKED(name)
 #endif
 
-
-struct KisImageSPStaticRegistrar {
-    KisImageSPStaticRegistrar() {
-        qRegisterMetaType<KisImageSP>("KisImageSP");
-    }
-};
-static KisImageSPStaticRegistrar __registrar1;
+KIS_DECLARE_STATIC_INITIALIZER {
+    qRegisterMetaType<KisImageSP>("KisImageSP");
+}
 
 class KisImage::KisImagePrivate
 {
@@ -131,6 +129,7 @@ public:
         , width(w)
         , height(h)
         , colorSpace(c ? c : KoColorSpaceRegistry::instance()->rgb8())
+        , globalSelectionInterface(_q)
         , isolateLayer(false)
         , isolateGroup(false)
         , undoStore(undo ? undo : new KisDumbUndoStore())
@@ -246,7 +245,8 @@ public:
     const KoColorSpace * colorSpace;
     KisProofingConfigurationSP proofingConfig;
 
-    KisSelectionSP deselectedGlobalSelection;
+    KisImageGlobalSelectionManagementInterface globalSelectionInterface;
+    KisSelectionMaskSP deselectedGlobalSelectionMask;
     KisGroupLayerSP rootLayer; // The layers are contained in here
     KisSelectionMaskSP targetOverlaySelectionMask; // the overlay switching stroke will try to switch into this mask
     KisSelectionMaskSP overlaySelectionMask;
@@ -292,6 +292,21 @@ public:
 
     struct SetImageProjectionColorSpace;
 };
+
+KisImageGlobalSelectionManagementInterface::KisImageGlobalSelectionManagementInterface(KisImage *_q)
+    : q(_q)
+{
+}
+
+KisSelectionMaskSP KisImageGlobalSelectionManagementInterface::deselectedGlobalSelection() const
+{
+    return q->m_d->deselectedGlobalSelectionMask;
+}
+
+void KisImageGlobalSelectionManagementInterface::setDeselectedGlobalSelection(KisSelectionMaskSP selectionMask)
+{
+    q->m_d->deselectedGlobalSelectionMask = selectionMask;
+}
 
 KisImage::KisImage(KisUndoStore *undoStore, qint32 width, qint32 height, const KoColorSpace *colorSpace, const QString& name)
         : QObject(0)
@@ -598,7 +613,6 @@ void KisImage::aboutToRemoveANode(KisNode *parent, int index)
 void KisImage::nodeChanged(KisNode* node)
 {
     KisNodeGraphListener::nodeChanged(node);
-    requestStrokeEnd();
     m_d->signalRouter.emitNodeChanged(node);
 }
 
@@ -675,54 +689,14 @@ KisSelectionSP KisImage::globalSelection() const
     }
 }
 
-void KisImage::setGlobalSelection(KisSelectionSP globalSelection)
-{
-    KisSelectionMaskSP selectionMask = m_d->rootLayer->selectionMask();
-
-    if (!globalSelection) {
-        if (selectionMask) {
-            removeNode(selectionMask);
-        }
-    }
-    else {
-        if (!selectionMask) {
-            selectionMask = new KisSelectionMask(this, i18n("Selection Mask"));
-            selectionMask->initSelection(m_d->rootLayer);
-            addNode(selectionMask);
-            // If we do not set the selection now, the setActive call coming next
-            // can be very, very expensive, depending on the size of the image.
-            selectionMask->setSelection(globalSelection);
-            selectionMask->setActive(true);
-        }
-        else {
-            selectionMask->setSelection(globalSelection);
-        }
-
-        KIS_SAFE_ASSERT_RECOVER_NOOP(m_d->rootLayer->childCount() > 0);
-        KIS_SAFE_ASSERT_RECOVER_NOOP(m_d->rootLayer->selectionMask());
-    }
-
-    m_d->deselectedGlobalSelection = 0;
-    m_d->legacyUndoAdapter.emitSelectionChanged();
-}
-
-void KisImage::deselectGlobalSelection()
-{
-    KisSelectionSP savedSelection = globalSelection();
-    setGlobalSelection(0);
-    m_d->deselectedGlobalSelection = savedSelection;
-}
-
 bool KisImage::canReselectGlobalSelection()
 {
-    return m_d->deselectedGlobalSelection;
+    return m_d->deselectedGlobalSelectionMask;
 }
 
-void KisImage::reselectGlobalSelection()
+KisImageGlobalSelectionManagementInterface* KisImage::globalSelectionManagementInterface() const
 {
-    if(m_d->deselectedGlobalSelection) {
-        setGlobalSelection(m_d->deselectedGlobalSelection);
-    }
+    return &m_d->globalSelectionInterface;
 }
 
 QString KisImage::nextLayerName(const QString &_baseName) const
@@ -1031,7 +1005,11 @@ void KisImage::scaleImage(const QSize &size, qreal xres, qreal yres, KisFilterSt
 
 void KisImage::scaleNode(KisNodeSP node, const QPointF &center, qreal scaleX, qreal scaleY, KisFilterStrategy *filterStrategy, KisSelectionSP selection)
 {
-    KUndo2MagicString actionName(kundo2_i18n("Scale Layer"));
+    scaleNodes(KisNodeList{node}, center, scaleX, scaleY, filterStrategy, selection);
+}
+void KisImage::scaleNodes(KisNodeList nodes, const QPointF &center, qreal scaleX, qreal scaleY, KisFilterStrategy *filterStrategy, KisSelectionSP selection)
+{
+    KUndo2MagicString actionName(kundo2_i18np("Scale Layer", "Scale %1 Layers", nodes.size()));
     KisImageSignalVector emitSignals;
 
     QPointF offset;
@@ -1046,7 +1024,7 @@ void KisImage::scaleNode(KisNodeSP node, const QPointF &center, qreal scaleX, qr
         offset = center - transform.map(center);
     }
 
-    KisProcessingApplicator applicator(this, node,
+    KisProcessingApplicator applicator(this, nodes,
                                        KisProcessingApplicator::RECURSIVE,
                                        emitSignals, actionName);
 
@@ -1075,16 +1053,32 @@ void KisImage::rotateImpl(const KUndo2MagicString &actionName,
                           bool resizeImage,
                           KisSelectionSP selection)
 {
+    rotateImpl(actionName, KisNodeList{rootNode}, radians, resizeImage, selection);
+}
+void KisImage::rotateImpl(const KUndo2MagicString &actionName,
+                          KisNodeList nodes,
+                          double radians,
+                          bool resizeImage,
+                          KisSelectionSP selection)
+{
     // we can either transform (and resize) the whole image or
     // transform a selection, we cannot do both at the same time
     KIS_SAFE_ASSERT_RECOVER(!(bool(selection) && resizeImage)) {
         selection = 0;
     }
 
-    const QRect baseBounds =
-        resizeImage ? bounds() :
-        selection ? selection->selectedExactRect() :
-        rootNode->exactBounds();
+    QRect baseBounds;
+    if (resizeImage) {
+        baseBounds = bounds();
+    }
+    else if (selection) {
+        baseBounds = selection->selectedExactRect();
+    }
+    else {
+        Q_FOREACH(KisNodeSP node, nodes) {
+            baseBounds = baseBounds.united(node->exactBounds());
+        }
+    }
 
     QPointF offset;
     QSize newSize;
@@ -1125,7 +1119,7 @@ void KisImage::rotateImpl(const KUndo2MagicString &actionName,
         KisProcessingApplicator::NONE;
 
 
-    KisProcessingApplicator applicator(this, rootNode,
+    KisProcessingApplicator applicator(this, nodes,
                                        KisProcessingApplicator::RECURSIVE | signalFlags,
                                        emitSignals, actionName);
 
@@ -1161,10 +1155,15 @@ void KisImage::rotateImage(double radians)
 
 void KisImage::rotateNode(KisNodeSP node, double radians, KisSelectionSP selection)
 {
-    if (node->inherits("KisMask")) {
-        rotateImpl(kundo2_i18n("Rotate Mask"), node, radians, false, selection);
-    } else {
-        rotateImpl(kundo2_i18n("Rotate Layer"), node, radians, false, selection);
+    rotateNodes(KisNodeList{node}, radians, selection);
+}
+void KisImage::rotateNodes(KisNodeList nodes, double radians, KisSelectionSP selection)
+{
+    if (nodes.size() == 1 && nodes[0]->inherits("KisMask")) {
+        rotateImpl(kundo2_i18n("Rotate Mask"), nodes, radians, false, selection);
+    }
+    else {
+        rotateImpl(kundo2_i18np("Rotate Layer", "Rotate %1 Layers", nodes.size()), nodes, radians, false, selection);
     }
 }
 
@@ -1174,11 +1173,26 @@ void KisImage::shearImpl(const KUndo2MagicString &actionName,
                          double angleX, double angleY,
                          KisSelectionSP selection)
 {
-    const QRect baseBounds =
-        resizeImage ? bounds() :
-        selection ? selection->selectedExactRect() :
-        rootNode->exactBounds();
-
+    shearImpl(actionName, KisNodeList{rootNode}, resizeImage, angleX, angleY, selection);
+}
+void KisImage::shearImpl(const KUndo2MagicString &actionName,
+                         KisNodeList nodes,
+                         bool resizeImage,
+                         double angleX, double angleY,
+                         KisSelectionSP selection)
+{
+    QRect baseBounds;
+    if (resizeImage) {
+        baseBounds = bounds();
+    }
+    else if (selection) {
+        baseBounds = selection->selectedExactRect();
+    }
+    else {
+        Q_FOREACH(KisNodeSP node, nodes) {
+            baseBounds = baseBounds.united(node->exactBounds());
+        }
+    }
     const QPointF origin = QRectF(baseBounds).center();
 
     //angleX, angleY are in degrees
@@ -1212,7 +1226,7 @@ void KisImage::shearImpl(const KUndo2MagicString &actionName,
         KisProcessingApplicator::RECURSIVE;
     if (resizeImage) signalFlags |= KisProcessingApplicator::NO_UI_UPDATES;
 
-    KisProcessingApplicator applicator(this, rootNode,
+    KisProcessingApplicator applicator(this, nodes,
                                        signalFlags,
                                        emitSignals, actionName);
 
@@ -1244,11 +1258,16 @@ void KisImage::shearImpl(const KUndo2MagicString &actionName,
 
 void KisImage::shearNode(KisNodeSP node, double angleX, double angleY, KisSelectionSP selection)
 {
-    if (node->inherits("KisMask")) {
-        shearImpl(kundo2_i18n("Shear Mask"), node, false,
+    shearNodes(KisNodeList{node}, angleX, angleY, selection);
+}
+void KisImage::shearNodes(KisNodeList nodes, double angleX, double angleY, KisSelectionSP selection)
+{
+    if (nodes.size() == 1 && nodes[0]->inherits("KisMask")) {
+        shearImpl(kundo2_i18n("Shear Mask"), nodes, false,
                   angleX, angleY, selection);
-    } else {
-        shearImpl(kundo2_i18n("Shear Layer"), node, false,
+    }
+    else {
+        shearImpl(kundo2_i18np("Shear Layer", "Shear %1 Layers", nodes.size()), nodes, false,
                   angleX, angleY, selection);
     }
 }
@@ -2403,7 +2422,7 @@ void KisImage::keyframeChannelHasBeenAdded(KisNode *node, KisKeyframeChannel *ch
     Q_UNUSED(node);
 
     channel->connect(channel, SIGNAL(sigAddedKeyframe(const KisKeyframeChannel*, int)), m_d->animationInterface, SIGNAL(sigKeyframeAdded(const KisKeyframeChannel*, int)), Qt::UniqueConnection);
-    channel->connect(channel, SIGNAL(sigRemovingKeyframe(const KisKeyframeChannel*,int)), m_d->animationInterface, SIGNAL(sigKeyframeRemoved(const KisKeyframeChannel*, int)), Qt::UniqueConnection);
+    channel->connect(channel, SIGNAL(sigKeyframeHasBeenRemoved(const KisKeyframeChannel*,int)), m_d->animationInterface, SIGNAL(sigKeyframeRemoved(const KisKeyframeChannel*, int)), Qt::UniqueConnection);
 }
 
 void KisImage::keyframeChannelAboutToBeRemoved(KisNode *node, KisKeyframeChannel *channel)
@@ -2411,7 +2430,7 @@ void KisImage::keyframeChannelAboutToBeRemoved(KisNode *node, KisKeyframeChannel
     Q_UNUSED(node);
 
     channel->disconnect(channel, SIGNAL(sigAddedKeyframe(const KisKeyframeChannel*, int)), m_d->animationInterface, SIGNAL(sigKeyframeAdded(const KisKeyframeChannel*, int)));
-    channel->disconnect(channel, SIGNAL(sigRemovingKeyframe(const KisKeyframeChannel*, int)), m_d->animationInterface, SIGNAL(sigKeyframeRemoved(const KisKeyframeChannel*, int)));
+    channel->disconnect(channel, SIGNAL(sigKeyframeHasBeenRemoved(const KisKeyframeChannel*, int)), m_d->animationInterface, SIGNAL(sigKeyframeRemoved(const KisKeyframeChannel*, int)));
 }
 
 QList<KisLayerCompositionSP> KisImage::compositions()

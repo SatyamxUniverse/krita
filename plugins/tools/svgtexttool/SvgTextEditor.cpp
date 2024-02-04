@@ -54,6 +54,7 @@
 #include <KoColorPopupAction.h>
 #include <svg/SvgUtil.h>
 
+#include <KisSpinBoxI18nHelper.h>
 #include <KisScreenColorSampler.h>
 #include <kis_icon.h>
 #include <kis_config.h>
@@ -246,7 +247,6 @@ SvgTextEditor::SvgTextEditor(QWidget *parent, Qt::WindowFlags flags)
     m_textEditorWidget.setupUi(m_page);
     setCentralWidget(m_page);
 
-    m_textEditorWidget.chkVertical->setVisible(false);
 #ifndef Q_OS_WIN
     KCharSelect *charSelector = new KCharSelect(m_charSelectDialog, 0, KCharSelect::AllGuiElements);
     m_charSelectDialog->setMainWidget(charSelector);
@@ -1575,7 +1575,7 @@ void SvgTextEditor::createActions()
     spnLineHeight->setToolTip(i18n("Line height"));
     spnLineHeight->setRange(-1.0, 1000.0);
     spnLineHeight->setSingleStep(10.0);
-    spnLineHeight->setSuffix(i18n("%"));
+    KisSpinBoxI18nHelper::setText(spnLineHeight, i18nc("{n} is the number value, % is the percent sign", "{n}%"));
     spnLineHeight->setSpecialValueText(i18nc("Default line height for text", "Normal"));
     connect(spnLineHeight, SIGNAL(valueChanged(double)), SLOT(setLineHeight(double)));
     lineHeightLayout->addWidget(spnLineHeight);

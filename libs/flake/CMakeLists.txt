@@ -5,12 +5,19 @@ include_directories(
     ${CMAKE_SOURCE_DIR}/libs/flake/tools
     ${CMAKE_SOURCE_DIR}/libs/flake/svg
     ${CMAKE_SOURCE_DIR}/libs/flake/text
+    ${CMAKE_SOURCE_DIR}/libs/flake/xsimd
     ${CMAKE_BINARY_DIR}/libs/flake
 )
 
 add_subdirectory(styles)
 add_subdirectory(tests)
 add_subdirectory(resources/tests)
+
+if(HAVE_XSIMD)
+    ko_compile_for_all_implementations(__per_arch_alpha_applicator_factory_objs xsimd/KoClipMaskApplicatorFactoryImpl.cpp)
+else()
+    set(__per_arch_alpha_applicator_factory_objs xsimd/KoClipMaskApplicatorFactoryImpl.cpp)
+endif()
 
 set(kritaflake_SRCS
     KoGradientHelper.cpp
@@ -99,9 +106,11 @@ set(kritaflake_SRCS
     KoTextShapeDataBase.cpp
     KoTosContainer.cpp
     KoTosContainerModel.cpp
+    KoClipMaskApplicatorBase.cpp
+    ${__per_arch_alpha_applicator_factory_objs}
+    KoClipMaskPainter.cpp
     KoClipPath.cpp
     KoClipMask.cpp
-    KoClipMaskPainter.cpp
     KoCurveFit.cpp
 
     commands/KoShapeGroupCommand.cpp
@@ -149,6 +158,7 @@ set(kritaflake_SRCS
     commands/KoKeepShapesSelectedCommand.cpp
     commands/KoPathMergeUtils.cpp
     commands/KoAddRemoveShapeCommands.cpp
+    commands/KoShapePaintOrderCommand.cpp
 
     html/HtmlSavingContext.cpp
     html/HtmlWriter.cpp
@@ -191,6 +201,7 @@ set(kritaflake_SRCS
     svg/SvgMeshPatch.cpp
     svg/SvgMeshArray.cpp
 
+    text/KisTofuGlyph.cpp
     text/KoSvgText.cpp
     text/KoSvgTextProperties.cpp
     text/KoSvgTextChunkShape.cpp
@@ -210,6 +221,7 @@ set(kritaflake_SRCS
 
     FlakeDebug.cpp
     tests/MockShapes.cpp
+
 )
 
 if (KSeExpr_FOUND)

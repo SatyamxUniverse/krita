@@ -204,9 +204,6 @@ Q_SIGNALS:
 
     void guiLoadingFinished();
 
-    /// emitted when the window is migrated among different screens
-    void screenChanged();
-
     /// emitted when the current view has changed
     void activeViewChanged();
 
@@ -255,12 +252,6 @@ public Q_SLOTS:
     void slotPreferences();
 
     /**
-     * Update caption from document info - call when document info
-     * (title in the about page) changes.
-     */
-    void updateCaption();
-
-    /**
      *  Saves the current document with the current name.
      */
     void slotFileSave();
@@ -279,6 +270,7 @@ public Q_SLOTS:
 
     /// Set the active view, this will update the undo/redo actions
     void setActiveView(KisView *view);
+    void unsetActiveView();
 
     void subWindowActivated();
 
@@ -311,10 +303,7 @@ private Q_SLOTS:
 
     void slotUpdateWidgetStyle();
 
-    /**
-     * @internal
-     */
-    void slotDocumentTitleModified();
+    void slotUpdateSaveActionTitle(const QString &documentPath);
 
     /**
      *  Saves the current document with a new name.
@@ -394,7 +383,7 @@ private Q_SLOTS:
     /**
      * Hide the dockers
      */
-    void toggleDockersVisibility(bool visible);
+    void toggleDockersVisibility(bool visible, bool onWelcomePage = false);
 
     /**
      * Handle theme changes from theme manager
@@ -420,8 +409,6 @@ private Q_SLOTS:
     void showManual();
     void switchTab(int index);
 
-    void windowScreenChanged(QScreen *screen);
-
     void slotXmlGuiMakingChanges(bool finished);
 
     void orientationChanged();
@@ -441,6 +428,8 @@ protected:
     // QWidget overrides
     void dragMoveEvent(QDragMoveEvent *event) override;
     void dragLeaveEvent(QDragLeaveEvent *event) override;
+
+    bool windowsLayoutSavingAllowed() const override;
 
 private:
 
@@ -482,7 +471,7 @@ private:
 
     void customizeTabBar();
 
-    void setMainWindowLayoutForCurrentMainWidget(int widgetIndex);
+    void setMainWindowLayoutForCurrentMainWidget(int widgetIndex, bool widgetIndexChanged);
     void adjustLayoutForWelcomePage();
 
 private:

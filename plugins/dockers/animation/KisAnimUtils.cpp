@@ -67,7 +67,7 @@ namespace KisAnimUtils {
                     }
                 } else {
                     bool clearExistingFrame = channel->keyframeAt(time) && !channelCreated;
-                    if (clearExistingFrame) { // Overwrite existing keyframe with a new blank one...
+                    if (clearExistingFrame && channelId == KisKeyframeChannel::Raster.id()) { // Overwrite existing keyframe with a new blank one...
                         KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(image->animationInterface()->currentTime() == time, nullptr);
                         KIS_SAFE_ASSERT_RECOVER_RETURN_VALUE(channelId == KisKeyframeChannel::Raster.id(), nullptr);
 
@@ -85,10 +85,25 @@ namespace KisAnimUtils {
                             success = true;
                         }
                     } else { // Make a regular new blank keyframe...
-                        KisKeyframeSP previousKey = channel->activeKeyframeAt(time);
+                        KisKeyframeSP referenceKey = channel->activeKeyframeAt(time);
 
                         bool isScalar = (channelId != KisKeyframeChannel::Raster.id());
-                        if (isScalar && previousKey) {
+
+                        if (isScalar && !referenceKey) {
+                            /**
+                             * Scalar keyframes return the **next** value for positions
+                             * **before** the first keyframe. That is a bit counterintuitive,
+                             * but that is what we have.
+                             */
+                            const QSet<int> allTimes = channel->allKeyframeTimes();
+
+                            auto it = std::min_element(allTimes.begin(), allTimes.end());
+                            if (it != allTimes.end()) {
+                                referenceKey = channel->keyframeAt(*it);
+                            }
+                        }
+
+                        if (isScalar && referenceKey) {
                             KisScalarKeyframeChannel* scalarChannel = static_cast<KisScalarKeyframeChannel*>(channel);
                             const qreal value = scalarChannel->valueAt(time); //Get interpolated value.
                             scalarChannel->addScalarKeyframe(time, value, cmd.data());
@@ -97,8 +112,8 @@ namespace KisAnimUtils {
                         }
 
                         // Use color label of previous key, if exists...
-                        if (previousKey && channel->keyframeAt(time)) {
-                            channel->keyframeAt(time)->setColorLabel(previousKey->colorLabel());
+                        if (referenceKey && channel->keyframeAt(time)) {
+                            channel->keyframeAt(time)->setColorLabel(referenceKey->colorLabel());
                         }
 
                         success = true;
@@ -110,7 +125,7 @@ namespace KisAnimUtils {
                 // maybe there is a better way to do this
                 node->setOpacity(originalOpacity);
 
-                return success ? new KisCommandUtils::SkipFirstRedoWrapper(cmd.take()) : nullptr;
+                return success ? cmd.take() : nullptr;
         });
 
         return cmd;
@@ -154,7 +169,7 @@ namespace KisAnimUtils {
                     result = true;
                 }
 
-                return result ? new KisCommandUtils::SkipFirstRedoWrapper(cmd.take()) : 0;
+                return result ? cmd.take() : 0;
         });
 
         KisProcessingApplicator::runSingleCommandStroke(image, cmd,
@@ -368,7 +383,7 @@ namespace KisAnimUtils {
                     }
                 }
 
-                return result ? new KisCommandUtils::SkipFirstRedoWrapper(cmd.take()) : nullptr;
+                return result ? cmd.take() : nullptr;
         });
 
         return cmd;

@@ -71,6 +71,21 @@ void SvgStyleWriter::saveSvgBasicStyle(KoShape *shape, SvgSavingContext &context
     } else if (shape->transparency() > 0.0) {
         context.shapeWriter().addAttribute("opacity", 1.0 - shape->transparency());
     }
+    if (shape->paintOrder().at(0) != KoShape::Fill
+        && shape->paintOrder().at(1) != KoShape::Stroke
+        && !shape->inheritPaintOrder()) {
+        QStringList order;
+        Q_FOREACH(const KoShape::PaintOrder p, shape->paintOrder()) {
+            if (p == KoShape::Fill) {
+                order.append("fill");
+            } else if (p == KoShape::Stroke) {
+                order.append("stroke");
+            } else if (p == KoShape::Markers) {
+                order.append("markers");
+            }
+        }
+        context.shapeWriter().addAttribute("paint-order", order.join(" "));
+    }
 }
 
 void SvgStyleWriter::saveSvgFill(KoShape *shape, SvgSavingContext &context)

@@ -32,11 +32,7 @@ public:
      * qLocale's format.
      * @return the transformed string.
      */
-    static QString transformTextToUpperCase(const QString &text, const QString &langCode)
-    {
-        QLocale locale(langCode.split("-").join("_"));
-        return locale.toUpper(text);
-    };
+    static QString transformTextToUpperCase(const QString &text, const QString &langCode, QVector<QPair<int, int>> &positions);
 
     /**
      * @brief transformTextToUpperCase
@@ -49,11 +45,7 @@ public:
      * qLocale's format.
      * @return the transformed string.
      */
-    static QString transformTextToLowerCase(const QString &text, const QString &langCode)
-    {
-        QLocale locale(langCode.split("-").join("_"));
-        return locale.toLower(text);
-    };
+    static QString transformTextToLowerCase(const QString &text, const QString &langCode, QVector<QPair<int, int>> &positions);
 
     /**
      * @brief transformTextToUpperCase
@@ -68,7 +60,7 @@ public:
      * qLocale's format.
      * @return the transformed string.
      */
-    static QString transformTextCapitalize(const QString &text, QString langCode);
+    static QString transformTextCapitalize(const QString &text, QString langCode, QVector<QPair<int, int>> &positions);
 
     /**
      * @brief transformTextFullWidth
@@ -169,7 +161,7 @@ public:
      * @param langCode the language code of the text, BCP style.
      * @return a QStringList of the graphemes as seperate strings.
      */
-    static QStringList textToUnicodeGraphemeClusters(QString text, QString langCode);
+    static QStringList textToUnicodeGraphemeClusters(const QString &text, const QString &langCode);
 
     /**
      * @brief justificationOpportunities

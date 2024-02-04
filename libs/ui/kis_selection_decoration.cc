@@ -36,6 +36,7 @@
 #include "KisView.h"
 #include "kis_selection_mask.h"
 #include <KisPart.h>
+#include <KisScreenMigrationTracker.h>
 
 static const unsigned int ANT_LENGTH = 4;
 static const unsigned int ANT_SPACE = 4;
@@ -47,18 +48,8 @@ KisSelectionDecoration::KisSelectionDecoration(QPointer<KisView>_view)
       m_offset(0),
       m_mode(Ants)
 {
-    Q_ASSERT(view());
-    Q_ASSERT(view()->mainWindow());
-    Q_ASSERT(view()->mainWindow()->windowHandle());
-
-    m_window = view()->mainWindow()->windowHandle();
-    connect(m_window, SIGNAL(screenChanged(QScreen*)), this, SLOT(screenChanged(QScreen*)));
-
-    m_screen = m_window->screen();
     initializePens();
-
-    connect(m_screen, SIGNAL(logicalDotsPerInchChanged(qreal)),
-            this, SLOT(initializePens()));
+    connect(this->view()->canvasBase()->resourceManager(), SIGNAL(canvasResourceChanged(int, const QVariant&)), this, SLOT(slotCanvasResourcesChanged(int, const QVariant&)));
 
     connect(KisConfigNotifier::instance(), SIGNAL(configChanged()), SLOT(slotConfigChanged()));
     connect(KisImageConfigNotifier::instance(), SIGNAL(configChanged()), SLOT(slotConfigChanged()));
@@ -103,15 +94,8 @@ void KisSelectionDecoration::initializePens()
     KisPaintingTweaks::initAntsPen(&m_antsPen, &m_outlinePen,
                                    ANT_LENGTH, ANT_SPACE);
 
-    int penWidth = qRound(m_screen->devicePixelRatio());
-    if (penWidth > 1) {
-        m_antsPen.setWidth(penWidth);
-        m_outlinePen.setWidth(penWidth);
-    }
-    else {
-        m_antsPen.setCosmetic(true);
-        m_outlinePen.setCosmetic(true);
-    }
+    m_antsPen.setWidth(decorationThickness());
+    m_outlinePen.setWidth(decorationThickness());
 }
 
 void KisSelectionDecoration::selectionChanged()
@@ -178,10 +162,12 @@ void KisSelectionDecoration::slotConfigChanged()
     m_antialiasSelectionOutline = cfg.antialiasSelectionOutline();
 }
 
-void KisSelectionDecoration::screenChanged(QScreen *screen)
+void KisSelectionDecoration::slotCanvasResourcesChanged(int key, const QVariant &v)
 {
-    m_screen = screen;
-    initializePens();
+    Q_UNUSED(v);
+    if (key == KoCanvasResource::DecorationThickness) {
+        initializePens();
+    }
 }
 
 void KisSelectionDecoration::antsAttackEvent()

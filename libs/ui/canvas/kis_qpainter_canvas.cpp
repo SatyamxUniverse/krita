@@ -65,7 +65,7 @@ KisQPainterCanvas::KisQPainterCanvas(KisCanvas2 *canvas, KisCoordinatesConverter
     setAutoFillBackground(true);
     setAcceptDrops(true);
     setFocusPolicy(Qt::StrongFocus);
-    setAttribute(Qt::WA_InputMethodEnabled, false);
+    setAttribute(Qt::WA_InputMethodEnabled, true);
     setAttribute(Qt::WA_StaticContents);
     setAttribute(Qt::WA_OpaquePaintEvent);
 #ifdef Q_OS_MACOS
@@ -148,6 +148,16 @@ QVariant KisQPainterCanvas::inputMethodQuery(Qt::InputMethodQuery query) const
 void KisQPainterCanvas::inputMethodEvent(QInputMethodEvent *event)
 {
     processInputMethodEvent(event);
+}
+
+void KisQPainterCanvas::focusInEvent(QFocusEvent *event)
+{
+    processFocusInEvent(event);
+}
+
+void KisQPainterCanvas::focusOutEvent(QFocusEvent *event)
+{
+    processFocusOutEvent(event);
 }
 
 void KisQPainterCanvas::hideEvent(QHideEvent *e)

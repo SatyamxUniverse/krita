@@ -75,7 +75,12 @@ void addWordToLine(QVector<CharacterResult> &result,
         CharacterResult cr = result.at(j);
         if (currentChunk.boundingBox.isEmpty() && j == wordIndices.first()) {
             if (result.at(j).lineStart == LineEdgeBehaviour::Collapse) {
-                result[j].addressable = false;
+                result[j].advance = QPointF();
+                if (isHorizontal) {
+                    result[j].boundingBox.setWidth(0);
+                } else {
+                    result[j].boundingBox.setHeight(0);
+                }
                 result[j].hidden = true;
                 continue;
             }
@@ -134,6 +139,7 @@ static QPointF lineHeightOffset(KoSvgText::WritingMode writingMode,
                                 currentLine.actualLineBottom,
                                 writingMode == KoSvgText::HorizontalTB,
                                 false);
+            result[chunkIndices.first()].anchored_chunk = true;
         }
     }
 
@@ -202,8 +208,15 @@ handleCollapseAndHang(QVector<CharacterResult> &result, LineChunk &chunk, bool l
         while (it.hasPrevious()) {
             int lastIndex = it.previous();
             if (result.at(lastIndex).lineEnd == LineEdgeBehaviour::Collapse) {
-                result[lastIndex].addressable = false;
                 result[lastIndex].hidden = true;
+                // We literally collapse the advance of the last collapsed white-space to ensure it may
+                // still be possible to track it by cursor movement.
+                result[lastIndex].advance = QPointF();
+                if (isHorizontal) {
+                    result[lastIndex].boundingBox.setWidth(0);
+                } else {
+                    result[lastIndex].boundingBox.setHeight(0);
+                }
             } else if (result.at(lastIndex).lineEnd == LineEdgeBehaviour::ConditionallyHang) {
                 if (ltr) {
                     QPointF hangPos = result[lastIndex].cssPosition + result[lastIndex].advance;
@@ -255,7 +268,7 @@ static void applyInlineSizeAnchoring(QVector<CharacterResult> &result,
 
     bool first = true;
     Q_FOREACH (int i, lineIndices) {
-        if (!result.at(i).addressable || (result.at(i).isHanging && result.at(i).anchored_chunk)) {
+        if (!result.at(i).addressable || result.at(i).hidden || (result.at(i).isHanging && result.at(i).anchored_chunk)) {
             continue;
         }
 
@@ -342,7 +355,7 @@ void finalizeLine(QVector<CharacterResult> &result,
             QPointF advanceLength; ///< Because we may have collapsed the last glyph, we'll need to recalculate the total advance;
             bool first = true;
             Q_FOREACH (int j, visualToLogical.values()) {
-                if (!result.at(j).addressable) {
+                if (!result.at(j).addressable || result.at(j).hidden) {
                     continue;
                 }
                 advanceLength += result.at(j).advance;

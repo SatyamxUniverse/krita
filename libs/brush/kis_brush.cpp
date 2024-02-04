@@ -42,14 +42,13 @@
 #include <KoResourceServerProvider.h>
 #include <KisLazySharedCacheStorage.h>
 #include <KisOptimizedBrushOutline.h>
+#include <KisStaticInitializer.h>
 
-struct KisBrushSPStaticRegistrar {
-    KisBrushSPStaticRegistrar() {
-        qRegisterMetaType<KisBrushSP>("KisBrushSP");
-        QMetaType::registerEqualsComparator<KisBrushSP>();
-    }
-};
-static KisBrushSPStaticRegistrar __registrar1;
+
+KIS_DECLARE_STATIC_INITIALIZER {
+    qRegisterMetaType<KisBrushSP>("KisBrushSP");
+    QMetaType::registerEqualsComparator<KisBrushSP>();
+}
 
 const QString KisBrush::brushTypeMetaDataKey = "image-based-brush";
 

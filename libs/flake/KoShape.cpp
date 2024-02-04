@@ -76,6 +76,8 @@ KoShape::SharedData::SharedData()
     , textRunAroundDistanceBottom(0.0)
     , textRunAroundThreshold(0.0)
     , textRunAroundContour(KoShape::ContourFull)
+    , paintOrder(QVector<PaintOrder>({Fill, Stroke, Markers}))
+    , inheritPaintOrder(true)
 { }
 
 KoShape::SharedData::SharedData(const SharedData &rhs)
@@ -114,6 +116,9 @@ KoShape::SharedData::SharedData(const SharedData &rhs)
     , textRunAroundDistanceBottom(rhs.textRunAroundDistanceBottom)
     , textRunAroundThreshold(rhs.textRunAroundThreshold)
     , textRunAroundContour(rhs.textRunAroundContour)
+
+    , paintOrder(rhs.paintOrder)
+    , inheritPaintOrder(rhs.inheritPaintOrder)
 {
 }
 
@@ -200,10 +205,33 @@ KoShape *KoShape::cloneShape() const
     return 0;
 }
 
+KoShape *KoShape::cloneShapeAndBakeAbsoluteTransform() const
+{
+    KoShape *clonedShape = this->cloneShape();
+
+    /**
+     * The shape is cloned without its parent's transformation, so we should
+     * adjust it manually.
+     */
+    KoShape *oldParentShape = this->parent();
+    if (oldParentShape && !oldParentShape->absoluteTransformation().isIdentity()) {
+        clonedShape->applyAbsoluteTransformation(oldParentShape->absoluteTransformation());
+    }
+
+    return clonedShape;
+}
+
 void KoShape::paintStroke(QPainter &painter) const
 {
     if (stroke()) {
         stroke()->paint(this, painter);
+    }
+}
+
+void KoShape::paintMarkers(QPainter &painter) const
+{
+    if (stroke()) {
+        stroke()->paintMarkers(this, painter);
     }
 }
 
@@ -719,6 +747,51 @@ KoInsets KoShape::strokeInsets() const
     return answer;
 }
 
+void KoShape::setPaintOrder(KoShape::PaintOrder first, KoShape::PaintOrder second)
+{
+    KIS_SAFE_ASSERT_RECOVER_RETURN(first != second);
+    QVector<PaintOrder> order = {Fill, Stroke, Markers};
+
+    if (first != Fill) {
+        if (order.at(1) == first) {
+            order[1] = order[0];
+            order[0] = first;
+        } else if (order.at(2) == first) {
+            order[2] = order[0];
+            order[0] = first;
+        }
+    }
+    if (second != first && second != Stroke) {
+        if (order.at(2) == second) {
+            order[2] = order[1];
+            order[1] = second;
+        }
+    }
+    s->inheritPaintOrder = false;
+    s->paintOrder = order;
+}
+
+QVector<KoShape::PaintOrder> KoShape::paintOrder() const
+{
+    QVector<PaintOrder> order = {Fill, Stroke, Markers};
+    if (!s->inheritPaintOrder) {
+        order = s->paintOrder;
+    } else if (parent()) {
+        order = parent()->paintOrder();
+    }
+    return order;
+}
+
+void KoShape::setInheritPaintOrder(bool value)
+{
+    s->inheritPaintOrder = value;
+}
+
+bool KoShape::inheritPaintOrder() const
+{
+    return s->inheritPaintOrder;
+}
+
 qreal KoShape::rotation() const
 {
     // try to extract the rotation angle out of the local matrix
@@ -1096,7 +1169,7 @@ bool KoShape::isShapeEditable(bool recursive) const
     return true;
 }
 
-KisHandlePainterHelper KoShape::createHandlePainterHelperView(QPainter *painter, KoShape *shape, const KoViewConverter &converter, qreal handleRadius)
+KisHandlePainterHelper KoShape::createHandlePainterHelperView(QPainter *painter, KoShape *shape, const KoViewConverter &converter, qreal handleRadius, int decorationThickness)
 {
     const QTransform originalPainterTransform = painter->transform();
 
@@ -1105,10 +1178,10 @@ KisHandlePainterHelper KoShape::createHandlePainterHelperView(QPainter *painter,
                           painter->transform());
 
     // move c-tor
-    return KisHandlePainterHelper(painter, originalPainterTransform, handleRadius);
+    return KisHandlePainterHelper(painter, originalPainterTransform, handleRadius, decorationThickness);
 }
 
-KisHandlePainterHelper KoShape::createHandlePainterHelperDocument(QPainter *painter, KoShape *shape, qreal handleRadius)
+KisHandlePainterHelper KoShape::createHandlePainterHelperDocument(QPainter *painter, KoShape *shape, qreal handleRadius, int decorationThickness)
 {
     const QTransform originalPainterTransform = painter->transform();
 
@@ -1116,7 +1189,7 @@ KisHandlePainterHelper KoShape::createHandlePainterHelperDocument(QPainter *pain
                           painter->transform());
 
     // move c-tor
-    return KisHandlePainterHelper(painter, originalPainterTransform, handleRadius);
+    return KisHandlePainterHelper(painter, originalPainterTransform, handleRadius, decorationThickness);
 }
 
 

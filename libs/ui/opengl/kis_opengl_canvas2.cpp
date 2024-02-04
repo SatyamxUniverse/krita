@@ -95,7 +95,7 @@ KisOpenGLCanvas2::KisOpenGLCanvas2(KisCanvas2 *canvas,
 #else
     setAttribute(Qt::WA_AcceptTouchEvents, true);
 #endif
-    setAttribute(Qt::WA_InputMethodEnabled, false);
+    setAttribute(Qt::WA_InputMethodEnabled, true);
     setAttribute(Qt::WA_DontCreateNativeAncestors, true);
     setUpdateBehavior(PartialUpdate);
 
@@ -123,7 +123,7 @@ KisOpenGLCanvas2::KisOpenGLCanvas2(KisCanvas2 *canvas,
     connect(KisConfigNotifier::instance(), SIGNAL(configChanged()), SLOT(slotConfigChanged()));
     connect(KisConfigNotifier::instance(), SIGNAL(pixelGridModeChanged()), SLOT(slotPixelGridModeChanged()));
 
-    connect(canvas->viewManager()->canvasResourceProvider(), SIGNAL(sigEraserModeToggled(bool)), SLOT(slotUpdateCursorColor()));
+    connect(canvas->viewManager()->canvasResourceProvider(), SIGNAL(sigEffectiveCompositeOpChanged()), SLOT(slotUpdateCursorColor()));
     connect(canvas->viewManager()->canvasResourceProvider(), SIGNAL(sigPaintOpPresetChanged(KisPaintOpPresetSP)), SLOT(slotUpdateCursorColor()));
 
     slotConfigChanged();
@@ -252,13 +252,15 @@ void KisOpenGLCanvas2::paintEvent(QPaintEvent *e)
          * See https://bugs.kde.org/show_bug.cgi?id=441216
          */
         d->updateRect = e->rect();
+    } else {
+        d->updateRect = this->rect();
     }
 
     QOpenGLWidget::paintEvent(e);
     d->updateRect = boost::none;
 }
 
-void KisOpenGLCanvas2::paintToolOutline(const KisOptimizedBrushOutline &path)
+void KisOpenGLCanvas2::paintToolOutline(const KisOptimizedBrushOutline &path, int thickness)
 {
     /**
      * paintToolOutline() is called from drawDecorations(), which has clipping
@@ -270,7 +272,7 @@ void KisOpenGLCanvas2::paintToolOutline(const KisOptimizedBrushOutline &path)
      */
     const QRect updateRect = d->updateRect ? *d->updateRect : QRect();
 
-    d->renderer->paintToolOutline(path, updateRect);
+    d->renderer->paintToolOutline(path, updateRect, thickness);
 }
 
 bool KisOpenGLCanvas2::isBusy() const
@@ -317,6 +319,16 @@ QVariant KisOpenGLCanvas2::inputMethodQuery(Qt::InputMethodQuery query) const
 void KisOpenGLCanvas2::inputMethodEvent(QInputMethodEvent *event)
 {
     processInputMethodEvent(event);
+}
+
+void KisOpenGLCanvas2::focusInEvent(QFocusEvent *event)
+{
+    processFocusInEvent(event);
+}
+
+void KisOpenGLCanvas2::focusOutEvent(QFocusEvent *event)
+{
+    processFocusOutEvent(event);
 }
 
 void KisOpenGLCanvas2::hideEvent(QHideEvent *e)

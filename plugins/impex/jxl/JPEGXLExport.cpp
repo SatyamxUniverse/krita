@@ -832,14 +832,16 @@ KisImportExportErrorCode JPEGXLExport::convert(KisDocument *document, QIODevice 
         }();
 
         // XXX: Workaround for a buggy lossless patches. Set to disable instead.
-        // TODO Kampidh: revisit this when upstream got fixed.
+        // Patch only for libjxl under v0.9.0
         //
         // See: https://github.com/libjxl/libjxl/issues/2463
         const int setPatches = [&]() -> int {
-            if ((cfg->getInt("effort", 7) > 4) && !cfg->getBool("flattenLayers", true) && cfg->getBool("lossless")) {
-                warnFile << "Using workaround for lossless layer exports, disabling patches option on effort > 4";
+#if JPEGXL_NUMERIC_VERSION < JPEGXL_COMPUTE_NUMERIC_VERSION(0, 9, 0)
+            if ((cfg->getInt("effort", 7) > 4) && !cfg->getBool("flattenLayers", true)) {
+                warnFile << "Using workaround for layer exports, disabling patches option on effort > 4";
                 return 0;
             }
+#endif
             return cfg->getInt("patches", -1);
         }();
 
@@ -890,8 +892,18 @@ KisImportExportErrorCode JPEGXLExport::convert(KisDocument *document, QIODevice 
     }
 
     {
-        if (image->animationInterface()->hasAnimation()
-            && cfg->getBool("haveAnimation", true)) {
+        const bool isAnimated = [&]() {
+            if (image->animationInterface()->hasAnimation() && cfg->getBool("haveAnimation", true)) {
+                KisLayerUtils::flattenImage(image, nullptr);
+                image->waitForDone();
+
+                const KisNodeSP projection = image->rootLayer()->firstChild();
+                return projection->isAnimated() && projection->hasEditablePaintDevice();
+            }
+            return false;
+        }();
+
+        if (isAnimated) {
             // Flatten the image, projections don't have keyframes.
             KisLayerUtils::flattenImage(image, nullptr);
             image->waitForDone();

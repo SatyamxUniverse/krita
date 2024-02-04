@@ -199,6 +199,11 @@ void KisToolPaint::activate(const QSet<KoShape*> &shapes)
 
     }
 
+    connect(action("rotate_brush_tip_clockwise"), SIGNAL(triggered()), SLOT(rotateBrushTipClockwise()), Qt::UniqueConnection);
+    connect(action("rotate_brush_tip_clockwise_precise"), SIGNAL(triggered()), SLOT(rotateBrushTipClockwisePrecise()), Qt::UniqueConnection);
+    connect(action("rotate_brush_tip_counter_clockwise"), SIGNAL(triggered()), SLOT(rotateBrushTipCounterClockwise()), Qt::UniqueConnection);
+    connect(action("rotate_brush_tip_counter_clockwise_precise"), SIGNAL(triggered()), SLOT(rotateBrushTipCounterClockwisePrecise()), Qt::UniqueConnection);
+
     tryRestoreOpacitySnapshot();
 }
 
@@ -208,6 +213,11 @@ void KisToolPaint::deactivate()
         disconnect(action("increase_brush_size"), 0, this, 0);
         disconnect(action("decrease_brush_size"), 0, this, 0);
     }
+
+    disconnect(action("rotate_brush_tip_clockwise"), 0, this, 0);
+    disconnect(action("rotate_brush_tip_clockwise_precise"), 0, this, 0);
+    disconnect(action("rotate_brush_tip_counter_clockwise"), 0, this, 0);
+    disconnect(action("rotate_brush_tip_counter_clockwise_precise"), 0, this, 0);
 
     tryRestoreOpacitySnapshot();
     emit statusTextChanged(QString());
@@ -234,8 +244,7 @@ KisOptimizedBrushOutline KisToolPaint::tryFixBrushOutline(const KisOptimizedBrus
 {
     KisConfig cfg(true);
 
-    bool useSeparateEraserCursor = cfg.separateEraserCursor() &&
-            canvas()->resourceManager()->resource(KoCanvasResource::CurrentEffectiveCompositeOp).toString() == COMPOSITE_ERASE;
+    bool useSeparateEraserCursor = cfg.separateEraserCursor() && isEraser();
 
     const OutlineStyle currentOutlineStyle = !useSeparateEraserCursor ? cfg.newOutlineStyle() : cfg.eraserOutlineStyle();
     if (currentOutlineStyle == OUTLINE_NONE) return originalOutline;
@@ -566,7 +575,7 @@ void KisToolPaint::decreaseBrushSize()
     std::vector<int>::reverse_iterator result =
         std::upper_bound(m_standardBrushSizes.rbegin(),
                          m_standardBrushSizes.rend(),
-                         (int)paintopSize,
+                         qRound(paintopSize),
                          std::greater<int>());
 
     int newValue = result != m_standardBrushSizes.rend() ? *result : m_standardBrushSizes.front();
@@ -583,6 +592,34 @@ void KisToolPaint::showBrushSize()
                                                    , QIcon(), 1000, KisFloatingMessage::High,  Qt::AlignLeft | Qt::TextWordWrap | Qt::AlignVCenter);
 }
 
+void KisToolPaint::rotateBrushTipClockwise()
+{
+    const qreal angle = currentPaintOpPreset()->settings()->paintOpAngle();
+    currentPaintOpPreset()->settings()->setPaintOpAngle(angle - 15);
+    requestUpdateOutline(m_outlineDocPoint, 0);
+}
+
+void KisToolPaint::rotateBrushTipClockwisePrecise()
+{
+    const qreal angle = currentPaintOpPreset()->settings()->paintOpAngle();
+    currentPaintOpPreset()->settings()->setPaintOpAngle(angle - 1);
+    requestUpdateOutline(m_outlineDocPoint, 0);
+}
+
+void KisToolPaint::rotateBrushTipCounterClockwise()
+{
+    const qreal angle = currentPaintOpPreset()->settings()->paintOpAngle();
+    currentPaintOpPreset()->settings()->setPaintOpAngle(angle + 15);
+    requestUpdateOutline(m_outlineDocPoint, 0);
+}
+
+void KisToolPaint::rotateBrushTipCounterClockwisePrecise()
+{
+    const qreal angle = currentPaintOpPreset()->settings()->paintOpAngle();
+    currentPaintOpPreset()->settings()->setPaintOpAngle(angle + 1);
+    requestUpdateOutline(m_outlineDocPoint, 0);
+}
+
 void KisToolPaint::requestUpdateOutline(const QPointF &outlineDocPoint, const KoPointerEvent *event)
 {
     QRectF outlinePixelRect;
@@ -590,12 +627,13 @@ void KisToolPaint::requestUpdateOutline(const QPointF &outlineDocPoint, const Ko
 
     QRectF colorPreviewDocUpdateRect;
 
+    QPointF outlineMoveVector;
+
     if (m_supportOutline) {
         KisConfig cfg(true);
         KisPaintOpSettings::OutlineMode outlineMode;
 
-        bool useSeparateEraserCursor = cfg.separateEraserCursor() &&
-                canvas()->resourceManager()->resource(KoCanvasResource::CurrentEffectiveCompositeOp).toString() == COMPOSITE_ERASE;
+        bool useSeparateEraserCursor = cfg.separateEraserCursor() && isEraser();
 
         const OutlineStyle currentOutlineStyle = !useSeparateEraserCursor ? cfg.newOutlineStyle() : cfg.eraserOutlineStyle();
         const auto outlineStyleIsVisible = [&]() {
@@ -628,6 +666,8 @@ void KisToolPaint::requestUpdateOutline(const QPointF &outlineDocPoint, const Ko
         }
 
         outlineMode.forceFullSize = !useSeparateEraserCursor ? cfg.forceAlwaysFullSizedOutline() : cfg.forceAlwaysFullSizedEraserOutline();
+
+        outlineMoveVector = outlineDocPoint - m_outlineDocPoint;
 
         m_outlineDocPoint = outlineDocPoint;
         m_currentOutline = getOutlinePath(m_outlineDocPoint, event, outlineMode);
@@ -676,7 +716,43 @@ void KisToolPaint::requestUpdateOutline(const QPointF &outlineDocPoint, const Ko
     }
 
     if (!outlineDocRect.isEmpty()) {
-        kiscanvas->updateCanvasToolOutlineDoc(outlineDocRect);
+        /**
+         * A simple "update-ahead" implementation that issues an update a little
+         * bigger to accomodata the possible following outline.
+         *
+         * The point is that canvas rendering comes through two stages of
+         * compression and the canvas may request outline update when the
+         * outline itself has already been changed. It causes visual tearing
+         * on the screen (see https://bugs.kde.org/show_bug.cgi?id=476300).
+         *
+         * We can solve that in  two ways:
+         *
+         * 1) Pass the actual outline with the update rect itself, which is
+         *    a bit complicated and may result in the outline being a bit
+         *    delayed visually. We don't implement this method (yet).
+         *
+         * 2) Just pass the update rect a bit bigger than the actual outline
+         *    to accomodate a possible change in the outline. We calculate
+         *    this bigger rect by offsetting the rect by the previous cursor
+         *    offset.
+         */
+
+        /// Don't try to update-ahead if the offset is bigger than 50%
+        /// of the brush outline
+        const qreal maxUpdateAheadOutlinePortion = 0.5;
+
+        /// 10% of extra move is added to offset
+        const qreal offsetFuzzyExtension = 0.1;
+
+        const qreal moveDistance = KisAlgebra2D::norm(outlineMoveVector);
+
+        QRectF offsetRect;
+
+        if (moveDistance < maxUpdateAheadOutlinePortion * KisAlgebra2D::maxDimension(outlineDocRect)) {
+            offsetRect = outlineDocRect.translated((1.0 + offsetFuzzyExtension) * outlineMoveVector);
+        }
+
+        kiscanvas->updateCanvasToolOutlineDoc(outlineDocRect | offsetRect);
     }
 
     if (!colorPreviewDocUpdateRect.isEmpty()) {
@@ -685,6 +761,10 @@ void KisToolPaint::requestUpdateOutline(const QPointF &outlineDocPoint, const Ko
 
     m_oldOutlineRect = outlineDocRect;
     m_oldColorPreviewUpdateRect = colorPreviewDocUpdateRect;
+}
+
+bool KisToolPaint::isEraser() const {
+    return canvas()->resourceManager()->resource(KoCanvasResource::CurrentEffectiveCompositeOp).toString() == COMPOSITE_ERASE;
 }
 
 KisOptimizedBrushOutline KisToolPaint::getOutlinePath(const QPointF &documentPos,

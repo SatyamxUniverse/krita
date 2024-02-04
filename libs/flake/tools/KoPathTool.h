@@ -57,13 +57,16 @@ public:
     void requestStrokeEnd() override;
     void explicitUserStrokeEndRequest() override;
 
+    bool selectAll() override;
+    void deselect() override;
+
     QMenu* popupActionsMenu() override;
 
     // for KoPathToolSelection
     void notifyPathPointsChanged(KoPathShape *shape);
 
 public Q_SLOTS:
-    void documentResourceChanged(int key, const QVariant & res) override;
+    void canvasResourceChanged(int key, const QVariant & res) override;
 
 Q_SIGNALS:
     void typeChanged(int types);

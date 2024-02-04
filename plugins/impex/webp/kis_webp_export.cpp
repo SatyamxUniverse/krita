@@ -222,15 +222,24 @@ KisImportExportErrorCode KisWebPExport::convert(KisDocument *document, QIODevice
 
         const bool enableDithering = cfg->getBool("dithering", true);
 
-        if (image->animationInterface()->hasAnimation()
-            && cfg->getBool("haveAnimation", true)) {
+        const bool isAnimated = [&]() {
+            if (image->animationInterface()->hasAnimation() && cfg->getBool("haveAnimation", true)) {
+                KisLayerUtils::flattenImage(image, nullptr);
+                image->waitForDone();
+
+                const KisNodeSP projection = image->rootLayer()->firstChild();
+                return projection->isAnimated() && projection->hasEditablePaintDevice();
+            }
+            return false;
+        }();
+
+        if (isAnimated) {
             // Flatten the image, projections don't have keyframes.
             KisLayerUtils::flattenImage(image, nullptr);
             image->waitForDone();
 
             const KisNodeSP projection = image->rootLayer()->firstChild();
-            KIS_ASSERT(projection->isAnimated());
-            KIS_ASSERT(projection->hasEditablePaintDevice());
+            if (!projection->isAnimated()) return ImportExportCodes::InternalError;
 
             const KisRasterKeyframeChannel *frames =
                 projection->paintDevice()->keyframeChannel();
@@ -329,7 +338,12 @@ KisImportExportErrorCode KisWebPExport::convert(KisDocument *document, QIODevice
                         }
                     }
 
-                    const QImage imageOut = dst->convertToQImage(nullptr, 0, 0, bounds.width(), bounds.height())
+                    // Convert to sRGB for non-RGBA color model
+                    const KoColorProfile *imageProfile = (dst->colorSpace()->colorModelId() == RGBAColorModelID)
+                        ? dev->colorSpace()->profile()
+                        : nullptr;
+
+                    const QImage imageOut = dst->convertToQImage(imageProfile, 0, 0, bounds.width(), bounds.height())
                                                 .convertToFormat(QImage::Format_RGBA8888);
 
                     return imageOut;
@@ -440,7 +454,12 @@ KisImportExportErrorCode KisWebPExport::convert(KisDocument *document, QIODevice
                     }
                 }
 
-                const QImage imageOut = dst->convertToQImage(nullptr, 0, 0, bounds.width(), bounds.height())
+                // Convert to sRGB for non-RGBA color model
+                const KoColorProfile *imageProfile = (dst->colorSpace()->colorModelId() == RGBAColorModelID)
+                    ? document->savingImage()->projection()->colorSpace()->profile()
+                    : nullptr;
+
+                const QImage imageOut = dst->convertToQImage(imageProfile, 0, 0, bounds.width(), bounds.height())
                                             .convertToFormat(QImage::Format_RGBA8888);
 
                 return imageOut;

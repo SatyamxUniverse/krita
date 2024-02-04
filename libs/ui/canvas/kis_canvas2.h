@@ -119,8 +119,6 @@ public: // KoCanvasBase implementation
 
     void updateCanvas(const QRectF& rc) override;
 
-    void updateInputMethodInfo() override;
-
     const KisCoordinatesConverter* coordinatesConverter() const;
     const KoViewConverter *viewConverter() const override;
     KoViewConverter *viewConverter() override;
@@ -267,6 +265,8 @@ public Q_SLOTS:
      * Called whenever the configuration settings change.
      */
     void slotConfigChanged();
+
+    void slotScreenChanged(QScreen *screen);
 
 
 private Q_SLOTS:

@@ -132,6 +132,7 @@ private:
     void setWidgetState(int flags);
     void setSliderValue(const QString& sliderID, qreal value);
     void setMultiplierSliderValue(const QString& sliderID, qreal value);
+    void setAngleSliderValue(const QString& sliderID, qreal value);
     void sliderChanged(int n);
     void findDefaultPresets();
 
@@ -148,6 +149,7 @@ private Q_SLOTS:
     void slotSlider2Changed();
     void slotSlider3Changed();
     void slotSlider4Changed();
+    void slotSlider5Changed();
     void slotToolChanged(KoCanvasController* canvas);
     void slotPreviousFavoritePreset();
     void slotNextFavoritePreset();
@@ -175,6 +177,7 @@ private Q_SLOTS:
     void slotUpdateOptionsWidgetPopup();
 
     void togglePresetEditor();
+    void updatePresetConfig();
 
 private:
     KisCanvasResourceProvider*          m_resourceProvider {0};
@@ -197,7 +200,7 @@ private:
     KisPaintOpPresetsChooserPopup*      m_presetsChooserPopup {0};
     KisViewManager*                     m_viewManager {0};
     KisPopupButton*                     m_workspaceWidget {0};
-    KisWidgetChooser*                   m_sliderChooser[4];
+    KisWidgetChooser*                   m_sliderChooser[5];
     QMap<KoID, KisPaintOpConfigWidget*> m_paintopOptionWidgets;
     KisFavoriteResourceManager*         m_favoriteResourceManager {0};
     QToolButton*                        m_reloadButton {0};

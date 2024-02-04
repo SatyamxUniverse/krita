@@ -48,6 +48,7 @@
 #include "KisPart.h"
 #include "KisDocument.h"
 #include "widgets/kis_cmb_idlist.h"
+#include <KisSpinBoxI18nHelper.h>
 #include <KisSqueezedComboBox.h>
 #include "kis_signals_blocker.h"
 
@@ -95,7 +96,7 @@ KisCustomImageWidget::KisCustomImageWidget(QWidget* parent, qint32 defWidth, qin
 
     sliderOpacity->setRange(0, 100, 0);
     sliderOpacity->setValue(100);
-    sliderOpacity->setSuffix(i18n("%"));
+    KisSpinBoxI18nHelper::setText(sliderOpacity, i18nc("{n} is the number value, % is the percent sign", "{n}%"));
 
     connect(cmbPredefined, SIGNAL(activated(int)), SLOT(predefinedClicked(int)));
     connect(doubleResolution, SIGNAL(valueChanged(double)),

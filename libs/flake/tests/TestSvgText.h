@@ -88,6 +88,12 @@ private Q_SLOTS:
 
     void testCssShapeParsing();
     void testShapeInsideRender();
+
+    void testTextInsertion();
+
+    void testTextDeletion_data();
+    void testTextDeletion();
+    void testNavigation();
 };
 
 #endif // TESTSVGTEXT_H

@@ -13,6 +13,7 @@
 #include <filter/kis_filter_configuration.h>
 #include <kis_config_widget.h>
 #include <kis_signals_blocker.h>
+#include <KisSpinBoxI18nHelper.h>
 
 #include <QStringList>
 #include <QScrollBar>
@@ -44,14 +45,15 @@ KisHalftoneConfigPageWidget::KisHalftoneConfigPageWidget(QWidget *parent, const 
 
     ui()->sliderHardness->setRange(0.0, 100.0, 2);
     ui()->sliderHardness->setSingleStep(1.0);
-    ui()->sliderHardness->setSuffix(i18n("%"));
+    KisSpinBoxI18nHelper::setText(ui()->sliderHardness,
+                                  i18nc("{n} is the number value, % is the percent sign", "{n}%"));
 
     ui()->sliderForegroundOpacity->setRange(0, 100);
-    ui()->sliderForegroundOpacity->setPrefix(i18n("Opacity: "));
-    ui()->sliderForegroundOpacity->setSuffix(i18n("%"));
+    KisSpinBoxI18nHelper::setText(ui()->sliderForegroundOpacity,
+                                  i18nc("{n} is the number value, % is the percent sign", "Opacity: {n}%"));
     ui()->sliderBackgroundOpacity->setRange(0, 100);
-    ui()->sliderBackgroundOpacity->setPrefix(i18n("Opacity: "));
-    ui()->sliderBackgroundOpacity->setSuffix(i18n("%"));
+    KisSpinBoxI18nHelper::setText(ui()->sliderBackgroundOpacity,
+                                  i18nc("{n} is the number value, % is the percent sign", "Opacity: {n}%"));
 
     connect(ui()->comboBoxGenerator, SIGNAL(currentIndexChanged(int)), this, SLOT(slot_comboBoxGenerator_currentIndexChanged(int)));
     connect(ui()->sliderHardness, SIGNAL(valueChanged(qreal)), this, SIGNAL(signal_configurationUpdated()));

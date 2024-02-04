@@ -77,13 +77,14 @@ public:
                        << "text-overflow"
                        << "tab-size"
                        << "overflow-wrap"
-                       << "word-wrap";
+                       << "word-wrap"
+                       << "text-orientation";
         // the order of the style attributes is important, don't change without reason !!!
         styleAttributes << "color" << "display" << "visibility";
         styleAttributes << "fill" << "fill-rule" << "fill-opacity";
         styleAttributes << "stroke" << "stroke-width" << "stroke-linejoin" << "stroke-linecap";
         styleAttributes << "stroke-dasharray" << "stroke-dashoffset" << "stroke-opacity" << "stroke-miterlimit";
-        styleAttributes << "opacity" << "filter" << "clip-path" << "clip-rule" << "mask";
+        styleAttributes << "opacity" << "paint-order" << "filter" << "clip-path" << "clip-rule" << "mask";
         styleAttributes << "shape-inside" << "shape-subtract" << "shape-padding" << "shape-margin";
         styleAttributes << "marker" << "marker-start" << "marker-mid" << "marker-end" << "krita:marker-fill-method";
     }
@@ -232,6 +233,8 @@ void SvgStyleParser::parsePA(SvgGraphicsContext *gc, const QString &command, con
         fillcolor.setAlphaF(opacity);
     } else if (command == "opacity") {
         gc->opacity = SvgUtil::fromPercentage(params);
+    } else if (command == "paint-order") {
+        gc->paintOrder = params;
     } else if (command == "font-family") {
         gc->textProperties.parseSvgTextAttribute(d->context, command, params);
     } else if (command == "font-size") {
@@ -328,7 +331,7 @@ void SvgStyleParser::parsePA(SvgGraphicsContext *gc, const QString &command, con
                || command == "word-break" || command == "line-break" || command == "hanging-punctuation" || command == "text-align"
                || command == "text-align-all" || command == "text-align-last" || command == "inline-size" || command == "overflow" || command == "text-overflow"
                || command == "tab-size" || command == "overflow-wrap" || command == "word-wrap" || command == "vertical-align"
-               || command ==  "shape-padding" || command ==   "shape-margin") {
+               || command ==  "shape-padding" || command ==   "shape-margin" || command ==   "text-orientation") {
         gc->textProperties.parseSvgTextAttribute(d->context, command, params);
     } else if (command == "krita:marker-fill-method") {
         gc->autoFillMarkers = params == "auto";

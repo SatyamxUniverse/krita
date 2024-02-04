@@ -1394,7 +1394,7 @@
       <whatsThis></whatsThis>
       <toolTip>Reselect</toolTip>
       <iconText>Reselect</iconText>
-      <activationFlags>0</activationFlags>
+      <activationFlags>1000000000000000000</activationFlags>
       <activationConditions>0</activationConditions>
       <shortcut>Ctrl+Shift+D</shortcut>
       <isCheckable>false</isCheckable>
@@ -2022,6 +2022,16 @@
       <whatsThis></whatsThis>
       <toolTip>Brush option slider 4</toolTip>
       <iconText>Brush option slider 4</iconText>
+      <shortcut></shortcut>
+      <isCheckable>false</isCheckable>
+      <statusTip></statusTip>
+    </Action>
+	<Action name="brushslider5">
+      <icon></icon>
+      <text>Brush option slider 5</text>
+      <whatsThis></whatsThis>
+      <toolTip>Brush option slider 5</toolTip>
+      <iconText>Brush option slider 5</iconText>
       <shortcut></shortcut>
       <isCheckable>false</isCheckable>
       <statusTip></statusTip>

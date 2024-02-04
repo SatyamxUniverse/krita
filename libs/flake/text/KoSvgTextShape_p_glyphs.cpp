@@ -8,6 +8,7 @@
 #include "KoSvgTextShape.h"
 #include "KoSvgTextShape_p.h"
 
+#include "KisTofuGlyph.h"
 #include "KoFontLibraryResourceUtils.h"
 
 #include <FlakeDebug.h>
@@ -253,36 +254,34 @@ private:
     bool m_haveLayers;
 };
 
+
+/**
+ * @brief Load the glyph if possible. The glyph is loaded into `charResult.glyph`.
+ *
+ * @return std::pair<QTransform, qreal>
+ *   - QTransform glyphObliqueTf - The matrix for Italic (oblique) synthesis.
+ *   - qreal bitmapScale - The scaling factor for color bitmap glyphs, otherwise always 1.0
+ */
 // NOLINTNEXTLINE(readability-function-cognitive-complexity)
-bool KoSvgTextShape::Private::loadGlyph(const QTransform &ftTF,
-                                        const QMap<int, KoSvgText::TabSizeInfo> &tabSizeInfo,
-                                        const FT_Int32 faceLoadFlags,
-                                        const bool isHorizontal,
-                                        const int i,
-                                        raqm_glyph_t &currentGlyph,
-                                        QMap<int, int> &logicalToVisual,
-                                        CharacterResult &charResult,
-                                        QPointF &totalAdvanceFTFontCoordinates) const
+std::pair<QTransform, qreal> KoSvgTextShape::Private::loadGlyphOnly(const QTransform &ftTF,
+                                                                    const FT_Int32 faceLoadFlags,
+                                                                    const bool isHorizontal,
+                                                                    raqm_glyph_t &currentGlyph,
+                                                                    CharacterResult &charResult) const
 {
-    // Whenever the freetype docs talk about a 26.6 floating point unit, they
-    // mean a 1/64 value.
-    const qreal ftFontUnit = 64.0;
-    const qreal ftFontUnitFactor = 1 / ftFontUnit;
-
-    const int cluster = static_cast<int>(currentGlyph.cluster);
-
-    QPointF spaceAdvance;
-    if (tabSizeInfo.contains(cluster)) {
-        FT_Load_Glyph(currentGlyph.ftface, FT_Get_Char_Index(currentGlyph.ftface, ' '), faceLoadFlags);
-        spaceAdvance = QPointF(currentGlyph.ftface->glyph->advance.x, currentGlyph.ftface->glyph->advance.y);
-    }
-
     /// The matrix for Italic (oblique) synthesis of outline glyphs, or for
     /// adjusting the bounding box of bitmap glyphs.
     QTransform glyphObliqueTf;
 
     /// The scaling factor for color bitmap glyphs, otherwise always 1.0
     qreal bitmapScale = 1.0;
+
+    if (currentGlyph.index == 0) {
+        // Missing glyph -- don't try to load the glyph from the font, we will
+        // draw a tofu block instead.
+        debugFlake << "Missing glyph";
+        return {glyphObliqueTf, bitmapScale};
+    }
 
     // Try to retrieve CPAL/COLR v0 color layers, this should be preferred over
     // other glyph formats. Doing this first also allows us to skip loading the
@@ -331,27 +330,27 @@ bool KoSvgTextShape::Private::loadGlyph(const QTransform &ftTF,
     } else {
         if (const FT_Error err = FT_Load_Glyph(currentGlyph.ftface, currentGlyph.index, faceLoadFlags)) {
             warnFlake << "Failed to load glyph, freetype error" << err;
-            return false;
+            return {glyphObliqueTf, bitmapScale};
         }
 
         // Check whether we need to synthesize bold by emboldening the glyph:
         emboldenGlyphIfNeeded(currentGlyph.ftface, charResult, &currentGlyph.x_advance, &currentGlyph.y_advance);
 
         if (currentGlyph.ftface->glyph->format == FT_GLYPH_FORMAT_OUTLINE) {
-        Glyph::Outline _discard; ///< Storage for discarded outline, must outlive outlineGlyph
-        Glyph::Outline *outlineGlyph = std::get_if<Glyph::Outline>(&charResult.glyph);
-        if (!outlineGlyph) {
-            if (std::holds_alternative<Glyph::ColorLayers>(charResult.glyph)) {
-                // Special case: possibly an empty glyph in the middle of a
-                // combining color glyph, just discard the resulting path.
-                outlineGlyph = &_discard;
-            } else if (!std::holds_alternative<std::monostate>(charResult.glyph)) {
-                warnFlake << "Glyph contains other type than Outline:" << charResult.glyph.index();
-            }
+            Glyph::Outline _discard; ///< Storage for discarded outline, must outlive outlineGlyph
+            Glyph::Outline *outlineGlyph = std::get_if<Glyph::Outline>(&charResult.glyph);
             if (!outlineGlyph) {
-                outlineGlyph = &charResult.glyph.emplace<Glyph::Outline>();
+                if (std::holds_alternative<Glyph::ColorLayers>(charResult.glyph)) {
+                    // Special case: possibly an empty glyph in the middle of a
+                    // combining color glyph, just discard the resulting path.
+                    outlineGlyph = &_discard;
+                } else if (!std::holds_alternative<std::monostate>(charResult.glyph)) {
+                    warnFlake << "Glyph contains other type than Outline:" << charResult.glyph.index();
+                }
+                if (!outlineGlyph) {
+                    outlineGlyph = &charResult.glyph.emplace<Glyph::Outline>();
+                }
             }
-        }
 
             /// The combined offset * italic * ftTf transform for outline glyphs.
             QTransform outlineGlyphTf;
@@ -390,6 +389,9 @@ bool KoSvgTextShape::Private::loadGlyph(const QTransform &ftTF,
                     bitmapTf = QTransform::fromTranslate(-anchor.x(), -anchor.y()) * bitmapTf
                         * QTransform::fromTranslate(anchor.x(), anchor.y());
                 }
+            } else if (currentGlyph.ftface->glyph->format == FT_GLYPH_FORMAT_SVG) {
+                debugFlake << "Unsupported glyph format" << glyphFormatToStr(currentGlyph.ftface->glyph->format);
+                return {glyphObliqueTf, bitmapScale};
             } else {
                 debugFlake << "Unsupported glyph format" << glyphFormatToStr(currentGlyph.ftface->glyph->format)
                            << "asking freetype to render it for us";
@@ -399,7 +401,7 @@ bool KoSvgTextShape::Private::loadGlyph(const QTransform &ftTF,
                 }
                 if (const FT_Error err = FT_Render_Glyph(currentGlyph.ftface->glyph, mode)) {
                     warnFlake << "Failed to render glyph, freetype error" << err;
-                    return false;
+                    return {glyphObliqueTf, bitmapScale};
                 }
             }
 
@@ -450,12 +452,107 @@ bool KoSvgTextShape::Private::loadGlyph(const QTransform &ftTF,
             }
         }
     }
+    return {glyphObliqueTf, bitmapScale};
+}
+
+/**
+ * @brief Load the glyph if possible and set the glyph bounding box and metrics.
+ *
+ * @return Whether the resulting charResult is valid.
+ */
+// NOLINTNEXTLINE(readability-function-cognitive-complexity)
+bool KoSvgTextShape::Private::loadGlyph(const QTransform &ftTF,
+                                        const QMap<int, KoSvgText::TabSizeInfo> &tabSizeInfo,
+                                        const FT_Int32 faceLoadFlags,
+                                        const bool isHorizontal,
+                                        const char32_t firstCodepoint,
+                                        raqm_glyph_t &currentGlyph,
+                                        CharacterResult &charResult,
+                                        QPointF &totalAdvanceFTFontCoordinates) const
+{
+    // Whenever the freetype docs talk about a 26.6 floating point unit, they
+    // mean a 1/64 value.
+    const qreal ftFontUnit = 64.0;
+    const qreal ftFontUnitFactor = 1 / ftFontUnit;
+
+    const int cluster = static_cast<int>(currentGlyph.cluster);
+
+    QPointF spaceAdvance;
+    if (tabSizeInfo.contains(cluster)) {
+        FT_Load_Glyph(currentGlyph.ftface, FT_Get_Char_Index(currentGlyph.ftface, ' '), faceLoadFlags);
+        spaceAdvance = QPointF(currentGlyph.ftface->glyph->advance.x, currentGlyph.ftface->glyph->advance.y);
+    }
+
+    /// The matrix for Italic (oblique) synthesis of outline glyphs, or for
+    /// adjusting the bounding box of bitmap glyphs.
+    QTransform glyphObliqueTf;
+
+    /// The scaling factor for color bitmap glyphs, otherwise always 1.0
+    qreal bitmapScale = 1.0;
+
+    // Try to load the glyph
+    std::tie(glyphObliqueTf, bitmapScale) = loadGlyphOnly(ftTF, faceLoadFlags, isHorizontal, currentGlyph, charResult);
+
+    if (charResult.visualIndex == -1) {
+        hb_font_t_up font(hb_ft_font_create_referenced(currentGlyph.ftface));
+        CursorInfo cursorInfo = charResult.cursorInfo;
+        qreal lineHeight = (charResult.fontAscent-charResult.fontDescent) * bitmapScale;
+        qreal descender = charResult.fontDescent * bitmapScale;
+        if (isHorizontal) {
+            hb_position_t run = 0;
+            hb_position_t rise = 1;
+            hb_position_t offset = 0;
+            hb_ot_metrics_get_position_with_fallback(font.data(), HB_OT_METRICS_TAG_HORIZONTAL_CARET_RUN, &run);
+            hb_ot_metrics_get_position_with_fallback(font.data(), HB_OT_METRICS_TAG_HORIZONTAL_CARET_RISE, &rise);
+            hb_ot_metrics_get_position_with_fallback(font.data(), HB_OT_METRICS_TAG_HORIZONTAL_CARET_OFFSET, &offset);
+            qreal slope = 0;
+            if (run != 0 && rise !=0) {
+                slope = double(run)/double(rise);
+                if (offset == 0) {
+                    offset = descender * slope;
+                }
+            }
+            QLineF caret(QPointF(), QPointF(lineHeight*slope, lineHeight));
+            caret.translate(-QPointF(-offset, -descender));
+            cursorInfo.caret = ftTF.map(glyphObliqueTf.map(caret));
+
+            QVector<QPointF> positions;
+            // Ligature caret list only uses direction to determine whether horizontal or vertical.
+            hb_direction_t dir = HB_DIRECTION_LTR;
+
+            uint numCarets = hb_ot_layout_get_ligature_carets(font.data(), dir, currentGlyph.index, 0, nullptr, nullptr);
+            for (uint i=0; i<numCarets; i++) {
+                hb_position_t caretPos = 0;
+                uint caretCount = 1;
+                hb_ot_layout_get_ligature_carets(font.data(), dir, currentGlyph.index, 0, &caretCount, &caretPos);
+                QPointF pos(caretPos, 0);
+                positions.append(ftTF.map(pos));
+            }
+
+            cursorInfo.offsets = positions;
+        } else {
+            hb_position_t run = 1;
+            hb_position_t rise = 0;
+            hb_position_t offset = 0;
+            hb_ot_metrics_get_position_with_fallback(font.data(), HB_OT_METRICS_TAG_VERTICAL_CARET_RUN, &run);
+            hb_ot_metrics_get_position_with_fallback(font.data(), HB_OT_METRICS_TAG_VERTICAL_CARET_RISE, &rise);
+            hb_ot_metrics_get_position_with_fallback(font.data(), HB_OT_METRICS_TAG_VERTICAL_CARET_OFFSET, &offset);
+            qreal slope = 0;
+            if (run != 0 && rise !=0) {
+                slope = double(rise)/double(run);
+                if (offset == 0) {
+                    offset = descender * slope;
+                }
+            }
+            QLineF caret(QPointF(), QPointF(lineHeight, lineHeight*slope));
+            caret.translate(-QPointF(-descender, -offset));
+            cursorInfo.caret = ftTF.map(glyphObliqueTf.map(caret));
+        }
+
+        charResult.cursorInfo = cursorInfo;
+    }
 
     {
-        charResult.visualIndex = i;
-        logicalToVisual.insert(cluster, i);
-
-        charResult.middle = false;
         QPointF advance(currentGlyph.x_advance, currentGlyph.y_advance);
         if (tabSizeInfo.contains(cluster)) {
             KoSvgText::TabSizeInfo tabSize = tabSizeInfo.value(cluster);
@@ -466,8 +563,27 @@ bool KoSvgTextShape::Private::loadGlyph(const QTransform &ftTF,
             } else {
                 advance = isHorizontal ? QPointF(newAdvance, advance.y()) : QPointF(advance.x(), newAdvance);
             }
-            charResult.glyph = std::monostate{};
+            charResult.glyph.emplace<Glyph::Outline>();
         }
+
+        if (std::holds_alternative<std::monostate>(charResult.glyph)) {
+            // For whatever reason we don't have a glyph for this char. Draw a
+            // tofu block for it.
+            const auto height = ftTF.map(QPointF(currentGlyph.ftface->size->metrics.height, 0)).x() * 0.6;
+            QPainterPath glyph = KisTofuGlyph::create(firstCodepoint, height);
+            if (isHorizontal) {
+                glyph.translate(0, -height);
+                const qreal newAdvance =
+                    ftTF.inverted().map(QPointF(glyph.boundingRect().width() + height * (1. / 15.), 0)).x();
+                if (newAdvance > advance.x()) {
+                    advance.setX(newAdvance);
+                }
+            } else {
+                glyph.translate(glyph.boundingRect().width() * -0.5, (ftTF.map(advance).y() - height) * 0.5);
+            }
+            charResult.glyph.emplace<Glyph::Outline>(Glyph::Outline{glyph});
+        }
+
         charResult.advance += ftTF.map(advance);
 
         Glyph::Bitmap *const bitmapGlyph = std::get_if<Glyph::Bitmap>(&charResult.glyph);
@@ -492,7 +608,6 @@ bool KoSvgTextShape::Private::loadGlyph(const QTransform &ftTF,
                           (charResult.fontAscent - charResult.fontDescent) * bitmapScale);
             bbox = glyphObliqueTf.mapRect(bbox);
         } else {
-            hb_font_t_up font(hb_ft_font_create_referenced(currentGlyph.ftface));
             bbox = QRectF(charResult.fontDescent * bitmapScale,
                           0,
                           (charResult.fontAscent - charResult.fontDescent) * bitmapScale,

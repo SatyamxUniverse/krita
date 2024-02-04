@@ -18,6 +18,21 @@
 #include "kis_command_utils.h"
 #include "kis_processing_applicator.h"
 
+#include "kis_canvas2.h"
+#include <QPainterPath>
+#include <kis_shape_layer.h>
+#include <KoShapeManager.h>
+#include <KoShape.h>
+#include <KoPathShape.h>
+#include <KoSvgTextShape.h>
+#include <KoSvgTextProperties.h>
+#include <KisViewManager.h>
+#include <kis_node_manager.h>
+#include <KoSelection.h>
+
+
+#include "KisAnimAutoKey.h"
+
 #include <QApplication>
 
 namespace KisToolUtils {
@@ -204,6 +219,14 @@ namespace KisToolUtils {
                             [node, selection] () {
                                 KisPaintDeviceSP device = node->paintDevice();
 
+                                QScopedPointer<KisCommandUtils::CompositeCommand> parentCommand(
+                                    new KisCommandUtils::CompositeCommand());
+
+                                KUndo2Command *autoKeyframeCommand = KisAutoKey::tryAutoCreateDuplicatedFrame(device);
+                                if (autoKeyframeCommand) {
+                                    parentCommand->addCommand(autoKeyframeCommand);
+                                }
+
                                 KisTransaction transaction(kundo2_noi18n("internal-clear-command"), device);
 
                                 QRect dirtyRect;
@@ -216,7 +239,9 @@ namespace KisToolUtils {
                                 }
 
                                 device->setDirty(dirtyRect);
-                                return transaction.endAndTake();
+                                parentCommand->addCommand(transaction.endAndTake());
+
+                                return parentCommand.take();
                             });
                     applicator.applyCommand(cmd, KisStrokeJobData::CONCURRENT);
                 }
@@ -282,4 +307,87 @@ namespace KisToolUtils {
         }
         QCursor::setPos(screen, point);
     }
+
+    // get all shape layers with shapes at point. This is a bit coarser than 'FindNodes',
+    // note that point is in Document coordinates instead of image coordinates.
+    QList<KisShapeLayerSP> findShapeLayers(KisNodeSP root, const QPointF &point, bool editableOnly) {
+        QList<KisShapeLayerSP> foundNodes;
+        KisLayerUtils::recursiveApplyNodes(root, [&] (KisNodeSP node) {
+            if ((node->isEditable(true) && editableOnly) || !editableOnly) {
+
+                KisShapeLayerSP shapeLayer = dynamic_cast<KisShapeLayer*>(node.data());
+                if (shapeLayer && shapeLayer->isEditable() && shapeLayer->shapeManager()->shapeAt(point)) {
+                    foundNodes.append(shapeLayer);
+                }
+            }
+        });
+        return foundNodes;
+    }
+
+    QPainterPath shapeHoverInfoCrossLayer(KoCanvasBase *canvas, const QPointF &point, QString &shapeType, bool *isHorizontal, bool skipCurrentShapes)
+    {
+        QPainterPath p;
+        KisCanvas2 *canvas2 = dynamic_cast<KisCanvas2*>(canvas);
+        if (!canvas2) return p;
+
+        QList<KoShape*> currentShapes = canvas->shapeManager()->selection()->selectedShapes();
+        QList<KisShapeLayerSP> candidates = findShapeLayers(canvas2->image()->root(), point, true);
+        KisShapeLayerSP shapeLayer = candidates.isEmpty()? nullptr: candidates.last();
+
+        if (shapeLayer) {
+            KoShape *shape = shapeLayer->shapeManager()->shapeAt(point);
+            if (shape && !(currentShapes.contains(shape) && skipCurrentShapes)) {
+                shapeType = shape->shapeId();
+                KoSvgTextShape *t = dynamic_cast<KoSvgTextShape *>(shape);
+                if (t && isHorizontal) {
+                    p.addRect(t->boundingRect());
+                    *isHorizontal = t->writingMode() == KoSvgText::HorizontalTB;
+                    if (!t->shapesInside().isEmpty()) {
+                        QPainterPath paths;
+                        Q_FOREACH(KoShape *s, t->shapesInside()) {
+                            KoPathShape *path = dynamic_cast<KoPathShape *>(s);
+                            if (path) {
+                                paths.addPath(t->absoluteTransformation().map(path->absoluteTransformation().map(path->outline())));
+                            }
+                        }
+                        if (!paths.isEmpty()) {
+                            p = paths;
+                        }
+                    }
+                } else {
+                    p = shape->absoluteTransformation().map(shape->outline());
+                }
+            }
+        }
+
+        return p;
+    }
+
+    bool selectShapeCrossLayer(KoCanvasBase *canvas, const QPointF &point, const QString &shapeType, bool skipCurrentShapes)
+    {
+        KisCanvas2 *canvas2 = dynamic_cast<KisCanvas2*>(canvas);
+        if (!canvas2) return false;
+
+        QList<KoShape*> currentShapes = canvas->shapeManager()->selection()->selectedShapes();
+        QList<KisShapeLayerSP> candidates = findShapeLayers(canvas2->image()->root(), point, true);
+        KisShapeLayerSP shapeLayer = candidates.isEmpty()? nullptr: candidates.last();
+
+        if (shapeLayer) {
+            KoShape *shape = shapeLayer->shapeManager()->shapeAt(point);
+            if (shape
+                    && !(currentShapes.contains(shape) && skipCurrentShapes)
+                    && (shapeType.isEmpty() || shapeType == shape->shapeId())) {
+                canvas2->viewManager()->nodeManager()->slotNonUiActivatedNode(shapeLayer);
+                canvas2->shapeManager()->selection()->deselectAll();
+                canvas2->shapeManager()->selection()->select(shape);
+            } else {
+                return false;
+            }
+        } else {
+            return false;
+        }
+
+        return true;
+    }
+
 }

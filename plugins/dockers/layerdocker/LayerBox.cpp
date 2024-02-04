@@ -77,6 +77,7 @@
 #include "kis_signals_blocker.h"
 #include "kis_color_filter_combo.h"
 #include "kis_node_filter_proxy_model.h"
+#include <KisSpinBoxI18nHelper.h>
 
 #include "kis_selection.h"
 #include "kis_processing_applicator.h"
@@ -202,12 +203,15 @@ LayerBox::LayerBox()
     m_wdgLayerBox->bnLower->setEnabled(false);
     m_wdgLayerBox->bnRaise->setEnabled(false);
 
+    m_wdgLayerBox->doubleOpacity->setRange(0, 100, 0);
     if (cfg.sliderLabels()) {
         m_wdgLayerBox->opacityLabel->hide();
-        m_wdgLayerBox->doubleOpacity->setPrefix(QString("%1:  ").arg(i18n("Opacity")));
+        KisSpinBoxI18nHelper::setText(m_wdgLayerBox->doubleOpacity,
+                                      i18nc("{n} is the number value, % is the percent sign", "Opacity: {n}%"));
+    } else {
+        KisSpinBoxI18nHelper::setText(m_wdgLayerBox->doubleOpacity,
+                                      i18nc("{n} is the number value, % is the percent sign", "{n}%"));
     }
-    m_wdgLayerBox->doubleOpacity->setRange(0, 100, 0);
-    m_wdgLayerBox->doubleOpacity->setSuffix(i18n("%"));
 
     connect(m_wdgLayerBox->doubleOpacity, SIGNAL(valueChanged(qreal)), SLOT(slotOpacitySliderMoved(qreal)));
     connect(&m_opacityDelayTimer, SIGNAL(timeout()), SLOT(slotOpacityChanged()));
@@ -389,8 +393,8 @@ LayerBox::LayerBox()
 
     // info-text opacity slider
     infoTextOpacitySlider = new KisSliderSpinBox(this);
-    infoTextOpacitySlider->setPrefix(QString("%1:  ").arg(i18n("Opacity")));
-    infoTextOpacitySlider->setSuffix(i18n("%"));
+    KisSpinBoxI18nHelper::setText(infoTextOpacitySlider,
+                                  i18nc("{n} is the number value, % is the percent sign", "Opacity: {n}%"));
     infoTextOpacitySlider->setToolTip(i18nc("@item:tooltip", "Blending info text opacity"));
     // 55% is the opacity of nonvisible layer text
     infoTextOpacitySlider->setRange(55, 100);
@@ -1245,6 +1249,8 @@ void LayerBox::updateLayerOpMenu(const QModelIndex &index, QMenu &menu) {
             addActionToMenu(convertToMenu, "convert_to_filter_mask");
             addActionToMenu(convertToMenu, "convert_to_selection_mask");
             addActionToMenu(convertToMenu, "convert_to_file_layer");
+            addActionToMenu(convertToMenu, "convert_to_animated");
+            addActionToMenu(convertToMenu, "layercolorspaceconversion");
 
             QMenu *splitAlphaMenu = menu.addMenu(i18n("S&plit Alpha"));
             addActionToMenu(splitAlphaMenu, "split_alpha_into_mask");

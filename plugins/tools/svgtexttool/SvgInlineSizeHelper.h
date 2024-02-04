@@ -49,25 +49,28 @@ struct Q_DECL_HIDDEN InlineSizeInfo {
     double top;
     /// Bottom coord along the block-flow direction (left for h-rl, right for h-lr)
     double bottom;
+    /// Length of the dashes at the end.
+    double dashesLength;
     VisualAnchor anchor;
     /// Transformation from inline-size editor (writing-mode transformation) to shape
     QTransform editorTransform;
     /// Transformation from shape local to document
     QTransform shapeTransform;
 
-    [[nodiscard]] static inline std::optional<InlineSizeInfo> fromShape(KoSvgTextShape *const shape)
+    [[nodiscard]] static inline std::optional<InlineSizeInfo> fromShape(KoSvgTextShape *const shape, qreal dashesLength = 36.0)
     {
         const double inlineSize = getInlineSizePt(shape);
         if (inlineSize <= 0) {
             return {};
         }
+        KoSvgTextProperties props = shape->propertiesForPos(-1);
 
         const KoSvgText::WritingMode writingMode = KoSvgText::WritingMode(
-            shape->textProperties().propertyOrDefault(KoSvgTextProperties::WritingModeId).toInt());
+            props.propertyOrDefault(KoSvgTextProperties::WritingModeId).toInt());
         const KoSvgText::Direction direction =
-            KoSvgText::Direction(shape->textProperties().propertyOrDefault(KoSvgTextProperties::DirectionId).toInt());
+            KoSvgText::Direction(props.propertyOrDefault(KoSvgTextProperties::DirectionId).toInt());
         const KoSvgText::TextAnchor textAnchor =
-            KoSvgText::TextAnchor(shape->textProperties().propertyOrDefault(KoSvgTextProperties::TextAnchorId).toInt());
+            KoSvgText::TextAnchor(props.propertyOrDefault(KoSvgTextProperties::TextAnchorId).toInt());
 
         VisualAnchor anchor{};
         switch (textAnchor) {
@@ -90,12 +93,8 @@ struct Q_DECL_HIDDEN InlineSizeInfo {
             }
             break;
         }
-
-        // FIXME: To draw the wrapping area correctly, this needs to take
-        // the x and y from the text element, or, if not set, the first
-        // tspan.
-        const double xPos = 0;
-        const double yPos = 0;
+        const double xPos = shape->initialTextPosition().x();
+        const double yPos = shape->initialTextPosition().y();
 
         const double baseline = yPos;
         double left{};
@@ -119,7 +118,11 @@ struct Q_DECL_HIDDEN InlineSizeInfo {
 
         // We piggyback on the shape transformation that we already need to
         // deal with to also handle the different orientations of writing-mode.
-        const QRectF outline = shape->outlineRect();
+        // We default to the "default caret size"  when the textShape (and thus outline) is empty.
+        QLineF caret;
+        QColor c;
+        shape->cursorForPos(0, caret, c);
+        const QRectF outline = shape->outlineRect().isEmpty()? QRectF(caret.p2(), caret.p1()): shape->outlineRect();
         QTransform editorTransform;
         switch (writingMode) {
         case KoSvgText::WritingMode::HorizontalTB:
@@ -139,13 +142,18 @@ struct Q_DECL_HIDDEN InlineSizeInfo {
             bottom = outline.right();
             break;
         }
-        bottom += 4.0;
+
+        QLineF scale = editorTransform.map(QLineF(0, 0, 0, 1.0));
+        scale = shape->absoluteTransformation().inverted().map(scale);
+        scale = editorTransform.inverted().map(scale);
+
         InlineSizeInfo ret{inlineSize,
                            baseline,
                            left,
                            right,
                            top,
                            bottom,
+                           dashesLength * scale.length(),
                            anchor,
                            editorTransform,
                            shape->absoluteTransformation()};
@@ -165,7 +173,16 @@ private:
 
     [[nodiscard]] inline QRectF boundingRectRaw() const
     {
-        return {QPointF(left, top), QPointF(right, bottom)};
+        return {QPointF(left, top), QPointF(right, bottom + dashesLength)};
+    }
+
+    [[nodiscard]] inline QLineF generateDashLine(const QLineF line, const qreal dashLength = 4.0) const
+    {
+        QPointF start = line.p2();
+        QLineF dash = line;
+        dash.setLength(line.length() + dashLength);
+        dash.setP1(start);
+        return dash;
     }
 
 public:
@@ -191,7 +208,7 @@ public:
         return shapeTransform.map(baselineLineLocal());
     }
 
-    [[nodiscard]] inline Side editLineSide() const
+    [[nodiscard]] inline Side endLineSide() const
     {
         switch (anchor) {
         case VisualAnchor::LeftOrTop:
@@ -203,9 +220,9 @@ public:
         }
     }
 
-    [[nodiscard]] inline QLineF editLineLocal() const
+    [[nodiscard]] inline QLineF endLineLocal() const
     {
-        switch (editLineSide()) {
+        switch (endLineSide()) {
         case Side::LeftOrTop:
             return editorTransform.map(leftLineRaw());
         case Side::RightOrBottom:
@@ -214,14 +231,37 @@ public:
         }
     }
 
-    [[nodiscard]] inline QLineF editLine() const
+    [[nodiscard]] inline QLineF endLineDashes() const
     {
-        return shapeTransform.map(editLineLocal());
+        switch (endLineSide()) {
+        case Side::LeftOrTop:
+            return generateDashLine(editorTransform.map(leftLineRaw()), dashesLength);
+        case Side::RightOrBottom:
+        default:
+            return generateDashLine(editorTransform.map(rightLineRaw()), dashesLength);
+        }
     }
 
-    [[nodiscard]] inline QLineF nonEditLineLocal() const
+    [[nodiscard]] inline QLineF endLine() const
     {
-        switch (editLineSide()) {
+        return shapeTransform.map(endLineLocal());
+    }
+
+    [[nodiscard]] inline Side startLineSide() const
+    {
+        switch (anchor) {
+        case VisualAnchor::LeftOrTop:
+        case VisualAnchor::Mid:
+        default:
+            return Side::LeftOrTop;
+        case VisualAnchor::RightOrBottom:
+            return Side::RightOrBottom;
+        }
+    }
+
+    [[nodiscard]] inline QLineF startLineLocal() const
+    {
+        switch (endLineSide()) {
         case Side::LeftOrTop:
             return editorTransform.map(rightLineRaw());
         case Side::RightOrBottom:
@@ -230,24 +270,55 @@ public:
         }
     }
 
-    [[nodiscard]] inline QLineF nonEditLine() const
+    [[nodiscard]] inline QLineF startLineDashes() const
     {
-        return shapeTransform.map(nonEditLineLocal());
+        switch (endLineSide()) {
+        case Side::LeftOrTop:
+            return generateDashLine(editorTransform.map(rightLineRaw()), dashesLength);
+        case Side::RightOrBottom:
+        default:
+            return generateDashLine(editorTransform.map(leftLineRaw()), dashesLength);
+        }
     }
 
-    [[nodiscard]] inline QPolygonF editLineGrabRect(double grabThreshold) const
+    [[nodiscard]] inline QLineF startLine() const
     {
-        QLineF editLine;
-        switch (editLineSide()) {
+        return shapeTransform.map(startLineLocal());
+    }
+
+    [[nodiscard]] inline QPolygonF endLineGrabRect(double grabThreshold) const
+    {
+        QLineF endLine;
+        switch (endLineSide()) {
         case Side::LeftOrTop:
-            editLine = leftLineRaw();
+            endLine = leftLineRaw();
             break;
         case Side::RightOrBottom:
         default:
-            editLine = rightLineRaw();
+            endLine = rightLineRaw();
             break;
         }
-        const QRectF rect{editLine.x1() - grabThreshold,
+        const QRectF rect{endLine.x1() - grabThreshold,
+                          top - grabThreshold,
+                          grabThreshold * 2,
+                          bottom - top + grabThreshold * 2};
+        const QPolygonF poly(rect);
+        return shapeTransform.map(editorTransform.map(poly));
+    }
+
+    [[nodiscard]] inline QPolygonF startLineGrabRect(double grabThreshold) const
+    {
+        QLineF startLine;
+        switch (endLineSide()) {
+        case Side::LeftOrTop:
+            startLine = rightLineRaw();
+            break;
+        case Side::RightOrBottom:
+        default:
+            startLine = leftLineRaw();
+            break;
+        }
+        const QRectF rect{startLine.x1() - grabThreshold,
                           top - grabThreshold,
                           grabThreshold * 2,
                           bottom - top + grabThreshold * 2};

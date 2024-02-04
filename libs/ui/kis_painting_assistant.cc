@@ -24,6 +24,8 @@
 #include <QDomElement>
 #include <QDomDocument>
 #include <QPainterPath>
+#include <QDebug>
+#include <memory>
 
 Q_GLOBAL_STATIC(KisPaintingAssistantFactoryRegistry, s_instance)
 
@@ -130,6 +132,8 @@ struct KisPaintingAssistant::Private {
         bool outlineVisible {true};
         bool isLocal {false};
         bool isLocked {false};
+        //The isDuplicating flag only exists to draw the duplicate button depressed when pressed
+        bool isDuplicating {false};
 
         KisCanvas2* m_canvas {nullptr};
 
@@ -164,7 +168,7 @@ struct KisPaintingAssistant::Private {
     const int mainLineWidth {2}; // for "drawPath" etc.
     const int errorLineWidth {2};
 
-
+    int decorationThickness{1};
 
 };
 
@@ -176,6 +180,16 @@ KisPaintingAssistant::Private::Private()
 KisPaintingAssistant::Private::Private(const Private &rhs)
     : s(rhs.s)
 {
+}
+
+void KisPaintingAssistant::copySharedData(KisPaintingAssistantSP assistant)
+{
+    /*Clones do not get a copy of the shared data, so this function is nessesary to copy
+    the SharedData struct from the old assistant to this one. The function returns a reference to
+    a new SharedData object copied from the original*/
+    this->d->s = (QSharedPointer<KisPaintingAssistant::Private::SharedData>)new KisPaintingAssistant::Private::SharedData;
+    QSharedPointer<KisPaintingAssistant::Private::SharedData> sd = assistant->d->s;
+    *this->d->s = *sd;
 }
 
 KisPaintingAssistantHandleSP KisPaintingAssistant::Private::reuseOrCreateHandle(QMap<KisPaintingAssistantHandleSP, KisPaintingAssistantHandleSP> &handleMap, KisPaintingAssistantHandleSP origHandle, KisPaintingAssistant *q, bool registerAssistant)
@@ -324,6 +338,16 @@ void KisPaintingAssistant::setLocked(bool value)
     d->s->isLocked = value;
 }
 
+void KisPaintingAssistant::setDuplicating(bool value)
+{
+    d->s->isDuplicating = value;
+}
+
+bool KisPaintingAssistant::isDuplicating()
+{
+    return d->s->isDuplicating;
+}
+
 QPointF KisPaintingAssistant::editorWidgetOffset()
 {
     return d->s->editorWidgetOffset;
@@ -345,7 +369,7 @@ void KisPaintingAssistant::drawPath(QPainter& painter, const QPainterPath &path,
     }
 
     painter.save();
-    QPen pen_a(paintingColor, d->mainLineWidth);
+    QPen pen_a(paintingColor, d->mainLineWidth * d->decorationThickness);
     pen_a.setCosmetic(true);
     painter.setPen(pen_a);
     painter.drawPath(path);
@@ -366,8 +390,7 @@ void KisPaintingAssistant::drawPreview(QPainter& painter, const QPainterPath &pa
 void KisPaintingAssistant::drawError(QPainter &painter, const QPainterPath &path)
 {
     painter.save();
-    qreal size = painter.device() ? d->errorLineWidth*painter.device()->devicePixelRatioF() : d->errorLineWidth;
-    QPen pen_a(QColor(255, 0, 0, 125), size);
+    QPen pen_a(QColor(255, 0, 0, 125), d->errorLineWidth * d->decorationThickness);
     pen_a.setCosmetic(true);
     painter.setPen(pen_a);
     painter.drawPath(path);
@@ -763,6 +786,12 @@ void KisPaintingAssistant::saveXmlList(QDomDocument& doc, QDomElement& assistant
         assistantElement.setAttribute("filename", QString("perspective ellipse%1.assistant").arg(count));
         assistantsElement.appendChild(assistantElement);
     }
+    else if (d->s->id == "curvilinear-perspective"){
+        QDomElement assistantElement = doc.createElement("assistant");
+        assistantElement.setAttribute("type", "curvilinear-perspective");
+        assistantElement.setAttribute("filename", QString("curvilinear-perspective%1.assistant").arg(count));
+        assistantsElement.appendChild(assistantElement);
+    }
 }
 
 void KisPaintingAssistant::findPerspectiveAssistantHandleLocation() {
@@ -1078,6 +1107,11 @@ QRectF KisPaintingAssistant::getLocalRect() const
 double KisPaintingAssistant::norm2(const QPointF& p)
 {
     return p.x() * p.x() + p.y() * p.y();
+}
+
+void KisPaintingAssistant::setDecorationThickness(int thickness)
+{
+    d->decorationThickness = thickness;
 }
 
 QList<KisPaintingAssistantSP> KisPaintingAssistant::cloneAssistantList(const QList<KisPaintingAssistantSP> &list)

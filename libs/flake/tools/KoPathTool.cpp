@@ -60,50 +60,6 @@
 
 #include <math.h>
 
-static const char *const needle_xpm[] = {
-    "16 16 2 1",
-    "  c None",
-    "# c #000000",
-    "                ",
-    "    #           ",
-    "     #          ",
-    "     ##         ",
-    "      ##        ",
-    "      ###       ",
-    "       ###      ",
-    "       ####     ",
-    "        ####    ",
-    "        #####   ",
-    "         #####  ",
-    "         ###### ",
-    "          ##### ",
-    "          ###   ",
-    "           ##   ",
-    "                "
-};
-
-static const char *const needle_move_xpm[] = {
-    "16 16 2 1",
-    "  c None",
-    "# c #000000",
-    "                ",
-    "    #           ",
-    "     #          ",
-    "     ##         ",
-    "      ##        ",
-    "      ###       ",
-    "       ###      ",
-    "       ####     ",
-    "    #   ####    ",
-    "   ###  #####   ",
-    "  # # #  #####  ",
-    " ####### ###### ",
-    "  # # #   ##### ",
-    "   ###    ###   ",
-    "    #      ##   ",
-    "                "
-};
-
 // helper function to calculate the squared distance between two points
 qreal squaredDistance(const QPointF& p1, const QPointF &p2)
 {
@@ -148,8 +104,8 @@ KoPathTool::KoPathTool(KoCanvasBase *canvas)
 
     m_contextMenu.reset(new QMenu());
 
-    m_selectCursor = QCursor(QPixmap(needle_xpm), 2, 0);
-    m_moveCursor = QCursor(QPixmap(needle_move_xpm), 2, 0);
+    m_selectCursor = QCursor(QIcon(":/cursor-needle.svg").pixmap(32), 0, 0);
+    m_moveCursor = QCursor(QIcon(":/cursor-needle-move.svg").pixmap(32), 0, 0);
 
     connect(&m_pointSelection, SIGNAL(selectionChanged()), SLOT(repaintDecorations()));
 }
@@ -474,7 +430,7 @@ void KoPathTool::paint(QPainter &painter, const KoViewConverter &converter)
 
     Q_FOREACH (KoPathShape *shape, m_pointSelection.selectedShapes()) {
         KisHandlePainterHelper helper =
-                KoShape::createHandlePainterHelperView(&painter, shape, converter, handleRadius());
+                KoShape::createHandlePainterHelperView(&painter, shape, converter, handleRadius(), decorationThickness());
         helper.setHandleStyle(KisHandleStyle::primarySelection());
 
         KoParameterShape * parameterShape = dynamic_cast<KoParameterShape*>(shape);
@@ -500,7 +456,7 @@ void KoPathTool::paint(QPainter &painter, const KoViewConverter &converter)
 
     if (m_activeHandle) {
         if (m_activeHandle->check(m_pointSelection.selectedShapes())) {
-            m_activeHandle->paint(painter, converter, handleRadius());
+            m_activeHandle->paint(painter, converter, handleRadius(), decorationThickness());
         } else {
             m_activeHandle.reset();
         }
@@ -516,7 +472,7 @@ void KoPathTool::paint(QPainter &painter, const KoViewConverter &converter)
             KIS_SAFE_ASSERT_RECOVER_RETURN(segment.isValid());
 
             KisHandlePainterHelper helper =
-                    KoShape::createHandlePainterHelperView(&painter, shape, converter, handleRadius());
+                    KoShape::createHandlePainterHelperView(&painter, shape, converter, handleRadius(), decorationThickness());
             helper.setHandleStyle(KisHandleStyle::secondarySelection());
 
             QPainterPath path;
@@ -1136,9 +1092,9 @@ void KoPathTool::deactivate()
     KoToolBase::deactivate();
 }
 
-void KoPathTool::documentResourceChanged(int key, const QVariant & /*res*/)
+void KoPathTool::canvasResourceChanged(int key, const QVariant & /*res*/)
 {
-    if (key == KoDocumentResourceManager::HandleRadius) {
+    if (key == KoCanvasResource::HandleRadius || key == KoCanvasResource::DecorationThickness) {
         repaintDecorations();
     }
 }
@@ -1254,4 +1210,17 @@ void KoPathTool::requestStrokeEnd()
 void KoPathTool::explicitUserStrokeEndRequest()
 {
     KoToolManager::instance()->switchToolRequested("InteractionTool");
+}
+
+bool KoPathTool::selectAll()
+{
+    m_pointSelection.selectAll();
+    repaintDecorations();
+    return true;
+}
+
+void KoPathTool::deselect()
+{
+    clearActivePointSelectionReferences();
+    repaintDecorations();
 }

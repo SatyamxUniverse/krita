@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.16.0 FATAL_ERROR)
+cmake_minimum_required(VERSION 3.19.0 FATAL_ERROR)
 
 set(SUPPORTED_LANGUAGES CXX C)
 
@@ -264,6 +264,8 @@ add_feature_info("Precompiled Headers" KRITA_ENABLE_PCH "precompiled headers mak
 
 option(DISABLE_PO_INSTALLATION "Disable installation of po files" OFF)
 
+option(USE_EXTERNAL_RAQM "Fetch Raqm dependency online instead of the embedded one" OFF)
+
 set(ADDRESS_SANITIZER_ENABLED FALSE)
 if (ECM_ENABLE_SANITIZERS MATCHES address)
     set(ADDRESS_SANITIZER_ENABLED TRUE)
@@ -450,9 +452,8 @@ QCoreApplication::setAttribute(Qt::AA_MSWindowsUseWinTabAPI);
     configure_file(config_use_qt_tablet_windows.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config_use_qt_tablet_windows.h)
 endif ()     
 
-
-set(CMAKE_REQUIRED_INCLUDES ${Qt5Core_INCLUDE_DIRS} ${Qt5Gui_INCLUDE_DIRS})
-set(CMAKE_REQUIRED_LIBRARIES ${Qt5Core_LIBRARIES} ${Qt5Gui_LIBRARIES})
+set(CMAKE_REQUIRED_INCLUDES ${Qt5Core_INCLUDE_DIRS} ${Qt5Gui_INCLUDE_DIRS} ${Qt5Widgets_INCLUDE_DIRS})
+set(CMAKE_REQUIRED_LIBRARIES ${Qt5Core_LIBRARIES} ${Qt5Gui_LIBRARIES} ${Qt5Widgets_LIBRARIES})
 
 CHECK_CXX_SOURCE_COMPILES("
 #include <QSurfaceFormat>
@@ -478,6 +479,17 @@ HAVE_HIGH_DPI_SCALE_FACTOR_ROUNDING_POLICY
 )
 configure_file(config-high-dpi-scale-factor-rounding-policy.h.in ${CMAKE_CURRENT_BINARY_DIR}/config-high-dpi-scale-factor-rounding-policy.h)
 
+CHECK_CXX_SOURCE_COMPILES("
+#include <QMdiArea>
+int main(int argc, char *argv[]) {
+QMdiArea area;
+area.setOption(QMdiArea::AlwaysShowSubwindowNameInTitleBar);
+}
+"
+HAVE_QMDIAREA_ALWAYS_SHOW_SUBWINDOW_TITLE
+)
+configure_file(config-qmdiarea-always-show-subwindow-title.h.cmake ${CMAKE_CURRENT_BINARY_DIR}/config-qmdiarea-always-show-subwindow-title.h)
+
 if (WIN32)
     CHECK_CXX_SOURCE_COMPILES("
 #include <QtPlatformHeaders/QWindowsWindowFunctions>
@@ -488,6 +500,7 @@ QWindowsWindowFunctions::setHasBorderInFullScreenDefault(true);
     HAVE_SET_HAS_BORDER_IN_FULL_SCREEN_DEFAULT
     )
     configure_file(config-set-has-border-in-full-screen-default.h.in ${CMAKE_CURRENT_BINARY_DIR}/config-set-has-border-in-full-screen-default.h)
+
 endif (WIN32)
 
 unset(CMAKE_REQUIRED_INCLUDES)
@@ -1057,7 +1070,12 @@ endif()
 ##
 ## Test for xsimd
 ##
-foreach(xsimd_version 8.1.0 9 10)
+## xsimd has `SameMajorVersion` compatibility option set
+## in `write_basic_package_version_file`, so we cannot just
+## write a version range in the find_package call. Instead we
+## should try all the supported versions manually
+##
+foreach(xsimd_version 8.1.0 9 10 11 12)
     if(NOT xsimd_FOUND)
         find_package(xsimd ${xsimd_version})
     endif()

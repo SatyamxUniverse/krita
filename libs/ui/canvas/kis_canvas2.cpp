@@ -237,7 +237,6 @@ KisCanvas2::KisCanvas2(KisCoordinatesConverter *coordConverter, KoCanvasResource
      */
     m_d->bootstrapLodBlocked = true;
     connect(mainWindow, SIGNAL(guiLoadingFinished()), SLOT(bootstrapFinished()));
-    connect(mainWindow, &KisMainWindow::screenChanged, this, &KisCanvas2::slotConfigChanged);
 
     KisImageConfig config(false);
 
@@ -475,11 +474,6 @@ KoShapeManager *KisCanvas2::localShapeManager() const
     return localShapeManager;
 }
 
-void KisCanvas2::updateInputMethodInfo()
-{
-    // TODO call (the protected) QWidget::updateMicroFocus() on the proper canvas widget...
-}
-
 const KisCoordinatesConverter* KisCanvas2::coordinatesConverter() const
 {
     return m_d->coordinatesConverter;
@@ -569,7 +563,15 @@ void KisCanvas2::createCanvas(bool useOpenGL)
     m_d->frameCache = 0;
 
     KisConfig cfg(true);
-    const KoColorProfile *profile = cfg.displayProfile(QApplication::desktop()->screenNumber(QApplication::activeWindow()));
+
+    int canvasScreenNumber = qApp->screens().indexOf(m_d->view->currentScreen());
+
+    if (canvasScreenNumber < 0) {
+        warnKrita << "Couldn't detect screen that Krita belongs to..." << ppVar(m_d->view->currentScreen());
+        canvasScreenNumber = 0;
+    }
+
+    const KoColorProfile *profile = cfg.displayProfile(canvasScreenNumber);
     m_d->displayColorConverter.notifyOpenGLCanvasIsActive(useOpenGL && KisOpenGL::hasOpenGL());
     m_d->displayColorConverter.setMonitorProfile(profile);
 
@@ -1224,16 +1226,33 @@ void KisCanvas2::slotConfigChanged()
 
     resetCanvas(cfg.useOpenGL());
 
-    // FIXME: We should change to associate the display profiles with the screen
-    //        model and serial number instead. See https://bugs.kde.org/show_bug.cgi?id=407498
-    const int canvasScreenNumber = QApplication::desktop()->screenNumber(QApplication::activeWindow());
+    QWidget *mainWindow = m_d->view->mainWindow();
+    KIS_SAFE_ASSERT_RECOVER_RETURN(mainWindow);
+
+    QWidget *topLevelWidget = mainWindow->topLevelWidget();
+    KIS_SAFE_ASSERT_RECOVER_RETURN(topLevelWidget);
+
+    slotScreenChanged(mainWindow->screen());
+
+    initializeFpsDecoration();
+}
+
+void KisCanvas2::slotScreenChanged(QScreen *screen)
+{
+    /**
+     * We cannot use QApplication::desktop()->screenNumber(mainWindow) here,
+     * because this data is not yet ready when screenChanged signal is delivered.
+     */
+
+    const int canvasScreenNumber = qApp->screens().indexOf(screen);
+
     if (canvasScreenNumber != -1) {
+        // If profile is the same, then setDisplayProfile does nothing
+        KisConfig cfg(true);
         setDisplayProfile(cfg.displayProfile(canvasScreenNumber));
     } else {
         warnUI << "Failed to get screenNumber for updating display profile.";
     }
-
-    initializeFpsDecoration();
 }
 
 void KisCanvas2::refetchDataFromImage()

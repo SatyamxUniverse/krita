@@ -10,6 +10,7 @@
 
 #include "KisHairyInkOptionModel.h"
 #include "KisCurveWidgetConnectionHelper.h"
+#include <KisSpinBoxI18nHelper.h>
 
 namespace {
 
@@ -21,16 +22,19 @@ public:
         setupUi(this);
 
         pressureSlider->setRange(0, 100, 0);
-        pressureSlider->setSuffix(i18n("%"));
+        KisSpinBoxI18nHelper::setText(pressureSlider, i18nc("{n} is the number value, % is the percent sign", "{n}%"));
 
         bristleLengthSlider->setRange(0, 100, 0);
-        bristleLengthSlider->setSuffix(i18n("%"));
+        KisSpinBoxI18nHelper::setText(bristleLengthSlider,
+                                      i18nc("{n} is the number value, % is the percent sign", "{n}%"));
 
         bristleInkAmountSlider->setRange(0, 100, 0);
-        bristleInkAmountSlider->setSuffix(i18n("%"));
+        KisSpinBoxI18nHelper::setText(bristleInkAmountSlider,
+                                      i18nc("{n} is the number value, % is the percent sign", "{n}%"));
 
         inkDepletionSlider->setRange(0, 100, 0);
-        inkDepletionSlider->setSuffix(i18n("%"));
+        KisSpinBoxI18nHelper::setText(inkDepletionSlider,
+                                      i18nc("{n} is the number value, % is the percent sign", "{n}%"));
     }
 };
 

@@ -393,7 +393,7 @@ void KisOpenGLCanvasRenderer::paintCanvasOnly(const QRect &canvasImageDirtyRect,
     }
 }
 
-void KisOpenGLCanvasRenderer::paintToolOutline(const KisOptimizedBrushOutline &path, const QRect &viewportUpdateRect)
+void KisOpenGLCanvasRenderer::paintToolOutline(const KisOptimizedBrushOutline &path, const QRect &viewportUpdateRect, const int thickness)
 {
     if (!d->solidColorShader->bind()) {
         return;
@@ -422,6 +422,7 @@ void KisOpenGLCanvasRenderer::paintToolOutline(const KisOptimizedBrushOutline &p
     glBlendFuncSeparate(GL_ONE, GL_SRC_COLOR, GL_ONE, GL_ONE);
     glBlendEquationSeparate(GL_FUNC_SUBTRACT, GL_FUNC_ADD);
 
+
     if (!viewportUpdateRect.isEmpty()) {
         const QRect deviceUpdateRect = widgetToSurface(viewportUpdateRect).toAlignedRect();
         glScissor(deviceUpdateRect.x(), deviceUpdateRect.y(), deviceUpdateRect.width(), deviceUpdateRect.height());
@@ -436,35 +437,128 @@ void KisOpenGLCanvasRenderer::paintToolOutline(const KisOptimizedBrushOutline &p
 
     QVector<QVector3D> verticesBuffer;
 
-    // Convert every disjointed subpath to a polygon and draw that polygon
-    for (auto it = path.begin(); it != path.end(); ++it) {
-        const QPolygonF& polygon = *it;
+    if (thickness > 1) {
+        // Because glLineWidth is not supported on all versions of OpenGL (or rather,
+        // is limited to 1, as returned by GL_ALIASED_LINE_WIDTH_RANGE),
+        // we'll instead generate mitered-triangles.
 
-        if (KisAlgebra2D::maxDimension(polygon.boundingRect()) < 0.5) {
-            continue;
-        }
+        const qreal halfWidth = (thickness * 0.5) / devicePixelRatioF();
+        const qreal miterLimit = (5 * thickness) / devicePixelRatioF();
 
-        const int verticesCount = polygon.count();
+        for (auto it = path.begin(); it != path.end(); ++it) {
+            const QPolygonF& polygon = *it;
 
-        if (verticesBuffer.size() < verticesCount) {
-            verticesBuffer.resize(verticesCount);
-        }
+            if (KisAlgebra2D::maxDimension(polygon.boundingRect()) < 0.5 * thickness) {
+                continue;
+            }
 
-        for (int vertIndex = 0; vertIndex < verticesCount; vertIndex++) {
-            QPointF point = polygon.at(vertIndex);
-            verticesBuffer[vertIndex].setX(point.x());
-            verticesBuffer[vertIndex].setY(point.y());
-        }
-        if (KisOpenGL::supportsVAO()) {
-            d->lineVertexBuffer.bind();
-            d->lineVertexBuffer.allocate(verticesBuffer.constData(), 3 * verticesCount * sizeof(float));
-        }
-        else {
-            d->solidColorShader->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
-            d->solidColorShader->setAttributeArray(PROGRAM_VERTEX_ATTRIBUTE, verticesBuffer.constData());
-        }
+            int triangleCount = 0;
+            verticesBuffer.clear();
+            const bool closed = polygon.isClosed();
 
-        glDrawArrays(GL_LINE_STRIP, 0, verticesCount);
+            for( int i = 1; i < polygon.count(); i++) {
+                bool adjustFirst = closed? true: i > 1;
+                bool adjustSecond = closed? true: i + 1 < polygon.count();
+
+                QPointF p1 = polygon.at(i - 1);
+                QPointF p2 = polygon.at(i);
+                QPointF normal = p2 - p1;
+                normal = KisAlgebra2D::normalize(QPointF(-normal.y(), normal.x()));
+
+                QPointF c1 = p1 - (normal * halfWidth);
+                QPointF c2 = p1 + (normal * halfWidth);
+                QPointF c3 = p2 - (normal * halfWidth);
+                QPointF c4 = p2 + (normal * halfWidth);
+
+                // Add miter
+                if (adjustFirst) {
+                    QPointF pPrev = i >= 2 ?
+                        QPointF(polygon.at(i-2)) :
+                        QPointF(polygon.at(qMax(polygon.count() - 2, 0)));
+
+                    pPrev = p1 - pPrev;
+
+                    QPointF miter =
+                        KisAlgebra2D::normalize(normal +
+                                                KisAlgebra2D::normalize(
+                                                    QPointF(-pPrev.y(), pPrev.x())));
+
+                    const qreal dot = KisAlgebra2D::dotProduct(miter, normal);
+
+                    if (KisAlgebra2D::norm((miter * halfWidth) / dot) < miterLimit) {
+                        c1 = p1 + ((miter * -halfWidth) / dot);
+                        c2 = p1 + ((miter * halfWidth) / dot);
+                    }
+                }
+
+                if (adjustSecond) {
+                    QPointF pNext = i + 1 < polygon.count()? QPointF(polygon.at(i+1))
+                                                             : QPointF(polygon.at(qMin(polygon.count(), 1)));
+                    pNext = pNext - p2;
+                    QPointF miter =
+                        KisAlgebra2D::normalize(
+                            normal + KisAlgebra2D::normalize(QPointF(-pNext.y(), pNext.x())));
+                    const qreal dot = KisAlgebra2D::dotProduct(miter, normal);
+
+                    if (KisAlgebra2D::norm((miter * halfWidth) / dot) < miterLimit) {
+                        c3 = p2 + ((miter * -halfWidth) / dot);
+                        c4 = p2 + (miter * halfWidth) / dot;
+                    }
+                }
+
+                verticesBuffer.append(QVector3D(c1));
+                verticesBuffer.append(QVector3D(c3));
+                verticesBuffer.append(QVector3D(c2));
+                verticesBuffer.append(QVector3D(c4));
+                verticesBuffer.append(QVector3D(c2));
+                verticesBuffer.append(QVector3D(c3));
+                triangleCount += 2;
+            }
+
+            if (KisOpenGL::supportsVAO()) {
+                d->lineVertexBuffer.bind();
+                d->lineVertexBuffer.allocate(verticesBuffer.constData(), 3 * verticesBuffer.size() * sizeof(float));
+            }
+            else {
+                d->solidColorShader->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
+                d->solidColorShader->setAttributeArray(PROGRAM_VERTEX_ATTRIBUTE, verticesBuffer.constData());
+            }
+
+            glDrawArrays(GL_TRIANGLES, 0, triangleCount * 3);
+        }
+    } else {
+        // Convert every disjointed subpath to a polygon and draw that polygon
+        for (auto it = path.begin(); it != path.end(); ++it) {
+            const QPolygonF& polygon = *it;
+
+            if (KisAlgebra2D::maxDimension(polygon.boundingRect()) < 0.5) {
+                continue;
+            }
+
+            const int verticesCount = polygon.count();
+
+            if (verticesBuffer.size() < verticesCount) {
+                verticesBuffer.resize(verticesCount);
+            }
+
+            for (int vertIndex = 0; vertIndex < verticesCount; vertIndex++) {
+                QPointF point = polygon.at(vertIndex);
+                verticesBuffer[vertIndex].setX(point.x());
+                verticesBuffer[vertIndex].setY(point.y());
+            }
+            if (KisOpenGL::supportsVAO()) {
+                d->lineVertexBuffer.bind();
+                d->lineVertexBuffer.allocate(verticesBuffer.constData(), 3 * verticesCount * sizeof(float));
+            }
+            else {
+                d->solidColorShader->enableAttributeArray(PROGRAM_VERTEX_ATTRIBUTE);
+                d->solidColorShader->setAttributeArray(PROGRAM_VERTEX_ATTRIBUTE, verticesBuffer.constData());
+            }
+
+
+
+            glDrawArrays(GL_LINE_STRIP, 0, verticesCount);
+        }
     }
 
     if (KisOpenGL::supportsVAO()) {

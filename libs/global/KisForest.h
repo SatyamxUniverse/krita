@@ -651,6 +651,13 @@ public:
         erase(childBegin(), childEnd());
     }
 
+    Forest(Forest<T> &rhs) {
+        for (auto it = rhs.childBegin(); it != rhs.childEnd(); ++it) {
+            auto cloneIt = this->insert(this->childEnd(), *it);
+            cloneChildren(it, cloneIt);
+        }
+    }
+
     using child_iterator = ChildIterator<T>;
     using composition_iterator = CompositionIterator<T>;
     using hierarchy_iterator = HierarchyIterator<T>;
@@ -820,6 +827,15 @@ private:
 
         if (parentNode->lastChild == node) {
             parentNode->lastChild = node->prevSibling;
+        }
+    }
+
+    void cloneChildren(child_iterator oldParent, child_iterator parent) {
+        auto it = KisForestDetail::childBegin(oldParent);
+        auto end = KisForestDetail::childEnd(oldParent);
+        for (;it != end; ++it) {
+            auto itClone = this->insert(KisForestDetail::childEnd(parent), *it);
+            cloneChildren(it, itClone);
         }
     }
 private:

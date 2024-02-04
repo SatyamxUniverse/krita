@@ -293,6 +293,20 @@ void KoResourceBundle::setThumbnail(QString filename)
     }
 }
 
+void KoResourceBundle::setThumbnail(QImage image)
+{
+    if (!image.isNull()) {
+        m_thumbnail = image;
+        m_thumbnail = m_thumbnail.scaled(256, 256, Qt::KeepAspectRatio, Qt::SmoothTransformation);
+    }
+    else {
+        m_thumbnail = QImage(256, 256, QImage::Format_ARGB32);
+        QPainter gc(&m_thumbnail);
+        gc.fillRect(0, 0, 256, 256, Qt::red);
+        gc.end();
+    }
+}
+
 void KoResourceBundle::writeMeta(const QString &metaTag, KoXmlWriter *writer)
 {
     if (m_metadata.contains(metaTag)) {
@@ -358,6 +372,9 @@ bool KoResourceBundle::readMetaData(KoStore *resourceStore)
 
             m_metadata.insert(name, value);
             name = "meta:" + name;
+        } else if (name == "cd:creator") {
+            // Bundles from some versions have prefix 'cd' instead of 'dc'.
+            name = "dc:creator";
         }
 
         if (!m_metadata.contains(name)) {
@@ -379,6 +396,8 @@ void KoResourceBundle::saveMetadata(QScopedPointer<KoStore> &store)
     KoXmlWriter metaWriter(&buf);
     metaWriter.startDocument("office:document-meta");
     metaWriter.startElement("meta:meta");
+    metaWriter.addAttribute("xmlns:meta", KisResourceStorage::s_xmlns_meta);
+    metaWriter.addAttribute("xmlns:dc",   KisResourceStorage::s_xmlns_dc);
 
     writeMeta(KisResourceStorage::s_meta_generator, &metaWriter);
 

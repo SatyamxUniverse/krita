@@ -18,15 +18,11 @@
 #include "kis_assert.h"
 
 #include "KoResourceLoadResult.h"
+#include <KisStaticInitializer.h>
 
-
-struct KoResourceSPStaticRegistrar {
-    KoResourceSPStaticRegistrar() {
-        qRegisterMetaType<KoResourceSP>("KoResourceSP");
-    }
-};
-static KoResourceSPStaticRegistrar __registrar1;
-
+KIS_DECLARE_STATIC_INITIALIZER {
+    qRegisterMetaType<KoResourceSP>("KoResourceSP");
+}
 
 struct Q_DECL_HIDDEN KoResource::Private {
     int version {-1};

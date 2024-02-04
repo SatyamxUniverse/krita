@@ -57,16 +57,11 @@
 #include "kis_transform_worker.h"
 #include "kis_filter_strategy.h"
 #include "krita_utils.h"
+#include <KisStaticInitializer.h>
 
-
-struct KisPaintDeviceSPStaticRegistrar {
-    KisPaintDeviceSPStaticRegistrar() {
-        qRegisterMetaType<KisPaintDeviceSP>("KisPaintDeviceSP");
-    }
-};
-static KisPaintDeviceSPStaticRegistrar __registrar;
-
-
+KIS_DECLARE_STATIC_INITIALIZER {
+    qRegisterMetaType<KisPaintDeviceSP>("KisPaintDeviceSP");
+}
 
 struct KisPaintDevice::Private
 {
@@ -1602,7 +1597,7 @@ void KisPaintDevice::convertFromQImage(const QImage& _image, const KoColorProfil
     QImage image = _image;
 
     if (image.format() != QImage::Format_ARGB32) {
-        image = image.convertToFormat(QImage::Format_ARGB32);
+        image.convertTo(QImage::Format_ARGB32);
     }
     // Don't convert if not no profile is given and both paint dev and qimage are rgba.
     if (!profile && colorSpace()->id() == "RGBA") {

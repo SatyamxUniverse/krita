@@ -142,6 +142,12 @@ public:
         Foreground
     };
 
+    enum PaintOrder {
+        Fill,
+        Stroke,
+        Markers
+    };
+
     /**
      * @brief Constructor
      */
@@ -159,6 +165,20 @@ public:
     virtual KoShape* cloneShape() const;
 
     /**
+     * @brief creates a deep copy of the shape/shapes tree and bakes
+     * the absolute transform of `this` into the resulting shape.
+     *
+     * After cloning clonedShape->transformation() is equal to
+     * this->absoluteTransformation(), even though the new shape
+     * has no parents.
+     *
+     * This is just a convenience wrapper for cloneShape()
+     *
+     * @return cloned shape
+     */
+    KoShape* cloneShapeAndBakeAbsoluteTransform() const;
+
+    /**
      * @brief Paint the shape fill
      * The class extending this one is responsible for painting itself. \p painter is expected
      * to be preconfigured to work in "document" pixels.
@@ -173,6 +193,13 @@ public:
      * @see applyConversion()
      */
     virtual void paintStroke(QPainter &painter) const;
+
+    /**
+     * @brief paintStroke paints the shape's markers
+     * @param painter used for painting the shape
+     * @see applyConversion()
+     */
+    virtual void paintMarkers(QPainter &painter) const;
 
     /**
      * @brief Scale the shape using the zero-point which is the top-left corner.
@@ -712,6 +739,35 @@ public:
      */
     KoInsets strokeInsets() const;
 
+    /**
+     * @brief setPaintOrder
+     * set the paint order. As there's only three entries in any given paintorder,
+     * you only need to have the first
+     * and second entry to set it.
+     * @param first first thing to paint
+     * @param second second thing to paint.
+     */
+    void setPaintOrder(PaintOrder first, PaintOrder second);
+
+    /**
+     * @brief paintOrder
+     * @return vector of paint orders, will always be 3 big and contain a fill, stroke and marker entry.
+     */
+    QVector<PaintOrder> paintOrder() const;
+
+    /**
+     * @brief setInheritPaintOrder
+     * set inherit paint order.
+     * @param value
+     */
+    void setInheritPaintOrder(bool value);
+
+    /**
+     * @brief inheritPaintOrder
+     * @return whether the paint order is inherited. By default it is.
+     */
+    bool inheritPaintOrder() const;
+
     /// Sets the new shadow, removing the old one
     void setShadow(KoShapeShadow *shadow);
 
@@ -847,8 +903,8 @@ public:
      * the same time. Please note that you shouldn't save/restore additionally. All the work
      * on restoring original painter's transformations is done by the helper.
      */
-    static KisHandlePainterHelper createHandlePainterHelperView(QPainter *painter, KoShape *shape, const KoViewConverter &converter, qreal handleRadius = 0.0);
-    static KisHandlePainterHelper createHandlePainterHelperDocument(QPainter *painter, KoShape *shape, qreal handleRadius);
+    static KisHandlePainterHelper createHandlePainterHelperView(QPainter *painter, KoShape *shape, const KoViewConverter &converter, qreal handleRadius = 0.0, int decorationThickness = 1);
+    static KisHandlePainterHelper createHandlePainterHelperDocument(QPainter *painter, KoShape *shape, qreal handleRadius, int decorationThickness);
 
     /**
      * @brief Transforms point from shape coordinates to document coordinates

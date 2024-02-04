@@ -231,14 +231,20 @@ KoToolProxy *KisCanvasWidgetBase::toolProxy() const
 
 QVariant KisCanvasWidgetBase::processInputMethodQuery(Qt::InputMethodQuery query) const
 {
-    if (query == Qt::ImCursorRectangle) {
-        QRectF rect = m_d->toolProxy->inputMethodQuery(query, *m_d->viewConverter).toRectF();
-        return m_d->coordinatesConverter->flakeToWidget(rect);
-    }
-    return m_d->toolProxy->inputMethodQuery(query, *m_d->viewConverter);
+    return m_d->toolProxy->inputMethodQuery(query);
 }
 
 void KisCanvasWidgetBase::processInputMethodEvent(QInputMethodEvent *event)
 {
     m_d->toolProxy->inputMethodEvent(event);
+}
+
+void KisCanvasWidgetBase::processFocusInEvent(QFocusEvent *event)
+{
+    m_d->toolProxy->focusInEvent(event);
+}
+
+void KisCanvasWidgetBase::processFocusOutEvent(QFocusEvent *event)
+{
+    m_d->toolProxy->focusOutEvent(event);
 }
