@@ -741,9 +741,10 @@ void KisNodeManager::createReferenceImage(bool fromLayer) {
         canvas->addCommand(KisReferenceImagesLayer::addReferenceImages(document, {reference}));
     } else {
         if (canvas->canvasWidget()) {
-            QString strType = fromLayer ? "active layer" : "visible canvas";
-            QString strMessage = "Could not create reference image from " + strType + ".";
-            QMessageBox::critical(canvas->canvasWidget(), i18nc("@title:window", "Krita"), i18n(strMessage.toStdString().c_str()));
+            QString strMessage = fromLayer ? i18nc("error dialog from the reference tool", "Could not create a reference image from the active layer.")
+                : i18nc("error dialog from the reference tool", "Could not create a reference image from the visible canvas.");
+
+            QMessageBox::critical(canvas->canvasWidget(), i18nc("@title:window", "Reference Tool Error"), strMessage);
         }
     }
 }
