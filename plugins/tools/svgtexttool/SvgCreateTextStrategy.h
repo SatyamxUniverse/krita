@@ -11,6 +11,10 @@
 
 #include <QPointF>
 #include <QSizeF>
+#include <QStringList>
+#include <QVector>
+
+#include <memory>
 
 class SvgTextTool;
 
@@ -31,10 +35,21 @@ public:
     bool draggingInlineSize();
 
 private:
+    KoSvgTextShape *createTextShape();
+    void initPreviewText(double spaceSize, bool isHorizontal);
+    void generatePreviewText(double inlineSize);
+    void setPreviewText(QString text);
+
+private:
     QPointF m_dragStart;
     QPointF m_dragEnd;
     QSizeF m_minSizeInline;
     Qt::KeyboardModifiers m_modifiers;
+    std::unique_ptr<KoSvgTextShape> m_previewTextShape;
+    double m_ascender;
+    double m_lineHeight;
+    QStringList m_previewTextSegments;
+    QVector<double> m_previewTextLengths;
 };
 
 #endif /* SVG_CREATE_TEXT_STRATEGY_H */

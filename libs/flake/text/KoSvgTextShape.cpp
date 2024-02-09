@@ -854,6 +854,16 @@ KoSvgText::WritingMode KoSvgTextShape::writingMode() const
     return KoSvgText::WritingMode(this->textProperties().propertyOrDefault(KoSvgTextProperties::WritingModeId).toInt());
 }
 
+std::tuple<double, double, double> KoSvgTextShape::lineMetricsAtPos(int pos) const
+{
+    if (d->result.isEmpty() || d->cursorPos.isEmpty() || pos < 0 || pos >= d->cursorPos.size()) {
+        return {};
+    }
+    const CursorPos &cursorPos = d->cursorPos.at(pos);
+    const CharacterResult &res = d->result.at(cursorPos.cluster);
+    return {res.scaledAscent, res.scaledDescent, res.scaledHalfLeading};
+}
+
 void KoSvgTextShape::notifyCursorPosChanged(int pos, int anchor)
 {
     Q_FOREACH (KoShape::ShapeChangeListener *listener, listeners()) {
@@ -1064,6 +1074,12 @@ KoSvgTextShapeFactory::KoSvgTextShapeFactory()
     addTemplate(t);
 }
 
+static const QString &defaultTextSvg()
+{
+    static const QString s_defaultTextSvg = QLatin1String("<text>%1</text>").arg(KoSvgTextShape::defaultPlaceholderText().toHtmlEscaped());
+    return s_defaultTextSvg;
+}
+
 KoShape *KoSvgTextShapeFactory::createDefaultShape(KoDocumentResourceManager *documentResources) const
 {
     debugFlake << "Create default svg text shape";
@@ -1072,7 +1088,7 @@ KoShape *KoSvgTextShapeFactory::createDefaultShape(KoDocumentResourceManager *do
     shape->setShapeId(KoSvgTextShape_SHAPEID);
 
     KoSvgTextShapeMarkupConverter converter(shape);
-    converter.convertFromSvg(i18nc("Default text for the text shape", "<text>Placeholder Text</text>"),
+    converter.convertFromSvg(defaultTextSvg(),
                              "<defs/>",
                              QRectF(0, 0, 200, 60),
                              documentResources->documentResolution());
@@ -1087,7 +1103,7 @@ KoShape *KoSvgTextShapeFactory::createShape(const KoProperties *params, KoDocume
     KoSvgTextShape *shape = new KoSvgTextShape();
     shape->setShapeId(KoSvgTextShape_SHAPEID);
 
-    QString svgText = params->stringProperty("svgText", i18nc("Default text for the text shape", "<text>Placeholder Text</text>"));
+    QString svgText = params->stringProperty("svgText", defaultTextSvg());
     QString defs = params->stringProperty("defs" , "<defs/>");
     QRectF shapeRect = QRectF(0, 0, 200, 60);
     QVariant rect = params->property("shapeRect");
