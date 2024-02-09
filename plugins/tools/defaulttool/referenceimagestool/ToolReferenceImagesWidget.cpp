@@ -61,15 +61,20 @@ ToolReferenceImagesWidget::ToolReferenceImagesWidget(ToolReferenceImages *tool, 
         }
     );
 
-    d->ui->bnAddReferenceImage->setToolTip(i18n("Add Reference Image"));
-    d->ui->bnAddReferenceImage->setIcon(KisIconUtils::loadIcon("list-add"));
+    d->ui->bnAddReferenceImage->setToolTip(i18n("Add Reference Image From File"));
+    d->ui->bnAddReferenceImage->setIcon(KisIconUtils::loadIcon("folder"));
     d->ui->bnAddReferenceImage->setIconSize(QSize(16, 16));
+    
+    d->ui->bnPasteReferenceImage->setToolTip(i18n("Paste Reference Image From System Clipboard"));
+    d->ui->bnPasteReferenceImage->setIcon(KisIconUtils::loadIcon("edit-paste-16"));
+    d->ui->bnPasteReferenceImage->setIconSize(QSize(16, 16));
+    d->ui->bnPasteReferenceImage->setEnabled(KisClipboard::instance()->hasClip() || KisClipboard::instance()->hasUrls());
 
-    d->ui->bnAddReferenceImageFromLayer->setToolTip(i18n("Create Reference Image from Active Layer"));
-    d->ui->bnAddReferenceImageFromLayer->setIcon(KisIconUtils::loadIcon("selectlayer"));
+    d->ui->bnAddReferenceImageFromCurrentLayer->setToolTip(i18n("Create Reference Image from Active Layer"));
+    d->ui->bnAddReferenceImageFromCurrentLayer->setIcon(KisIconUtils::loadIcon("current-layer"));
     
     d->ui->bnAddReferenceImageFromVisible->setToolTip(i18n("Create Reference Image from Visible Canvas"));
-    d->ui->bnAddReferenceImageFromVisible->setIcon(KisIconUtils::loadIcon("duplicatelayer"));
+    d->ui->bnAddReferenceImageFromVisible->setIcon(KisIconUtils::loadIcon("all-layers"));
 
     d->ui->bnDelete->setToolTip(i18n("Delete all Reference Images"));
     d->ui->bnDelete->setIcon(KisIconUtils::loadIcon("edit-delete"));
@@ -83,14 +88,10 @@ ToolReferenceImagesWidget::ToolReferenceImagesWidget(ToolReferenceImages *tool, 
     d->ui->bnSave->setIcon(KisIconUtils::loadIcon("document-save-16"));
     d->ui->bnSave->setIconSize(QSize(16, 16));
 
-    d->ui->bnPasteReferenceImage->setToolTip(i18n("Paste Reference Image From System Clipboard"));
-    d->ui->bnPasteReferenceImage->setIcon(KisIconUtils::loadIcon("edit-paste-16"));
-    d->ui->bnPasteReferenceImage->setIconSize(QSize(16, 16));
-    d->ui->bnPasteReferenceImage->setEnabled(KisClipboard::instance()->hasClip() || KisClipboard::instance()->hasUrls());
 
     connect(d->ui->bnAddReferenceImage, SIGNAL(clicked()), tool, SLOT(addReferenceImage()));
     connect(d->ui->bnPasteReferenceImage, SIGNAL(clicked()), tool, SLOT(pasteReferenceImage()));
-    connect(d->ui->bnAddReferenceImageFromLayer, SIGNAL(clicked()), tool, SLOT(addReferenceImageFromLayer()));
+    connect(d->ui->bnAddReferenceImageFromCurrentLayer, SIGNAL(clicked()), tool, SLOT(addReferenceImageFromLayer()));
     connect(d->ui->bnAddReferenceImageFromVisible, SIGNAL(clicked()), tool, SLOT(addReferenceImageFromVisible()));
 
     connect(KisClipboard::instance(), &KisClipboard::clipChanged, this, [&]() {

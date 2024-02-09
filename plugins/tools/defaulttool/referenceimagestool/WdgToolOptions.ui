@@ -83,8 +83,16 @@
      </property>
     </widget>
    </item>
+   
    <item>
-    <layout class="QHBoxLayout" name="horizontalLayout">
+    <widget class="QLabel" name="label">
+     <property name="text">
+      <string>Add a new reference image:</string>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout1">
      <property name="spacing">
       <number>0</number>
      </property>
@@ -133,7 +141,7 @@
       </widget>
      </item>
      <item>
-      <widget class="QPushButton" name="bnAddReferenceImageFromLayer">
+      <widget class="QToolButton" name="bnAddReferenceImageFromCurrentLayer">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
          <horstretch>0</horstretch>
@@ -149,13 +157,14 @@
          <height>18</height>
         </size>
        </property>
-       <property name="flat">
+       <property name="autoRaise">
         <bool>true</bool>
        </property>
       </widget>
      </item>
+     
      <item>
-      <widget class="QPushButton" name="bnAddReferenceImageFromVisible">
+      <widget class="QToolButton" name="bnAddReferenceImageFromVisible">
        <property name="sizePolicy">
         <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
          <horstretch>0</horstretch>
@@ -171,12 +180,52 @@
          <height>18</height>
         </size>
        </property>
-       <property name="flat">
+       <property name="autoRaise">
         <bool>true</bool>
        </property>
       </widget>
      </item>
+     
      <item>
+      <spacer name="horizontalSpacer_2">
+       <property name="orientation">
+        <enum>Qt::Horizontal</enum>
+       </property>
+       <property name="sizeHint" stdset="0">
+        <size>
+         <width>40</width>
+         <height>20</height>
+        </size>
+       </property>
+      </spacer>
+     </item>
+     
+    </layout>
+   </item>
+   
+   <item>
+    <widget class="Line" name="line">
+     <property name="orientation">
+      <enum>Qt::Horizontal</enum>
+     </property>
+    </widget>
+   </item>
+   <item>
+    <widget class="QLabel" name="label1">
+     <property name="text">
+      <string>Other options:</string>
+     </property>
+    </widget>
+   </item>
+   
+   
+   <item>
+    <layout class="QHBoxLayout" name="horizontalLayout2">
+     <property name="spacing">
+      <number>0</number>
+     </property>
+     
+     <!--item>
       <spacer name="horizontalSpacer">
        <property name="orientation">
         <enum>Qt::Horizontal</enum>
@@ -188,7 +237,9 @@
         </size>
        </property>
       </spacer>
-     </item>
+     </item-->
+     
+     
      <item>
       <widget class="QToolButton" name="bnLoad">
        <property name="sizePolicy">
