@@ -312,7 +312,7 @@
         </size>
        </property>
        <property name="text">
-        <string>All</string>
+        <string>Delete All</string>
        </property>
        <property name="iconSize">
         <size>
