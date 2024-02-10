@@ -148,6 +148,16 @@ void ToolReferenceImages::pasteReferenceImage()
     }
 }
 
+void ToolReferenceImages::removeSelectedReferenceImages()
+{
+    auto layer = m_layer.toStrongRef();
+    if (!layer) return;
+    if (!koSelection()) return;
+    if (koSelection()->selectedEditableShapes().isEmpty()) return;
+
+    canvas()->addCommand(layer->removeReferenceImages(document(), koSelection()->selectedEditableShapes()));
+}
+
 void ToolReferenceImages::removeAllReferenceImages()
 {
     auto layer = m_layer.toStrongRef();

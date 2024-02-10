@@ -61,6 +61,10 @@ ToolReferenceImagesWidget::ToolReferenceImagesWidget(ToolReferenceImages *tool, 
         }
     );
 
+    d->ui->bnDeleteSelectedImages->setToolTip(i18n("Delete Selected Reference Images"));
+    d->ui->bnDeleteSelectedImages->setIcon(KisIconUtils::loadIcon("edit-delete"));
+    d->ui->bnDeleteSelectedImages->setIconSize(QSize(16, 16));
+
     d->ui->bnAddReferenceImage->setToolTip(i18n("Add Reference Image From File"));
     d->ui->bnAddReferenceImage->setIcon(KisIconUtils::loadIcon("view-preview"));
     d->ui->bnAddReferenceImage->setIconSize(QSize(16, 16));
@@ -89,6 +93,7 @@ ToolReferenceImagesWidget::ToolReferenceImagesWidget(ToolReferenceImages *tool, 
     d->ui->bnSave->setIconSize(QSize(16, 16));
 
 
+	connect(d->ui->bnDeleteSelectedImages, SIGNAL(clicked()), tool, SLOT(removeSelectedReferenceImages()));
     connect(d->ui->bnAddReferenceImage, SIGNAL(clicked()), tool, SLOT(addReferenceImage()));
     connect(d->ui->bnPasteReferenceImage, SIGNAL(clicked()), tool, SLOT(pasteReferenceImage()));
     connect(d->ui->bnAddReferenceImageFromCurrentLayer, SIGNAL(clicked()), tool, SLOT(addReferenceImageFromLayer()));
@@ -239,6 +244,7 @@ void ToolReferenceImagesWidget::updateVisibility(bool hasSelection)
     d->ui->saveLocationLabel->setVisible(hasSelection);
     d->ui->opacitySlider->setVisible(hasSelection);
     d->ui->saturationSlider->setVisible(hasSelection);
+    d->ui->bnDeleteSelectedImages->setVisible(hasSelection);
 
     // show a label indicating that a selection is required to show options
     d->ui->referenceImageOptionsLabel->setVisible(!hasSelection);
