@@ -210,13 +210,13 @@
      </property>
     </widget>
    </item>
-   <item>
+   <!--item>
     <widget class="QLabel" name="label1">
      <property name="text">
       <string>Other options:</string>
      </property>
     </widget>
-   </item>
+   </item-->
    
    
    <item>

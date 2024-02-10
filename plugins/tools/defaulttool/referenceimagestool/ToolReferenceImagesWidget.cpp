@@ -62,7 +62,7 @@ ToolReferenceImagesWidget::ToolReferenceImagesWidget(ToolReferenceImages *tool, 
     );
 
     d->ui->bnAddReferenceImage->setToolTip(i18n("Add Reference Image From File"));
-    d->ui->bnAddReferenceImage->setIcon(KisIconUtils::loadIcon("folder"));
+    d->ui->bnAddReferenceImage->setIcon(KisIconUtils::loadIcon("view-preview"));
     d->ui->bnAddReferenceImage->setIconSize(QSize(16, 16));
     
     d->ui->bnPasteReferenceImage->setToolTip(i18n("Paste Reference Image From System Clipboard"));
