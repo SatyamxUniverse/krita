@@ -223,7 +223,8 @@ void ToolReferenceImages::saveReferenceImages()
     KIS_ASSERT_RECOVER_RETURN(kisCanvas);
 
             KoFileDialog dialog(kisCanvas->viewManager()->mainWindowAsQWidget(), KoFileDialog::SaveFile, "SaveReferenceImageCollection");
-    dialog.setMimeTypeFilters(QStringList() << "application/x-krita-reference-images");
+    QString mimetype = "application/x-krita-reference-images";
+    dialog.setMimeTypeFilters(QStringList() << mimetype, mimetype);
     dialog.setCaption(i18n("Save Reference Images"));
 
     QStringList locations = QStandardPaths::standardLocations(QStandardPaths::PicturesLocation);
