@@ -184,6 +184,7 @@ public:
 Q_SIGNALS:
 
     void updateCursorDecoration(QRectF updateRect);
+    void selectionChanged();
 private Q_SLOTS:
     void blinkCursor();
     void stopBlinkCursor();

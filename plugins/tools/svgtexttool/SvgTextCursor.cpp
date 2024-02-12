@@ -1178,6 +1178,7 @@ void SvgTextCursor::updateCursor(bool firstUpdate)
         d->oldCursorRect = d->shape->shapeToDocument(d->cursorShape.boundingRect());
         d->posIndex = d->shape->indexForPos(d->pos);
         d->anchorIndex = d->shape->indexForPos(d->anchor);
+        emit selectionChanged();
     }
     d->cursorColor = QColor();
     d->cursorShape = d->shape? d->shape->cursorForPos(d->pos, d->cursorCaret, d->cursorColor): QPainterPath();
