@@ -197,6 +197,9 @@ Q_SIGNALS:
      */
     void sigMoveShapes(const QPointF &diff);
 
+    void sigShapeHasBeenAddedToHierarchy(KoShape *shape, KoShapeContainer *addedToSubtree);
+    void sigShapeToBeRemovedFromHierarchy(KoShape *shape, KoShapeContainer *removedFromSubtree);
+
 private Q_SLOTS:
     void slotMoveShapes(const QPointF &diff);
     void slotTransformShapes(const QTransform &transform);
