@@ -29,6 +29,7 @@
 #include "ColorProfileModel.h"
 #include <TemplatesModel.h>
 #include "Theme.h"
+#include "SvgTextLabel.h"
 
 
 #include "Constants.h"
@@ -96,6 +97,8 @@ void KritaSketchPlugin::registerTypes(const char* uri)
     qmlRegisterType<ColorProfileModel>("org.krita.sketch", 1, 0, "ColorProfileModel");
     qmlRegisterType<Theme>("org.krita.sketch", 1, 0, "Theme");
     qmlRegisterType<TemplatesModel>("org.krita.sketch", 1, 0, "TemplatesModel");
+
+    qmlRegisterType<SvgTextLabel>("org.krita.sketch", 1, 0, "SvgTextLabel");
 
     qmlRegisterSingletonType<Constants>("org.krita.sketch", 1, 0, "Constants", provideConstantsObject);
     qmlRegisterSingletonType<KritaNamespace>("org.krita.sketch", 1, 0, "Krita", provideKritaNamespaceObject);

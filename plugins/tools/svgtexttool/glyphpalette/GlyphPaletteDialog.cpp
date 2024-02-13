@@ -33,6 +33,9 @@ GlyphPaletteDialog::GlyphPaletteDialog(QWidget *parent): KoDialog(parent)
     if (m_quickWidget->rootObject()) {
         m_quickWidget->rootObject()->setProperty("titleText", "Glyph palette");
     }
+    if (!m_quickWidget->errors().empty()) {
+        qWarning() << "Errors in " << windowTitle() << ":" << m_quickWidget->errors();
+    }
 }
 
 void GlyphPaletteDialog::setGlyphModelFromProperties(KoSvgTextProperties properties, QString text)
@@ -56,6 +59,9 @@ void GlyphPaletteDialog::setGlyphModelFromProperties(KoSvgTextProperties propert
     if (properties.hasProperty(KoSvgTextProperties::KraTextVersionId)) {
         fontSizeAdjust.isAuto = (properties.property(KoSvgTextProperties::KraTextVersionId).toInt() < 3);
     }
+    QStringList families = properties.property(KoSvgTextProperties::FontFamiliesId).toStringList();
+    qreal size = properties.propertyOrDefault(KoSvgTextProperties::FontSizeId).toReal();
+    int weight = properties.propertyOrDefault(KoSvgTextProperties::FontWeightId).toInt();
     const std::vector<FT_FaceSP> faces = KoFontRegistry::instance()->facesForCSSValues(
         properties.property(KoSvgTextProperties::FontFamiliesId).toStringList(),
         lengths,
@@ -63,7 +69,7 @@ void GlyphPaletteDialog::setGlyphModelFromProperties(KoSvgTextProperties propert
         text,
         static_cast<quint32>(res),
         static_cast<quint32>(res),
-        properties.propertyOrDefault(KoSvgTextProperties::FontSizeId).toReal(),
+        size,
         fontSizeAdjust.isAuto ? 1.0 : fontSizeAdjust.customValue,
         properties.propertyOrDefault(KoSvgTextProperties::FontWeightId).toInt(),
         properties.propertyOrDefault(KoSvgTextProperties::FontStretchId).toInt(),
@@ -74,6 +80,10 @@ void GlyphPaletteDialog::setGlyphModelFromProperties(KoSvgTextProperties propert
         QString name = faces.front().data()->family_name;
         m_quickWidget->rootObject()->setProperty("titleText", QString("Glyph palette: "+name));
         m_quickWidget->rootObject()->setProperty("model", QVariant::fromValue(model));
+        m_quickWidget->rootObject()->setProperty("fontFamilies", QVariant::fromValue(families));
+        m_quickWidget->rootObject()->setProperty("fontSize", QVariant::fromValue(size));
+        m_quickWidget->rootObject()->setProperty("fontWeight", QVariant::fromValue(weight));
+        m_quickWidget->rootObject()->setProperty("fontStyle", QVariant::fromValue(style));
         if (idx.isValid()) {
             m_quickWidget->rootObject()->setProperty("currentIndex", QVariant::fromValue(idx.row()));
         }

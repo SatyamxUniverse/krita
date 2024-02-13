@@ -50,6 +50,7 @@ generate_export_header(krita_tool_svgtext_static BASE_NAME kritatoolsvgtext)
 
 target_link_libraries(krita_tool_svgtext_static
     kritaui
+    kritaqml
     KF5::I18n
     Qt5::Quick
     Qt5::QuickWidgets

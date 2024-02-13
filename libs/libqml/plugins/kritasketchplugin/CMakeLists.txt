@@ -16,6 +16,7 @@ set(kritasketchplugin_SRCS
     MouseTracker.cpp
     PanelConfiguration.cpp
     PropertyContainer.cpp
+    SvgTextLabel.cpp
 )
 
 set(kritasketch_kritaintegrationmodels_SRCS
