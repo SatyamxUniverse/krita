@@ -729,9 +729,8 @@ void KisNodeManager::createReferenceImage(bool fromLayer) {
     
     const KisPaintDeviceSP paintDevice = fromLayer ? m_view->activeLayer()->projection()
                                                   : canvas->currentImage()->projection();
-    const QImage image = paintDevice->convertToQImage(0,
-            KoColorConversionTransformation::IntentPerceptual,
-            KoColorConversionTransformation::NoOptimization);
+    const QImage image = paintDevice->convertToQImage(0, KoColorConversionTransformation::internalRenderingIntent(),
+        KoColorConversionTransformation::internalConversionFlags());
     KisReferenceImage* reference = KisReferenceImage::fromQImage(*canvas->coordinatesConverter(), image);
     KIS_SAFE_ASSERT_RECOVER_RETURN(canvas);
     if (reference) {
