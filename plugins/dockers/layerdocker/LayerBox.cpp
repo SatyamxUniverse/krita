@@ -1215,10 +1215,6 @@ void LayerBox::updateLayerOpMenu(const QModelIndex &index, QMenu &menu) {
             addActionToMenu(&menu, "flatten_image");
             addActionToMenu(&menu, "flatten_layer");
         }
-        
-        
-        addActionToMenu(&menu, "create_reference_image_from_active_layer");
-        addActionToMenu(&menu, "create_reference_image_from_visible_canvas");
 
         menu.addSeparator();
         QMenu *selectMenu = menu.addMenu(i18n("&Select"));
