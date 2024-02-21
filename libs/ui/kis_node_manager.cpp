@@ -738,6 +738,9 @@ void KisNodeManager::createReferenceImage(bool fromLayer) {
             reference->setZIndex(document->referenceImagesLayer()->shapes().size());
         }
         canvas->addCommand(KisReferenceImagesLayer::addReferenceImages(document, {reference}));
+
+        KoToolManager::instance()->switchToolRequested("ToolReferenceImages");
+
     } else {
         if (canvas->canvasWidget()) {
             QString strMessage = fromLayer ? i18nc("error dialog from the reference tool", "Could not create a reference image from the active layer.")
