@@ -61,6 +61,8 @@ public:
      */
     void addGuideLine(Qt::Orientation orientation, qreal position);
     void removeAllGuides();
+    void saveGuides();
+    void loadGuides();
 
     bool showGuides() const;
     void setShowGuides(bool value);

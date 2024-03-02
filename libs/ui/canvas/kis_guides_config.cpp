@@ -11,11 +11,13 @@
 #include <QDomDocument>
 #include <QColor>
 #include <QPen>
+#include <qxmlstream.h>
 
 #include "kis_config.h"
 #include "kis_dom_utils.h"
 #include "kis_algebra_2d.h"
 #include "kis_global.h"
+#include "KoFileDialog.h"
 #include <KisStaticInitializer.h>
 
 KIS_DECLARE_STATIC_INITIALIZER {
@@ -113,6 +115,84 @@ void KisGuidesConfig::removeAllGuides()
     QList<qreal> emptyGuides ;
     setVerticalGuideLines(emptyGuides);
     setHorizontalGuideLines(emptyGuides);
+}
+
+void KisGuidesConfig::saveGuides()
+{
+    if (!hasGuides()) return;
+
+    QByteArray data;
+    QXmlStreamWriter xml(&data);
+    xml.writeStartDocument();
+    xml.writeStartElement("guides");
+
+    Q_FOREACH(const qreal horizontalGuide, horizontalGuideLines()){
+        xml.writeStartElement("horizontalGuide");
+        xml.writeAttribute("value", QString::number(horizontalGuide));
+        xml.writeEndElement();
+    }
+
+    Q_FOREACH(const qreal verticalGuide, verticalGuideLines()){
+        xml.writeStartElement("verticalGuide");
+
+        xml.writeAttribute("value", QString::number(verticalGuide));
+    }
+
+    xml.writeEndElement();
+
+    KoFileDialog dialog(0, KoFileDialog::SaveFile, "OpenGuides");
+    dialog.setCaption(i18n("Save Guides"));
+    dialog.setDefaultDir(QStandardPaths::writableLocation(QStandardPaths::PicturesLocation));
+    dialog.setMimeTypeFilters(QStringList() << "application/x-krita-guides", "application/x-krita-guides");
+    QString filename = dialog.filename();
+    if (filename.isEmpty()) return;
+
+    QFile file(filename);
+    file.open(QIODevice::WriteOnly);
+    file.write(data);
+
+}
+
+void KisGuidesConfig::loadGuides()
+{
+    KoFileDialog dialog(0, KoFileDialog::OpenFile, "OpenGuide");
+    dialog.setCaption(i18n("Select a Guide"));
+    dialog.setDefaultDir(QStandardPaths::writableLocation(QStandardPaths::PicturesLocation));
+    dialog.setMimeTypeFilters(QStringList() << "application/x-krita-guides", "application/x-krita-guides");
+
+    QString filename = dialog.filename();
+    if (filename.isEmpty()) return;
+    if (!QFileInfo(filename).exists()) return;
+
+    QFile file(filename);
+    file.open(QIODevice::ReadOnly);
+
+    QByteArray data = file.readAll();
+    QXmlStreamReader xml(data);
+    QList<qreal> horzGuides;
+    QList<qreal> vertGuides;
+
+    bool errors = false;
+
+    while (!xml.atEnd()){
+        switch (xml.readNext()) {
+        case QXmlStreamReader::StartElement:
+            if (xml.name() == "horizontalGuide") {
+                qreal guide = xml.attributes().value("value").toDouble();
+                horzGuides.append(guide);
+            } else if (xml.name() == "verticalGuide") {
+                qreal guide = xml.attributes().value("value").toDouble();
+                vertGuides.append(guide);
+            }
+
+        case QXmlStreamReader::EndElement:
+            break;
+        default:
+            break;
+        }
+    }
+    setHorizontalGuideLines(horzGuides);
+    setVerticalGuideLines(vertGuides);
 }
 
 bool KisGuidesConfig::showGuides() const
