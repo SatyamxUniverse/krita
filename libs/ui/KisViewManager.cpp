@@ -670,6 +670,11 @@ KisIdleTasksManager *KisViewManager::idleTasksManager()
     return &d->idleTasksManager;
 }
 
+KisTextPropertiesManager *KisViewManager::textPropertyManager() const
+{
+    return &d->textPropertyManager;
+}
+
 KisSelectionSP KisViewManager::selection()
 {
     if (d->currentImageView) {
