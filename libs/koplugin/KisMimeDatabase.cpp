@@ -355,6 +355,11 @@ void KisMimeDatabase::fillMimeData()
         mimeType.suffixes = QStringList() << "hdr";
         s_mimeDatabase << mimeType;
 
+        mimeType.mimeType = "image/qoi";
+        mimeType.description = i18nc("description of a file type", "Quite OK Image");
+        mimeType.suffixes = QStringList() << "qoi";
+        s_mimeDatabase << mimeType;
+
         dbgPlugins << "Filled mime database with" << s_mimeDatabase.count() << "special mimetypes";
     }
 }
