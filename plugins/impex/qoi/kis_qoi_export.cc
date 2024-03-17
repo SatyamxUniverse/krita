@@ -57,8 +57,8 @@ KisImportExportErrorCode KisQOIExport::convert(KisDocument *document, QIODevice 
 
     if (!options.alpha) {
         KisPaintDeviceSP tmp = new KisPaintDevice(device->colorSpace());
-        KoColor c(options.transparencyFillColor, device->colorSpace());
-        tmp->fill(imageRect, c);
+        KoColor colorBg(options.transparencyFillColor, device->colorSpace());
+        tmp->fill(imageRect, colorBg);
         KisPainter gc(tmp);
         gc.bitBlt(imageRect.topLeft(), device, imageRect);
         gc.end();
