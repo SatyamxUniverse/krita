@@ -266,6 +266,7 @@ void GridConfigWidget::saveGuides() {
 void GridConfigWidget::loadGuides() {
     m_d->guidesConfig.loadGuides();
     emit guidesValueChanged();
+    ui->chkShowGuides->setChecked(true);
 }
 
 KisGridConfig GridConfigWidget::fetchGuiGridConfig() const
