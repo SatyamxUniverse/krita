@@ -75,9 +75,13 @@ android-build-armeabi-v7a:
     KRITACI_ARCHIVE_ARTIFACTS: True
     KRITACI_SKIP_COMMON_ARTIFACTS: True
 
-android-build-appbundle:
-  extends:
-  - .android-build-base
+android-build-appbundle-xxx:
+  stage: bundle
+  image: invent-registry.kde.org/sysadmin/ci-images/krita-android-builder:latest
+  tags:
+    - Linux
+  when: manual
+  interruptible: false
   needs:
       artifacts: true
     - job: android-build-armeabi-v7a
