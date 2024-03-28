@@ -31,6 +31,23 @@ workflow:
     - if: $CI_COMMIT_BRANCH =~ /^krita\//
     - if: $CI_PIPELINE_SOURCE == "schedule"
 
+.nightly-job-mixin:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $KRITACI_SCHEDULED_JOB_NAME == "nightly"
+      when: always
+
+.ci-manual-job-mixin:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - when: manual
+
+.ci-always-job-mixin:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - when: always
+
 include:
   - local: /build-tools/ci-scripts/cppcheck.yml
   - local: /build-tools/ci-scripts/linux.yml
