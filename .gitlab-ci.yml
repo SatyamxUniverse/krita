@@ -5,7 +5,26 @@
 variables:
   DEBIAN_FRONTEND: "noninteractive"
 
+.nightly-job-mixin:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule" && $KRITACI_SCHEDULED_JOB_NAME == "nightly"
+      when: always
+
+.ci-manual-job-mixin:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - when: manual
+
+.ci-always-job-mixin:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "schedule"
+      when: never
+    - when: always
+
 clang_format:
+  extends:
+    - .ci-always-job-mixin
   stage: build
   image: debian:testing
   before_script:

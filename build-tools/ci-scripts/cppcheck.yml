@@ -1,4 +1,6 @@
 cppcheck:
+  extends:
+    - .ci-always-job-mixin
   stage: build
   image: invent-registry.kde.org/sysadmin/ci-images/krita-appimage-builder:latest
   tags:
