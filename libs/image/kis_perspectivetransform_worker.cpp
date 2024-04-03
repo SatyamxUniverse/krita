@@ -86,7 +86,7 @@ void KisPerspectiveTransformWorker::init(const QTransform &transform)
     m_backwardTransform = transform.inverted();
 
     if (m_dev) {
-        m_srcRect = m_dev->exactBounds();
+        m_srcRect = kisGrowRect(m_dev->exactBounds(), 1.0);
 
         QPolygonF dstClipPolygonUnused;
 
@@ -176,8 +176,8 @@ void KisPerspectiveTransformWorker::runImpl()
         for (int y = rect.y(); y < rect.y() + rect.height(); ++y) {
             for (int x = rect.x(); x < rect.x() + rect.width(); ++x) {
 
-                QPointF dstPoint(x, y);
-                QPointF srcPoint = m_backwardTransform.map(dstPoint);
+                const QPoint dstPoint(x, y);
+                const QPointF srcPoint = m_backwardTransform.map(dstPoint + QPointF(0.5, 0.5));
 
                 if (m_srcRect.contains(srcPoint)) {
                     accessor->moveTo(dstPoint.x(), dstPoint.y());
@@ -205,7 +205,7 @@ void KisPerspectiveTransformWorker::runPartialDst(KisPaintDeviceSP srcDev,
     KIS_SAFE_ASSERT_RECOVER_RETURN(srcDev->pixelSize() == dstDev->pixelSize());
     KIS_SAFE_ASSERT_RECOVER_NOOP(*srcDev->colorSpace() == *dstDev->colorSpace());
 
-    QRectF srcClipRect = srcDev->exactBounds() | srcDev->defaultBounds()->imageBorderRect();
+    QRectF srcClipRect = kisGrowRect(srcDev->exactBounds(), 1) | srcDev->defaultBounds()->imageBorderRect();
     if (srcClipRect.isEmpty()) return;
 
     if (m_isIdentity || (m_isTranslating && !m_forceSubPixelTranslation)) {
@@ -221,8 +221,8 @@ void KisPerspectiveTransformWorker::runPartialDst(KisPaintDeviceSP srcDev,
         for (int y = dstRect.y(); y < dstRect.y() + dstRect.height(); ++y) {
             for (int x = dstRect.x(); x < dstRect.x() + dstRect.width(); ++x) {
 
-                QPointF dstPoint(x, y);
-                QPointF srcPoint = m_backwardTransform.map(dstPoint);
+                const QPoint dstPoint(x, y);
+                const QPointF srcPoint = m_backwardTransform.map(dstPoint + QPointF(0.5, 0.5));
 
                 if (srcClipRect.contains(srcPoint) || srcDev->defaultBounds()->wrapAroundMode()) {
                     accessor->moveTo(dstPoint.x(), dstPoint.y());
