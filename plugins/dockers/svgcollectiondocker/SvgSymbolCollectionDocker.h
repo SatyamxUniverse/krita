@@ -15,6 +15,7 @@
 #include <KoDockFactoryBase.h>
 #include <KoCanvasObserverBase.h>
 #include <KisKineticScroller.h>
+#include <kconfiggroup.h>
 
 #include "ui_WdgSvgCollection.h"
 
@@ -32,10 +33,13 @@ public:
     QStringList mimeTypes() const override;
     Qt::ItemFlags flags(const QModelIndex &index) const override;
     Qt::DropActions supportedDragActions() const override;
+
+    void setIconSize(int size);
 public:
     void setSvgSymbolCollectionResource(QSharedPointer<KoSvgSymbolCollectionResource> resource);
 private:
     QSharedPointer<KoSvgSymbolCollectionResource> m_symbolCollection;
+    int m_iconSize {256};
 };
 
 
@@ -86,6 +90,8 @@ private:
 
     KisResourceModel* m_resourceModel {0};
     int m_rememberedSvgCollectionId {-1};
+
+    KConfigGroup m_configGroup;
 };
 
 #endif
