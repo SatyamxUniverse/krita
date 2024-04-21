@@ -11,6 +11,7 @@ target_link_libraries(kritatextproperties
     kritaqml
     Qt5::Quick  
     Qt5::QuickWidgets 
+    Qt5::QuickControls2
     Qt5::Qml
 )
 install(TARGETS kritatextproperties  DESTINATION ${KRITA_PLUGIN_INSTALL_DIR})
