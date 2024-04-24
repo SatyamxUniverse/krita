@@ -167,6 +167,7 @@ set(kritaflake_SRCS
     commands/KoPathMergeUtils.cpp
     commands/KoAddRemoveShapeCommands.cpp
     commands/KoShapePaintOrderCommand.cpp
+    commands/KoShapeMergeTextPropertiesCommand.cpp
 
     html/HtmlSavingContext.cpp
     html/HtmlWriter.cpp
@@ -224,6 +225,14 @@ set(kritaflake_SRCS
     text/KoFontRegistry.cpp
     text/KoCssTextUtils.cpp
     text/KoPolygonUtils.cpp
+    text/KoSvgTextPropertyData.cpp
+    text/KoSvgTextPropertiesInterface.h
+    text/lager/KoSvgTextPropertiesModel.cpp
+    text/lager/CssLengthPercentageModel.cpp
+    text/lager/LineHeightModel.cpp
+    text/lager/TextIndentModel.cpp
+    text/lager/TabSizeModel.cpp
+    text/lager/TextTransformModel.cpp
 
     resources/KoSvgSymbolCollectionResource.cpp
     resources/KoGamutMask.cpp

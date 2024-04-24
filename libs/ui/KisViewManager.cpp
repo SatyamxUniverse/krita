@@ -124,6 +124,7 @@
 #include <KoToolDocker.h>
 #include <KisIdleTasksManager.h>
 #include <KisImageBarrierLock.h>
+#include <KisTextPropertiesManager.h>
 
 #include "kis_filter_configuration.h"
 
@@ -233,6 +234,7 @@ public:
     KisMirrorManager mirrorManager;
     KisInputManager inputManager;
     KisIdleTasksManager idleTasksManager;
+    KisTextPropertiesManager textPropertyManager;
 
     KisSignalAutoConnectionsStore viewConnections;
     KSelectAction *actionAuthor {nullptr}; // Select action for author profile.
@@ -342,6 +344,7 @@ KisViewManager::KisViewManager(QWidget *parent, KisKActionCollection *_actionCol
     d->canvasResourceProvider.setFGColor(cfg.readKoColor("LastForeGroundColor",foreground));
     KoColor background(Qt::white, cs);
     d->canvasResourceProvider.setBGColor(cfg.readKoColor("LastBackGroundColor",background));
+    d->textPropertyManager.setCanvasResourceProvider(&d->canvasResourceProvider);
 
     // Initialize the old imagesize plugin
     new ImageSize(this);
@@ -527,6 +530,7 @@ void KisViewManager::setCurrentView(KisView *view)
     d->statusBar.setView(imageView);
     d->paintingAssistantsManager.setView(imageView);
     d->mirrorManager.setView(imageView);
+    d->textPropertyManager.setView(imageView);
 
     if (d->currentImageView) {
         d->currentImageView->notifyCurrentStateChanged(true);
@@ -664,6 +668,11 @@ KisInputManager* KisViewManager::inputManager() const
 KisIdleTasksManager *KisViewManager::idleTasksManager()
 {
     return &d->idleTasksManager;
+}
+
+KisTextPropertiesManager *KisViewManager::textPropertyManager() const
+{
+    return &d->textPropertyManager;
 }
 
 KisSelectionSP KisViewManager::selection()

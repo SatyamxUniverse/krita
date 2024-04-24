@@ -25,6 +25,7 @@
 
 class KoColorProfile;
 class KoAbstractGradient;
+struct KoSvgTextPropertyData;
 
 class KoCanvasBase;
 class KisViewManager;
@@ -127,6 +128,9 @@ public:
     void setDisablePressure(bool value);
     bool disablePressure() const;
 
+    void setTextPropertyData(KoSvgTextPropertyData data);
+    KoSvgTextPropertyData textPropertyData() const;
+
     ///Notify that the workspace is saved and settings should be saved to it
     void notifySavingWorkspace(KisWorkspaceResourceSP workspace);
 
@@ -183,6 +187,8 @@ Q_SIGNALS:
     void sigGamutMaskUnset();
     void sigGamutMaskPreviewUpdate();
     void sigGamutMaskDeactivated();
+
+    void sigTextPropertiesChanged();
 
 private:
 

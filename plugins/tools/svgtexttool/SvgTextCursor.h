@@ -9,6 +9,7 @@
 
 #include <KoSvgTextShape.h>
 #include <KoSvgTextProperties.h>
+#include <KoSvgTextPropertiesInterface.h>
 #include <KoToolSelection.h>
 #include <QPainter>
 #include <KoShape.h>
@@ -130,7 +131,9 @@ public:
 
     KoSvgTextProperties currentTextProperties() const;
 
-    void mergePropertiesIntoSelection(const KoSvgTextProperties props);
+    QList<KoSvgTextProperties> propertiesForRange() const;
+
+    void mergePropertiesIntoSelection(const KoSvgTextProperties props, const QSet<KoSvgTextProperties::PropertyId> removeProperties = QSet<KoSvgTextProperties::PropertyId>());
 
     /**
      * @brief removeSelection
@@ -181,6 +184,8 @@ public:
     /// Stops blinking cursor.
     void focusOut();
 
+    KoSvgTextPropertiesInterface *textPropertyInterface();
+
 Q_SIGNALS:
 
     void updateCursorDecoration(QRectF updateRect);
@@ -218,6 +223,19 @@ private:
 
     struct Private;
     const QScopedPointer<Private> d;
+};
+
+class KRITATOOLSVGTEXT_EXPORT SvgTextPropertyCursor : public KoSvgTextPropertiesInterface
+{
+public:
+    SvgTextPropertyCursor(SvgTextCursor *parent);
+    virtual QList<KoSvgTextProperties> getSelectedProperties() override;
+    virtual KoSvgTextProperties getInheritedProperties() override;
+    virtual void setPropertiesOnSelected(KoSvgTextProperties properties, QSet<KoSvgTextProperties::PropertyId> removeProperties = QSet<KoSvgTextProperties::PropertyId>()) override;
+
+    void emitSelectionChange();
+private:
+    SvgTextCursor *m_parent{nullptr};
 };
 
 Q_DECLARE_METATYPE(SvgTextCursor::MoveMode)
