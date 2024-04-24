@@ -14,7 +14,10 @@
     # ANDROID_HOME: /opt/android-tooling # <-- set up in the base image!
     # KDECI_ANDROID_SDK_ROOT: $ANDROID_HOME/sdk # <-- set up in the base image!
     # KDECI_ANDROID_NDK_ROOT: $ANDROID_HOME/android-ndk-r22b/ # <-- set up in the base image!
-    KDECI_EXTRA_CMAKE_ARGS: "-DHIDE_SAFE_ASSERTS=OFF -DBUILD_TESTING=ON -DCMAKE_TOOLCHAIN_FILE=$CI_PROJECT_DIR/krita-deps-management/tools/android-toolchain-krita.cmake"
+    KDECI_EXTRA_CMAKE_ARGS: >
+      -DHIDE_SAFE_ASSERTS=OFF
+      -DBUILD_TESTING=ON
+      -DCMAKE_TOOLCHAIN_FILE=$CI_PROJECT_DIR/krita-deps-management/tools/android-toolchain-krita.cmake
     KRITACI_ANDROID_PACKAGE_TYPE: "debug"
     KRITACI_SKIP_UPLOAD_NIGHTLY_PACKAGE: "True"
     KRITACI_PUBLISH_BUILD_CONFIG: "upstream-ci-utilities/signing/publishbuild.ini"
@@ -28,19 +31,20 @@
   script:
     - git config --global --add safe.directory $CI_PROJECT_DIR
     - python3 -u krita-deps-management/tools/generate-deps-file.py -s krita-deps-management/latest/krita-deps.yml -o .kde-ci.yml
-    - python3 -u krita-deps-management/ci-utilities/run-ci-build.py --project $CI_PROJECT_NAME --branch $CI_COMMIT_REF_NAME --platform Android/$KDECI_ANDROID_ABI/Qt5/Shared --only-build --skip-publishing
-    - python3 -u build-tools/ci-scripts/build-android-package.py
-    - if [ "$KRITACI_ANDROID_PACKAGE_TYPE" == "nightly" ]; then python3 -u ci-notary-service/signapk.py -v --config upstream-ci-utilities/signing/signapk.ini $CI_PROJECT_DIR/_packaging/*.apk; fi
+    - python3 -u krita-deps-management/ci-utilities/run-ci-build.py --project $CI_PROJECT_NAME --branch $CI_COMMIT_REF_NAME --platform Android/$KDECI_ANDROID_ABI/Qt5/Shared --only-build --skip-publishing 2>&1 | tee build-krita.log
+    - python3 -u build-tools/ci-scripts/build-android-package.py 2>&1 | tee build-apk.log
+    - if [ "$KRITACI_ANDROID_PACKAGE_TYPE" == "nightly" ]; then python3 -u ci-notary-service/signapk.py -v --config upstream-ci-utilities/signing/signapk.ini $CI_PROJECT_DIR/_packaging/*.apk 2>&1 | tee apk-sign.log ; fi
       # WARNING: we don't actually check if the package is signed or not, since the notary service
       # could "silently" skip signing due to security reasons
-    - if [ "$KRITACI_ANDROID_PACKAGE_TYPE" == "nightly" ]; then python3 -u build-tools/ci-scripts/rename-signed-apk-packages.py --folder $CI_PROJECT_DIR/_packaging; fi
-    - python3 -u build-tools/ci-scripts/upload-nightly-packages.py --platform android-$KDECI_ANDROID_ABI --folder $CI_PROJECT_DIR/_packaging
+    - if [ "$KRITACI_ANDROID_PACKAGE_TYPE" == "nightly" ]; then python3 -u build-tools/ci-scripts/rename-signed-apk-packages.py --folder $CI_PROJECT_DIR/_packaging 2>&1 | tee apk-rename.log; fi
+    - python3 -u build-tools/ci-scripts/upload-nightly-packages.py --platform android-$KDECI_ANDROID_ABI --folder $CI_PROJECT_DIR/_packaging 2>&1 | tee apk-publish.log
   artifacts:
     name: krita-$CI_COMMIT_REF_SLUG
     expire_in: 10 days
     when: always
     paths:
       - "_packaging"
+      - "*.log"
 
 .android-nightly-base:
   extends:
@@ -49,7 +53,10 @@
   interruptible: false
   variables:
     KRITACI_ANDROID_PACKAGE_TYPE: "nightly"
-    KDECI_EXTRA_CMAKE_ARGS: "-DHIDE_SAFE_ASSERTS=OFF -DBUILD_TESTING=ON -DCMAKE_TOOLCHAIN_FILE=$CI_PROJECT_DIR/krita-deps-management/tools/android-toolchain-krita.cmake"
+    KDECI_EXTRA_CMAKE_ARGS: >
+      -DHIDE_SAFE_ASSERTS=OFF
+      -DBUILD_TESTING=ON
+      -DCMAKE_TOOLCHAIN_FILE=$CI_PROJECT_DIR/krita-deps-management/tools/android-toolchain-krita.cmake
     KRITACI_SKIP_UPLOAD_NIGHTLY_PACKAGE: "False"
   # no artifacts for nightly jobs, they are uploaded to ci-builds
   artifacts:
@@ -61,7 +68,10 @@
   variables:
     KRITACI_ANDROID_PACKAGE_TYPE: "release"
     KRITACI_RELEASE: 1
-    KDECI_EXTRA_CMAKE_ARGS: "-DHIDE_SAFE_ASSERTS=ON -DBUILD_TESTING=OFF -DCMAKE_TOOLCHAIN_FILE=$CI_PROJECT_DIR/krita-deps-management/tools/android-toolchain-krita.cmake"
+    KDECI_EXTRA_CMAKE_ARGS: >
+      -DHIDE_SAFE_ASSERTS=ON
+      -DBUILD_TESTING=OFF
+      -DCMAKE_TOOLCHAIN_FILE=$CI_PROJECT_DIR/krita-deps-management/tools/android-toolchain-krita.cmake
 
 .android-x86_64-mixin:
   variables:
@@ -107,13 +117,14 @@ android-build-appbundle:
       artifacts: true
   script:
     - git config --global --add safe.directory $CI_PROJECT_DIR
-    - python3 -u build-tools/ci-scripts/build-android-appbundle.py
+    - python3 -u build-tools/ci-scripts/build-android-appbundle.py 2>&1 | tee build-aab.log
   artifacts:
     name: krita-$CI_COMMIT_REF_SLUG
     expire_in: 10 days
     when: always
     paths:
       - "_packaging/*.aab"
+      - "*.log"
 
 android-build-x86_64:
   extends:

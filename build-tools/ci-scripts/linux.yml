@@ -13,7 +13,7 @@ linux-build:
     KDECI_PACKAGE_PROJECT: dkazakov/krita-ci-artifacts-appimage-qt5.15
     KDECI_REPO_METADATA_PATH: $CI_PROJECT_DIR/krita-deps-management/repo-metadata
     KDECI_COMPRESS_PACKAGES_ON_DOWNLOAD: "False"
-    KDECI_EXTRA_CMAKE_ARGS: "-DHIDE_SAFE_ASSERTS=OFF"
+    KDECI_EXTRA_CMAKE_ARGS: -DHIDE_SAFE_ASSERTS=OFF
     KRITACI_SKIP_UPLOAD_NIGHTLY_PACKAGE: "True"
     KRITACI_PUBLISH_BUILD_CONFIG: "upstream-ci-utilities/signing/publishbuild.ini"
   interruptible: true
@@ -25,6 +25,9 @@ linux-build:
     - if [ "$KRITACI_SKIP_UPLOAD_NIGHTLY_PACKAGE" != "True" ]; then pip install -r ci-notary-service/requirements.txt; fi
     - export PATH="$HOME/tools/bin:$PATH"
   script:
+    # GitLab freaks out when we try to use `tee` to save the logs manually, the job
+    # just silently hangs up. For this reason we don't use extra logging on Linux.
+
     - git config --global --add safe.directory $CI_PROJECT_DIR
     - python3 -u krita-deps-management/tools/generate-deps-file.py -s krita-deps-management/latest/krita-deps.yml -o .kde-ci.yml
     - python3 -u krita-deps-management/ci-utilities/run-ci-build.py --project $CI_PROJECT_NAME --branch $CI_COMMIT_REF_NAME --platform Linux/Qt5/Shared --skip-publishing
@@ -40,6 +43,7 @@ linux-build:
       - "**/appium_artifact_*"
       - "_packaging/*.appimage"
       - "_packaging/*.zsync"
+      - "*.log"
     reports:
       junit: JUnitTestResults.xml
       coverage_report:
@@ -53,7 +57,9 @@ linux-nightly:
   interruptible: false
   variables:
     KDECI_ONLY_BUILD: "True"
-    KDECI_EXTRA_CMAKE_ARGS: "-DHIDE_SAFE_ASSERTS=OFF -DBUILD_TESTING=OFF"
+    KDECI_EXTRA_CMAKE_ARGS: >
+      -DHIDE_SAFE_ASSERTS=OFF
+      -DBUILD_TESTING=OFF
     KRITACI_SKIP_UPLOAD_NIGHTLY_PACKAGE: "False"
   # no artifacts for nightly jobs, they are uploaded to ci-builds
   artifacts:
@@ -66,4 +72,6 @@ linux-release:
   interruptible: false
   variables:
     KDECI_ONLY_BUILD: "True"
-    KDECI_EXTRA_CMAKE_ARGS: "-DHIDE_SAFE_ASSERTS=ON -DBUILD_TESTING=OFF"
+    KDECI_EXTRA_CMAKE_ARGS: >
+      -DHIDE_SAFE_ASSERTS=ON
+      -DBUILD_TESTING=OFF
