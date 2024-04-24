@@ -2057,6 +2057,16 @@ void KisConfig::setTrimFramesImport(bool trim)
     m_cfg.writeEntry("TrimFramesImport", trim);
 }
 
+QString KisConfig::exportMimeType(bool defaultValue) const
+{
+    return (defaultValue ? 0 : m_cfg.readEntry("defaultExportMimeType", QString()));
+}
+
+void KisConfig::setExportMimeType(const QString &defaultExportMimeType)
+{
+    m_cfg.writeEntry("defaultExportMimeType", defaultExportMimeType);
+}
+
 bool KisConfig::toolOptionsInDocker(bool defaultValue) const
 {
     return (defaultValue ? true : m_cfg.readEntry("ToolOptionsInDocker", true));

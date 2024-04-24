@@ -1340,7 +1340,12 @@ bool KisMainWindow::saveDocument(KisDocument *document, bool saveas, bool isExpo
             dialog.setDefaultDir(proposedPath + "/" + proposedFileName + "." + proposedExtension, true);
             dialog.setMimeTypeFilters(mimeFilter, proposedMimeType);
         }
-        else {
+        else { 
+            //This section only runs when the user haven't exported yet during the session, behavior set in the File Handling, Default MimeType setting.
+            KisConfig cfg(true);
+            QByteArray default_mime_type = cfg.exportMimeType(false).toUtf8();
+            QString proposedMimeType = QString::fromLatin1(default_mime_type);
+
             // Get the last used location for saving
             KConfigGroup group =  KSharedConfig::openConfig()->group("File Dialogs");
             QString proposedPath = group.readEntry("SaveAs", "");
@@ -1354,12 +1359,21 @@ bool KisMainWindow::saveDocument(KisDocument *document, bool saveas, bool isExpo
             }
             // But only use that if the suggestedUrl, that is, the document's own url is empty, otherwise
             // open the location where the document currently is.
-            dialog.setDefaultDir(suggestedURL.isEmpty() ? proposedPath : suggestedURL.toLocalFile(), true);
 
-            // If exporting, default to all supported file types if user is exporting
-            QByteArray default_mime_type = "";
+            //For if the user picked All Files Supported as the default, where there would not be an extension
+            if(default_mime_type == "all/mime"){
+                dialog.setDefaultDir(suggestedURL.isEmpty() ? proposedPath : QFileInfo(suggestedURL.toLocalFile()).completeBaseName(), true);
+            }
+
+            if (default_mime_type != "all/mime" && !default_mime_type.isEmpty()) {
+                QString proposedExtension = KisMimeDatabase::suffixesForMimeType(proposedMimeType).first().remove("*,");
+                //This line is responsible for setting filename, which also manipulates filters.
+                dialog.setDefaultDir(suggestedURL.isEmpty() ? proposedPath :  QFileInfo(suggestedURL.toLocalFile()).completeBaseName() + "." + proposedExtension, true);
+            }
+
             if (!isExporting) {
-                // otherwise use the document's mimetype, or if that is empty, kra, which is the safest.
+                // If Saving, use the document's mimetype, or if that is empty, kra, which is the safest.
+                dialog.setDefaultDir(suggestedURL.isEmpty() ? proposedPath : suggestedURL.toLocalFile(), true);
                 default_mime_type = document->mimeType().isEmpty() ? nativeFormat : document->mimeType();
             }
             dialog.setMimeTypeFilters(mimeFilter, QString::fromLatin1(default_mime_type));
@@ -1367,35 +1381,35 @@ bool KisMainWindow::saveDocument(KisDocument *document, bool saveas, bool isExpo
 
         QString newFilePath = dialog.filename();
 
-        if (document->documentInfo()->aboutInfo("title") == i18n("Unnamed")) {
-            QString fn = newFilePath;
-            QFileInfo info(fn);
-            document->documentInfo()->setAboutInfo("title", info.completeBaseName());
-        }
-
-        QByteArray outputFormat = nativeFormat;
-
-        QString outputFormatString = KisMimeDatabase::mimeTypeForFile(newFilePath, false);
-        outputFormat = outputFormatString.toLatin1();
-
-
-        if (!isExporting) {
-            justChangingFilterOptions = (newFilePath == document->path()) && (outputFormat == document->mimeType());
-        }
-        else {
-            QString path = QFileInfo(d->lastExportLocation).absolutePath();
-            QString filename = QFileInfo(document->path()).completeBaseName();
-            justChangingFilterOptions = (QFileInfo(newFilePath).absolutePath() == path)
-                    && (QFileInfo(newFilePath).completeBaseName() == filename)
-                    && (outputFormat == d->lastExportedFormat);
-        }
-
         bool bOk = true;
         if (newFilePath.isEmpty()) {
             bOk = false;
         }
 
         if (bOk) {
+            if (document->documentInfo()->aboutInfo("title") == i18n("Unnamed")) {
+                QString fn = newFilePath;
+                QFileInfo info(fn);
+                document->documentInfo()->setAboutInfo("title", info.completeBaseName());
+            }
+
+            QByteArray outputFormat = nativeFormat;
+
+            QString outputFormatString = KisMimeDatabase::mimeTypeForFile(newFilePath, false);
+            outputFormat = outputFormatString.toLatin1();
+
+
+            if (!isExporting) {
+                justChangingFilterOptions = (newFilePath == document->path()) && (outputFormat == document->mimeType());
+            }
+            else {
+                QString path = QFileInfo(d->lastExportLocation).absolutePath();
+                QString filename = QFileInfo(document->path()).completeBaseName();
+                justChangingFilterOptions = (QFileInfo(newFilePath).absolutePath() == path)
+                        && (QFileInfo(newFilePath).completeBaseName() == filename)
+                        && (outputFormat == d->lastExportedFormat);
+            }
+
             bool wantToSave = true;
 
             // don't change this line unless you know what you're doing :)
