@@ -5,6 +5,7 @@ windows-build:
     - Windows
   extends:
     - .ci-always-job-mixin
+    - .ci-artifacts-with-packages-mixin
   variables:
     KDECI_BUILD_TYPE: Release
     KDECI_CC_CACHE: "C:\\Gitlab\\Caches\\krita-windows"
@@ -14,7 +15,7 @@ windows-build:
     KDECI_REPO_METADATA_PATH: "$CI_PROJECT_DIR\\krita-deps-management\\repo-metadata"
     # KDECI_WORKDIR_PATH: "C:\\_" # don't use separate workdir since package script will fail!
     KDECI_COMPRESS_PACKAGES_ON_DOWNLOAD: "False"
-    KDECI_EXTRA_CMAKE_ARGS: "-DHIDE_SAFE_ASSERTS=OFF"
+    KDECI_EXTRA_CMAKE_ARGS: -DHIDE_SAFE_ASSERTS=OFF
     KRITACI_SKIP_DEBUG_PACKAGE: "True"
     KRITACI_BUILD_INSTALLERS: "False"
     KRITACI_SKIP_UPLOAD_NIGHTLY_PACKAGE: "True"
@@ -35,39 +36,26 @@ windows-build:
       # TODO: bake this variable into the docker image
     - $env:PATH = "c:\Program Files\CMake\bin;c:\tools\llvm-mingw-20220906-ucrt-x86_64\bin;c:\tools\llvm-mingw-20220906-ucrt-x86_64\x86_64-w64-mingw32\bin;$env:PATH"
     - python -u krita-deps-management/tools/generate-deps-file.py -s krita-deps-management/latest/krita-deps.yml -o .kde-ci.yml
-    - python -u krita-deps-management/ci-utilities/run-ci-build.py --project $CI_PROJECT_NAME --branch $CI_COMMIT_REF_NAME --platform Windows/Qt5/Shared --skip-publishing
-    - python -u build-tools/ci-scripts/build-windows-package.py
-    - python -u build-tools/ci-scripts/upload-nightly-packages.py --platform windows --folder $CI_PROJECT_DIR
+    - python -u krita-deps-management/ci-utilities/run-ci-build.py --project $CI_PROJECT_NAME --branch $CI_COMMIT_REF_NAME --platform Windows/Qt5/Shared --skip-publishing 2>&1 | Tee-Object -FilePath "build-krita.log"
+    - python -u build-tools/ci-scripts/build-windows-package.py 2>&1 | Tee-Object -FilePath "build-installers.log"
+    - python -u build-tools/ci-scripts/upload-nightly-packages.py --platform windows --folder $CI_PROJECT_DIR 2>&1 | Tee-Object -FilePath "installers-publish.log"
   coverage: '/^TOTAL.*\s+(\d+\%)$/'
-  artifacts:
-    name: krita-$CI_COMMIT_REF_SLUG-$CI_COMMIT_REF_NAME
-    expire_in: 10 days
-    when: always
-    paths:
-      - "krita-*.zip"
-      - "krita-*-setup.exe"
-      - "krita-*.msix"
-    reports:
-      junit: JUnitTestResults.xml
-      coverage_report:
-        coverage_format: cobertura
-        path: CoberturaLcovResults.xml
 
 windows-nightly:
   extends:
     - windows-build
     - .nightly-job-mixin
+    - .ci-artifacts-without-packages-mixin
   interruptible: false
   variables:
     KDECI_BUILD_TYPE: RelWithDebInfo
     KDECI_ONLY_BUILD: "True"
     KRITACI_SKIP_DEBUG_PACKAGE: "False"
     KRITACI_BUILD_INSTALLERS: "True"
-    KDECI_EXTRA_CMAKE_ARGS: "-DHIDE_SAFE_ASSERTS=OFF -DBUILD_TESTING=OFF"
+    KDECI_EXTRA_CMAKE_ARGS: >
+      -DHIDE_SAFE_ASSERTS=OFF
+      -DBUILD_TESTING=OFF
     KRITACI_SKIP_UPLOAD_NIGHTLY_PACKAGE: "False"
-  # no artifacts for nightly jobs, they are uploaded to ci-builds
-  artifacts:
-
 
 windows-release:
   extends:
@@ -79,4 +67,6 @@ windows-release:
     KDECI_ONLY_BUILD: "True"
     KRITACI_SKIP_DEBUG_PACKAGE: "False"
     KRITACI_BUILD_INSTALLERS: "True"
-    KDECI_EXTRA_CMAKE_ARGS: "-DHIDE_SAFE_ASSERTS=ON -DBUILD_TESTING=OFF"
+    KDECI_EXTRA_CMAKE_ARGS: >
+      -DHIDE_SAFE_ASSERTS=ON
+      -DBUILD_TESTING=OFF

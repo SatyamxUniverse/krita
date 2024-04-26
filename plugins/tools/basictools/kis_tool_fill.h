@@ -72,6 +72,7 @@ public:
 
     enum ContinuousFillMode
     {
+        ContinuousFillMode_DoNotUse,
         ContinuousFillMode_FillAnyRegion,
         ContinuousFillMode_FillSimilarRegions
     };
@@ -142,6 +143,7 @@ private:
     bool m_isDragging {false};
     QPoint m_fillStartWidgetPosition;
     KisSignalCompressor m_compressorFillUpdate;
+    QSharedPointer<QRect> m_dirtyRect;
     QVector<QPoint> m_seedPoints;
     KisStrokeId m_fillStrokeId;
     KisNodeSP m_previousNode {nullptr};
@@ -181,6 +183,7 @@ private:
     KoGroupButton *m_buttonReferenceLabeled {nullptr};
     KisColorLabelSelectorWidget *m_widgetLabels {nullptr};
 
+    KoGroupButton *m_buttonDragFillDoNotUse {nullptr};
     KoGroupButton *m_buttonDragFillAny {nullptr};
     KoGroupButton *m_buttonDragFillSimilar {nullptr};
 
