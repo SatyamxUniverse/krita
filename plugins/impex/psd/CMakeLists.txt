@@ -33,6 +33,8 @@ set(kritapsdexport_SOURCES
     psd_saver.cpp
 )
 
+ki18n_wrap_ui(kritapsdexport_SOURCES options_psd.ui )
+
 kis_add_library(kritapsdexport MODULE ${kritapsdexport_SOURCES})
 
 target_link_libraries(kritapsdexport kritapsd_static kritaui kritapsd kritaimpex kritastore)
