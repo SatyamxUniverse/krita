@@ -270,6 +270,11 @@ void KoStopGradient::bakeVariableColors(KoCanvasResourcesInterfaceSP canvasResou
 {
     const KoColor fgColor = canvasResourcesInterface->resource(KoCanvasResource::ForegroundColor).value<KoColor>();
     const KoColor bgColor = canvasResourcesInterface->resource(KoCanvasResource::BackgroundColor).value<KoColor>();
+    const KoColorSpace *colorSpace = fgColor.colorSpace();
+
+    if (this->colorSpace() != colorSpace) {
+        setColorSpace(colorSpace);
+    }
 
     for (auto it = m_stops.begin(); it != m_stops.end(); ++it) {
         if (it->type == FOREGROUNDSTOP) {
@@ -286,6 +291,11 @@ void KoStopGradient::updateVariableColors(KoCanvasResourcesInterfaceSP canvasRes
 {
     const KoColor fgColor = canvasResourcesInterface->resource(KoCanvasResource::ForegroundColor).value<KoColor>();
     const KoColor bgColor = canvasResourcesInterface->resource(KoCanvasResource::BackgroundColor).value<KoColor>();
+    const KoColorSpace *colorSpace = fgColor.colorSpace();
+
+    if (this->colorSpace() != colorSpace) {
+        setColorSpace(colorSpace);
+    }
 
     for (auto it = m_stops.begin(); it != m_stops.end(); ++it) {
         if (it->type == FOREGROUNDSTOP) {

@@ -77,7 +77,7 @@ void KoAbstractGradient::colorAt(KoColor&, qreal t) const
     Q_UNUSED(t);
 }
 
-void KoAbstractGradient::setColorSpace(KoColorSpace* colorSpace)
+void KoAbstractGradient::setColorSpace(const KoColorSpace* colorSpace)
 {
     d->colorSpace = colorSpace;
 }
@@ -113,7 +113,7 @@ QImage KoAbstractGradient::generatePreview(int width, int height) const
 
     QRgb * firstLine = reinterpret_cast<QRgb*>(image.scanLine(0));
 
-    KoColor c;
+    KoColor c(d->colorSpace);
     QColor color;
     // first create a reference line
     for (int x = 0; x < image.width(); ++x) {
