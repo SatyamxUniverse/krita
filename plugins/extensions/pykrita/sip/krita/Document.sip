@@ -108,6 +108,7 @@ public Q_SLOTS:
     QByteArray annotation(const QString &type);
     void setAnnotation(const QString &type, const QString &description, const QByteArray &annotation);
     void removeAnnotation(const QString &type);
+    
 private:
 
 };

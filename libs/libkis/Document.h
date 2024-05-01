@@ -6,8 +6,6 @@
 #ifndef LIBKIS_DOCUMENT_H
 #define LIBKIS_DOCUMENT_H
 
-#include <QObject>
-
 #include "kritalibkis_export.h"
 #include "libkis.h"
 
@@ -925,6 +923,7 @@ print(root.childNodes())
      * @param type the type defining the annotation
      */
     void removeAnnotation(const QString &type);
+
 private:
 
     friend class Krita;
