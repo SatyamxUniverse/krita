@@ -34,6 +34,7 @@ WGColorSelectorSettings::WGColorSelectorSettings(QWidget *parent)
             SLOT(slotSetSelectorConfiguration(KisColorSelectorConfiguration)));
     connect(m_selectorConfigGrid, SIGNAL(sigConfigSelected(KisColorSelectorConfiguration)),
             m_ui->btnSelectorShape, SLOT(hidePopupWidget()));
+    connect(m_ui->cmbCompactShapes, SIGNAL(currentIndexChanged(int)), SLOT(slotCompactShapeChanged(int)));
     connect(m_ui->cmbColorModel, SIGNAL(currentIndexChanged(int)), SLOT(slotSetColorModel(int)));
     connect(m_ui->sbShadeLineCount, SIGNAL(valueChanged(int)), SLOT(slotSetShadeLineCount(int)));
     m_favoriteConfigGrid = new WGSelectorConfigGrid(0, true);
@@ -90,12 +91,14 @@ void WGColorSelectorSettings::savePreferences() const
     WGConfig::Accessor cfg(false);
     cfg.set(WGConfig::selectorRenderMode,
             static_cast<KisVisualColorSelector::RenderMode>(m_ui->cmbSelectorRenderingMode->currentIndex()));
+    cfg.set(WGConfig::triangleInsteadDiamond, m_ui->cmbCompactShapes->currentIndex() != 0);
     cfg.set(WGConfig::rgbColorModel, static_cast<KisVisualColorModel::ColorModel>(
                 m_ui->cmbColorModel->currentIndex() +  KisVisualColorModel::HSV));
     cfg.setColorSelectorConfiguration(m_selectorConfigGrid->currentConfiguration());
     // General
     cfg.set(WGConfig::quickSettingsEnabled, m_ui->grpQuickSettingsMenu->isChecked());
     cfg.setFavoriteConfigurations(m_favoriteConfigGrid->selectedConfigurations());
+    cfg.set(WGConfig::mainLayoutOrientation, m_ui->rdbMainLOHorizontal->isChecked() ? Qt::Horizontal : Qt::Vertical);
     cfg.set(WGConfig::colorSpaceSource,
             static_cast<WGColorSelectorDock::ColorSpaceSource>(m_ui->cmbSelectionColorSpace->currentIndex()));
     cfg.setCustomSelectionColorSpace(m_ui->wdgColorspace->currentColorSpace());
@@ -111,6 +114,8 @@ void WGColorSelectorSettings::savePreferences() const
     cfg.set(WGConfig::shadeSelectorUpdateOnExternalChanges, m_ui->chkShadeSelUpdateExternal->isChecked());
     cfg.set(WGConfig::shadeSelectorUpdateOnInteractionEnd, m_ui->chkShadeSelUpdateInteraction->isChecked());
     cfg.set(WGConfig::shadeSelectorUpdateOnRightClick, m_ui->chkShadeSelUpdateOnRightClick->isChecked());
+    cfg.set(WGConfig::minimalShadeSelectorEnabled, m_ui->grpMinimalShadeSelector->isChecked());
+    cfg.set(WGConfig::myPaintShadeSelectorEnabled, m_ui->chkMyPaintShadeSelector->isChecked());
     // we don't discard shade line configurations right away so we need to trim here
     QVector<WGConfig::ShadeLine> lineConfig = m_shadeLineConfig;
     lineConfig.resize(m_ui->sbShadeLineCount->value());
@@ -152,6 +157,7 @@ void WGColorSelectorSettings::loadPreferencesImpl(bool defaults)
 {
     WGConfig::Accessor cfg;
     m_ui->cmbSelectorRenderingMode->setCurrentIndex(cfg.get(WGConfig::selectorRenderMode, defaults));
+    m_ui->cmbCompactShapes->setCurrentIndex(cfg.get(WGConfig::triangleInsteadDiamond, defaults) ? 1 : 0);
     m_ui->cmbColorModel->setCurrentIndex(cfg.get(WGConfig::rgbColorModel, defaults) - KisVisualColorModel::HSV);
     KisColorSelectorConfiguration selectorCfg = defaults ? cfg.defaultColorSelectorConfiguration
                                                              : cfg.colorSelectorConfiguration();
@@ -162,6 +168,11 @@ void WGColorSelectorSettings::loadPreferencesImpl(bool defaults)
     QVector<KisColorSelectorConfiguration> favoriteConfigs = cfg.favoriteConfigurations(defaults);
     for (const KisColorSelectorConfiguration &fav : qAsConst(favoriteConfigs)) {
         m_favoriteConfigGrid->setChecked(fav);
+    }
+    if (cfg.get(WGConfig::mainLayoutOrientation, defaults) == Qt::Horizontal) {
+        m_ui->rdbMainLOHorizontal->setChecked(true);
+    } else {
+        m_ui->rdbMainLOVertical->setChecked(true);
     }
     m_ui->cmbSelectionColorSpace->setCurrentIndex(cfg.get(WGConfig::colorSpaceSource, defaults));
     m_ui->wdgColorspace->setCurrentColorSpace(cfg.customSelectionColorSpace(defaults));
@@ -184,6 +195,7 @@ void WGColorSelectorSettings::loadPreferencesImpl(bool defaults)
     m_ui->chkShadeSelUpdateExternal->setChecked(cfg.get(WGConfig::shadeSelectorUpdateOnExternalChanges, defaults));
     m_ui->chkShadeSelUpdateInteraction->setChecked(cfg.get(WGConfig::shadeSelectorUpdateOnInteractionEnd, defaults));
     m_ui->chkShadeSelUpdateOnRightClick->setChecked(cfg.get(WGConfig::shadeSelectorUpdateOnRightClick, defaults));
+    m_ui->grpMinimalShadeSelector->setChecked(cfg.get(WGConfig::minimalShadeSelectorEnabled, defaults));
     m_shadeLineConfig = cfg.shadeSelectorLines(defaults);
     // update shade lines we will re-use, the rest is handled by slotSetShadeLineCount()
     for (int i = 0, end = qMin(m_shadeLineButtons.size(), m_shadeLineConfig.size()); i < end; i++) {
@@ -191,6 +203,7 @@ void WGColorSelectorSettings::loadPreferencesImpl(bool defaults)
     }
     m_ui->sbShadeLineCount->setValue(m_shadeLineConfig.size());
     m_ui->sbShadeLineHeight->setValue(cfg.get(WGConfig::shadeSelectorLineHeight, defaults));
+    m_ui->chkMyPaintShadeSelector->setChecked(cfg.get(WGConfig::myPaintShadeSelectorEnabled, defaults));
     // Color History
     m_ui->historyGroupBox->setChecked(cfg.get(WGConfig::colorHistoryEnabled, defaults));
     patchOrientation = cfg.get(WGConfig::colorHistory.orientation, defaults);
@@ -226,6 +239,13 @@ void WGColorSelectorSettings::loadPreferencesImpl(bool defaults)
 void WGColorSelectorSettings::slotSetSelectorConfiguration(const KisColorSelectorConfiguration &cfg)
 {
     Q_UNUSED(cfg);
+    m_ui->btnSelectorShape->setIcon(m_selectorConfigGrid->currentIcon());
+}
+
+void WGColorSelectorSettings::slotCompactShapeChanged(int index)
+{
+    m_selectorConfigGrid->setDisplayOptions(index != 0);
+    m_favoriteConfigGrid->setDisplayOptions(index != 0);
     m_ui->btnSelectorShape->setIcon(m_selectorConfigGrid->currentIcon());
 }
 

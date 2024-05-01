@@ -9,14 +9,24 @@
 
 #include "KisVisualColorSelectorShape.h"
 
+/**
+ * @brief The KisVisualDiamondSelectorShape class is meant do pick Saturation and Lightness
+ * from HSL cross-sections.
+ *
+ * It either displays a diamond to make optimal use of space when put in a circular area (default)
+ * or a more conventional triangle pointing to the right, representing the cross section
+ * of the HCL bicone, with the hue rotation axis as left edge and chroma as x-value.
+ */
+
 class KisVisualDiamondSelectorShape : public KisVisualColorSelectorShape
 {
     Q_OBJECT
 public:
     explicit KisVisualDiamondSelectorShape(KisVisualColorSelector *parent,
-                                            Dimensions dimension,
-                                            int channel1, int channel2,
-                                            int margin = 5
+                                           Dimensions dimension,
+                                           int channel1, int channel2,
+                                           bool straightEdge = false,
+                                           int margin = 5
             );
     ~KisVisualDiamondSelectorShape() override;
 
@@ -29,7 +39,7 @@ public:
      */
     QRect getSpaceForSquare(QRect geom) override;
     QRect getSpaceForCircle(QRect geom) override;
-    QRect getSpaceForTriangle(QRect geom) override;
+    QRect getSpaceForTriangle(QRect geom, bool pointToRight = false) override;
 
 protected:
     QImage renderAlphaMask() const override;
@@ -43,5 +53,6 @@ private:
     void drawCursor(QPainter &painter) override;
 
     int m_margin { 5 };
+    bool m_straightEdge {false};
 };
 #endif

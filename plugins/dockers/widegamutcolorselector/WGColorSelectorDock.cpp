@@ -12,6 +12,7 @@
 #include "WGColorPreviewToolTip.h"
 #include "WGCommonColorSet.h"
 #include "WGConfigSelectorTypes.h"
+#include "WGMyPaintShadeSelector.h"
 #include "WGQuickSettingsWidget.h"
 #include "WGShadeSelector.h"
 #include "KisVisualColorSelector.h"
@@ -51,6 +52,7 @@ WGColorSelectorDock::WGColorSelectorDock()
     m_mainWidgetLayout = new QVBoxLayout(mainWidget);
     m_verticalElementsLayout = new QHBoxLayout();
     m_selectorAreaLayout = new QBoxLayout(QBoxLayout::TopToBottom);
+    m_selectorAreaLayout->setSpacing(1);
 
     m_selector = new KisVisualColorSelector(mainWidget);
     m_selector->setMinimumSliderWidth(12);
@@ -81,12 +83,6 @@ WGColorSelectorDock::WGColorSelectorDock()
 
     m_selectorAreaLayout->addWidget(m_selector);
 
-    KisVisualColorModelSP model = m_selector->selectorModel();
-    m_shadeSelector = new WGShadeSelector(m_displayConfig, model, this);
-    m_selectorAreaLayout->addWidget(m_shadeSelector);
-    connect(m_shadeSelector, SIGNAL(sigColorInteraction(bool)), SLOT(slotColorInteraction(bool)));
-
-    // eventually it should made be a global history, not specific to any plugin
     m_colorHistory = new KisUniqueColorSet(this);
 
     m_history = new WGColorPatches(m_displayConfig, m_colorHistory, mainWidget);
@@ -265,12 +261,48 @@ void WGColorSelectorDock::updateLayout()
         m_commonColors->hide();
     }
 
+    Qt::Orientation selectorOrientation = cfg.get(WGConfig::mainLayoutOrientation);
+
+    bool shadeSelectorEnabled = cfg.get(WGConfig::minimalShadeSelectorEnabled);
+    if (shadeSelectorEnabled) {
+        if (!m_shadeSelector) {
+            m_shadeSelector = new WGShadeSelector(m_displayConfig, m_colorModelFG, this);
+            m_selectorAreaLayout->insertWidget(1, m_shadeSelector);
+            connect(m_shadeSelector, SIGNAL(sigColorInteraction(bool)), SLOT(slotColorInteraction(bool)));
+        }
+        Qt::Orientation orientation = selectorOrientation == Qt::Horizontal ? Qt::Vertical : Qt::Horizontal;
+        m_shadeSelector->setOrientation(orientation);
+        m_shadeSelector->updateSettings();
+    } else if (m_shadeSelector) {
+        m_selectorAreaLayout->removeWidget(m_shadeSelector);
+        delete m_shadeSelector;
+        m_shadeSelector = nullptr;
+    }
+
+    bool myPaintSelectorEnabled = cfg.get(WGConfig::myPaintShadeSelectorEnabled);
+    if (myPaintSelectorEnabled) {
+        if (!m_myPaintSelector) {
+            m_myPaintSelector = new WGMyPaintShadeSelector(m_displayConfig, this);
+            m_myPaintSelector->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+            connect(m_myPaintSelector, SIGNAL(sigColorInteraction(bool)), SLOT(slotColorInteraction(bool)));
+            m_selectorAreaLayout->addWidget(m_myPaintSelector);
+        }
+        m_myPaintSelector->updateSettings();
+    } else if (m_myPaintSelector) {
+        m_selectorAreaLayout->removeWidget(m_myPaintSelector);
+        delete m_myPaintSelector;
+        m_myPaintSelector = nullptr;
+    }
+
+    m_selectorAreaLayout->setDirection(selectorOrientation == Qt::Horizontal ?
+                                           QBoxLayout::LeftToRight : QBoxLayout::TopToBottom);
 }
 
 void WGColorSelectorDock::slotConfigurationChanged()
 {
     WGConfig::Accessor cfg;
     m_selector->setRenderMode(cfg.get(WGConfig::selectorRenderMode));
+    m_selector->setTriangleInsteadDiamon(cfg.get(WGConfig::triangleInsteadDiamond));
     m_selector->selectorModel()->setRGBColorModel(cfg.get(WGConfig::rgbColorModel));
     KisColorSelectorConfiguration selectorCfg = cfg.colorSelectorConfiguration();
     m_selector->setConfiguration(&selectorCfg);
@@ -281,7 +313,7 @@ void WGColorSelectorDock::slotConfigurationChanged()
     bool proofColors = cfg.get(WGConfig::proofToPaintingColors);
     m_selector->setProofColors(proofColors);
     m_displayConfig->setPreviewInPaintingCS(proofColors);
-    m_shadeSelector->updateSettings();
+
     m_history->updateSettings();
     m_commonColors->updateSettings();
     m_commonColorSet->setAutoUpdate(cfg.get(WGConfig::commonColorsAutoUpdate));
@@ -319,6 +351,8 @@ void WGColorSelectorDock::slotConfigurationChanged()
     }
 
     updateLayout();
+    // make sure added selector widgets use the current model
+    slotColorSourceToggled(m_toggle->isChecked());
 
     if (m_canvas) {
         slotDisplayConfigurationChanged();
@@ -379,19 +413,26 @@ void WGColorSelectorDock::slotColorSelected(const KoColor &color)
 
 void WGColorSelectorDock::slotColorSourceToggled(bool selectingBg)
 {
+    KisVisualColorModelSP currentModel;
     if (selectingBg) {
+        currentModel = m_colorModelBG;
         if (m_colorModelFG->isHSXModel()) {
             m_colorModelBG->setRGBColorModel(m_colorModelFG->colorModel());
         }
-        m_selector->setSelectorModel(m_colorModelBG);
-        m_shadeSelector->setModel(m_colorModelBG);
     }
     else {
+        currentModel = m_colorModelFG;
         if (m_colorModelBG->isHSXModel()) {
             m_colorModelFG->setRGBColorModel(m_colorModelBG->colorModel());
         }
-        m_selector->setSelectorModel(m_colorModelFG);
-        m_shadeSelector->setModel(m_colorModelFG);
+    }
+
+    m_selector->setSelectorModel(currentModel);
+    if (m_shadeSelector) {
+        m_shadeSelector->setModel(currentModel);
+    }
+    if (m_myPaintSelector) {
+        m_myPaintSelector->setModel(currentModel);
     }
     // currently, only the color space of the active model is updated, so it may be outdated
     if (m_canvas) {

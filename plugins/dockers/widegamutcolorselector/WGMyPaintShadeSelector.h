@@ -19,10 +19,11 @@ class WGMyPaintShadeSelector : public WGSelectorWidgetBase
 {
     Q_OBJECT
 public:
-    WGMyPaintShadeSelector(WGSelectorDisplayConfigSP displayConfig, QWidget *parent, UiMode mode);
+    WGMyPaintShadeSelector(WGSelectorDisplayConfigSP displayConfig, QWidget *parent, UiMode mode = DockerMode);
     ~WGMyPaintShadeSelector() override;
 
     void setModel(KisVisualColorModelSP model) override;
+    void updateSettings() override;
 
 protected:
     void mousePressEvent(QMouseEvent *event) override;
@@ -49,6 +50,9 @@ private:
     int m_widthHD;
     int m_heightHD;
     bool m_allowUpdates {true};
+    bool m_resetOnExternalUpdate {true};
+    bool m_resetOnInteractions {false};
+    bool m_resetOnRightClick {true};
 };
 
 #endif // WGMYPAINTSHADESELECTOR_H

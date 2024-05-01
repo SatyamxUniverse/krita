@@ -30,6 +30,7 @@ public:
     QVector<KisColorSelectorConfiguration> selectedConfigurations() const;
     void setColorModel(KisVisualColorModel::ColorModel model);
     void setConfigurations(const QVector<KisColorSelectorConfiguration> &configurations);
+    void setDisplayOptions(bool triangleInsteadDiamond);
     void setChecked(const KisColorSelectorConfiguration &configuration);
     QIcon generateIcon(const KisColorSelectorConfiguration &configuration, qreal pixelRatio = 1.0, bool dualState = false) const;
 

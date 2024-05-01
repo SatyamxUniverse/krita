@@ -27,6 +27,7 @@ public:
     void setGradient(const QVector4D &range, const QVector4D &offset);
     void setDisplayMode(bool slider, int numPatches = -1);
     void setModel(KisVisualColorModelSP model);
+    void setOrientation(Qt::Orientation orientation);
     QVector4D channelValues() const;
     const QImage* background();
 
@@ -47,22 +48,35 @@ protected:
     void resizeEvent(QResizeEvent *) override;
 
     bool adjustHandleValue(const QPointF &widgetPos);
-    QPointF convertSliderValueToWidgetCoordinate(qreal value);
-    qreal convertWidgetCoordinateToSliderValue(QPointF coordinate);
+    qreal convertSliderValueToLinePosition(qreal value);
+    qreal convertLinePositionToSliderValue(qreal position);
     QVector4D calculateChannelValues(qreal sliderPos) const;
+    /**
+     * @brief Convert widget position to an orientation independent line position
+     * @param widgetPos Postions reported QMouseEvent::localPos()
+     * @return
+     */
+    qreal linePosition(const QPointF &widgetPos) const;
     int getPatch(const QPointF pos) const;
-    QRectF patchRect(int index) const;
+    /**
+     * @brief Get the line location of a patch (only useful in patch mode)
+     * @param patchIndex valid values are 0 <= patchIndex < m_d->numPatches
+     * @return a pair with (startPosition, patchWidth)
+     */
+    QPair<qreal, qreal> patchLocation(int patchIndex) const;
+    QRectF patchRect(int patchIndex) const;
     void recalculateParameters();
     bool sizeRequirementsMet() const;
     QImage renderBackground();
     /*!
      * \brief strokeRect
      * \param painter shall already be scaled so that 1 unit == 1 real Pixel
-     * \param rect the rectangle to stroke in (logical) widget coordinates
+     * \param start the line position of the lower handle edge
+     * \param length the length (width or heigh depending on oriantation) of the handle
      * \param pixelSize devicePixelRatioF() that was used to determine the real dimensions
      * \param shrinkX shrinks the rect by a multiple of the line width used to stroke
      */
-    void strokeRect(QPainter &painter, const QRectF &rect, qreal pixelSize, qreal shrinkX);
+    void strokeRect(QPainter &painter, qreal start, qreal length, qreal pixelSize, qreal shrinkX);
 
 Q_SIGNALS:
     void sigChannelValuesChanged(const QVector4D &values);

@@ -48,6 +48,7 @@ void WGQuickSettingsWidget::loadConfiguration()
 {
     WGConfig::Accessor cfg;
     m_selectorConf->setConfigurations(cfg.favoriteConfigurations());
+    m_selectorConf->setDisplayOptions(cfg.get(WGConfig::triangleInsteadDiamond));
 }
 
 void WGQuickSettingsWidget::showEvent(QShowEvent *event)
@@ -61,6 +62,7 @@ void WGQuickSettingsWidget::showEvent(QShowEvent *event)
             m_modelGroup->blockSignals(false);
         }
         m_selectorConf->setColorModel(m_selector->selectorModel()->colorModel());
+
         m_selectorConf->setChecked(m_selector->configuration());
     }
 }

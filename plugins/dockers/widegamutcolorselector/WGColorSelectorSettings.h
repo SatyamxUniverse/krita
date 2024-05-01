@@ -45,6 +45,7 @@ private:
 
 private Q_SLOTS:
     void slotSetSelectorConfiguration(const KisColorSelectorConfiguration &cfg);
+    void slotCompactShapeChanged(int index);
     void slotSetColorModel(int index);
     void slotColorSpaceSourceChanged(int index);
     void slotSetShadeLineCount(int count);

@@ -26,10 +26,13 @@ struct WGShadeSlider::Private
     qreal leftEnd {0};
     qreal rightStart {0};
     qreal rightEnd {-1};
+    qreal center {0};
+    qreal totalLength {-1};
     KisVisualColorModelSP selectorModel;
     WGSelectorDisplayConfigSP displayConfig;
+    Qt::Orientation orientation {Qt::Horizontal};
     int cursorWidth {11};
-    int lineWidth {1};
+    int strokeWidth {1};
     int numPatches {9};
     bool widgetSizeOk {false};
     bool sliderMode {true};
@@ -79,6 +82,22 @@ void WGShadeSlider::setModel(KisVisualColorModelSP model)
     update();
 }
 
+void WGShadeSlider::setOrientation(Qt::Orientation orientation)
+{
+    if (orientation != m_d->orientation) {
+        m_d->orientation = orientation;
+        recalculateParameters();
+        m_d->imageNeedsUpdate = true;
+        // test...
+        if (orientation == Qt::Horizontal) {
+            setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+        } else {
+            setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
+        }
+        updateGeometry();
+    }
+}
+
 QVector4D WGShadeSlider::channelValues() const
 {
     return calculateChannelValues(m_d->handleValue);
@@ -95,7 +114,7 @@ const QImage *WGShadeSlider::background()
 
 QSize WGShadeSlider::minimumSizeHint() const
 {
-    return QSize(50, 8);
+    return m_d->orientation == Qt::Vertical ?  QSize(8, 50) : QSize(50, 8);
 }
 
 void WGShadeSlider::mousePressEvent(QMouseEvent *event)
@@ -141,22 +160,26 @@ void WGShadeSlider::paintEvent(QPaintEvent*)
     QPainter painter(this);
     painter.drawImage(0, 0, m_d->background);
     painter.scale(1.0/devicePixelRatioF(), 1.0/devicePixelRatioF());
-    QRectF handleRect;
+
+    QPair<qreal, qreal> handlePos;
+
     if (m_d->sliderMode) {
-        QPointF sliderPos = convertSliderValueToWidgetCoordinate(m_d->handleValue);
-        int sliderX = qRound(sliderPos.x());
-        handleRect = QRectF(sliderX - m_d->cursorWidth/2, 0, m_d->cursorWidth, height());
+        int sliderX = qRound(convertSliderValueToLinePosition(m_d->handleValue));
+        handlePos.first = sliderX - m_d->cursorWidth/2;
+        handlePos.second = m_d->cursorWidth;
     } else if (m_d->handleValue >= 0) {
-        handleRect = patchRect(m_d->handleValue);
+        handlePos = patchLocation(static_cast<int>(m_d->handleValue));
+    } else {
+        // patch mode with none selected
+        return;
     }
-    if (handleRect.isValid()) {
-        QPen pen(QColor(175,175,175), m_d->lineWidth, Qt::SolidLine, Qt::SquareCap, Qt::MiterJoin);
-        painter.setPen(pen);
-        strokeRect(painter, handleRect, devicePixelRatioF(), 0);
-        pen.setColor(QColor(75,75,75));
-        painter.setPen(pen);
-        strokeRect(painter, handleRect, devicePixelRatioF(), 1);
-    }
+
+    QPen pen(QColor(175,175,175), m_d->strokeWidth, Qt::SolidLine, Qt::SquareCap, Qt::MiterJoin);
+    painter.setPen(pen);
+    strokeRect(painter, handlePos.first, handlePos.second, devicePixelRatioF(), 0);
+    pen.setColor(QColor(75,75,75));
+    painter.setPen(pen);
+    strokeRect(painter, handlePos.first, handlePos.second, devicePixelRatioF(), 1);
 }
 
 void WGShadeSlider::resizeEvent(QResizeEvent *)
@@ -190,7 +213,8 @@ bool WGShadeSlider::adjustHandleValue(const QPointF &widgetPos)
     }
 
     if (m_d->sliderMode) {
-        qreal sliderPos = convertWidgetCoordinateToSliderValue(widgetPos);
+        qreal linearPos = linePosition(widgetPos);
+        qreal sliderPos = convertLinePositionToSliderValue(linearPos);
         if (!qFuzzyIsNull(m_d->handleValue - sliderPos)) {
             m_d->handleValue = sliderPos;
             return true;
@@ -205,35 +229,34 @@ bool WGShadeSlider::adjustHandleValue(const QPointF &widgetPos)
     return false;
 }
 
-QPointF WGShadeSlider::convertSliderValueToWidgetCoordinate(qreal value)
+qreal WGShadeSlider::convertSliderValueToLinePosition(qreal value)
 {
-    QPointF pos(0.0, 0.0);
+    qreal widgetPos;
     if (value < 0) {
-        pos.setX(m_d->leftStart - value * (m_d->leftEnd - m_d->leftStart));
+        widgetPos = (m_d->leftStart - value * (m_d->leftEnd - m_d->leftStart));
     }
     else if (value > 0) {
-        pos.setX(m_d->rightStart + value * (m_d->rightEnd - m_d->rightStart));
+        widgetPos = (m_d->rightStart + value * (m_d->rightEnd - m_d->rightStart));
     }
     else {
-        pos.setX((width() - 1) / 2);
+        widgetPos = m_d->center;
     }
-    return pos;
+    return widgetPos;
 }
 
-qreal WGShadeSlider::convertWidgetCoordinateToSliderValue(QPointF coordinate)
+qreal WGShadeSlider::convertLinePositionToSliderValue(qreal position)
 {
-    qreal x = coordinate.x();
-    if (x < m_d->leftEnd) {
+    if (position < m_d->leftEnd) {
         return -1.0;
     }
-    else if (x < m_d->leftStart) {
-        return  (m_d->leftStart - x) / (m_d->leftEnd - m_d->leftStart);
+    else if (position < m_d->leftStart) {
+        return  (m_d->leftStart - position) / (m_d->leftEnd - m_d->leftStart);
     }
-    else if (x < m_d->rightStart) {
+    else if (position < m_d->rightStart) {
         return 0.0;
     }
-    else if (x < m_d->rightEnd) {
-        return (x - m_d->rightStart) / (m_d->rightEnd - m_d->rightStart);
+    else if (position < m_d->rightEnd) {
+        return (position - m_d->rightStart) / (m_d->rightEnd - m_d->rightStart);
     }
     return 1.0;
 }
@@ -265,36 +288,56 @@ QVector4D WGShadeSlider::calculateChannelValues(qreal sliderPos) const
     return channelVec;
 }
 
+qreal WGShadeSlider::linePosition(const QPointF &widgetPos) const
+{
+    return m_d->orientation == Qt::Horizontal ? widgetPos.x() : height() - 1 - widgetPos.y();
+}
+
 int WGShadeSlider::getPatch(const QPointF pos) const
 {
-    int patch = m_d->numPatches * pos.x() / width();
+    int patch = m_d->numPatches * linePosition(pos) / m_d->totalLength;
     if (patch >= 0 && patch < m_d->numPatches) {
         return patch;
     }
     return -1;
 }
 
-QRectF WGShadeSlider::patchRect(int index) const
+QPair<qreal, qreal> WGShadeSlider::patchLocation(int patchIndex) const
 {
-    qreal patchWidth = width() / qreal(m_d->numPatches);
+    QPair<qreal, qreal> range(0, -1);
+    qreal patchWidth = m_d->totalLength / qreal(m_d->numPatches);
     qreal margin = 1.5;
-    QPointF topLeft(index * patchWidth + margin, 0);
-    QPointF bottomRight((index+1) * patchWidth - margin, height());
-    return QRectF(topLeft, bottomRight);
+    range.first = patchIndex * patchWidth + margin;
+    range.second = patchWidth - 2 * margin;
+    return range;
+}
+
+QRectF WGShadeSlider::patchRect(int patchIndex) const
+{
+    QPair<qreal, qreal> range = patchLocation(patchIndex);
+    if (m_d->orientation == Qt::Horizontal) {
+        return QRectF(range.first, 0, range.second, height());
+    } else {
+        qreal bottom = height() - 1 - range.first;
+        return QRectF(0, bottom - range.second, width(), range.second);
+    }
 }
 
 void WGShadeSlider::recalculateParameters()
 {
-    int center = (width() - 1) / 2;
+    int total = m_d->orientation == Qt::Horizontal ? width() : height();
+    // integer division was on purpose...I think...
+    m_d->center = (total - 1) / 2;
+    m_d->totalLength = total;
     int halfCursor = m_d->cursorWidth / 2;
 
     m_d->leftEnd = halfCursor;
-    m_d->leftStart = center - halfCursor;
+    m_d->leftStart = m_d->center - halfCursor;
 
-    m_d->rightStart = center + halfCursor;
-    m_d->rightEnd = 2 * center  - halfCursor;
+    m_d->rightStart = m_d->center + halfCursor;
+    m_d->rightEnd = 2 * m_d->center  - halfCursor;
 
-    m_d->lineWidth = qRound(devicePixelRatioF() - 0.1);
+    m_d->strokeWidth = qRound(devicePixelRatioF() - 0.05);
     m_d->widgetSizeOk = sizeRequirementsMet();
     m_d->imageNeedsUpdate = true;
 }
@@ -304,7 +347,7 @@ bool WGShadeSlider::sizeRequirementsMet() const
     if (m_d->sliderMode) {
         return m_d->leftStart - m_d->leftEnd > 0 &&  m_d->rightEnd - m_d->rightStart > 0;
     } else {
-        return width() > m_d->numPatches;
+        return m_d->totalLength > (m_d->numPatches * 2);
     }
 }
 
@@ -322,28 +365,31 @@ QImage WGShadeSlider::renderBackground()
     if (m_d->sliderMode) {
         const KoColorSpace *currentCS = m_d->selectorModel->colorSpace();
         const quint32 pixelSize = currentCS->pixelSize();
-        quint32 imageSize = deviceWidth * pixelSize;
+        const int pixelCount = m_d->orientation == Qt::Horizontal ? deviceWidth : deviceHeight;
+        quint32 imageSize = pixelCount * pixelSize;
         QScopedArrayPointer<quint8> raw(new quint8[imageSize] {});
         quint8 *dataPtr = raw.data();
 
-        for (int x = 0; x < deviceWidth; x++, dataPtr += pixelSize) {
-            qreal sliderVal = convertWidgetCoordinateToSliderValue(QPointF(x, 0) * deviceDivider);
+        for (int x = 0; x < pixelCount; x++, dataPtr += pixelSize) {
+            int linePos = m_d->orientation == Qt::Horizontal ? x : pixelCount - 1 - x;
+            qreal sliderVal = convertLinePositionToSliderValue(linePos * deviceDivider);
             QVector4D coordinates = calculateChannelValues(sliderVal);
             KoColor c = m_d->selectorModel->convertChannelValuesToKoColor(coordinates);
             memcpy(dataPtr, c.data(), pixelSize);
         }
 
-        QImage image = m_d->displayConfig->displayConverter()->toQImage(currentCS, raw.data(), {deviceWidth, 1},
+        QSize sz = m_d->orientation == Qt::Horizontal ? QSize(pixelCount, 1) : QSize(1, pixelCount);
+        QImage image = m_d->displayConfig->displayConverter()->toQImage(currentCS, raw.data(), sz,
                                                                         m_d->displayConfig->previewInPaintingCS());
         image = image.scaled(QSize(deviceWidth, deviceHeight));
 
         QPainter painter(&image);
-        QPen pen(QColor(175,175,175), m_d->lineWidth, Qt::SolidLine, Qt::SquareCap, Qt::MiterJoin);
+        QPen pen(QColor(175,175,175), m_d->strokeWidth, Qt::SolidLine, Qt::SquareCap, Qt::MiterJoin);
         painter.setPen(pen);
-        strokeRect(painter, QRectF(m_d->leftStart, 0, m_d->cursorWidth, height()), devicePixelRatioF(), 0);
+        strokeRect(painter, m_d->leftStart, m_d->cursorWidth, devicePixelRatioF(), 0);
         pen.setColor(QColor(75,75,75));
         painter.setPen(pen);
-        strokeRect(painter, QRectF(m_d->leftStart, 0, m_d->cursorWidth, height()), devicePixelRatioF(), 1);
+        strokeRect(painter, m_d->leftStart, m_d->cursorWidth, devicePixelRatioF(), 1);
 
         image.setDevicePixelRatio(devicePixelRatioF());
         return image;
@@ -365,12 +411,20 @@ QImage WGShadeSlider::renderBackground()
     }
 }
 
-void WGShadeSlider::strokeRect(QPainter &painter, const QRectF &rect, qreal pixelSize, qreal shrinkX)
+void WGShadeSlider::strokeRect(QPainter &painter, qreal start, qreal length, qreal pixelSize, qreal shrinkX)
 {
     qreal lineWidth = painter.pen().widthF();
-    QPointF topLeft(qRound(rect.left() * pixelSize) + (shrinkX + 0.5) * lineWidth,
-                    qRound(rect.top() * pixelSize) + 0.5 * lineWidth);
-    QPointF bottomRight(qRound(rect.right() * pixelSize) - (shrinkX + 0.5) * lineWidth,
-                        qRound(rect.bottom() * pixelSize) - 0.5 * lineWidth);
-    painter.drawRect(QRectF(topLeft, bottomRight));
+    qreal indent = 0.5 * lineWidth;
+    qreal recLength = qRound(length * pixelSize - (2 * shrinkX) * lineWidth) - lineWidth;
+
+    QRectF finalRect;
+    if (m_d->orientation == Qt::Horizontal) {
+        qreal left = qRound(start * pixelSize) + (shrinkX + 0.5) * lineWidth;
+        finalRect = QRectF(left, indent, recLength, qRound(height() * pixelSize) - lineWidth);
+    } else {
+        qreal top = qRound((height() - 1 - start - length) * pixelSize) + (shrinkX + 0.5) * lineWidth;
+        finalRect = QRectF(indent, top, qRound(width() * pixelSize) - lineWidth, recLength);
+    }
+
+    painter.drawRect(finalRect);
 }

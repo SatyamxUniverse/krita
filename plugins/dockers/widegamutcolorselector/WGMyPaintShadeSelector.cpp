@@ -13,6 +13,8 @@
 
 #include "WGMyPaintShadeSelector.h"
 
+#include "WGConfig.h"
+
 #include <kis_display_color_converter.h>
 #include <kis_paint_device.h>
 #include <kis_painter.h>
@@ -68,11 +70,28 @@ void WGMyPaintShadeSelector::setModel(KisVisualColorModelSP model)
     }
 }
 
+void WGMyPaintShadeSelector::updateSettings()
+{
+    WGConfig::Accessor cfg;
+
+    m_resetOnExternalUpdate = cfg.get(WGConfig::shadeSelectorUpdateOnExternalChanges);
+    m_resetOnInteractions = cfg.get(WGConfig::shadeSelectorUpdateOnInteractionEnd);
+    m_resetOnRightClick = cfg.get(WGConfig::shadeSelectorUpdateOnRightClick);
+
+    if (m_model && m_model->colorModel() != KisVisualColorModel::None) {
+        slotSetChannelValues(m_model->channelValues());
+    }
+}
+
 void WGMyPaintShadeSelector::mousePressEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton) {
         emit sigColorInteraction(true);
         pickColorAt(event->localPos());
+    } else if (m_resetOnRightClick && event->button() == Qt::RightButton) {
+        if (m_model && m_model->colorModel() != KisVisualColorModel::None) {
+            slotSetChannelValues(m_model->channelValues());
+        }
     } else {
         event->ignore();
     }
@@ -92,6 +111,9 @@ void WGMyPaintShadeSelector::mouseMoveEvent(QMouseEvent *event)
 void WGMyPaintShadeSelector::mouseReleaseEvent(QMouseEvent *event)
 {
     if (event->button() == Qt::LeftButton) {
+        if (m_resetOnInteractions && m_model && m_model->colorModel() != KisVisualColorModel::None) {
+            slotSetChannelValues(m_model->channelValues());
+        }
         emit sigColorInteraction(false);
     } else {
         event->ignore();
