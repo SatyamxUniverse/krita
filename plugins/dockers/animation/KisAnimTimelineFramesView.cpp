@@ -882,22 +882,7 @@ void KisAnimTimelineFramesView::mousePressEvent(QMouseEvent *event)
 {
     QPersistentModelIndex index = indexAt(event->pos());
 
-    if (m_d->modifiersCatcher->modifierPressed("pan-zoom")) {
-
-        if (event->button() == Qt::RightButton) {
-            // TODO: try calculate index under mouse cursor even when
-            //       it is outside any visible row
-//            qreal staticPoint = index.isValid() ? index.column() : currentIndex().column();
-//            m_d->zoomDragButton->beginZoom(event->pos(), staticPoint);
-        } else if (event->button() == Qt::LeftButton) {
-            m_d->initialDragPanPos = event->pos();
-            m_d->initialDragPanValue =
-                    QPoint(horizontalScrollBar()->value(),
-                           verticalScrollBar()->value());
-        }
-        event->accept();
-
-    } else if (event->button() == Qt::RightButton) {
+    if (event->button() == Qt::RightButton) {
 
         int numSelectedItems = selectionModel()->selectedIndexes().size();
 
@@ -1005,7 +990,14 @@ void KisAnimTimelineFramesView::mousePressEvent(QMouseEvent *event)
 
         m_d->initialDragPanPos = event->pos();
 
-        QAbstractItemView::mousePressEvent(event);
+        if (m_d->modifiersCatcher->modifierPressed("pan-zoom")) {
+            m_d->initialDragPanPos = event->pos();
+            m_d->initialDragPanValue =
+                    QPoint(horizontalScrollBar()->value(),
+                           verticalScrollBar()->value());
+        } else {
+            QAbstractItemView::mousePressEvent(event);
+        }
     }
 }
 
@@ -1038,7 +1030,6 @@ void KisAnimTimelineFramesView::mouseMoveEvent(QMouseEvent *e)
     }
 
     if (m_d->modifiersCatcher->modifierPressed("pan-zoom")) {
-
         if (e->buttons() & Qt::RightButton) {
 
 //            m_d->zoomDragButton->continueZoom(e->pos());

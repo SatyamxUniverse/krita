@@ -31,12 +31,12 @@ struct KisCustomModifiersCatcher::Private
 };
 
 
-KisCustomModifiersCatcher::KisCustomModifiersCatcher(QObject *parent)
-    : QObject(parent),
-      m_d(new Private(parent))
+KisCustomModifiersCatcher::KisCustomModifiersCatcher(QObject *trackedObject)
+    : QObject(trackedObject),
+      m_d(new Private(trackedObject))
 {
     if (m_d->trackedObject) {
-        parent->installEventFilter(this);
+        m_d->trackedObject->installEventFilter(this);
     }
 }
 
@@ -48,7 +48,6 @@ void KisCustomModifiersCatcher::addModifier(const QString &id, Qt::Key modifier)
 {
     m_d->idToKeyMap.insert(id, modifier);
     m_d->trackedKeys.insert(modifier);
-
     m_d->reset();
 }
 
@@ -58,6 +57,7 @@ bool KisCustomModifiersCatcher::modifierPressed(const QString &id)
         qWarning() << "KisCustomModifiersCatcher::modifierPressed(): unexpected modifier id:" << id;
         return false;
     }
+
     return m_d->pressedKeys.contains(m_d->idToKeyMap[id]);
 }
 
