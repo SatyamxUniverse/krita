@@ -32,20 +32,13 @@ void KisRandomSubAccessor::sampledOldRawData(quint8* dst)
 {
     const quint8* pixels[4];
     qint16 weights[4];
-    int x = qFloor(m_currentPoint.x());
-    int y = qFloor(m_currentPoint.y());
-
-    double hsub = m_currentPoint.x() - x;
-    if (hsub < 0.0) {
-        hsub = 1.0 + hsub;
-    }
-    double vsub = m_currentPoint.y() - y;
-    if (vsub < 0.0) {
-        vsub = 1.0 + vsub;
-    }
-    
     int sumOfWeights = 0;
-
+    const QPointF currentPoint = m_currentPoint - QPointF(0.5, 0.5);
+    const int x = qFloor(currentPoint.x());
+    const int y = qFloor(currentPoint.y());
+    const double hsub = currentPoint.x() - x;
+    const double vsub = currentPoint.y() - y;
+    
     weights[0] = qRound((1.0 - hsub) * (1.0 - vsub) * 255);
     sumOfWeights += weights[0];
     m_randomAccessor->moveTo(x, y);
@@ -71,20 +64,13 @@ void KisRandomSubAccessor::sampledRawData(quint8* dst)
 {
     const quint8* pixels[4];
     qint16 weights[4];
-    int x = qFloor(m_currentPoint.x());
-    int y = qFloor(m_currentPoint.y());
-
-    double hsub = m_currentPoint.x() - x;
-    if (hsub < 0.0) {
-        hsub = 1.0 + hsub;
-    }
-    double vsub = m_currentPoint.y() - y;
-    if (vsub < 0.0) {
-        vsub = 1.0 + vsub;
-    }
-    
     int sumOfWeights = 0;
-
+    const QPointF currentPoint = m_currentPoint - QPointF(0.5, 0.5);
+    const int x = qFloor(currentPoint.x());
+    const int y = qFloor(currentPoint.y());
+    const double hsub = currentPoint.x() - x;
+    const double vsub = currentPoint.y() - y;
+    
     weights[0] = qRound((1.0 - hsub) * (1.0 - vsub) * 255);
     sumOfWeights += weights[0];
     m_randomAccessor->moveTo(x, y);

@@ -176,8 +176,8 @@ void KisPerspectiveTransformWorker::runImpl()
         for (int y = rect.y(); y < rect.y() + rect.height(); ++y) {
             for (int x = rect.x(); x < rect.x() + rect.width(); ++x) {
 
-                QPointF dstPoint(x, y);
-                QPointF srcPoint = m_backwardTransform.map(dstPoint);
+                const QPoint dstPoint(x, y);
+                const QPointF srcPoint = m_backwardTransform.map(dstPoint + QPointF(0.5, 0.5));
 
                 if (m_srcRect.contains(srcPoint)) {
                     accessor->moveTo(dstPoint.x(), dstPoint.y());
@@ -221,8 +221,8 @@ void KisPerspectiveTransformWorker::runPartialDst(KisPaintDeviceSP srcDev,
         for (int y = dstRect.y(); y < dstRect.y() + dstRect.height(); ++y) {
             for (int x = dstRect.x(); x < dstRect.x() + dstRect.width(); ++x) {
 
-                QPointF dstPoint(x, y);
-                QPointF srcPoint = m_backwardTransform.map(dstPoint);
+                const QPoint dstPoint(x, y);
+                const QPointF srcPoint = m_backwardTransform.map(dstPoint + QPointF(0.5, 0.5));
 
                 if (srcClipRect.contains(srcPoint) || srcDev->defaultBounds()->wrapAroundMode()) {
                     accessor->moveTo(dstPoint.x(), dstPoint.y());
