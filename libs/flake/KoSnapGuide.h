@@ -20,7 +20,9 @@ class KoViewConverter;
 class KoCanvasBase;
 class QPainter;
 class QPointF;
+class QLineF;
 class QRectF;
+class QPolygonF;
 
 /**
  * This class is the place where all the snapping (i.e. snap to grid) is handled.
@@ -70,6 +72,34 @@ public:
     QPointF snap(const QPointF &mousePosition, Qt::KeyboardModifiers modifiers);
 
     QPointF snap(const QPointF &mousePosition, const QPointF &dragOffset, Qt::KeyboardModifiers modifiers);
+
+    /**
+     * Some of the snap() strategies will only test the vertical or horizontal components,
+     * which may not be desirable for snapping rotated lines. This will test the side of the
+     * line as defined by p1.
+     *
+     * @param mousePosition -- the current mouse pos
+     * @param p1 -- whether to use p1, if not it will use p2.
+     * @param line -- the line.
+     * @return the mousePos relative to the snapped line end per the param p1.
+     */
+    QPointF snapWithLine( const QPointF &mousePosition,
+                          const bool &p1,
+                          const QLineF &line,
+                          Qt::KeyboardModifiers modifiers);
+    /**
+     * @brief snapWithPolygon
+     * This snaps with a given polygon.
+     * The polygon will first be sorted by how close they
+     * are to the given mouse pos and then individually evaluated.
+     * @param mousePosition -- the mousepos to snap.
+     * @param polygon -- the polygon to evaluate with.
+     * @param modifiers
+     * @return returns the mousePos, adjusted by the delta of the closest snapping point on the polygon.
+     */
+    QPointF snapWithPolygon(const QPointF &mousePosition,
+                            const QPolygonF &polygon,
+                            Qt::KeyboardModifiers modifiers);
 
     /// paints the guide
     void paint(QPainter &painter, const KoViewConverter &converter);

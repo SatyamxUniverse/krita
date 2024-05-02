@@ -10,6 +10,7 @@
 #include <KoInteractionStrategy.h>
 
 #include <QPointF>
+#include <QPolygonF>
 
 class KoSvgTextShape;
 
@@ -18,6 +19,8 @@ class SvgMoveTextStrategy : public KoInteractionStrategy
 public:
     SvgMoveTextStrategy(KoToolBase *tool, KoSvgTextShape *shape, const QPointF &clicked);
     ~SvgMoveTextStrategy() override = default;
+
+    void paint(QPainter &painter, const KoViewConverter &converter) override;
 
     void handleMouseMove(const QPointF &mouseLocation, Qt::KeyboardModifiers modifiers) override;
     KUndo2Command *createCommand() override;
@@ -29,7 +32,8 @@ private:
     QPointF m_dragStart;
     QPointF m_initialPosition;
     QPointF m_finalPosition;
-    QPointF m_anchorOffset;
+    QPointF m_mouseOffset;
+    QPolygonF m_bounds;
 };
 
 #endif /* SVG_MOVE_TEXT_STRATEGY_H */

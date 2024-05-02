@@ -45,6 +45,7 @@ private:
     SvgInlineSizeHelper::VisualAnchor m_anchor;
     SvgInlineSizeHelper::Side m_handleSide;
     bool m_startHandle;
+    bool m_rtl;
 };
 
 #endif /* SVG_INLINE_SIZE_CHANGE_STRATEGY_H */

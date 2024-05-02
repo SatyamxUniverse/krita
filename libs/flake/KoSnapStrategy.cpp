@@ -27,6 +27,52 @@ KoSnapStrategy::KoSnapStrategy(KoSnapGuide::Strategy type)
 {
 }
 
+bool KoSnapStrategy::snapWithLine(const QPointF &mousePosition,
+                                  const bool &p1,
+                                  const QLineF &line,
+                                  KoSnapProxy *proxy,
+                                  qreal maxSnapDistance)
+{
+    bool snapped;
+    if (p1) {
+        snapped = snap(line.p1(), proxy, maxSnapDistance);
+    } else {
+        snapped = snap(line.p2(), proxy, maxSnapDistance);
+    }
+    return snapped;
+}
+
+bool KoSnapStrategy::snapWithPolygon(QPointF &snapDiff, const QPolygonF &polygon, KoSnapProxy *proxy, qreal maxSnapDistance)
+{
+    QPointF nearest;
+    int index = -1;
+    bool snapped = false;
+    qreal nDist = 0;
+
+    for(int i = 0; i < polygon.size(); i++) {
+        const QPointF p = polygon.at(i);
+        bool isSnapped = snap(p, proxy, maxSnapDistance);
+        if (isSnapped) {
+            const QPointF diff = snappedPosition() - p;
+            qreal dist = squareDistance(QPointF(), diff);
+            if (snapped == false || (snapped == true && nDist > dist )) {
+                nearest = diff;
+                nDist = dist;
+                index = i;
+            }
+            snapped = true;
+        }
+    }
+
+    if (snapped) {
+        const QPointF p = polygon.at(index);
+        snap(p, proxy, maxSnapDistance);
+        snapDiff = nearest;
+    }
+
+    return snapped;
+}
+
 QPointF KoSnapStrategy::snappedPosition() const
 {
     return m_snappedPosition;
@@ -104,6 +150,73 @@ bool OrthogonalSnapStrategy::snap(const QPointF &mousePosition, KoSnapProxy * pr
     setSnappedPosition(snappedPoint);
 
     return (minHorzDist < HUGE_VAL || minVertDist < HUGE_VAL);
+}
+
+bool OrthogonalSnapStrategy::snapWithLine(const QPointF &mousePosition,
+                                          const bool &p1,
+                                          const QLineF &line,
+                                          KoSnapProxy *proxy,
+                                          qreal maxSnapDistance)
+{
+    Q_ASSERT(std::isfinite(maxSnapDistance));
+    QPointF horzSnap, vertSnap;
+    QPointF horzInter, vertInter;
+    bool snap = false;
+    qreal minVertDist = HUGE_VAL;
+    qreal minHorzDist = HUGE_VAL;
+
+    QList<KoShape*> shapes = proxy->shapes(true);
+    Q_FOREACH (KoShape * shape, shapes) {
+        QList<QPointF> points = proxy->pointsFromShape(shape);
+        foreach (const QPointF &point, points) {
+            QPointF intersect;
+            if (QLineF::NoIntersection != QLineF(point.x()-1, point.y(), point.x()+1, point.y()).intersects(line, &intersect)) {
+                qreal dist = p1? squareDistance(intersect, line.p1()): squareDistance(intersect, line.p2());
+                if (dist < minHorzDist) {
+                    horzSnap = point;
+                    horzInter = intersect;
+                    minHorzDist = dist;
+                }
+            }
+            if (QLineF::NoIntersection != QLineF(point.x(), point.y()-1, point.x(), point.y()+1).intersects(line, &intersect)) {
+                qreal dist = p1? squareDistance(intersect, line.p1()): squareDistance(intersect, line.p2());
+                if (dist < minVertDist) {
+                    vertSnap = point;
+                    vertInter = intersect;
+                    minVertDist = dist;
+                }
+            }
+        }
+    }
+
+    QPointF snappedPoint = mousePosition;
+    QPointF snapPoint;
+
+    snap = minHorzDist < HUGE_VAL || minVertDist < HUGE_VAL;
+
+    if (snap) {
+
+        snap = minHorzDist < maxSnapDistance || minVertDist < maxSnapDistance;
+
+        if (minHorzDist < minVertDist) {
+            snappedPoint = horzInter;
+            snapPoint = horzSnap;
+        } else {
+            snappedPoint = vertInter;
+            snapPoint = vertSnap;
+        }
+    }
+
+    m_vLine = QLineF();
+    if (snap) {
+        m_hLine = QLineF(snapPoint, snappedPoint);
+    } else {
+        m_hLine = QLineF();
+    }
+
+    setSnappedPosition(snappedPoint);
+
+    return snap;
 }
 
 QPainterPath OrthogonalSnapStrategy::decoration(const KoViewConverter &/*converter*/) const
@@ -412,6 +525,8 @@ GridSnapStrategy::GridSnapStrategy()
 {
 }
 
+
+
 bool GridSnapStrategy::snap(const QPointF &mousePosition, KoSnapProxy *proxy, qreal maxSnapDistance)
 {
     Q_ASSERT(std::isfinite(maxSnapDistance));
@@ -464,6 +579,81 @@ bool GridSnapStrategy::snap(const QPointF &mousePosition, KoSnapProxy *proxy, qr
     } else if (distToCol < maxSnapDistance) {
         snappedPoint.rx() = offset.x() + col * spacing.width();
         pointIsSnapped = true;
+    }
+
+    setSnappedPosition(snappedPoint);
+
+    return pointIsSnapped;
+}
+
+bool GridSnapStrategy::snapWithLine(const QPointF &mousePosition, const bool &p1, const QLineF &line, KoSnapProxy *proxy, qreal maxSnapDistance)
+{
+    Q_ASSERT(std::isfinite(maxSnapDistance));
+    if (! proxy->canvas()->snapToGrid())
+        return false;
+
+    QPointF lPoint = p1? line.p1(): line.p2();
+
+    QPointF offset;
+    QSizeF spacing;
+    proxy->canvas()->gridSize(&offset, &spacing);
+
+    int col = static_cast<int>((lPoint.x() - offset.x()) / spacing.width() + 1e-10);
+    int row = static_cast<int>((lPoint.y() - offset.y()) / spacing.height() + 1e-10);
+
+    qreal distToCol = offset.x() + col * spacing.width();
+    QPointF colSnap;
+    qreal minHorzDist = HUGE_VAL;
+
+    QPointF intersect;
+    if (QLineF::NoIntersection != QLineF(distToCol, -1, distToCol, 1).intersects(line, &intersect)) {
+        qreal dist = squareDistance(intersect, lPoint);
+        if (dist < minHorzDist) {
+            minHorzDist = dist;
+            colSnap = intersect;
+        }
+    }
+    if (QLineF::NoIntersection != QLineF(distToCol+spacing.width(), -1, distToCol+spacing.width(), 1).intersects(line, &intersect)) {
+        qreal dist = squareDistance(intersect, lPoint);
+        if (dist < minHorzDist) {
+            minHorzDist = dist;
+            colSnap = intersect;
+        }
+    }
+
+
+    qreal distToRow = offset.y() + row * spacing.height();
+    QPointF rowSnap;
+    qreal minVertDist = HUGE_VAL;
+
+    if (QLineF::NoIntersection != QLineF(-1, distToRow, 1, distToRow).intersects(line, &intersect)) {
+        qreal dist = squareDistance(intersect, lPoint);
+        if (dist < minVertDist) {
+            minVertDist = dist;
+            rowSnap = intersect;
+        }
+    }
+    if (QLineF::NoIntersection != QLineF(-1, distToRow+spacing.height(), 1, distToRow+spacing.height()).intersects(line, &intersect)) {
+        qreal dist = squareDistance(intersect, lPoint);
+        if (dist < minVertDist) {
+            minVertDist = dist;
+            rowSnap = intersect;
+        }
+    }
+
+    QPointF snappedPoint = mousePosition;
+
+    bool pointIsSnapped = minHorzDist < HUGE_VAL || minVertDist < HUGE_VAL;
+
+    if (pointIsSnapped) {
+
+        pointIsSnapped = minHorzDist < maxSnapDistance || minVertDist < maxSnapDistance;
+
+        if (minHorzDist < minVertDist) {
+            snappedPoint = colSnap;
+        } else {
+            snappedPoint = rowSnap;
+        }
     }
 
     setSnappedPosition(snappedPoint);
@@ -530,6 +720,59 @@ bool BoundingBoxSnapStrategy::snap(const QPointF &mousePosition, KoSnapProxy *pr
             if (d < minDistance && d < maxDistance) {
                 minDistance = d;
                 snappedPoint = pointOnLine;
+            }
+        }
+    }
+    setSnappedPosition(snappedPoint);
+
+    return (minDistance < maxDistance);
+}
+
+bool BoundingBoxSnapStrategy::snapWithLine(const QPointF &mousePosition, const bool &p1, const QLineF &line, KoSnapProxy *proxy, qreal maxSnapDistance)
+{
+    Q_ASSERT(std::isfinite(maxSnapDistance));
+    const qreal maxDistance = maxSnapDistance * maxSnapDistance;
+    qreal minDistance = HUGE_VAL;
+
+    QRectF rect(-maxSnapDistance, -maxSnapDistance, maxSnapDistance, maxSnapDistance);
+
+
+    QPointF snappedPoint = mousePosition;
+    QPointF lPoint = p1? line.p1(): line.p2();
+    rect.moveCenter(lPoint);
+
+    KoFlake::AnchorPosition pointId[5] = {
+        KoFlake::TopLeft,
+        KoFlake::TopRight,
+        KoFlake::BottomRight,
+        KoFlake::BottomLeft,
+        KoFlake::Center
+    };
+
+    QList<KoShape*> shapes = proxy->shapesInRect(rect, true);
+    Q_FOREACH (KoShape * shape, shapes) {
+        qreal shapeMinDistance = HUGE_VAL;
+        for (int i = 0; i < 5; ++i) {
+            m_boxPoints[i] = shape->absolutePosition(pointId[i]);
+            qreal d = squareDistance(lPoint, m_boxPoints[i]);
+            if (d < minDistance && d < maxDistance) {
+                shapeMinDistance = d;
+                minDistance = d;
+                snappedPoint = m_boxPoints[i];
+            }
+        }
+
+        if (shapeMinDistance < maxDistance)
+            continue;
+
+        for (int i = 0; i < 4; ++i) {
+            QPointF pointOnLine;
+            if (QLineF::BoundedIntersection == QLineF(m_boxPoints[i], m_boxPoints[(i+1)%4]).intersects(line, &pointOnLine)) {
+                qreal d = squareDistance(pointOnLine, lPoint);
+                if (d < minDistance && d < maxDistance) {
+                    minDistance = d;
+                    snappedPoint = pointOnLine;
+                }
             }
         }
     }

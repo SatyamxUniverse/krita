@@ -62,7 +62,59 @@ bool KisSnapLineStrategy::snap(const QPointF &mousePosition, KoSnapProxy *proxy,
     setSnappedPosition(snappedPoint);
     return
         minXDistance < std::numeric_limits<qreal>::max() ||
-        minYDistance < std::numeric_limits<qreal>::max();
+            minYDistance < std::numeric_limits<qreal>::max();
+}
+
+bool KisSnapLineStrategy::snapWithLine(const QPointF &mousePosition, const bool &p1, const QLineF &line, KoSnapProxy *proxy, qreal maxSnapDistance)
+{
+    Q_UNUSED(proxy);
+
+    QPointF snappedPoint = mousePosition;
+    qreal horzSnap, vertSnap;
+    QPointF horzInter, vertInter;
+    bool snap = false;
+    qreal minXDistance = std::numeric_limits<qreal>::max();
+    qreal minYDistance = std::numeric_limits<qreal>::max();
+
+    Q_FOREACH (qreal guideLine, m_d->horizontalLines) {
+        QPointF intersect;
+        if (QLineF::NoIntersection != QLineF(-1, guideLine, 1, guideLine).intersects(line, &intersect)) {
+            qreal dist = p1? QLineF(intersect, line.p1()).length(): QLineF(intersect, line.p2()).length();
+            if (dist < minYDistance) {
+                minYDistance = dist;
+                horzSnap = guideLine;
+                horzInter = intersect;
+            }
+        }
+    }
+
+    Q_FOREACH (qreal guideLine, m_d->verticalLines) {
+        QPointF intersect;
+        if (QLineF::NoIntersection != QLineF(guideLine, -1, guideLine, 1).intersects(line, &intersect)) {
+            qreal dist = p1? QLineF(intersect, line.p1()).length(): QLineF(intersect, line.p2()).length();
+            if (dist < minXDistance) {
+                minXDistance = dist;
+                vertSnap = guideLine;
+                vertInter = intersect;
+            }
+        }
+    }
+
+    snap = minXDistance < std::numeric_limits<qreal>::max() ||
+            minYDistance < std::numeric_limits<qreal>::max();
+
+    if (snap) {
+        snap = minYDistance < maxSnapDistance || minXDistance < maxSnapDistance;
+
+        if (minYDistance < minXDistance) {
+            snappedPoint = horzInter;
+        } else {
+            snappedPoint = vertInter;
+        }
+    }
+    setSnappedPosition(snappedPoint);
+
+    return snap;
 }
 
 QPainterPath KisSnapLineStrategy::decoration(const KoViewConverter &converter) const
