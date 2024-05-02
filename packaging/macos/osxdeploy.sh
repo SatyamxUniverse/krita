@@ -808,8 +808,8 @@ createDMG () {
 
     # create dmg on local system
     # usage of -fsargs minimize gaps at front of filesystem (reduce size)
-    hdiutil create -srcfolder "${KRITA_DMG}" -volname "${DMG_title}" -fs APFS \
-        -format UDIF -verbose -size ${DMG_size}m krita.temp.dmg
+    hdiutil create -srcfolder "${KRITA_DMG}" -volname "${DMG_title}" -fs HFS+ \
+        -format UDRW -verbose -size ${DMG_size}m krita.temp.dmg
 
     # Next line is only useful if we have a dmg as a template!
     # previous hdiutil must be uncommented
@@ -842,7 +842,7 @@ createDMG () {
     sync
 
     hdiutil detach $device
-    hdiutil convert "krita.temp.dmg" -format UDZO -imagekey -zlib-level=9 -o krita-out.dmg
+    hdiutil convert "krita.temp.dmg" -format ULMO -o krita-out.dmg
 
 
     mv krita-out.dmg ${DMG_NAME}
