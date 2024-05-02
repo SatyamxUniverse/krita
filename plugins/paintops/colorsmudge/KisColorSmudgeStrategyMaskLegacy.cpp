@@ -34,15 +34,23 @@ void KisColorSmudgeStrategyMaskLegacy::sampleDullingColor(const QRect &srcRect, 
                                        maskDab, resultColor);
 }
 
-QString KisColorSmudgeStrategyMaskLegacy::smearCompositeOp(bool smearAlpha) const
+QString KisColorSmudgeStrategyMaskLegacy::smearCompositeOp(bool smearAlpha, const QString &colorRateCompositeOp) const
 {
     Q_UNUSED(smearAlpha);
-    return COMPOSITE_COPY;
+    if (colorRateCompositeOp == COMPOSITE_OVER_SPECTRAL) {
+        return COMPOSITE_COPY_SPECTRAL;
+    } else {
+        return COMPOSITE_COPY;
+    }
 }
 
-QString KisColorSmudgeStrategyMaskLegacy::finalCompositeOp(bool smearAlpha) const
+QString KisColorSmudgeStrategyMaskLegacy::finalCompositeOp(bool smearAlpha, const QString &colorRateCompositeOp) const
 {
-    return smearAlpha ? COMPOSITE_COPY : COMPOSITE_OVER;
+    if (colorRateCompositeOp == COMPOSITE_OVER_SPECTRAL) {
+        return smearAlpha ? COMPOSITE_COPY_SPECTRAL : COMPOSITE_OVER_SPECTRAL;
+    } else {
+        return smearAlpha ? COMPOSITE_COPY : COMPOSITE_OVER;
+    }
 }
 
 quint8 KisColorSmudgeStrategyMaskLegacy::finalPainterOpacity(qreal opacity, qreal smudgeRateValue)

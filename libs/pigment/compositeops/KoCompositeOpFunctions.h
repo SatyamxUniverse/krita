@@ -12,9 +12,17 @@
 #include <type_traits>
 #include <cmath>
 
+#include <Spectral.h>
+
 #ifdef HAVE_OPENEXR
 #include "half.h"
 #endif
+
+template<class HSXType, class TReal>
+inline void cfSpectral(TReal srcR, TReal srcG, TReal srcB, TReal factor, TReal& dstR, TReal& dstG, TReal& dstB)
+{
+    spectralMix(srcR, srcG, srcB, factor, &dstR, &dstG, &dstB);
+}
 
 template<class HSXType, class TReal>
 inline void cfReorientedNormalMapCombine(TReal srcR, TReal srcG, TReal srcB, TReal& dstR, TReal& dstG, TReal& dstB)
