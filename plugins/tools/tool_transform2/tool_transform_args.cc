@@ -25,7 +25,7 @@ ToolTransformArgs::ToolTransformArgs()
     KConfigGroup configGroup =  KSharedConfig::openConfig()->group("KisToolTransform");
     QString savedFilterId = configGroup.readEntry("filterId", "Bicubic");
     setFilterId(savedFilterId);
-    m_transformAroundRotationCenter = configGroup.readEntry("transformAroundRotationCenter", "0").toInt();
+    m_invertAnchorBehavior = configGroup.readEntry("invertAnchorBehavior", false);
     m_meshShowHandles = configGroup.readEntry("meshShowHandles", true);
     m_meshSymmetricalHandles = configGroup.readEntry("meshSymmetricalHandles", true);
     m_meshScaleHandles = configGroup.readEntry("meshScaleHandles", false);
@@ -40,12 +40,12 @@ void ToolTransformArgs::setFilterId(const QString &id) {
     }
 }
 
-void ToolTransformArgs::setTransformAroundRotationCenter(bool value)
+void ToolTransformArgs::setInvertAnchorBehavior(bool value)
 {
-    m_transformAroundRotationCenter = value;
+    m_invertAnchorBehavior = value;
 
     KConfigGroup configGroup =  KSharedConfig::openConfig()->group("KisToolTransform");
-    configGroup.writeEntry("transformAroundRotationCenter", int(value));
+    configGroup.writeEntry("invertAnchorBehavior", int(value));
 }
 
 void ToolTransformArgs::init(const ToolTransformArgs& args)
@@ -54,7 +54,7 @@ void ToolTransformArgs::init(const ToolTransformArgs& args)
     m_transformedCenter = args.transformedCenter();
     m_originalCenter = args.originalCenter();
     m_rotationCenterOffset = args.rotationCenterOffset();
-    m_transformAroundRotationCenter = args.transformAroundRotationCenter();
+    m_invertAnchorBehavior = args.invertAnchorBehavior();
     m_cameraPos = args.m_cameraPos;
     m_aX = args.aX();
     m_aY = args.aY();
@@ -143,7 +143,7 @@ bool ToolTransformArgs::operator==(const ToolTransformArgs& other) const
         m_transformedCenter == other.m_transformedCenter &&
         m_originalCenter == other.m_originalCenter &&
         m_rotationCenterOffset == other.m_rotationCenterOffset &&
-        m_transformAroundRotationCenter == other.m_transformAroundRotationCenter &&
+        m_invertAnchorBehavior == other.m_invertAnchorBehavior &&
         m_aX == other.m_aX &&
         m_aY == other.m_aY &&
         m_aZ == other.m_aZ &&
@@ -227,7 +227,7 @@ ToolTransformArgs::ToolTransformArgs(TransformMode mode,
                                      QPointF transformedCenter,
                                      QPointF originalCenter,
                                      QPointF rotationCenterOffset,
-                                     bool transformAroundRotationCenter,
+                                     bool invertAnchorBehavior,
                                      double aX, double aY, double aZ,
                                      double scaleX, double scaleY,
                                      double shearX, double shearY,
@@ -246,7 +246,7 @@ ToolTransformArgs::ToolTransformArgs(TransformMode mode,
     , m_transformedCenter(transformedCenter)
     , m_originalCenter(originalCenter)
     , m_rotationCenterOffset(rotationCenterOffset)
-    , m_transformAroundRotationCenter(transformAroundRotationCenter)
+    , m_invertAnchorBehavior(invertAnchorBehavior)
     , m_aX(aX)
     , m_aY(aY)
     , m_aZ(aZ)
@@ -379,7 +379,7 @@ void ToolTransformArgs::toXML(QDomElement *e) const
         KisDomUtils::saveValue(&freeEl, "transformedCenter", m_transformedCenter);
         KisDomUtils::saveValue(&freeEl, "originalCenter", m_originalCenter);
         KisDomUtils::saveValue(&freeEl, "rotationCenterOffset", m_rotationCenterOffset);
-        KisDomUtils::saveValue(&freeEl, "transformAroundRotationCenter", m_transformAroundRotationCenter);
+        KisDomUtils::saveValue(&freeEl, "invertAnchorBehavior", m_invertAnchorBehavior);
 
         KisDomUtils::saveValue(&freeEl, "aX", m_aX);
         KisDomUtils::saveValue(&freeEl, "aY", m_aY);
@@ -475,10 +475,10 @@ ToolTransformArgs ToolTransformArgs::fromXML(const QDomElement &e)
             KisDomUtils::loadValue(freeEl, "flattenedPerspectiveTransform", &args.m_flattenedPerspectiveTransform) &&
             KisDomUtils::loadValue(freeEl, "filterId", &filterId);
 
-        // transformAroundRotationCenter is a new parameter introduced in Krita 4.0,
+        // invertAnchorBehavior is a new parameter introduced in Krita 5.3,
         // so it might be not present in older transform masks
-        if (!KisDomUtils::loadValue(freeEl, "transformAroundRotationCenter", &args.m_transformAroundRotationCenter)) {
-            args.m_transformAroundRotationCenter = false;
+        if (!KisDomUtils::loadValue(freeEl, "invertAnchorBehavior", &args.m_invertAnchorBehavior)) {
+            args.m_invertAnchorBehavior = false;
         }
 
         if (result) {

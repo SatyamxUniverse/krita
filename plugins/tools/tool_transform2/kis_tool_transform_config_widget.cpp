@@ -154,7 +154,7 @@ KisToolTransformConfigWidget::KisToolTransformConfigWidget(TransformTransactionP
     cameraHeightBox->setRange(1, 20000, 2);
 
     connect(m_rotationCenterButtons, SIGNAL(buttonPressed(int)), this, SLOT(slotRotationCenterChanged(int)));
-    connect(btnTransformAroundPivotPoint, SIGNAL(clicked(bool)), this, SLOT(slotTransformAroundRotationCenter(bool)));
+    connect(btnInvertAnchorBehavior, SIGNAL(clicked(bool)), this, SLOT(slotInvertTransformBehavior(bool)));
 
     // Init Free Transform Values
     connect(scaleXBox, SIGNAL(valueChanged(int)), this, SLOT(slotSetScaleX(int)));
@@ -358,7 +358,7 @@ void KisToolTransformConfigWidget::slotUpdateIcons()
     middleBottomButton->setIcon(KisIconUtils::loadIcon("arrow-down"));
     bottomRightButton->setIcon(KisIconUtils::loadIcon("arrow-downright"));
 
-    btnTransformAroundPivotPoint->setIcon(KisIconUtils::loadIcon("pivot-point"));
+    btnInvertAnchorBehavior->setIcon(KisIconUtils::loadIcon("pivot-point"));
 
 
     // pressure icons
@@ -587,7 +587,7 @@ void KisToolTransformConfigWidget::updateConfig(const ToolTransformArgs &config)
             }
         }
 
-        btnTransformAroundPivotPoint->setChecked(config.transformAroundRotationCenter());
+        btnInvertAnchorBehavior->setChecked(config.invertAnchorBehavior());
 
     } else if (config.mode() == ToolTransformArgs::WARP) {
 
@@ -859,12 +859,12 @@ void KisToolTransformConfigWidget::slotRotationCenterChanged(int index)
     }
 }
 
-void KisToolTransformConfigWidget::slotTransformAroundRotationCenter(bool value)
+void KisToolTransformConfigWidget::slotInvertTransformBehavior(bool value)
 {
     if (m_uiSlotsBlocked) return;
 
     ToolTransformArgs *config = m_transaction->currentConfig();
-    config->setTransformAroundRotationCenter(value);
+    config->setInvertAnchorBehavior(value);
     notifyConfigChanged();
     notifyEditingFinished();
 }
@@ -876,7 +876,7 @@ void KisToolTransformConfigWidget::slotSetScaleX(int value)
     ToolTransformArgs *config = m_transaction->currentConfig();
 
     {
-        KisTransformUtils::AnchorHolder keeper(config->transformAroundRotationCenter(), config);
+        KisTransformUtils::AnchorHolder keeper(true, config);
         config->setScaleX(value / 100.);
     }
 
@@ -888,7 +888,7 @@ void KisToolTransformConfigWidget::slotSetScaleX(int value)
         scaleYBox->blockSignals(true);
         scaleYBox->setValue(calculatedValue);
         {
-            KisTransformUtils::AnchorHolder keeper(config->transformAroundRotationCenter(), config);
+            KisTransformUtils::AnchorHolder keeper(true, config);
             config->setScaleY(calculatedValue / 100.);
         }
         scaleYBox->blockSignals(false);
@@ -907,7 +907,7 @@ void KisToolTransformConfigWidget::slotSetScaleY(int value)
     ToolTransformArgs *config = m_transaction->currentConfig();
 
     {
-        KisTransformUtils::AnchorHolder keeper(config->transformAroundRotationCenter(), config);
+        KisTransformUtils::AnchorHolder keeper(true, config);
         config->setScaleY(value / 100.);
     }
 
@@ -917,7 +917,7 @@ void KisToolTransformConfigWidget::slotSetScaleY(int value)
         scaleXBox->blockSignals(true);
         scaleXBox->setValue(calculatedValue);
         {
-            KisTransformUtils::AnchorHolder keeper(config->transformAroundRotationCenter(), config);
+            KisTransformUtils::AnchorHolder keeper(true, config);
             config->setScaleX(calculatedValue / 100.);
         }
         scaleXBox->blockSignals(false);
@@ -935,7 +935,7 @@ void KisToolTransformConfigWidget::slotSetShearX(qreal value)
     ToolTransformArgs *config = m_transaction->currentConfig();
 
     {
-        KisTransformUtils::AnchorHolder keeper(config->transformAroundRotationCenter(), config);
+        KisTransformUtils::AnchorHolder keeper(true, config);
         config->setShearX((double)value / 100.);
     }
 
@@ -950,7 +950,7 @@ void KisToolTransformConfigWidget::slotSetShearY(qreal value)
     ToolTransformArgs *config = m_transaction->currentConfig();
 
     {
-        KisTransformUtils::AnchorHolder keeper(config->transformAroundRotationCenter(), config);
+        KisTransformUtils::AnchorHolder keeper(true, config);
         config->setShearY((double)value / 100.);
     }
 
@@ -997,7 +997,7 @@ void KisToolTransformConfigWidget::slotSetAX(qreal value)
 
     ToolTransformArgs *config = m_transaction->currentConfig();
     {
-        KisTransformUtils::AnchorHolder keeper(config->transformAroundRotationCenter(), config);
+        KisTransformUtils::AnchorHolder keeper(true, config);
         config->setAX(kisDegreesToRadians(value));
     }
     notifyConfigChanged();
@@ -1011,7 +1011,7 @@ void KisToolTransformConfigWidget::slotSetAY(qreal value)
     ToolTransformArgs *config = m_transaction->currentConfig();
 
     {
-        KisTransformUtils::AnchorHolder keeper(config->transformAroundRotationCenter(), config);
+        KisTransformUtils::AnchorHolder keeper(true, config);
         config->setAY(kisDegreesToRadians(value));
     }
 
@@ -1026,7 +1026,7 @@ void KisToolTransformConfigWidget::slotSetAZ(qreal value)
     ToolTransformArgs *config = m_transaction->currentConfig();
 
     {
-        KisTransformUtils::AnchorHolder keeper(config->transformAroundRotationCenter(), config);
+        KisTransformUtils::AnchorHolder keeper(true, config);
         config->setAZ(kisDegreesToRadians(value));
     }
 
@@ -1050,7 +1050,7 @@ void KisToolTransformConfigWidget::slotFlipX()
     ToolTransformArgs *config = m_transaction->currentConfig();
 
     {
-        KisTransformUtils::AnchorHolder keeper(config->transformAroundRotationCenter(), config);
+        KisTransformUtils::AnchorHolder keeper(true, config);
         config->setScaleX(config->scaleX() * -1);
     }
 
@@ -1063,7 +1063,7 @@ void KisToolTransformConfigWidget::slotFlipY()
     ToolTransformArgs *config = m_transaction->currentConfig();
 
     {
-        KisTransformUtils::AnchorHolder keeper(config->transformAroundRotationCenter(), config);
+        KisTransformUtils::AnchorHolder keeper(true, config);
         config->setScaleY(config->scaleY() * -1);
     }
 
@@ -1076,7 +1076,7 @@ void KisToolTransformConfigWidget::slotRotateCW()
     ToolTransformArgs *config = m_transaction->currentConfig();
 
     {
-        KisTransformUtils::AnchorHolder keeper(config->transformAroundRotationCenter(), config);
+        KisTransformUtils::AnchorHolder keeper(true, config);
         config->setAZ(normalizeAngle(config->aZ() + M_PI_2));
     }
 
@@ -1089,7 +1089,7 @@ void KisToolTransformConfigWidget::slotRotateCCW()
     ToolTransformArgs *config = m_transaction->currentConfig();
 
     {
-        KisTransformUtils::AnchorHolder keeper(config->transformAroundRotationCenter(), config);
+        KisTransformUtils::AnchorHolder keeper(true, config);
         config->setAZ(normalizeAngle(config->aZ() - M_PI_2));
     }
 

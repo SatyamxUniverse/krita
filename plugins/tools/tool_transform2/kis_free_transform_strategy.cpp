@@ -434,7 +434,13 @@ void KisFreeTransformStrategy::continuePrimaryAction(const QPointF &mousePos,
         const KisTransformUtils::MatricesPack clickM(m_d->clickArgs);
         const QTransform clickT = clickM.finalTransform();
 
-        const QPointF rotationCenter = m_d->clickArgs.originalCenter() + m_d->clickArgs.rotationCenterOffset();
+        const bool useRotationCenter = (!m_d->currentArgs.invertAnchorBehavior() ^ altModifierActive) &&
+                !KisAlgebra2D::fuzzyPointCompare(anchorPoint, m_d->clickPos);
+
+        const QPointF rotationCenter =
+            useRotationCenter ?
+                m_d->clickArgs.originalCenter() + m_d->clickArgs.rotationCenterOffset() :
+                m_d->clickArgs.originalCenter();
         const QPointF clickMouseImagePos = clickT.inverted().map(m_d->clickPos) - rotationCenter;
         const QPointF mouseImagePosClickSpace = clickT.inverted().map(mousePos) - rotationCenter;
 
@@ -465,14 +471,23 @@ void KisFreeTransformStrategy::continuePrimaryAction(const QPointF &mousePos,
 
         KisTransformUtils::MatricesPack m(m_d->currentArgs);
         QTransform t = m.finalTransform();
-        QPointF newRotationCenter = t.map(m_d->currentArgs.originalCenter() + m_d->currentArgs.rotationCenterOffset());
-        QPointF oldRotationCenter = clickT.map(m_d->clickArgs.originalCenter() + m_d->clickArgs.rotationCenterOffset());
+
+        QPointF newRotationCenter = t.map(rotationCenter);
+        QPointF oldRotationCenter = clickT.map(rotationCenter);
 
         m_d->currentArgs.setTransformedCenter(m_d->currentArgs.transformedCenter() + oldRotationCenter - newRotationCenter);
     }
     break;
     case PERSPECTIVE:
     {
+        const bool useRotationCenter = (!m_d->currentArgs.invertAnchorBehavior() ^ altModifierActive) &&
+                !KisAlgebra2D::fuzzyPointCompare(anchorPoint, m_d->clickPos);
+
+        const QPointF rotationCenter =
+            useRotationCenter ?
+                m_d->clickArgs.originalCenter() + m_d->clickArgs.rotationCenterOffset() :
+                m_d->clickArgs.originalCenter();
+
         QPointF diff = mousePos - m_d->clickPos;
         double thetaX = - diff.y() * M_PI / m_d->transaction.originalHalfHeight() / 2 / fabs(m_d->currentArgs.scaleY());
         m_d->currentArgs.setAX(normalizeAngle(m_d->clickArgs.aX() + thetaX));
@@ -483,11 +498,11 @@ void KisFreeTransformStrategy::continuePrimaryAction(const QPointF &mousePos,
 
         KisTransformUtils::MatricesPack m(m_d->currentArgs);
         QTransform t = m.finalTransform();
-        QPointF newRotationCenter = t.map(m_d->currentArgs.originalCenter() + m_d->currentArgs.rotationCenterOffset());
+        QPointF newRotationCenter = t.map(rotationCenter);
 
         KisTransformUtils::MatricesPack clickM(m_d->clickArgs);
         QTransform clickT = clickM.finalTransform();
-        QPointF oldRotationCenter = clickT.map(m_d->clickArgs.originalCenter() + m_d->clickArgs.rotationCenterOffset());
+        QPointF oldRotationCenter = clickT.map(rotationCenter);
 
         m_d->currentArgs.setTransformedCenter(m_d->currentArgs.transformedCenter() + oldRotationCenter - newRotationCenter);
     }
@@ -517,7 +532,7 @@ void KisFreeTransformStrategy::continuePrimaryAction(const QPointF &mousePos,
         const QPointF targetMovingPointInView = staticPointInView + projNormVector * projLength;
 
         // override scale static point if it is locked
-        if ((m_d->clickArgs.transformAroundRotationCenter() ^ altModifierActive) &&
+        if ((m_d->clickArgs.invertAnchorBehavior() ^ altModifierActive) &&
             !qFuzzyCompare(anchorPoint.y(), movingPoint.y())) {
 
             staticPoint = anchorPoint;
@@ -570,7 +585,7 @@ void KisFreeTransformStrategy::continuePrimaryAction(const QPointF &mousePos,
         const QPointF targetMovingPointInView = staticPointInView + projNormVector * projLength;
 
         // override scale static point if it is locked
-        if ((m_d->currentArgs.transformAroundRotationCenter() ^ altModifierActive) &&
+        if ((m_d->currentArgs.invertAnchorBehavior() ^ altModifierActive) &&
             !qFuzzyCompare(anchorPoint.x(), movingPoint.x())) {
 
             staticPoint = anchorPoint;
@@ -619,7 +634,7 @@ void KisFreeTransformStrategy::continuePrimaryAction(const QPointF &mousePos,
         }
 
         // override scale static point if it is locked
-        if ((m_d->currentArgs.transformAroundRotationCenter() ^ altModifierActive) &&
+        if ((m_d->currentArgs.invertAnchorBehavior() ^ altModifierActive) &&
             !(qFuzzyCompare(anchorPoint.x(), movingPoint.x()) ||
               qFuzzyCompare(anchorPoint.y(), movingPoint.y()))) {
 
@@ -686,8 +701,6 @@ void KisFreeTransformStrategy::continuePrimaryAction(const QPointF &mousePos,
     case BOTTOMSHEAR: {
         KisTransformUtils::MatricesPack m(m_d->clickArgs);
 
-        QPointF oldStaticPoint = m.finalTransform().map(m_d->clickArgs.originalCenter() + m_d->clickArgs.rotationCenterOffset());
-
         QTransform backwardT = (m.S * m.projectedP).inverted();
         QPointF diff = backwardT.map(mousePos - m_d->clickPos);
 
@@ -702,7 +715,18 @@ void KisFreeTransformStrategy::continuePrimaryAction(const QPointF &mousePos,
 
         KisTransformUtils::MatricesPack currentM(m_d->currentArgs);
         QTransform t = currentM.finalTransform();
-        QPointF newStaticPoint = t.map(m_d->clickArgs.originalCenter() + m_d->clickArgs.rotationCenterOffset());
+
+        const bool useRotationCenter = (!m_d->currentArgs.invertAnchorBehavior() ^ altModifierActive) &&
+                !qFuzzyCompare(anchorPoint.y(), m_d->clickPos.y());
+
+        const QPointF rotationCenter =
+            useRotationCenter ?
+                m_d->clickArgs.originalCenter() + m_d->clickArgs.rotationCenterOffset() :
+                m_d->clickArgs.originalCenter();
+
+        const QPointF oldStaticPoint = m.finalTransform().map(rotationCenter);
+        const QPointF newStaticPoint = t.map(rotationCenter);
+
         m_d->currentArgs.setTransformedCenter(m_d->currentArgs.transformedCenter() + oldStaticPoint - newStaticPoint);
         break;
     }
@@ -711,7 +735,6 @@ void KisFreeTransformStrategy::continuePrimaryAction(const QPointF &mousePos,
     case RIGHTSHEAR: {
         KisTransformUtils::MatricesPack m(m_d->clickArgs);
 
-        QPointF oldStaticPoint = m.finalTransform().map(m_d->clickArgs.originalCenter() + m_d->clickArgs.rotationCenterOffset());
 
         QTransform backwardT = (m.S * m.projectedP).inverted();
         QPointF diff = backwardT.map(mousePos - m_d->clickPos);
@@ -727,7 +750,18 @@ void KisFreeTransformStrategy::continuePrimaryAction(const QPointF &mousePos,
 
         KisTransformUtils::MatricesPack currentM(m_d->currentArgs);
         QTransform t = currentM.finalTransform();
-        QPointF newStaticPoint = t.map(m_d->clickArgs.originalCenter() + m_d->clickArgs.rotationCenterOffset());
+
+        const bool useRotationCenter = (!m_d->currentArgs.invertAnchorBehavior() ^ altModifierActive) &&
+                !qFuzzyCompare(anchorPoint.x(), m_d->clickPos.x());
+
+        const QPointF rotationCenter =
+            useRotationCenter ?
+                m_d->clickArgs.originalCenter() + m_d->clickArgs.rotationCenterOffset() :
+                m_d->clickArgs.originalCenter();
+
+        const QPointF oldStaticPoint = m.finalTransform().map(rotationCenter);
+        const QPointF newStaticPoint = t.map(rotationCenter);
+
         m_d->currentArgs.setTransformedCenter(m_d->currentArgs.transformedCenter() + oldStaticPoint - newStaticPoint);
         break;
     }

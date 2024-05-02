@@ -174,8 +174,8 @@ public:
     inline QPointF rotationCenterOffset() const {
         return m_rotationCenterOffset;
     }
-    inline bool transformAroundRotationCenter() const {
-        return m_transformAroundRotationCenter;
+    inline bool invertAnchorBehavior() const {
+        return m_invertAnchorBehavior;
     }
     inline double aX() const {
         return m_aX;
@@ -214,7 +214,7 @@ public:
     inline void setRotationCenterOffset(QPointF rotationCenterOffset) {
         m_rotationCenterOffset = rotationCenterOffset;
     }
-    void setTransformAroundRotationCenter(bool value);
+    void setInvertAnchorBehavior(bool value);
 
     inline void setAX(double aX) {
         m_aX = aX;
@@ -341,7 +341,7 @@ private:
     QPointF m_rotationCenterOffset; // the position of the rotation center relative to
                                     // the original top left corner of the selection
                                     // before any transformation
-    bool m_transformAroundRotationCenter {false}; // In freehand mode makes the scaling and other transformations
+    bool m_invertAnchorBehavior {false}; // In freehand mode makes the scaling and other transformations
                                           // be anchored to the rotation center point.
 
     double m_aX {0};

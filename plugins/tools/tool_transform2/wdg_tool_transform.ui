@@ -366,7 +366,7 @@
             </widget>
            </item>
            <item row="1" column="0">
-            <widget class="QToolButton" name="btnTransformAroundPivotPoint">
+            <widget class="QToolButton" name="btnInvertAnchorBehavior">
              <property name="sizePolicy">
               <sizepolicy hsizetype="Fixed" vsizetype="Fixed">
                <horstretch>0</horstretch>
@@ -374,7 +374,7 @@
               </sizepolicy>
              </property>
              <property name="toolTip">
-              <string>Transform around pivot point (Alt)</string>
+              <string>Invert anchor behavior (Alt)</string>
              </property>
              <property name="text">
               <string/>
@@ -683,7 +683,6 @@
              </property>
              <property name="font">
               <font>
-               <weight>75</weight>
                <bold>true</bold>
               </font>
              </property>
@@ -894,7 +893,7 @@
            </widget>
           </item>
           <item row="3" column="1">
-           <widget class="KisDoubleSliderSpinBox" name="cameraHeightBox" native="true">
+           <widget class="KisDoubleSliderSpinBox" name="cameraHeightBox">
             <property name="sizePolicy">
              <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
               <horstretch>0</horstretch>
@@ -1183,7 +1182,7 @@
              </widget>
             </item>
             <item row="1" column="1">
-             <widget class="KisDoubleSliderSpinBox" name="shearYBox" native="true">
+             <widget class="KisDoubleSliderSpinBox" name="shearYBox">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                 <horstretch>0</horstretch>
@@ -1224,7 +1223,7 @@
              </widget>
             </item>
             <item row="0" column="1">
-             <widget class="KisDoubleSliderSpinBox" name="shearXBox" native="true">
+             <widget class="KisDoubleSliderSpinBox" name="shearXBox">
               <property name="sizePolicy">
                <sizepolicy hsizetype="Preferred" vsizetype="Preferred">
                 <horstretch>0</horstretch>
@@ -1411,7 +1410,7 @@
           <number>0</number>
          </property>
          <item row="1" column="1">
-          <widget class="KisDoubleSliderSpinBox" name="alphaBox" native="true">
+          <widget class="KisDoubleSliderSpinBox" name="alphaBox">
            <property name="sizePolicy">
             <sizepolicy hsizetype="Minimum" vsizetype="Fixed">
              <horstretch>0</horstretch>
@@ -1703,7 +1702,6 @@
         <widget class="QLabel" name="adjustGranularity">
          <property name="font">
           <font>
-           <weight>75</weight>
            <bold>true</bold>
           </font>
          </property>
@@ -1946,7 +1944,7 @@
             </widget>
            </item>
            <item row="4" column="1">
-            <widget class="KisDoubleSliderSpinBox" name="liquifySpacingSlider" native="true"/>
+            <widget class="KisDoubleSliderSpinBox" name="liquifySpacingSlider"/>
            </item>
            <item row="4" column="0">
             <widget class="QLabel" name="lblSpacing">
@@ -1987,7 +1985,7 @@
             </widget>
            </item>
            <item row="3" column="1">
-            <widget class="KisDoubleSliderSpinBox" name="liquifyFlowSlider" native="true"/>
+            <widget class="KisDoubleSliderSpinBox" name="liquifyFlowSlider"/>
            </item>
            <item row="1" column="0">
             <widget class="QLabel" name="lblSize">
@@ -2009,7 +2007,7 @@
             </widget>
            </item>
            <item row="1" column="1">
-            <widget class="KisDoubleSliderSpinBox" name="liquifySizeSlider" native="true"/>
+            <widget class="KisDoubleSliderSpinBox" name="liquifySizeSlider"/>
            </item>
            <item row="2" column="0">
             <widget class="QLabel" name="lblAmount">
@@ -2031,7 +2029,7 @@
             </widget>
            </item>
            <item row="2" column="1">
-            <widget class="KisDoubleSliderSpinBox" name="liquifyAmountSlider" native="true"/>
+            <widget class="KisDoubleSliderSpinBox" name="liquifyAmountSlider"/>
            </item>
            <item row="0" column="0">
             <widget class="QLabel" name="label_2">
@@ -2298,8 +2296,8 @@
  <resources/>
  <connections/>
  <buttongroups>
-  <buttongroup name="buttonGroup"/>
-  <buttongroup name="cageTransformButtonGroup"/>
   <buttongroup name="freeTransformRadioGroup"/>
+  <buttongroup name="cageTransformButtonGroup"/>
+  <buttongroup name="buttonGroup"/>
  </buttongroups>
 </ui>
