@@ -131,9 +131,19 @@ void KisAsyncColorSamplerHelper::activateDelayedPreview()
 
     m_d->showPreview = true;
 
-    const KoColor currentColor =
-        m_d->canvas->resourceManager()->koColorResource(m_d->sampleResourceId);
-    const QColor previewColor = m_d->canvas->displayColorConverter()->toQColor(currentColor);
+    KoColor currentColor = m_d->canvas->resourceManager()->koColorResource(m_d->sampleResourceId);
+    QColor previewColor = m_d->canvas->displayColorConverter()->toQColor(currentColor);
+
+    const KoColorProfile* surfaceProfile = m_d->canvas->displayColorConverter()->openGLCanvasSurfaceProfile();
+    const KoColorSpace* surfaceSpace =
+        KoColorSpaceRegistry::instance()->colorSpace(RGBAColorModelID.id(), Float32BitsColorDepthID.id(), surfaceProfile);
+
+    currentColor = KoColor(previewColor, surfaceSpace);
+
+    const KoColorProfile* monitorProfile = m_d->canvas->displayColorConverter()->monitorProfile();
+    currentColor.setProfile(monitorProfile);
+
+    previewColor = currentColor.toQColor();
 
     m_d->currentColor = previewColor;
     m_d->baseColor = previewColor;
@@ -295,20 +305,31 @@ void KisAsyncColorSamplerHelper::slotAddSamplingJob(const QPointF &docPoint)
 
 void KisAsyncColorSamplerHelper::slotColorSamplingFinished(const KoColor &rawColor)
 {
-    KoColor color(rawColor);
+    KoColor currentColor(rawColor);
 
-    color.setOpacity(OPACITY_OPAQUE_U8);
+    currentColor.setOpacity(OPACITY_OPAQUE_U8);
 
     if (m_d->updateGlobalColor) {
-        m_d->canvas->resourceManager()->setResource(m_d->sampleResourceId, color);
+        m_d->canvas->resourceManager()->setResource(m_d->sampleResourceId, currentColor);
     }
 
     Q_EMIT sigRawColorSelected(rawColor);
-    Q_EMIT sigColorSelected(color);
+    Q_EMIT sigColorSelected(currentColor);
 
     if (!m_d->showPreview) return;
 
-    const QColor previewColor = m_d->canvas->displayColorConverter()->toQColor(color);
+    QColor previewColor = m_d->canvas->displayColorConverter()->toQColor(currentColor);
+
+    const KoColorProfile* surfaceProfile = m_d->canvas->displayColorConverter()->openGLCanvasSurfaceProfile();
+    const KoColorSpace* surfaceSpace =
+        KoColorSpaceRegistry::instance()->colorSpace(RGBAColorModelID.id(), Float32BitsColorDepthID.id(), surfaceProfile);
+
+    currentColor = KoColor(previewColor, surfaceSpace);
+
+    const KoColorProfile* monitorProfile = m_d->canvas->displayColorConverter()->monitorProfile();
+    currentColor.setProfile(monitorProfile);
+
+    previewColor = currentColor.toQColor();
 
     m_d->showComparePlate = true;
     m_d->currentColor = previewColor;
