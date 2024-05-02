@@ -23,6 +23,9 @@ set (SvgTextTool_SRCS
     SvgTextToolFactory.cpp
     FontSizeAction.cpp
     SvgTextShapeManagerBlocker.cpp
+
+    glyphpalette/GlyphPaletteDialog.cpp
+    glyphpalette/GlyphPaletteProxyModel.cpp
 )
 
 ki18n_wrap_ui(SvgTextTool_SRCS 
@@ -46,7 +49,13 @@ kis_add_library(krita_tool_svgtext_static STATIC ${SvgTextTool_SRCS})
 kis_add_library(krita_tool_svgtext MODULE ${SvgTextTool_SOURCES})
 generate_export_header(krita_tool_svgtext_static BASE_NAME kritatoolsvgtext)
 
-target_link_libraries(krita_tool_svgtext_static kritaui KF5::I18n)
+target_link_libraries(krita_tool_svgtext_static
+    kritaui
+    kritaqml
+    KF5::I18n
+    Qt5::Quick
+    Qt5::QuickWidgets
+    Qt5::Qml)
 target_link_libraries(krita_tool_svgtext PRIVATE krita_tool_svgtext_static)
 
 install(TARGETS krita_tool_svgtext DESTINATION ${KRITA_PLUGIN_INSTALL_DIR})

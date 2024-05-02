@@ -541,8 +541,9 @@ QPainterPath KoSvgTextShape::selectionBoxes(int pos, int anchor)
 {
     int start = qMin(pos, anchor);
     int end = qMax(pos, anchor);
+    end = qMin(d->cursorPos.size()-1, end);
 
-    if (start == end || start < 0 || end >= d->cursorPos.size()) {
+    if (start == end || start < 0) {
         return QPainterPath();
     }
 
@@ -1022,7 +1023,6 @@ KoSvgTextProperties KoSvgTextShape::textProperties() const
 
 QSharedPointer<KoShapeBackground> KoSvgTextShape::background() const
 {
-    QSharedPointer<KoShapeBackground> bg(new KoColorBackground(Qt::black));
     KoSvgTextProperties props = KisForestDetail::size(d->textData)? d->textData.childBegin()->properties: KoSvgTextProperties();
     if (props.hasProperty(KoSvgTextProperties::FillId)) {
         return props.property(KoSvgTextProperties::FillId).value<KoSvgText::BackgroundProperty>().property;

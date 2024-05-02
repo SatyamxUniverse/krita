@@ -21,6 +21,7 @@
 #include <kis_signal_auto_connection.h>
 
 #include "SvgTextCursor.h"
+#include "glyphpalette/GlyphPaletteDialog.h"
 
 #include <memory>
 
@@ -111,6 +112,10 @@ private Q_SLOTS:
     void slotTextEditorClosed();
     void textUpdated(KoSvgTextShape *shape, const QString &svg, const QString &defs);
 
+    void showGlyphPalette();
+    void updateGlyphPalette();
+    void insertRichText(KoSvgTextShape *richText, bool replaceLastGlyph = false);
+
     /**
      * @brief generateDefs
      * This generates a defs section with the appropriate
@@ -156,6 +161,7 @@ private:
     };
 
     QPointer<SvgTextEditor> m_editor;
+    QPointer<GlyphPaletteDialog> m_glyphPalette;
     QPointF m_lastMousePos;
     DragMode m_dragging {DragMode::None};
     std::unique_ptr<KoInteractionStrategy> m_interactionStrategy;
