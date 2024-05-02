@@ -329,6 +329,7 @@ KisPaintopBox::KisPaintopBox(KisViewManager *viewManager, QWidget *parent, const
 
     m_cmbCompositeOp = new KisCompositeOpComboBox();
     m_cmbCompositeOp->setFixedHeight(buttonsize);
+    m_cmbCompositeOp->setMaximumWidth(120); // otherwise it would take as much space as needed to show every item, and that's not necessary, even on the toolbar - wastes space
     m_cmbCompositeOp->connectBlendmodeActions(m_viewManager->actionManager());
 
     // Workspace Button
