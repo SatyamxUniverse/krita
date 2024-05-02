@@ -165,6 +165,9 @@ void KoDocumentInfoDlg::initAboutTab()
     }
 
     d->aboutUi->leTitle->setText(d->info->aboutInfo("title"));
+    QRegExpValidator* titleValidator = new QRegExpValidator(QRegExp("[^/\\\\]*"), this);
+    d->aboutUi->leTitle->setValidator(titleValidator);
+
     d->aboutUi->leSubject->setText(d->info->aboutInfo("subject"));
 
     d->aboutUi->leKeywords->setToolTip(i18n("Use ';' (Example: Office;KDE;Calligra)"));
