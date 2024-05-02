@@ -62,3 +62,4 @@ if (JPEGXL_FOUND)
 endif()
 
 add_subdirectory(rgbe)
+add_subdirectory(qoi)

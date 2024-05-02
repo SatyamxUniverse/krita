@@ -1,0 +1,13 @@
+{
+    "Id": "Krita QOI Export Filter",
+    "NoDisplay": "true",
+    "Type": "Service",
+    "X-KDE-Export": "image/qoi",
+    
+    "X-KDE-Library": "kritaqoiexport",
+    "X-KDE-ServiceTypes": [
+        "Krita/FileFilter"
+    ],
+    "X-KDE-Weight": 1,
+    "X-KDE-Extensions" : "qoi"
+}
