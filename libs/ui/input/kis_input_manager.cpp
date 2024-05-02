@@ -66,6 +66,7 @@ KisInputManager::KisInputManager(QObject *parent)
     connect(KoToolManager::instance(), SIGNAL(aboutToChangeTool(KoCanvasController*)), SLOT(slotAboutToChangeTool()));
     connect(KoToolManager::instance(), SIGNAL(changedTool(KoCanvasController*)), SLOT(slotToolChanged()));
     connect(KoToolManager::instance(), SIGNAL(textModeChanged(bool)), SLOT(slotTextModeChanged()));
+    connect(KoToolManager::instance(), SIGNAL(disableTouchChanged(bool)), SLOT(slotDisableTouchChanged()));
     connect(&d->moveEventCompressor, SIGNAL(timeout()), SLOT(slotCompressedMoveEvent()));
 
 
@@ -730,7 +731,7 @@ bool KisInputManager::eventFilterImpl(QEvent * event)
         } else {
 #endif
             QPointF currentPos = touchEvent->touchPoints().at(0).pos();
-            if (d->touchStrokeStarted || (!KisConfig(true).disableTouchOnCanvas()
+            if (d->touchStrokeStarted || (!d->disableTouchOnCanvas
                 && !d->touchHasBlockedPressEvents
                 && touchEvent->touchPoints().count() == 1
                 && touchEvent->touchPointStates() != Qt::TouchPointStationary
@@ -764,7 +765,7 @@ bool KisInputManager::eventFilterImpl(QEvent * event)
         }
 #endif
         // if the event isn't handled, Qt starts to send MouseEvents
-        if (!KisConfig(true).disableTouchOnCanvas())
+        if (!d->disableTouchOnCanvas)
             retval = true;
 
         event->accept();
@@ -791,7 +792,7 @@ bool KisInputManager::eventFilterImpl(QEvent * event)
         }
 
         // if the event isn't handled, Qt starts to send MouseEvents
-        if (!KisConfig(true).disableTouchOnCanvas())
+        if (!d->disableTouchOnCanvas)
             retval = true;
 
         event->accept();
@@ -859,7 +860,7 @@ bool KisInputManager::startTouch(bool &retval)
     Q_UNUSED(retval);
 
     // Touch rejection: if touch is disabled on canvas, no need to block mouse press events
-    if (KisConfig(true).disableTouchOnCanvas()) {
+    if (d->disableTouchOnCanvas) {
         d->eatOneMousePress();
     }
 
@@ -915,7 +916,9 @@ void KisInputManager::slotToolChanged()
         // once more, don't forget the global state whenever matcher may trigger a KisAbstractInputAction
         KisAbstractInputAction::setInputManager(this);
 
-        d->setMaskSyntheticEvents(tool->maskSyntheticEvents());
+        d->setMaskSyntheticEvents(tool->disableTouch());
+        // update the touch shortcuts.
+        profileChanged();
         if (tool->isInTextMode()) {
             d->forwardAllEventsToTool = true;
             d->matcher.suppressAllKeyboardActions(true);
@@ -942,6 +945,18 @@ void KisInputManager::slotTextModeChanged()
             d->forwardAllEventsToTool = false;
             d->matcher.suppressAllKeyboardActions(false);
         }
+    }
+}
+
+void KisInputManager::slotDisableTouchChanged()
+{
+    if (!d->canvas) return;
+    KoToolManager *toolManager = KoToolManager::instance();
+    KoToolBase *tool = toolManager->toolById(canvas(), toolManager->activeToolId());
+    if (tool) {
+        d->setMaskSyntheticEvents(tool->disableTouch());
+        // update the touch shortcuts.
+        profileChanged();
     }
 }
 

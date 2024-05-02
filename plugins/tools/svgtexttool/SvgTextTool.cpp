@@ -77,7 +77,7 @@ static bool debugEnabled()
 }
 
 SvgTextTool::SvgTextTool(KoCanvasBase *canvas)
-    : KoToolBase(canvas)
+    : KoToolBase(canvas, KoToolBase::TouchAlwaysOn)
     , m_textCursor(canvas)
 {
      // TODO: figure out whether we should use system config for this, Windows and GTK have values for it, but Qt and MacOS don't(?).

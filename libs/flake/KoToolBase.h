@@ -55,11 +55,18 @@ class KRITAFLAKE_EXPORT KoToolBase : public QObject
 {
     Q_OBJECT
 public:
+
+    enum TouchSupport {
+        TouchDefault,  ///< Touch will follow the touch painting toggle in the settings.
+        TouchAlwaysOn,
+        TouchAlwaysOff
+    };
+
     /**
      * Constructor, normally only called by the factory (see KoToolFactoryBase)
      * @param canvas the canvas interface this tool will work for.
      */
-    explicit KoToolBase(KoCanvasBase *canvas);
+    explicit KoToolBase(KoCanvasBase *canvas, TouchSupport touch = TouchDefault);
     ~KoToolBase() override;
 
     /**
@@ -221,14 +228,9 @@ public:
     virtual void customMoveEvent(KoPointerEvent *event);
 
     /**
-     * @return true if synthetic mouse events on the canvas should be eaten.
-     *
-     * For example, the guides tool should allow click and drag with touch,
-     * while the same touch events should be rejected by the freehand tool.
-     *
-     * These events are sent by the OS in Windows
+     * Specifies whether the tool currently blocks touch events.
      */
-    bool maskSyntheticEvents() const;
+    bool disableTouch() const;
 
     /**
      * get the identifier code from the KoToolFactoryBase that created this tool.
@@ -438,6 +440,11 @@ public Q_SLOTS:
      */
     void updateOptionsWidgetIcons();
 
+    /**
+     * use this slot to update the disable touch from the current config.
+     */
+    void updateDisableTouchFromConfig();
+
 Q_SIGNALS:
 
     /**
@@ -471,6 +478,11 @@ Q_SIGNALS:
      * @param inTextMode whether it is now in text mode.
      */
     void textModeChanged(bool inTextMode);
+
+    /**
+     * Emitted when the tool changes whether it allows touch.
+     */
+    void disableTouchChanged(bool disableTouch);
 
 protected:
     /**
@@ -524,12 +536,6 @@ protected:
       * are able to type. If you don't set it, then single key shortcuts will get the key event and not this tool.
       */
     void setTextMode(bool value);
-
-    /**
-     * Allows subclasses to specify whether synthetic mouse events should be accepted.
-     */
-    void setMaskSyntheticEvents(bool value);
-
     /**
      * Returns true if activate() has been called (more times than deactivate :) )
      */
@@ -558,6 +564,8 @@ private:
      * @see KoToolFactoryBase
      */
     void setFactory(KoToolFactoryBase *factory);
+
+    void connectTouchConfigSignals(TouchSupport touchMode);
 
     KoToolBase();
     KoToolBase(const KoToolBase&);

@@ -57,7 +57,7 @@
 #include <QPainterPath>
 #include <QBitmap>
 #include <QTabWidget>
-
+#include <kis_config_notifier.h>
 #include <math.h>
 
 // helper function to calculate the squared distance between two points

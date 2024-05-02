@@ -15,8 +15,8 @@
 #include "kis_assert.h"
 
 
-KoInteractionTool::KoInteractionTool(KoCanvasBase *canvas)
-    : KoToolBase(*(new KoInteractionToolPrivate(this, canvas)))
+KoInteractionTool::KoInteractionTool(KoCanvasBase *canvas, TouchSupport touch)
+    : KoToolBase(*(new KoInteractionToolPrivate(this, canvas, touch)))
 {
 }
 

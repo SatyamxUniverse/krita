@@ -166,8 +166,8 @@ class KoCreatePathToolPrivate : public KoToolBasePrivate
 {
     KoCreatePathTool * const q;
 public:
-    KoCreatePathToolPrivate(KoCreatePathTool * const qq, KoCanvasBase* canvas)
-        : KoToolBasePrivate(qq, canvas),
+    KoCreatePathToolPrivate(KoCreatePathTool * const qq, KoCanvasBase* canvas, KoToolBase::TouchSupport touchMode)
+        : KoToolBasePrivate(qq, canvas, touchMode),
           q(qq),
           shape(0),
           activePoint(0),

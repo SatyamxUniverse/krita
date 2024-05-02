@@ -16,6 +16,8 @@
 #include <QString>
 #include <QPointer>
 #include <string.h> // for the qt version check
+#include "kis_config_notifier.h"
+#include "KoToolBase.h"
 
 class QAction;
 class KoToolBase;
@@ -24,10 +26,11 @@ class KoToolFactoryBase;
 class KoToolBasePrivate
 {
 public:
-    KoToolBasePrivate(KoToolBase *qq, KoCanvasBase *canvas_)
+    KoToolBasePrivate(KoToolBase *qq, KoCanvasBase *canvas_, KoToolBase::TouchSupport touchMode)
         : currentCursor(Qt::ArrowCursor),
         q(qq),
         canvas(canvas_),
+        touchMode(touchMode),
         isInTextMode(false),
         isActivated(false)
     {
@@ -67,8 +70,9 @@ public:
     KoToolBase *q;
     KoToolFactoryBase *factory {0};
     KoCanvasBase *canvas; ///< the canvas interface this tool will work for.
+    KoToolBase::TouchSupport touchMode;
     bool isInTextMode;
-    bool maskSyntheticEvents{false}; ///< Whether this tool masks synthetic events
+    bool disableTouch{true};
     bool isActivated;
     QRectF lastDecorationsRect;
 };

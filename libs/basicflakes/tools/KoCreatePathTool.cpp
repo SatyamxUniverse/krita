@@ -33,7 +33,7 @@
 #include <QVBoxLayout>
 
 KoCreatePathTool::KoCreatePathTool(KoCanvasBase *canvas)
-    : KoToolBase(*(new KoCreatePathToolPrivate(this, canvas)))
+    : KoToolBase(*(new KoCreatePathToolPrivate(this, canvas, TouchDefault)))
 {
 }
 
