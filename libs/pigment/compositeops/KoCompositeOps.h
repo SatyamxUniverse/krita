@@ -378,6 +378,61 @@ struct AddGeneralAlphaOps<Traits, true>
 
 
 
+template<class Traits, bool flag>
+struct AddRGBOverOps
+{
+    static void add(KoColorSpace* cs) { Q_UNUSED(cs); }
+};
+
+template<class Traits>
+struct AddRGBOverOps<Traits, true>
+{
+    typedef float Arg;
+
+    static const qint32 red_pos   = Traits::red_pos;
+    static const qint32 green_pos = Traits::green_pos;
+    static const qint32 blue_pos  = Traits::blue_pos;
+
+    template<void compositeFunc(Arg, Arg, Arg, Arg, Arg&, Arg&, Arg&)>
+
+    static void add(KoColorSpace* cs, const QString& id, const QString& category) {
+        cs->addCompositeOp(new KoCompositeOpGenericOVER<Traits, compositeFunc>(cs, id, category));
+    }
+
+    static void add(KoColorSpace* cs) {
+        add<&cfSpectral      <HSYType,Arg> >(cs, COMPOSITE_OVER_SPECTRAL    , KoCompositeOp::categoryMix());
+    }
+};
+
+
+
+
+template<class Traits, bool flag>
+struct AddRGBCopyOps
+{
+    static void add(KoColorSpace* cs) { Q_UNUSED(cs); }
+};
+
+template<class Traits>
+struct AddRGBCopyOps<Traits, true>
+{
+    typedef float Arg;
+
+    static const qint32 red_pos   = Traits::red_pos;
+    static const qint32 green_pos = Traits::green_pos;
+    static const qint32 blue_pos  = Traits::blue_pos;
+
+    template<void compositeFunc(Arg, Arg, Arg, Arg, Arg&, Arg&, Arg&)>
+
+    static void add(KoColorSpace* cs, const QString& id, const QString& category) {
+        cs->addCompositeOp(new KoCompositeOpGenericCOPY<Traits, compositeFunc>(cs, id, category));
+    }
+
+    static void add(KoColorSpace* cs) {
+        add<&cfSpectral      <HSYType,Arg> >(cs, COMPOSITE_COPY_SPECTRAL    , KoCompositeOp::categoryMisc());
+    }
+};
+
 
 }
 
@@ -400,8 +455,9 @@ void addStandardCompositeOps(KoColorSpace* cs)
 
     _Private::AddGeneralOps      <_Traits_, useGeneralOps>::add(cs);
     _Private::AddRGBOps          <_Traits_, useRGBOps    >::add(cs);
+    _Private::AddRGBOverOps      <_Traits_, useRGBOps    >::add(cs);
+    _Private::AddRGBCopyOps      <_Traits_, useRGBOps    >::add(cs);
     _Private::AddGeneralAlphaOps <_Traits_, useGeneralOps>::add(cs);
-
 }
 
 template<class _Traits_>

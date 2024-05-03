@@ -87,9 +87,9 @@ public:
 
     const KoColorSpace* preciseColorSpace() const override;
 
-    virtual QString smearCompositeOp(bool smearAlpha) const;
+    virtual QString smearCompositeOp(bool smearAlpha, const QString &colorRateCompositeOp) const;
 
-    virtual QString finalCompositeOp(bool smearAlpha) const;
+    virtual QString finalCompositeOp(bool smearAlpha, const QString &colorRateCompositeOp) const;
 
     virtual quint8 finalPainterOpacity(qreal opacity, qreal smudgeRateValue);
 

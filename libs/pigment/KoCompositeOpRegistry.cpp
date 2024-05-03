@@ -107,6 +107,7 @@ KoCompositeOpRegistry::KoCompositeOpRegistry()
     m_map.insert(m_categories[5], KoID(COMPOSITE_NEGATION             ,  i18nc("Blending mode - Negation", "Negation")));
 
     m_map.insert(m_categories[6], koidCompositeOverStatic());
+    m_map.insert(m_categories[6], KoID(COMPOSITE_OVER_SPECTRAL   ,  i18nc("Blending mode - Over Spectral", "Over Spectral")));
     m_map.insert(m_categories[6], KoID(COMPOSITE_BEHIND          ,  i18nc("Blending mode - Behind", "Behind")));
     m_map.insert(m_categories[6], KoID(COMPOSITE_GREATER         ,  i18nc("Blending mode - Greater", "Greater")));
     m_map.insert(m_categories[6], KoID(COMPOSITE_OVERLAY         ,  i18nc("Blending mode - Overlay", "Overlay")));
@@ -139,6 +140,7 @@ KoCompositeOpRegistry::KoCompositeOpRegistry()
     m_map.insert(m_categories[7], KoID(COMPOSITE_COPY_GREEN,  i18nc("Blending mode - Copy Green", "Copy Green")));
     m_map.insert(m_categories[7], KoID(COMPOSITE_COPY_BLUE ,  i18nc("Blending mode - Copy Blue", "Copy Blue")));
     m_map.insert(m_categories[7], KoID(COMPOSITE_COPY      ,  i18nc("Blending mode - Copy", "Copy")));
+    m_map.insert(m_categories[7], KoID(COMPOSITE_COPY_SPECTRAL   ,  i18nc("Blending mode - Copy Spectral", "Copy Spectral")));
     m_map.insert(m_categories[7], KoID(COMPOSITE_TANGENT_NORMALMAP,  i18nc("Blending mode - Tangent Normalmap", "Tangent Normalmap")));
 
     m_map.insert(m_categories[8], KoID(COMPOSITE_COLOR         ,  i18nc("Blending mode - Color HSY", "Color")));
