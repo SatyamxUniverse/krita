@@ -309,6 +309,21 @@ bool KisTransformWorker::runPartial(const QRect &processRect)
         qFuzzyCompare(xscale, 1.0) &&
         qFuzzyCompare(yscale, 1.0);
 
+    /**
+     * Transformations which can preserve fidelity and bypass resample
+     */
+    const bool losslessTransform =
+        !m_forceSubPixelTranslation &&
+        (qFuzzyCompare(rotation, 0.0) ||
+         qFuzzyCompare(rotation, M_PI / 2) ||
+         qFuzzyCompare(rotation, M_PI) ||
+         qFuzzyCompare(rotation, 3 * M_PI / 2)) &&
+        (qFuzzyCompare(xscale, 1.0) ||
+         qFuzzyCompare(xscale, -1.0)) &&
+        (qFuzzyCompare(yscale, 1.0) ||
+         qFuzzyCompare(yscale, -1.0));
+
+
     int progressTotalSteps = qMax(1, 2 * (!simpleTranslation) + (rotQuadrant != 0));
     int progressPortion = 100 / progressTotalSteps;
 
@@ -340,6 +355,22 @@ bool KisTransformWorker::runPartial(const QRect &processRect)
 
         m_boundRect.translate(intXTranslate, intYTranslate);
         m_dev->moveTo(m_dev->x() + intXTranslate, m_dev->y() + intYTranslate);
+
+    } else if (losslessTransform) {
+        const int intXTranslate = qRound(xtranslate);
+        const int intYTranslate = qRound(ytranslate);
+
+        QTransform SC = QTransform(xscale, 0, 0, 0, yscale, 0, 0, 0, 1);
+        QTransform R; R.rotateRadians(rotation);
+        QTransform T = QTransform::fromTranslate(intXTranslate, intYTranslate);
+
+        QTransform m = SC * R * T;
+
+        // First Pass (X)
+        transformPass<KisHLineIteratorSP>(m_dev.data(), m_dev.data(), m.m11(), m.m21(), m.m31(), m_filter, progressPortion);
+        // Second Pass (Y)
+        transformPass<KisVLineIteratorSP>(m_dev.data(), m_dev.data(), m.m22(), m.m12(), m.m32(), m_filter, progressPortion);
+
     } else {
         QTransform SC = QTransform::fromScale(xscale, yscale);
         QTransform R; R.rotateRadians(rotation);
