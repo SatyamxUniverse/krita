@@ -38,6 +38,8 @@ public:
 public Q_SLOTS:
     void setShowRulers(bool value);
     void removeAllGuides();
+    void saveGuides();
+    void loadGuides();
 
 private Q_SLOTS:
     void slotGridGuiChanged();

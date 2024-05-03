@@ -50,8 +50,9 @@ GridConfigWidget::GridConfigWidget(QWidget *parent) :
     ui->angleRightAngleSelector->setFlipOptionsMode(KisAngleSelector::FlipOptionsMode_NoFlipOptions);
     ui->cellSpacingSpinbox->setSuffix(i18n(" px"));
     ui->cellSizeSpinbox->setSuffix(i18n(" px"));
+    ui->loadGuidesButton->setIcon(KisIconUtils::loadIcon("folder"));
+    ui->saveGuidesButton->setIcon(KisIconUtils::loadIcon("document-save-16"));
     ui->deleteAllGuidesButton->setIcon(KisIconUtils::loadIcon("edit-delete"));
-    ui->deleteAllGuidesButton->setIconSize(QSize(16, 16));
 
     ui->chkLeftAngleActive->setChecked(true);
     ui->chkRightAngleActive->setChecked(true);
@@ -59,6 +60,8 @@ GridConfigWidget::GridConfigWidget(QWidget *parent) :
     ui->chkYSpacingActive->setChecked(true);
 
     connect(ui->deleteAllGuidesButton, SIGNAL(clicked()), SLOT(removeAllGuides()));
+    connect(ui->saveGuidesButton, SIGNAL(clicked()), SLOT(saveGuides()));
+    connect(ui->loadGuidesButton, SIGNAL(clicked()), SLOT(loadGuides()));
 
     ui->gridTypeCombobox->addItem(i18n("Rectangle"));
     ui->gridTypeCombobox->addItem(i18n("Isometric (Legacy)"));
@@ -254,6 +257,16 @@ KisGuidesConfig GridConfigWidget::guidesConfig() const
 void GridConfigWidget::removeAllGuides() {
     m_d->guidesConfig.removeAllGuides();
     emit guidesValueChanged();
+}
+
+void GridConfigWidget::saveGuides() {
+    m_d->guidesConfig.saveGuides();
+}
+
+void GridConfigWidget::loadGuides() {
+    m_d->guidesConfig.loadGuides();
+    emit guidesValueChanged();
+    ui->chkShowGuides->setChecked(true);
 }
 
 KisGridConfig GridConfigWidget::fetchGuiGridConfig() const
