@@ -580,7 +580,7 @@ void RecorderDockerDock::onManageRecordingsButtonClicked()
 void RecorderDockerDock::onSelectRecordFolderButtonClicked()
 {
     QFileDialog dialog(this);
-    dialog.setFileMode(QFileDialog::DirectoryOnly);
+    dialog.setFileMode(QFileDialog::Directory);
     const QString &directory = dialog.getExistingDirectory(this,
                                i18n("Select a Directory for Recordings"),
                                d->ui->editDirectory->text(),

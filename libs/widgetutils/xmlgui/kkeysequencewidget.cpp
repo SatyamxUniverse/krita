@@ -199,7 +199,13 @@ void KisKKeySequenceWidgetPrivate::wontStealShortcut(QAction *item, const QKeySe
     QString msg(i18n("<qt>The '%1' key combination is already used by the <b>%2</b> action.<br>"
                      "Please select a different one.</qt>", seq.toString(QKeySequence::NativeText),
                      KLocalizedString::removeAcceleratorMarker(item->text())));
+#if KWIDGETSADDONS_VERSION_MAJOR > 5 ||
+    (KWIDGETSADDONS_VERSION_MAJOR == 5 &&
+     KWIDGETSADDONS_VERSION_MINOR >= 97)
+    KMessageBox::error(q, msg, title);
+#else
     KMessageBox::sorry(q, msg, title);
+#endif
 }
 
 KisKKeySequenceWidget::KisKKeySequenceWidget(QWidget *parent)
@@ -638,7 +644,14 @@ void KKeySequenceButton::keyPressEvent(QKeyEvent *e)
         // Qt sometimes returns garbage keycodes, I observed -1, if it doesn't know a key.
         // We cannot do anything useful with those (several keys have -1, indistinguishable)
         // and QKeySequence.toString() will also yield a garbage string.
-        KMessageBox::sorry(this,
+#if KWIDGETSADDONS_VERSION_MAJOR > 5 ||
+    (KWIDGETSADDONS_VERSION_MAJOR == 5 &&
+     KWIDGETSADDONS_VERSION_MINOR >= 97)
+        KMessageBox::error(
+#else
+        KMessageBox::sorry(
+#endif
+                           this,
                            i18n("The key you just pressed is not supported by Qt."),
                            i18n("Unsupported Key"));
         return d->cancelRecording();
