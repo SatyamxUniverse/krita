@@ -19,6 +19,18 @@ class TestAssistants : public QObject
 private Q_SLOTS:
 
     void testConcentricEllipseAdjustLine();
+    void testMirroringPoints();
+    void testProjection();
+
+
+    void testProjectionNewMethodTest2();
+
+    void testProjectionNewMethod();
+    void testProjectionNewMethodTest3();
+
+
+    void testMoveToOrigin();
+
 
 };
 

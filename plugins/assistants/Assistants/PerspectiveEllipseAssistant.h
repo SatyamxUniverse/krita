@@ -26,10 +26,22 @@ public:
     int numHandles() const override { return 4; }
     bool isAssistantComplete() const override;
 
+
+    void saveCustomXml(QXmlStreamWriter* xml) override;
+    bool loadCustomXml(QXmlStreamReader* xml) override;
+
+    void endStroke() override;
+    void setAdjustedBrushPosition(const QPointF position) override;
+
+
+    bool isConcentric() const;
+    void setConcentric(bool isConcentric);
+
     // implements KisAbstractPerspectiveGrid
     bool contains(const QPointF& point) const override;
     qreal distance(const QPointF& point) const override;
     bool isActive() const  override;
+
     
 protected:
     QRect boundingRect() const override;
@@ -44,6 +56,7 @@ private:
 
     bool isEllipseValid();
     void updateCache();
+    void paintConcentricEllipse(QPainter& gc, const QRectF& updateRect, const QTransform &initialTransform);
 
 
      
