@@ -12,8 +12,9 @@
  */
 
 #include "kis_painter.h"
-#include <stdlib.h>
-#include <string.h>
+#include <set>
+#include <cstdlib>
+#include <cstring>
 #include <cfloat>
 #include <cmath>
 #include <climits>
@@ -1306,6 +1307,241 @@ void KisPainter::paintEllipse(const QRectF &rect)
     getBezierCurvePoints(p9, p10, p11, p0, points);
 
     paintPolygon(points);
+}
+
+Q_DECL_PURE_FUNCTION static inline QVector<QPair<long double,long double>>
+getEllipsePixels(long double sinC, long double sqSinC, long double cosC, long double sqCosC, long double aSq,
+                 long double bSq, qreal angle) {
+    // Read https://www.cpp.edu/~raheja/CS445/MEA.pdf for information of the algorithm.
+    // In this document, a difference method is used to speed up calculation, but I'm not going to
+    // use it in Krita, because calculating the ellipse paraboloid is fast enough on modern computers,
+    // and the difference method make the code 10 times complexier.
+
+    // The over all idea is to start from one point and trace along the ellipse.
+    // For example, if we start from the leftmost point on the ellipse, we should go a left-upper-ish direction.
+    // At the first, the slope we follow is larger than 45 degs, so we always try to take a step up,
+    // a prediction function is used to determine if we are inside the ellipse after the step up.
+
+    // We should always try to keep in the ellipse, so when predict says we will be outside the ellipse after the
+    // step up, we should take a 45 degs step up instead. By doing so, we're always fitting in the ellipse.
+
+    // The idea is similiar for other patitions. For reasons about partitioning, read the document above.
+
+    // Using long double for more precision here.
+    // Because Qt does not provide long double version of most functions,
+    // I have to use std instead.
+
+    auto predict=[sinC,cosC,sqCosC,sqSinC,aSq,bSq](auto x,auto y){
+        return (aSq * sqSinC + bSq * sqCosC) * x * x + 2.0l * (bSq - aSq) * sinC * cosC * x * y + (aSq * sqCosC + bSq * sqSinC) * y * y - aSq * bSq;
+    };
+
+    // When taking a step, it's possible to cross the whole ellipse(because the ellipse can be thin) and end up
+    // out of the ellipse, but on the other side. This function tells if we take a too big step.
+    auto under=[sqCosC,sqSinC,aSq,bSq,angle](auto x){
+        auto coef1 = std::sqrt(2.0l) * std::sqrt(aSq * bSq * (aSq + bSq - 2.0l * x * x + (aSq - bSq) * std::cos(2.0l * angle)));
+        auto coef2 = (aSq - bSq) * x * std::sin(2.0l * angle);
+        auto coef3 = 2.0l * (aSq * sqCosC + bSq * sqSinC);
+        return std::min((coef1 + coef2) / coef3, (-coef1 + coef2) / coef3);
+    };
+
+    auto right=[sqCosC,sqSinC,aSq,bSq,angle](auto y){
+        auto coef1 = std::sqrt(2.0l) * std::sqrt(aSq * bSq * (aSq + bSq - 2.0l * y * y + (-aSq + bSq) * std::cos(2.0l * angle)));
+        auto coef2 = (aSq - bSq) * y * std::sin(2.0l * angle);
+        auto coef3 = 2.0l * (bSq * sqCosC + aSq * sqSinC);
+        return std::max((coef1 + coef2) / coef3, (-coef1 + coef2) / coef3);
+    };
+
+    QVector<QPair<long double,long double>> result;
+
+    long double xBound = std::sqrt(aSq * sqCosC + bSq * sqSinC);
+
+    long double yBound = std::sqrt(bSq* sqCosC + aSq*sqSinC);
+    bool oddB = ((int) std::round(yBound * 2.0l)) % 2 == 1;
+
+    QPair<long double,long double> p;
+    p.first = -std::round(xBound * 2.0l) / 2.0l;
+    {
+        long double coef1 = (aSq - bSq) * std::sin(2.0l * angle);
+        long double coef2 = std::sqrt(2.0l) * std::sqrt(aSq + bSq + (aSq - bSq) * std::cos(angle * 2.0l));
+        if (oddB) {
+            p.second = std::round(-coef1 / coef2 + 0.5l) - 0.5l;
+        } else {
+            p.second = std::round(-coef1 / coef2);
+        }
+    }
+    // The boundary of each part.
+    // y=x 45 deg Tangent point boundary
+    long double region1StopY = ((-aSq - bSq + (aSq - bSq) * std::cos(2.0l * angle) + (aSq - bSq) * std::sin(2.0l * angle)) * std::sqrt(aSq + bSq + (-aSq + bSq) * std::sin(2.0l * angle))) / (-2.0l * (aSq + bSq) + 2.0l * (aSq - bSq) * std::sin(2.0l * angle));
+    // y=C horizontal Tangent point boundary
+    long double region2StopX = (std::sqrt(2.0l) * (aSq - bSq) * cosC * sinC) / std::sqrt(aSq + bSq + (-aSq + bSq) * std::cos(2.0l * angle));
+    // y=-x -45 deg Tangent point boundary
+    long double region3StopX = (aSq + bSq + (aSq - bSq) * std::cos(2.0l * angle) + (aSq - bSq) * std::sin(2.0l * angle)) / (2.0l * std::sqrt(aSq + bSq + (aSq - bSq) * std::sin(2.0l * angle)));
+    // x=C vertical Tangent point boundary
+    long double region4StopY = ((aSq - bSq) * std::sin(2.0l * angle)) / (std::sqrt(2.0l) * std::sqrt(aSq + bSq + (aSq - bSq) * std::cos(2.0l * angle)));
+
+    region1StopY = std::round(region1StopY * 2.0l) / 2.0l;
+    region2StopX = std::round(region2StopX * 2.0l) / 2.0l;
+    region3StopX = std::round(region3StopX * 2.0l) / 2.0l;
+    region4StopY = std::round(region4StopY * 2.0l) / 2.0l;
+
+    while (p.second < region1StopY){
+        if (predict(p.first + 0.5l,  p.second + 1.0l) >= 0
+            && right( p.second + 1.0l) >  p.first + 0.5l) {
+            p.first++;
+        }
+        p.second++;
+        result.push_back(p);
+    }
+
+    while (p.first < region2StopX){
+        if(predict(p.first+1.0l,p.second+0.5l)<0){
+            p.second++;
+        }
+        p.first++;
+        result.push_back(p);
+    }
+
+    while (p.first < region3StopX) {
+        if (predict(p.first + 1.0l, p.second - 0.5l) >= 0
+            && under( p.first + 1.0l) < p.second - 0.5l) {
+            p.second--;
+        }
+        p.first++;
+        result.push_back(p);
+    }
+
+    while (p.second > region4StopY){
+        if(predict(p.first+0.5l,p.second-1.0l)<0){
+            p.first++;
+        }
+        p.second--;
+        result.push_back(p);
+    }
+
+    QVector<QPair<long double,long double>>::size_type cur_len=result.size();
+
+    for (QVector<QPair<long double,long double>>::size_type i = 0; i < cur_len; ++i) {
+        result.push_back({-result.at(i).first, -result.at(i).second});
+    }
+
+    result.erase(std::unique(result.begin(),result.end()),result.end());
+
+    while (*result.begin()==result.back()){
+        result.pop_back();
+    }
+
+    return result;
+}
+
+Q_DECL_PURE_FUNCTION static inline QVector<QPair<long double,long double>> makePixelPerfect(QVector<QPair<long double,long double>> &pixels){
+
+    typedef QPair<long double, long double> Pix;
+
+    QVector<Pix> pixelPerfect;
+
+    // Allow negative index
+    auto pixAt = [&pixels](std::make_signed<QVector<Pix>::size_type>::type idx) {
+        idx += static_cast<decltype(idx)>(pixels.size());
+        idx %= static_cast<decltype(idx)>(pixels.size());
+        KIS_ASSERT(0 <= idx && idx < static_cast<decltype(idx)>(pixels.size()));
+        return pixels.at(static_cast<QVector<Pix>::size_type>(idx));
+    };
+
+    for (std::make_signed<QVector<Pix>::size_type>::type i = 0; i < pixels.size(); i++) {
+
+        bool onL = false;
+        if ((qFuzzyCompare((double) pixAt(i).first, pixAt(i - 1).first) || qFuzzyCompare((double) pixAt(i).second, pixAt(i - 1).second))
+            && (qFuzzyCompare((double) pixAt(i).first, pixAt(i + 1).first) || qFuzzyCompare((double) pixAt(i).second, pixAt(i + 1).second))
+            && !qFuzzyCompare((double) pixAt(i - 1).first, pixAt(i + 1).first)
+            && !qFuzzyCompare((double) pixAt(i - 1).second, pixAt(i + 1).second)) {
+            onL = true;
+        }
+
+        bool squareFlag = false;
+
+        if (onL
+            && (qFuzzyCompare((double) pixAt(i - 1).first, pixAt(i + 2).first) || qFuzzyCompare((double) pixAt(i - 1).second, pixAt(i + 2).second))
+            && (qFuzzyCompare(qAbs((double) pixAt(i - 1).first - pixAt(i + 2).first), 1.0) || qFuzzyCompare(qAbs((double) pixAt(i - 1).second - pixAt(i + 2).second), 1.0))) {
+            squareFlag = true;
+        }
+
+        if (onL
+            && (qFuzzyCompare((double) pixAt(i - 2).first, pixAt(i + 1).first) || qFuzzyCompare((double) pixAt(i - 2).second, pixAt(i + 1).second))
+            && (qFuzzyCompare(qAbs((double) pixAt(i - 2).first - pixAt(i + 1).first), 1.0) || qFuzzyCompare(qAbs((double) pixAt(i - 2).second - pixAt(i + 1).second), 1.0))) {
+            squareFlag = true;
+        }
+
+        if(!onL || (onL && squareFlag)){
+            pixelPerfect.push_back(pixels.at(i));
+        }
+    }
+
+    return pixelPerfect;
+}
+
+void KisPainter::paintEllipse(qreal a_, qreal b_, qreal angle, QPointF offset) {
+    // Normalization the rotation angle to a [-1/4*Pi, 1/4*Pi) range.
+    // And make axis A the one closer to the x-axis
+    // M_PI_4 is Pi divided by four.
+    // >> First make the rotation angle to a [-1/4*Pi, 3/4*Pi) range
+    angle += M_PI_4;
+    angle = fmod(fmod(angle, M_PI) + M_PI, M_PI);
+    angle -= M_PI_4;
+
+    if (-M_PI_4 <= angle && angle < M_PI_4) {
+
+    } else if (M_PI_4 <= angle && angle < M_PI - M_PI_4) {
+        // >> If the rotation angle is not in the target range,
+        // >> We can swap the axes
+        std::swap(a_,b_);
+        angle -= M_PI_2;
+    }
+    // >> Here subtract one from axes lengths, since it's definition is a little different in the drawing code.
+    long double axisA = (long double) a_ - 1.0L;
+    long double axisB = (long double) b_ - 1.0L;
+    // End of normalization
+
+    long double semiAxisA = axisA / 2.0L;
+    long double semiAxisB = axisB / 2.0L;
+    long double sinC = std::sin((long double) angle);
+    long double sqSinC = sinC * sinC;
+    long double cosC = std::cos((long double) angle);
+    long double sqCosC = cosC * cosC;
+    long double aSq = semiAxisA * semiAxisA;
+    long double bSq = semiAxisB * semiAxisB;
+    auto dis=KisDistanceInformation();
+
+    if (axisA == 0.0L || axisB == 0.0L) {
+        // Just draw a line here.
+        long double l = axisA == 0.0L ? axisB : axisA;
+        angle += axisA == 0.0L ? (long double) M_PI_2 : 0.0L;
+        l/=2.0L;
+        long double x=std::round(std::cos(angle)*l*2.0l)/2.0l;
+        long double y=std::round(std::sin(angle)*l*2.0l)/2.0l;
+        paintLine(KisPaintInformation(QPointF(x + offset.x(),
+                                              y + offset.y())),
+                  KisPaintInformation(QPointF(-x + offset.x(),
+                                              -y + offset.y())),
+                  &dis);
+        return;
+    }
+
+    QVector<QPair<long double,long double>> pixels = getEllipsePixels(sinC, sqSinC, cosC, sqCosC, aSq, bSq, angle);
+
+    QVector<QPair<long double,long double>> pixelPerfect= makePixelPerfect(pixels);
+
+    if(pixelPerfect.empty()){
+        return;
+    }
+
+    QVector<QPointF> points;
+    for (auto dfghjk:pixelPerfect) {
+        points.push_back(QPointF(dfghjk.first + offset.x(),dfghjk.second+offset.y()));
+    }
+
+    // FIXME: don't know why, but seems the filling of `paintPolygon` is broken...
+    paintPolygon(points);
+
 }
 
 void KisPainter::paintEllipse(const qreal x,
