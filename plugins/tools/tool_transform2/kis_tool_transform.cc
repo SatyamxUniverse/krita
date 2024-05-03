@@ -151,6 +151,7 @@ KisToolTransform::KisToolTransform(KoCanvasBase * canvas)
     connect(m_freeStrategy.data(), SIGNAL(requestResetRotationCenterButtons()), SLOT(resetRotationCenterButtonsRequested()));
     connect(m_freeStrategy.data(), SIGNAL(requestShowImageTooBig(bool)), SLOT(imageTooBigRequested(bool)));
     connect(m_freeStrategy.data(), SIGNAL(requestImageRecalculation()), SLOT(requestImageRecalculation()));
+    connect(m_freeStrategy.data(), SIGNAL(requestConvexHullCalculation()), SLOT(convexHullCalculationRequested()));
     connect(m_perspectiveStrategy.data(), SIGNAL(requestCanvasUpdate()), SLOT(canvasUpdateRequested()));
     connect(m_perspectiveStrategy.data(), SIGNAL(requestShowImageTooBig(bool)), SLOT(imageTooBigRequested(bool)));
     connect(m_perspectiveStrategy.data(), SIGNAL(requestImageRecalculation()), SLOT(requestImageRecalculation()));
@@ -214,6 +215,29 @@ void KisToolTransform::imageTooBigRequested(bool value)
 {
     if (!m_optionsWidget) return;
     m_optionsWidget->setTooBigLabelVisible(value);
+}
+
+void KisToolTransform::convexHullCalculationRequested()
+{
+    ENTER_FUNCTION() << "convex hull recalculation requested!";
+    m_transaction.setConvexHullHasBeenRequested(true);
+    if (m_strokeId && !m_transaction.rootNodes().isEmpty()) {
+        if (m_currentlyUsingOverlayPreviewStyle) {
+            image()->addJob(m_strokeId, new TransformStrokeStrategy::CalculateConvexHullData());
+        } else {
+            image()->addJob(m_strokeId, new InplaceTransformStrokeStrategy::CalculateConvexHullData());
+        }
+    }
+}
+void KisToolTransform::slotConvexHullCalculated(QPolygon hull, void *strokeStrategyCookie)
+{
+    if (!m_strokeId || strokeStrategyCookie != m_strokeStrategyCookie) return;
+    QPolygonF hullF = hull;
+    // Only use the convex hull if it matches the original bounding rect
+    if (hullF.boundingRect() == m_transaction.originalRect()) {
+        m_transaction.setConvexHull(hullF);
+        currentStrategy()->externalConfigChanged();
+    }
 }
 
 KisTransformStrategyBase* KisToolTransform::currentStrategy() const
@@ -917,6 +941,7 @@ void KisToolTransform::startStroke(ToolTransformArgs::TransformMode mode, bool f
         TransformStrokeStrategy *transformStrategy = new TransformStrokeStrategy(mode, m_currentArgs.filterId(), forceReset, rootNodes, selection, image().data(), image().data());
         connect(transformStrategy, SIGNAL(sigPreviewDeviceReady(KisPaintDeviceSP)), SLOT(slotPreviewDeviceGenerated(KisPaintDeviceSP)));
         connect(transformStrategy, SIGNAL(sigTransactionGenerated(TransformTransactionProperties, ToolTransformArgs, void*)), SLOT(slotTransactionGenerated(TransformTransactionProperties, ToolTransformArgs, void*)));
+        connect(transformStrategy, SIGNAL(sigConvexHullCalculated(QPolygon, void*)), SLOT(slotConvexHullCalculated(QPolygon, void*)));
         strategy = transformStrategy;
 
         // save unique identifier of the stroke so we could
@@ -928,6 +953,7 @@ void KisToolTransform::startStroke(ToolTransformArgs::TransformMode mode, bool f
     } else {
         InplaceTransformStrokeStrategy *transformStrategy = new InplaceTransformStrokeStrategy(mode, m_currentArgs.filterId(), forceReset, rootNodes, selection, externalSource, image().data(), image().data(), image()->root(), m_forceLodMode);
         connect(transformStrategy, SIGNAL(sigTransactionGenerated(TransformTransactionProperties, ToolTransformArgs, void*)), SLOT(slotTransactionGenerated(TransformTransactionProperties, ToolTransformArgs, void*)));
+        connect(transformStrategy, SIGNAL(sigConvexHullCalculated(QPolygon, void*)), SLOT(slotConvexHullCalculated(QPolygon, void*)));
         strategy = transformStrategy;
 
         // save unique identifier of the stroke so we could
