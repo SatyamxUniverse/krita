@@ -219,9 +219,141 @@ KisImportExportErrorCode PSDLoader::decode(QIODevice &io)
     using namespace std::placeholders;
 
     // read the channels for the various layers
+    bool popStore = false;
+    bool clipStore = false;
     for(int i = 0; i < layerSection.nLayers; ++i) {
 
         PSDLayerRecord* layerRecord = layerSection.layers.at(i);
+
+        //read clipping properly
+        PSDLayerRecord* layerNext = layerSection.layers.at(std::min(i + 1, layerSection.nLayers-1));
+        PSDLayerRecord* layerLast = layerSection.layers.at(std::max(i - 1, 0));
+        if(popStore){
+            dbgFile << "closing clip group";
+            popStore = false;
+            groupStack.pop();
+        }
+        if (clipStore){
+            clipStore=false;
+            dbgFile << "clip grouping";
+            KisGroupLayerSP clipGroup = new KisGroupLayer(m_image, i18n("Clipping Group"), OPACITY_OPAQUE_U8);
+            m_image->addNode(clipGroup, groupStack.top());
+            groupStack.push(clipGroup);
+        }
+        bool groupEndNext = false;
+        bool groupStart = false;
+        bool groupEnd = false;
+        if (layerRecord->infoBlocks.keys.contains("lsct") &&
+        layerRecord->infoBlocks.sectionDividerType != psd_other){
+            if (layerRecord->infoBlocks.sectionDividerType == psd_bounding_divider && !groupStack.isEmpty()) {
+                groupStart = true;
+            }
+            if ((layerRecord->infoBlocks.sectionDividerType == psd_open_folder ||
+            layerRecord->infoBlocks.sectionDividerType == psd_closed_folder) &&
+            (groupStack.size() > 1 || (lastAddedLayer && !groupStack.isEmpty()))){
+                groupEnd = true;
+                if(layerLast->clipping == 1 && layerRecord->clipping == 1){
+                    dbgFile << "closing clip group";
+                    groupStack.pop();
+                }
+            }
+        }
+        if (layerLast->clipping == 1 && layerRecord->clipping == 0){
+            if(!groupStart){
+                dbgFile << "closing clip group";
+                groupStack.pop();
+            }
+        }
+        if (layerNext->infoBlocks.keys.contains("lsct") &&
+        layerNext->infoBlocks.sectionDividerType != psd_other){
+            if (layerNext->infoBlocks.sectionDividerType == psd_bounding_divider && 
+            !groupStack.isEmpty()){
+                //read clipping property of the folder
+                int k = 0; //indent depth offset
+                for (int j=i+1; j < layerSection.nLayers; ++j){
+                    PSDLayerRecord* layerRecordScan = layerSection.layers.at(j);
+                    if (layerRecordScan->infoBlocks.keys.contains("lsct") &&
+                    layerRecordScan->infoBlocks.sectionDividerType != psd_other){
+                        if (layerRecordScan->infoBlocks.sectionDividerType == psd_bounding_divider && 
+                        !groupStack.isEmpty()){
+                            k++;
+                        }
+                        else if ((layerRecordScan->infoBlocks.sectionDividerType == psd_open_folder ||
+                        layerRecordScan->infoBlocks.sectionDividerType == psd_closed_folder) &&
+                        (groupStack.size() > 1 || (lastAddedLayer && !groupStack.isEmpty()))){
+                            k--;
+                            if(k == 0){
+                                //folder belonging to divider found
+                                if (layerRecordScan->clipping == 1){
+                                    if(layerRecord->clipping == 0){
+                                        dbgFile << "clip grouping";
+                                        KisGroupLayerSP clipGroup = new KisGroupLayer(m_image, i18n("Clipping Group"), OPACITY_OPAQUE_U8);
+                                        m_image->addNode(clipGroup, groupStack.top());
+                                        groupStack.push(clipGroup);
+                                    }
+                                }
+                                else if (layerRecord->clipping == 1){
+                                    //close group after this layer
+                                    popStore = true;
+                                }
+                                if(j+1<=layerSection.nLayers-1){
+                                    if (layerSection.layers.at(j + 1)->clipping == 1){
+                                        clipStore = true;
+                                    }
+                                    else if (layerNext->infoBlocks.keys.contains("lsct") &&
+                                    layerNext->infoBlocks.sectionDividerType != psd_other &&
+                                    layerNext->infoBlocks.sectionDividerType == psd_bounding_divider && 
+                                    !groupStack.isEmpty()){
+                                        //read clipping property of the folder after that (basically the same as the prev for loop)
+                                        int l = 0; //indent depth offset 2
+                                        for (int m=j+1; m < layerSection.nLayers; ++m){
+                                            layerRecordScan = layerSection.layers.at(m);
+                                            if (layerRecordScan->infoBlocks.keys.contains("lsct") &&
+                                            layerRecordScan->infoBlocks.sectionDividerType != psd_other){
+                                                if (layerRecordScan->infoBlocks.sectionDividerType == psd_bounding_divider && 
+                                                !groupStack.isEmpty()){
+                                                    l++;
+                                                }
+                                                else if ((layerRecordScan->infoBlocks.sectionDividerType == psd_open_folder ||
+                                                layerRecordScan->infoBlocks.sectionDividerType == psd_closed_folder) &&
+                                                (groupStack.size() > 1 || (lastAddedLayer && !groupStack.isEmpty()))){
+                                                    l--;
+                                                    if(l == 0){
+                                                        //folder belonging to divider found
+                                                        if (layerRecordScan->clipping == 1){
+                                                            dbgFile << "clip grouping";
+                                                            KisGroupLayerSP clipGroup = new KisGroupLayer(m_image, i18n("Clipping Group"), OPACITY_OPAQUE_U8);
+                                                            m_image->addNode(clipGroup, groupStack.top());
+                                                            groupStack.push(clipGroup);
+                                                        }
+                                                        break;
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                break;
+                            }
+                        }
+                    }
+                }
+            }
+            if ((layerNext->infoBlocks.sectionDividerType == psd_open_folder ||
+            layerNext->infoBlocks.sectionDividerType == psd_closed_folder) &&
+            groupStack.size() > 1){
+                groupEndNext = true;
+            }
+        }
+        if (layerRecord->clipping == 0 && layerNext->clipping == 1){
+            if (!groupEnd && !groupEndNext){
+                dbgFile << "clip grouping";
+                KisGroupLayerSP clipGroup = new KisGroupLayer(m_image, i18n("Clipping Group"), OPACITY_OPAQUE_U8);
+                m_image->addNode(clipGroup, groupStack.top());
+                groupStack.push(clipGroup);
+            }
+        }
+
         dbgFile << "Going to read channels for layer" << i << layerRecord->layerName;
         KisLayerSP newLayer;
         if (layerRecord->infoBlocks.keys.contains("lsct") &&
@@ -267,6 +399,9 @@ KisImportExportErrorCode PSDLoader::decode(QIODevice &io)
 
                 groupLayer->setCompositeOpId(compositeOp);
 
+                if (layerRecord->clipping==1){
+                    groupLayer->disableAlphaChannel(true);
+                }
                 newLayer = groupLayer;
             } else {
                 /**
@@ -368,6 +503,10 @@ KisImportExportErrorCode PSDLoader::decode(QIODevice &io)
                 m_image->addNode(layer, m_image->root());
             }
             layer->setVisible(layerRecord->visible);
+
+            if (layerRecord->clipping==1){
+                layer->disableAlphaChannel(true);
+            }
             newLayer = layer;
 
         }
