@@ -24,6 +24,8 @@
 #include <kis_group_layer.h>
 
 #include <kis_assert.h>
+#include <KoToolManager.h>
+#include <plugins/tools/selectiontools/kis_tool_select_outline.h>
 
 class KisSelectLayerAction::Private
 {
@@ -109,6 +111,18 @@ public:
     }
 };
 
+bool KisSelectLayerAction::isAvailable() const
+{
+    if (KoToolManager::instance()->activeToolId() == "KisToolSelectOutline") {
+        KisToolSelectOutline *tool = dynamic_cast<KisToolSelectOutline *>(
+            KoToolManager::instance()->toolById(inputManager()->canvas(), "KisToolSelectOutline"));
+        if (tool->isSelecting()) {
+            return false;
+        }
+    }
+    return true;
+}
+
 KisSelectLayerAction::KisSelectLayerAction()
     : KisAbstractInputAction("Select Layer")
     , d(new Private(this))
@@ -145,7 +159,9 @@ int KisSelectLayerAction::priority() const
 void KisSelectLayerAction::activate(int shortcut)
 {
     Q_UNUSED(shortcut);
-    QApplication::setOverrideCursor(KisCursor::pickLayerCursor());
+    if (isAvailable()) {
+        QApplication::setOverrideCursor(KisCursor::pickLayerCursor());
+    }
 }
 
 void KisSelectLayerAction::deactivate(int shortcut)

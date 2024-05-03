@@ -39,6 +39,7 @@ public:
     void deactivate(int shortcut) override;
 
     void begin(int shortcut, QEvent *event) override;
+    bool isAvailable() const override;
     void inputEvent(QEvent *event) override;
 
 private:

@@ -16,7 +16,7 @@
 #include "kis_selection_tool_config_widget_helper.h"
 #include "KisViewManager.h"
 #include "kis_selection_manager.h"
-#include "kis_selection_modifier_mapper.h"
+#include "plugins/tools/selectiontools/kis_selection_modifier_mapper.h"
 #include "strokes/move_stroke_strategy.h"
 #include "kis_image.h"
 #include "kis_cursor.h"
