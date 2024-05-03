@@ -345,9 +345,10 @@ void KisMimeDatabase::fillMimeData()
         mimeType.suffixes = QStringList() << "jxl";
         s_mimeDatabase << mimeType;
 
-        mimeType.mimeType = "text/csv";
-        mimeType.description = i18nc("description of a file type", "CSV Document");
-        mimeType.suffixes = QStringList() << "csv";
+        //TODO: I think also add for image/svg as well";
+        mimeType.mimeType = "image/svg";
+        mimeType.description = i18nc("description of a file type", "SVG Image");
+        mimeType.suffixes = QStringList() << "svg";
         s_mimeDatabase << mimeType;
 
         mimeType.mimeType = "image/vnd.radiance";

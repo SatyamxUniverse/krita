@@ -4,7 +4,7 @@
  * SPDX-License-Identifier: LGPL-2.0-or-later
  */
 
-#include "SvgSavingContext.h"
+#include "kis_scalable_vector_graphics_save_context.h"
 #include "SvgUtil.h"
 
 #include <KoXmlWriter.h>
@@ -22,7 +22,7 @@
 #include <QFileInfo>
 #include <KisMimeDatabase.h>
 
-class Q_DECL_HIDDEN SvgSavingContext::Private
+class Q_DECL_HIDDEN KisScalableVectorGraphicsSaveContext::Private
 {
 public:
     Private(QIODevice *_mainDevice, QIODevice *_styleDevice)
@@ -33,7 +33,7 @@ public:
         , saveInlineImages(true)
     {
         styleWriter.reset(new KoXmlWriter(&styleBuffer, 1));
-        //styleWriter->startElement("defs");
+        styleWriter->startElement("defs");
         shapeWriter.reset(new KoXmlWriter(&shapeBuffer, 1));
 
         const qreal scaleToUserSpace = SvgUtil::toUserSpace(1.0);
@@ -58,21 +58,21 @@ public:
     bool strippedTextMode = false;
 };
 
-SvgSavingContext::SvgSavingContext(QIODevice &outputDevice, bool saveInlineImages)
+KisScalableVectorGraphicsSaveContext::KisScalableVectorGraphicsSaveContext(QIODevice &outputDevice, bool saveInlineImages)
     : d(new Private(&outputDevice, 0))
 {
     d->saveInlineImages = saveInlineImages;
 }
 
-SvgSavingContext::SvgSavingContext(QIODevice &shapesDevice, QIODevice &styleDevice, bool saveInlineImages)
+KisScalableVectorGraphicsSaveContext::KisScalableVectorGraphicsSaveContext(QIODevice &shapesDevice, QIODevice &styleDevice, bool saveInlineImages)
     : d(new Private(&shapesDevice, &styleDevice))
 {
     d->saveInlineImages = saveInlineImages;
 }
 
-SvgSavingContext::~SvgSavingContext()
+KisScalableVectorGraphicsSaveContext::~KisScalableVectorGraphicsSaveContext()
 {
-    //d->styleWriter->endElement();
+    d->styleWriter->endElement();
 
     if (d->styleDevice) {
         d->styleDevice->write(d->styleBuffer.data());
@@ -86,32 +86,26 @@ SvgSavingContext::~SvgSavingContext()
     delete d;
 }
 
-KoXmlWriter &SvgSavingContext::styleWriter()
+KoXmlWriter &KisScalableVectorGraphicsSaveContext::styleWriter()
 {
     return *d->styleWriter;
 }
 
-KoXmlWriter &SvgSavingContext::shapeWriter()
+KoXmlWriter &KisScalableVectorGraphicsSaveContext::shapeWriter()
 {
     return *d->shapeWriter;
 }
 
-QString SvgSavingContext::createUID(const QString &base)
+QString KisScalableVectorGraphicsSaveContext::createUID(const QString &base)
 {
     QString idBase = base.isEmpty() ? "defitem" : base;
     int counter = d->uniqueNames.value(idBase);
-    QString res;
-    do {
-        res = idBase + QString::number(counter);
-        counter++;
-    } while (d->uniqueNames.contains(res));
+    d->uniqueNames.insert(idBase, counter+1);
 
-    d->uniqueNames.insert(idBase, counter);
-    d->uniqueNames.insert(res, 1);
-    return res;
+    return idBase + QString("%1").arg(counter);
 }
 
-QString SvgSavingContext::getID(const KoShape *obj)
+QString KisScalableVectorGraphicsSaveContext::getID(const KoShape *obj)
 {
     QString id;
     // do we have already an id for this object ?
@@ -146,17 +140,17 @@ QString SvgSavingContext::getID(const KoShape *obj)
     return id;
 }
 
-QTransform SvgSavingContext::userSpaceTransform() const
+QTransform KisScalableVectorGraphicsSaveContext::userSpaceTransform() const
 {
     return d->userSpaceMatrix;
 }
 
-bool SvgSavingContext::isSavingInlineImages() const
+bool KisScalableVectorGraphicsSaveContext::isSavingInlineImages() const
 {
     return d->saveInlineImages;
 }
 
-QString SvgSavingContext::createFileName(const QString &extension)
+QString KisScalableVectorGraphicsSaveContext::createFileName(const QString &extension)
 {
     QFile *file = qobject_cast<QFile*>(d->mainDevice);
     if (!file)
@@ -180,7 +174,7 @@ QString SvgSavingContext::createFileName(const QString &extension)
     return fname + counter + extension;
 }
 
-QString SvgSavingContext::saveImage(const QImage &image)
+QString KisScalableVectorGraphicsSaveContext::saveImage(const QImage &image)
 {
     if (isSavingInlineImages()) {
         QBuffer buffer;
@@ -207,12 +201,12 @@ QString SvgSavingContext::saveImage(const QImage &image)
     return QString();
 }
 
-void SvgSavingContext::setStrippedTextMode(bool value)
+void KisScalableVectorGraphicsSaveContext::setStrippedTextMode(bool value)
 {
     d->strippedTextMode = value;
 }
 
-bool SvgSavingContext::strippedTextMode() const
+bool KisScalableVectorGraphicsSaveContext::strippedTextMode() const
 {
     return d->strippedTextMode;
 }
