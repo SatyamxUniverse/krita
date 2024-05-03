@@ -18,6 +18,8 @@
 
 class QRectF;
 class KoSvgTextShape;
+class KoShape;
+class KoColorSpace;
 
 /**
  * KoSvgTextShapeMarkupConverter is a utility class for converting a
@@ -85,6 +87,24 @@ public:
      */
     bool convertSvgToDocument(const QString &svgText, QTextDocument *doc);
 
+    bool convertPSDTextEngineDataToSVG(const QVariantHash tySh,
+                                       const QVariantHash txt2,
+                                       const KoColorSpace *imageCs,
+                                       const int textIndex,
+                                       QString *svgText,
+                                       QString *svgStyles,
+                                       QPointF &offset,
+                                       bool &offsetByAscent,
+                                       bool &isHorizontal,
+                                       QTransform scaleToPt = QTransform());
+    bool convertToPSDTextEngineData(const QString &svgText,
+                                    QRectF &boundingBox,
+                                    const QList<KoShape *> &shapesInside,
+                                    QVariantHash &txt2,
+                                    int &textIndex,
+                                    QString &textTotal,
+                                    bool &isHorizontal,
+                                    QTransform scaleToPx = QTransform());
 
     /**
      * A list of errors happened during loading the user's text

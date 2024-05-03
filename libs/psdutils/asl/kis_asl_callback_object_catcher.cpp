@@ -43,7 +43,19 @@ struct UnitFloatMapping {
     ASLCallbackDouble map;
 };
 
+struct UnitRectMapping {
+    UnitRectMapping(const QString &_unit, ASLCallbackRect _map)
+        : unit(_unit)
+        , map(_map)
+    {
+    }
+
+    QString unit;
+    ASLCallbackRect map;
+};
+
 typedef QHash<QString, UnitFloatMapping> MapHashUnitFloat;
+typedef QHash<QString, UnitRectMapping> MapHashUnitRect;
 
 typedef QHash<QString, ASLCallbackString> MapHashText;
 typedef QHash<QString, ASLCallbackBoolean> MapHashBoolean;
@@ -53,6 +65,9 @@ typedef QHash<QString, ASLCallbackCurve> MapHashCurve;
 typedef QHash<QString, ASLCallbackPattern> MapHashPattern;
 typedef QHash<QString, ASLCallbackPatternRef> MapHashPatternRef;
 typedef QHash<QString, ASLCallbackGradient> MapHashGradient;
+typedef QHash<QString, ASLCallbackRawData> MapHashRawData;
+typedef QHash<QString, ASLCallbackTransform> MapHashTransform;
+typedef QHash<QString, ASLCallbackRect> MapHashRect;
 
 struct KisAslCallbackObjectCatcher::Private {
     MapHashDouble mapDouble;
@@ -67,6 +82,10 @@ struct KisAslCallbackObjectCatcher::Private {
     MapHashPattern mapPattern;
     MapHashPatternRef mapPatternRef;
     MapHashGradient mapGradient;
+    MapHashRawData mapRawData;
+    MapHashTransform mapTransform;
+    MapHashRect mapRect;
+    MapHashUnitRect mapUnitRect;
 
     ASLCallbackNewStyle newStyleCallback;
 };
@@ -189,6 +208,33 @@ void KisAslCallbackObjectCatcher::newStyleStarted()
     }
 }
 
+void KisAslCallbackObjectCatcher::addRawData(const QString &path, QByteArray ba)
+{
+    passToCallback(path, m_d->mapRawData, ba);
+}
+
+void KisAslCallbackObjectCatcher::addTransform(const QString &path, const QTransform &transform)
+{
+    passToCallback(path, m_d->mapTransform, transform);
+}
+
+void KisAslCallbackObjectCatcher::addRect(const QString &path, const QRectF &rect)
+{
+    passToCallback(path, m_d->mapRect, rect);
+}
+
+void KisAslCallbackObjectCatcher::addUnitRect(const QString &path, const QString &unit, const QRectF &rect)
+{
+    MapHashUnitRect::const_iterator it = m_d->mapUnitRect.constFind(path);
+    if (it != m_d->mapUnitRect.constEnd()) {
+        if (it->unit == unit) {
+            it->map(rect);
+        } else {
+            warnKrita << "KisAslCallbackObjectCatcher::addUnitRect: inconsistent unit" << ppVar(unit) << ppVar(it->unit);
+        }
+    }
+}
+
 /*****************************************************************/
 /*      Subscription methods                                      */
 /*****************************************************************/
@@ -256,4 +302,24 @@ void KisAslCallbackObjectCatcher::subscribeGradient(const QString &path, ASLCall
 void KisAslCallbackObjectCatcher::subscribeNewStyleStarted(ASLCallbackNewStyle callback)
 {
     m_d->newStyleCallback = callback;
+}
+
+void KisAslCallbackObjectCatcher::subscribeRawData(const QString &path, ASLCallbackRawData callback)
+{
+    m_d->mapRawData.insert(path, callback);
+}
+
+void KisAslCallbackObjectCatcher::subscribeTransform(const QString &path, ASLCallbackTransform callback)
+{
+    m_d->mapTransform.insert(path, callback);
+}
+
+void KisAslCallbackObjectCatcher::subscribeRect(const QString &path, ASLCallbackRect callback)
+{
+    m_d->mapRect.insert(path, callback);
+}
+
+void KisAslCallbackObjectCatcher::subscribeUnitRect(const QString &path, const QString &unit, ASLCallbackRect callback)
+{
+    m_d->mapUnitRect.insert(path, UnitRectMapping(unit, callback));
 }
