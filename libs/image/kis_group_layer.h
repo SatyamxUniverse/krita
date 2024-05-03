@@ -23,7 +23,7 @@ class KRITAIMAGE_EXPORT KisGroupLayer : public KisLayer
     Q_OBJECT
 
 public:
-    KisGroupLayer(KisImageWSP image, const QString &name, quint8 opacity);
+    KisGroupLayer(KisImageWSP image, const QString &name, quint8 opacity, const KoColorSpace * colorSpace = 0);
     KisGroupLayer(const KisGroupLayer& rhs);
     ~KisGroupLayer() override;
 
@@ -46,7 +46,7 @@ public:
     /**
      * Clear the projection
      */
-    void resetCache(const KoColorSpace *colorSpace = 0);
+    void resetCache(const KoColorSpace *colorSpace);
 
     /**
      * XXX: make the colorspace of a layergroup user-settable: we want
