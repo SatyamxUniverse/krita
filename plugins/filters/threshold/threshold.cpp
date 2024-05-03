@@ -168,7 +168,7 @@ void KisThresholdConfigWidget::slotDrawHistogram(bool logarithmic)
     p.setPen(QPen(Qt::gray, 1, Qt::SolidLine));
 
     double highest = (double)m_histogram->calculations().getHighest();
-    qint32 bins = m_histogram->producer()->numberOfBins();
+    qint32 bins = m_histogram->producer()->numberOfBins(0);
 
     // use nearest neighbour interpolation
     if (m_histogram->getHistogramType() == LINEAR) {

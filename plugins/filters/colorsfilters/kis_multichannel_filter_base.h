@@ -20,6 +20,7 @@
 #include "ui_wdg_perchannel.h"
 
 #include "virtual_channel_info.h"
+#include "widgets/KisHistogramPainter.h"
 
 /**
  * Base class for filters which use curves to operate on multiple channels.
@@ -121,14 +122,18 @@ public:
     void setConfiguration(const KisPropertiesConfigurationSP config) override;
 
 protected Q_SLOTS:
-    void logHistView();
+    void slot_buttonGroupHistogramMode_buttonToggled(QAbstractButton *button, bool checked);
     void resetCurve();
     void slotChannelSelected(int index);
+
+private Q_SLOTS:
+    void setButtonsIcons();
+    void initHistogramCalculator();
 
 protected:
     void init();
     void resetCurves();
-    void setActiveChannel(int ch);
+    void setActiveChannel(bool setVgradient = true, bool setHgradientAndHistogram = true);
 
     virtual void updateChannelControls() = 0;
     virtual KisPropertiesConfigurationSP getDefaultConfiguration() = 0;
@@ -138,11 +143,14 @@ protected:
 
     QVector<VirtualChannelInfo> m_virtualChannels;
     int m_activeVChannel {0};
+    int m_activeVDriverChannel {0};
     mutable QList<KisCubicCurve> m_curves;
 
     KisPaintDeviceSP m_dev;
     WdgPerChannel * m_page {nullptr};
-    KisHistogram *m_histogram {nullptr};
+    KisHistogramPainter m_histogramPainter;
+    QScopedPointer<KisHistogram> m_hslHistogram;
+    QScopedPointer<KisHistogram> m_channelsHistogram;
 };
 
 #endif

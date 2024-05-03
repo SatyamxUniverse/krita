@@ -152,6 +152,10 @@ KisCrossChannelConfigWidget::KisCrossChannelConfigWidget(QWidget * parent, KisPa
         }
 
         m_page->cmbDriverChannel->addItem(info.name(), i);
+
+        if (info.type() == VirtualChannelInfo::LIGHTNESS) {
+            m_activeVDriverChannel = i;
+        }
     }
 
     connect(m_page->cmbDriverChannel, SIGNAL(activated(int)), this, SLOT(slotDriverChannelSelected(int)));
@@ -185,7 +189,7 @@ void KisCrossChannelConfigWidget::setConfiguration(const KisPropertiesConfigurat
         initialChannel = qMax(0, KisMultiChannelFilter::findChannel(m_virtualChannels, VirtualChannelInfo::SATURATION));
     }
 
-    setActiveChannel(initialChannel);
+    slotChannelSelected(initialChannel);
 }
 
 KisPropertiesConfigurationSP KisCrossChannelConfigWidget::configuration() const
@@ -205,7 +209,7 @@ void KisCrossChannelConfigWidget::updateChannelControls()
     m_curveControlsManager.reset(new KisCurveWidgetControlsManagerInt(m_page->curveWidget,
                                                                       m_page->intIn, m_page->intOut, 0, 100, -100, 100));
 
-    const int index = m_page->cmbDriverChannel->findData(m_driverChannels[m_activeVChannel]);
+    const int index = m_page->cmbDriverChannel->findData(m_activeVDriverChannel);
     m_page->cmbDriverChannel->setCurrentIndex(index);
 }
 
@@ -220,9 +224,10 @@ void KisCrossChannelConfigWidget::slotDriverChannelSelected(int index)
     const int channel = m_page->cmbDriverChannel->itemData(index).toInt();
 
     KIS_SAFE_ASSERT_RECOVER_RETURN(0 <= channel && channel < m_virtualChannels.size());
-    m_driverChannels[m_activeVChannel] = channel;
+    m_activeVDriverChannel = channel;
+    m_driverChannels[m_activeVChannel] = m_activeVDriverChannel;
 
-    updateChannelControls();
+    setActiveChannel(false, true);
     Q_EMIT sigConfigurationItemChanged();
 }
 

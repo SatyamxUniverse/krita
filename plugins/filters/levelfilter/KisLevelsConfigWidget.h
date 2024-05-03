@@ -78,6 +78,7 @@ private:
     QVector<KisLevelsCurve> m_levelsCurves;
     KisLevelsCurve m_lightnessLevelsCurve;
     KisLevelsCurve *m_activeLevelsCurve;
+    QScopedPointer<KisHistogram> m_hslHistogram;
     QScopedPointer<KisHistogram> m_channelsHistogram;
     QScopedPointer<KisHistogram> m_lightnessHistogram;
     KisAutoLevelsWidget *m_autoLevelsWidget;

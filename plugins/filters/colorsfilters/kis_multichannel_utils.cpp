@@ -210,7 +210,15 @@ KoColorTransformation* createPerChannelTransformationFromTransfers(const KoColor
     }
 
     if (!lightnessNull) {
-        lightnessTransform = cs->createBrightnessContrastAdjustment(lightnessTransfer.constData());
+        QHash<QString, QVariant> params;
+        params["curve"] = QVariant::fromValue(lightnessTransfer);
+        params["channel"] = KisHSVCurve::Value;
+        params["relative"] = false;
+        params["lumaRed"]   = cs->lumaCoefficients()[0];
+        params["lumaGreen"] = cs->lumaCoefficients()[1];
+        params["lumaBlue"]  = cs->lumaCoefficients()[2];
+
+        lightnessTransform = cs->createColorTransformation("hsv_curve_adjustment", params);
     }
 
     if (!allColorsNull) {

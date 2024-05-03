@@ -17,39 +17,55 @@
 // #include "Ko_global.h"
 #include "KoIntegerMaths.h"
 #include "KoChannelInfo.h"
+#include "KoColorSpaceMaths.h"
+#include "KoColorModelStandardIds.h"
+#include "KoColorConversions.h"
 
 static const KoColorSpace* m_labCs = 0;
 
 
-KoBasicHistogramProducer::KoBasicHistogramProducer(const KoID& id, int channelCount, int nrOfBins)
-    : m_channels(channelCount)
-    , m_nrOfBins(nrOfBins)
+KoBasicHistogramProducer::KoBasicHistogramProducer(const KoID& id, const QVector<int> &channels)
+    : m_channelnumber(channels.count())
     , m_colorSpace(0)
     , m_id(id)
 {
-    m_bins.resize(m_channels);
-    for (int i = 0; i < m_channels; i++)
-        m_bins[i].resize(m_nrOfBins);
-    m_outLeft.resize(m_channels);
-    m_outRight.resize(m_channels);
+    m_bins.resize(m_channelnumber);
+    for (int i = 0; i < m_channelnumber; i++)
+        m_bins[i].resize(channels.at(i));
+    m_outLeft.resize(m_channelnumber);
+    m_outRight.resize(m_channelnumber);
+    m_count = 0;
+    m_from = 0.0;
+    m_width = 1.0;
+}
+
+KoBasicHistogramProducer::KoBasicHistogramProducer(const KoID& id, int channelCount, int nrOfBins)
+    : m_channelnumber(channelCount)
+    , m_colorSpace(0)
+    , m_id(id)
+{
+    m_bins.resize(m_channelnumber);
+    for (int i = 0; i < m_channelnumber; i++)
+        m_bins[i].resize(nrOfBins);
+    m_outLeft.resize(m_channelnumber);
+    m_outRight.resize(m_channelnumber);
     m_count = 0;
     m_from = 0.0;
     m_width = 1.0;
 }
 
 KoBasicHistogramProducer::KoBasicHistogramProducer(const KoID& id, int nrOfBins, const KoColorSpace *cs)
-    : m_nrOfBins(nrOfBins),
-      m_colorSpace(cs),
-      m_id(id)
+    : m_colorSpace(cs)
+    , m_id(id)
 {
     Q_ASSERT(cs);
-    m_channels = cs->channelCount();
+    m_channelnumber = cs->channelCount();
 
-    m_bins.resize(m_channels);
-    for (int i = 0; i < m_channels; i++)
-        m_bins[i].resize(m_nrOfBins);
-    m_outLeft.resize(m_channels);
-    m_outRight.resize(m_channels);
+    m_bins.resize(m_channelnumber);
+    for (int i = 0; i < m_channelnumber; i++)
+        m_bins[i].resize(nrOfBins);
+    m_outLeft.resize(m_channelnumber);
+    m_outRight.resize(m_channelnumber);
     m_count = 0;
     m_from = 0.0;
     m_width = 1.0;
@@ -59,8 +75,9 @@ KoBasicHistogramProducer::KoBasicHistogramProducer(const KoID& id, int nrOfBins,
 void KoBasicHistogramProducer::clear()
 {
     m_count = 0;
-    for (int i = 0; i < m_channels; i++) {
-        for (int j = 0; j < m_nrOfBins; j++) {
+    for (int i = 0; i < m_channelnumber; i++) {
+        int nrOfBins = m_bins.at(i).count();
+        for (int j = 0; j < nrOfBins; j++) {
             m_bins[i][j] = 0;
         }
         m_outRight[i] = 0;
@@ -384,7 +401,7 @@ qreal KoGenericRGBHistogramProducer::maximalZoom() const
 
 void KoGenericRGBHistogramProducer::addRegionToBin(const quint8 * pixels, const quint8 * selectionMask, quint32 nPixels, const KoColorSpace *cs)
 {
-    for (int i = 0; i < m_channels; i++) {
+    for (int i = 0; i < m_channelnumber; i++) {
         m_outRight[i] = 0;
         m_outLeft[i] = 0;
     }
@@ -443,6 +460,7 @@ KoGenericLabHistogramProducer::KoGenericLabHistogramProducer()
     }
     m_colorSpace = m_labCs;
 }
+
 KoGenericLabHistogramProducer::~KoGenericLabHistogramProducer()
 {
     delete m_channelsList[0];
@@ -468,7 +486,7 @@ qreal KoGenericLabHistogramProducer::maximalZoom() const
 
 void KoGenericLabHistogramProducer::addRegionToBin(const quint8 *pixels, const quint8 *selectionMask, quint32 nPixels,  const KoColorSpace *cs)
 {
-    for (int i = 0; i < m_channels; i++) {
+    for (int i = 0; i < m_channelnumber; i++) {
         m_outRight[i] = 0;
         m_outLeft[i] = 0;
     }
@@ -509,5 +527,110 @@ void KoGenericLabHistogramProducer::addRegionToBin(const quint8 *pixels, const q
 
 KoGenericLabHistogramProducerFactory::KoGenericLabHistogramProducerFactory()
     : KoHistogramProducerFactory(KoID("GENLABHISTO", i18n("Generic L*a*b* Histogram")))
+{
+}
+
+// ------------ Generic HSL ---------------------
+KoGenericHSLHistogramProducer::KoGenericHSLHistogramProducer()
+    : KoBasicHistogramProducer(KoID("GENHSLHISTO", i18n("Generic HSL Histogram")), QVector<int>({361, 101, 101}))
+{
+    /* we set 0 as colorspace, because we are not based on a specific colorspace. This
+       is no problem for the superclass since we override channels() */
+    m_channelsList.append(new KoChannelInfo(i18n("H"), 0, 0, KoChannelInfo::COLOR, KoChannelInfo::UINT8));
+    m_channelsList.append(new KoChannelInfo(i18n("S"), 1, 1, KoChannelInfo::COLOR, KoChannelInfo::UINT8));
+    m_channelsList.append(new KoChannelInfo(i18n("L"), 2, 2, KoChannelInfo::COLOR, KoChannelInfo::UINT8));
+
+    m_colorSpace = KoColorSpaceRegistry::instance()->rgb16();
+}
+
+KoGenericHSLHistogramProducer::~KoGenericHSLHistogramProducer()
+{
+    delete m_channelsList[0];
+    delete m_channelsList[1];
+    delete m_channelsList[2];
+}
+
+QList<KoChannelInfo *> KoGenericHSLHistogramProducer::channels()
+{
+    return m_channelsList;
+}
+
+QString KoGenericHSLHistogramProducer::positionToString(qreal pos) const
+{
+    return QString("%1").arg(static_cast<quint8>(pos * UINT8_MAX));
+}
+
+qreal KoGenericHSLHistogramProducer::maximalZoom() const
+{
+    return 1.0;
+}
+
+
+void KoGenericHSLHistogramProducer::addRegionToBin(const quint8 * pixels, const quint8 * selectionMask, quint32 nPixels, const KoColorSpace *cs)
+{
+    for (int i = 0; i < m_channelnumber; i++) {
+        m_outRight[i] = 0;
+        m_outLeft[i] = 0;
+    }
+
+    qint32 dstPixelSize = m_colorSpace->pixelSize();
+    quint8 *dstPixels = new quint8[nPixels * dstPixelSize];
+    cs->convertPixelsTo(pixels, dstPixels, m_colorSpace, nPixels, KoColorConversionTransformation::IntentAbsoluteColorimetric, KoColorConversionTransformation::Empty);
+    qint32 pSize = cs->pixelSize();
+    QVector<qreal> lumaCoeff = m_colorSpace->lumaCoefficients();
+
+    if (selectionMask) {
+        while (nPixels > 0) {
+            if (!((m_skipUnselected  && *selectionMask == 0) || (m_skipTransparent && cs->opacityU8(pixels) == OPACITY_TRANSPARENT_U8))) {
+                quint8 *dst = dstPixels;
+                quint16* rgba = reinterpret_cast<quint16*>(dst);
+                qreal r = KoColorSpaceMaths<quint16, qreal>::scaleToA(rgba[2]);
+                qreal g = KoColorSpaceMaths<quint16, qreal>::scaleToA(rgba[1]);
+                qreal b = KoColorSpaceMaths<quint16, qreal>::scaleToA(rgba[0]);
+
+                qreal hue, sat, luma;
+                RGBToHSY(r, g, b, &hue, &sat, &luma, lumaCoeff[0], lumaCoeff[1], lumaCoeff[2]);
+                luma = pow(luma, 1.0 / 2.2);
+
+                m_bins[0][qBound(0, static_cast<int>(hue * 360.0 + 0.5), 360)]++;
+                m_bins[1][qBound(0, static_cast<int>(sat * 100.0 + 0.5), 100)]++;
+                m_bins[2][qBound(0, static_cast<int>(luma * 100.0 + 0.5), 100)]++;
+
+                m_count++;
+            }
+            pixels += pSize;
+            selectionMask++;
+            nPixels--;
+        }
+
+    } else {
+        while (nPixels > 0) {
+            if (!(m_skipTransparent && cs->opacityU8(pixels) == OPACITY_TRANSPARENT_U8)) {
+                quint8 *dst = dstPixels;
+                quint16* rgba = reinterpret_cast<quint16*>(dst);
+                qreal r = KoColorSpaceMaths<quint16, qreal>::scaleToA(rgba[2]);
+                qreal g = KoColorSpaceMaths<quint16, qreal>::scaleToA(rgba[1]);
+                qreal b = KoColorSpaceMaths<quint16, qreal>::scaleToA(rgba[0]);
+
+                qreal hue, sat, luma;
+                RGBToHSY(r, g, b, &hue, &sat, &luma, lumaCoeff[0], lumaCoeff[1], lumaCoeff[2]);
+                luma = pow(luma, 1.0 / 2.2);
+
+                m_bins[0][qBound(0, static_cast<int>(hue * 360.0 + 0.5), 360)]++;
+                m_bins[1][qBound(0, static_cast<int>(sat * 100.0 + 0.5), 100)]++;
+                m_bins[2][qBound(0, static_cast<int>(luma * 100.0 + 0.5), 100)]++;
+
+                m_count++;
+            }
+            pixels += pSize;
+            nPixels--;
+        }
+    }
+
+    delete[] dstPixels;
+}
+
+KoGenericHSLHistogramProducerFactory::KoGenericHSLHistogramProducerFactory()
+    : KoHistogramProducerFactory(KoID("GENHSLHISTO", i18n("Generic HSL Histogram")))
 {
 }

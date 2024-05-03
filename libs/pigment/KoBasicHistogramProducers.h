@@ -21,6 +21,7 @@
 class KRITAPIGMENT_EXPORT KoBasicHistogramProducer : public KoHistogramProducer
 {
 public:
+    explicit KoBasicHistogramProducer(const KoID& id, const QVector<int> &channels);
     explicit KoBasicHistogramProducer(const KoID& id, int channelCount, int nrOfBins);
     explicit KoBasicHistogramProducer(const KoID& id, int nrOfBins, const KoColorSpace *colorSpace);
     ~KoBasicHistogramProducer() override {}
@@ -37,8 +38,8 @@ public:
     QList<KoChannelInfo *> channels() override {
         return m_colorSpace->channels();
     }
-    qint32 numberOfBins() override {
-        return m_nrOfBins;
+    qint32 numberOfBins(int channel) override {
+        return m_bins.at(channel).count();
     }
     qreal viewFrom() const override {
         return m_from;
@@ -83,7 +84,7 @@ protected:
     vBins m_outLeft, m_outRight;
     qreal m_from, m_width;
     qint32 m_count;
-    int m_channels, m_nrOfBins;
+    int m_channelnumber;
     const KoColorSpace *m_colorSpace;
     KoID m_id;
     QVector<qint32> m_external;
@@ -251,5 +252,44 @@ public:
     }
 };
 
+
+/**
+ * This is a Producer (with associated factory) that converts the pixels of the colorspace
+ * to H*S*L*, and then does its counting.
+ * It isCompatibleWith all colorspaces
+ **/
+class  KRITAPIGMENT_EXPORT KoGenericHSLHistogramProducer : public KoBasicHistogramProducer
+{
+public:
+    KoGenericHSLHistogramProducer();
+    ~KoGenericHSLHistogramProducer() override;
+    void addRegionToBin(const quint8 * pixels, const quint8 * selectionMask, quint32 nPixels, const KoColorSpace *colorSpace) override;
+    QString positionToString(qreal pos) const override;
+    qreal maximalZoom() const override;
+    QList<KoChannelInfo *> channels() override;
+protected:
+    QList<KoChannelInfo *> m_channelsList;
+};
+
+/** KoGenericHSLHistogramProducer his special Factory that isCompatibleWith everything. */
+class /*KRITAPIGMENT_EXPORT*/ KoGenericHSLHistogramProducerFactory : public KoHistogramProducerFactory
+{
+public:
+    KoGenericHSLHistogramProducerFactory();
+    ~KoGenericHSLHistogramProducerFactory() override {}
+
+    KoHistogramProducer *generate() override {
+        return new KoGenericHSLHistogramProducer();
+    }
+
+    bool isCompatibleWith(const KoColorSpace*, bool strict = false) const override {
+        Q_UNUSED(strict);
+        return true;
+    }
+
+    float preferrednessLevelWith(const KoColorSpace*) const override {
+        return 0.0;
+    }
+};
 
 #endif // _Ko_BASIC_HISTOGRAM_PRODUCERS_

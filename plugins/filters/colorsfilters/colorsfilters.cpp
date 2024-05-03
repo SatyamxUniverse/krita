@@ -104,7 +104,7 @@ void KisAutoContrast::processImpl(KisPaintDeviceSP device,
     int pixCount = 0;
     int binnum = 0;
 
-    while (binnum < histogram.producer()->numberOfBins()) {
+    while (binnum < histogram.producer()->numberOfBins(0)) {
         pixCount += histogram.getValue(binnum);
         if (pixCount > twoPercent) {
             minvalue = binnum;
@@ -113,7 +113,7 @@ void KisAutoContrast::processImpl(KisPaintDeviceSP device,
         binnum++;
     }
     pixCount = 0;
-    binnum = histogram.producer()->numberOfBins() - 1;
+    binnum = histogram.producer()->numberOfBins(0) - 1;
     while (binnum > 0) {
         pixCount += histogram.getValue(binnum);
         if (pixCount > twoPercent) {

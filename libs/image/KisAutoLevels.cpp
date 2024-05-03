@@ -22,7 +22,7 @@ QPair<qreal, qreal> getMeanAndMedian(ChannelHistogram histogram, qreal begin, qr
 
     histogram.histogram->setChannel(histogram.channel);
 
-    const int numberOfBins = histogram.histogram->producer()->numberOfBins();
+    const int numberOfBins = histogram.histogram->producer()->numberOfBins(histogram.channel);
     const int beginBin = static_cast<int>(begin * static_cast<qreal>(numberOfBins));
     const int endBin = static_cast<int>(end * static_cast<qreal>(numberOfBins)) + 1;
 
@@ -60,7 +60,7 @@ QPair<qreal, qreal> getInputBlackAndWhitePoints(ChannelHistogram histogram,
 
     histogram.histogram->setChannel(histogram.channel);
 
-    int numberOfBins = histogram.histogram->producer()->numberOfBins();
+    int numberOfBins = histogram.histogram->producer()->numberOfBins(histogram.channel);
 
     Q_ASSERT(numberOfBins > 1);
 
